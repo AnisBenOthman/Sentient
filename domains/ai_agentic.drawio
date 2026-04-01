@@ -95,10 +95,10 @@
     </mxCell>
 
     <mxCell id="e_at" value="«enumeration»&#xa;AgentType" style="swimlane;fontStyle=1;startSize=36;fillColor=#FFF9C4;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
-      <mxGeometry x="220" y="725" width="230" height="184" as="geometry"/>
+      <mxGeometry x="220" y="725" width="230" height="202" as="geometry"/>
     </mxCell>
-    <mxCell id="e_atv" value="HR_ASSISTANT&#xa;LEAVE_AGENT&#xa;CAREER_AGENT&#xa;LINGUISTIC_AGENT&#xa;ANALYTICS_AGENT&#xa;ENGAGEMENT_AGENT" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=10;fontSize=11;" vertex="1" parent="e_at">
-      <mxGeometry x="0" y="36" width="230" height="148" as="geometry"/>
+    <mxCell id="e_atv" value="HR_ASSISTANT&#xa;LEAVE_AGENT&#xa;CAREER_AGENT&#xa;LINGUISTIC_AGENT&#xa;ANALYTICS_AGENT&#xa;ENGAGEMENT_AGENT&#xa;ONBOARDING_COMPANION" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=10;fontSize=11;" vertex="1" parent="e_at">
+      <mxGeometry x="0" y="36" width="230" height="166" as="geometry"/>
     </mxCell>
 
     <mxCell id="e_tt" value="«enumeration»&#xa;TaskTrigger" style="swimlane;fontStyle=1;startSize=36;fillColor=#FFF9C4;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">

@@ -1,0 +1,374 @@
+<mxGraphModel adaptiveColors="auto">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+
+    <!-- ================================================================
+         COLUMN 1 (x=40): ENUMS — ProbationStatus, ProbationDecision,
+         ProbationEvaluatorType, ProbationPhase
+         ================================================================ -->
+
+    <mxCell id="ProbationStatus" value="«enumeration»&#xa;ProbationStatus" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="40" y="40" width="240" height="170" as="geometry"/>
+    </mxCell>
+    <mxCell id="ps1" value="ACTIVE" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationStatus">
+      <mxGeometry x="0" y="40" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ps2" value="EVALUATION_PENDING" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationStatus">
+      <mxGeometry x="0" y="66" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ps3" value="EVALUATION_SUBMITTED" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationStatus">
+      <mxGeometry x="0" y="92" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ps4" value="CONFIRMED" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationStatus">
+      <mxGeometry x="0" y="118" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ps5" value="TERMINATED" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationStatus">
+      <mxGeometry x="0" y="144" width="240" height="26" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="ProbationDecision" value="«enumeration»&#xa;ProbationDecision" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="40" y="240" width="240" height="118" as="geometry"/>
+    </mxCell>
+    <mxCell id="pd1" value="CONFIRM" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationDecision">
+      <mxGeometry x="0" y="40" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="pd2" value="EXTEND" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationDecision">
+      <mxGeometry x="0" y="66" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="pd3" value="TERMINATE" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationDecision">
+      <mxGeometry x="0" y="92" width="240" height="26" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="ProbationEvaluatorType" value="«enumeration»&#xa;ProbationEvaluatorType" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="40" y="388" width="240" height="92" as="geometry"/>
+    </mxCell>
+    <mxCell id="pet1" value="SELF" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluatorType">
+      <mxGeometry x="0" y="40" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="pet2" value="MANAGER" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluatorType">
+      <mxGeometry x="0" y="66" width="240" height="26" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="ProbationPhase" value="«enumeration»&#xa;ProbationPhase" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="40" y="510" width="240" height="92" as="geometry"/>
+    </mxCell>
+    <mxCell id="pp1" value="INITIAL" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPhase">
+      <mxGeometry x="0" y="40" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="pp2" value="EXTENSION" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPhase">
+      <mxGeometry x="0" y="66" width="240" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- ================================================================
+         COLUMN 2 (x=370): Employee stub + ProbationPolicy
+         ================================================================ -->
+
+    <mxCell id="EmployeeStub" value="Employee" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#f5f5f5;strokeColor=#999;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="370" y="40" width="280" height="78" as="geometry"/>
+    </mxCell>
+    <mxCell id="estub1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EmployeeStub">
+      <mxGeometry x="0" y="26" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="estub2" value="+ structure : String?  (business unit)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EmployeeStub">
+      <mxGeometry x="0" y="52" width="280" height="26" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="ProbationPolicy" value="ProbationPolicy" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="370" y="170" width="280" height="312" as="geometry"/>
+    </mxCell>
+    <mxCell id="pol1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPolicy">
+      <mxGeometry x="0" y="26" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="pol2" value="+ structure : String  «Unique»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPolicy">
+      <mxGeometry x="0" y="52" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="pol3" value="+ durationDays : Int" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPolicy">
+      <mxGeometry x="0" y="78" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="pol4" value="+ extensionDurationDays : Int" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPolicy">
+      <mxGeometry x="0" y="104" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="pol5" value="+ maxExtensions : Int = 1" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPolicy">
+      <mxGeometry x="0" y="130" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="pol6" value="+ reminderDaysBefore : Int = 14" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPolicy">
+      <mxGeometry x="0" y="156" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="pol7" value="+ requiresSelfEval : Boolean = true" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPolicy">
+      <mxGeometry x="0" y="182" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="pol8" value="+ requiresManagerEval : Boolean = true" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPolicy">
+      <mxGeometry x="0" y="208" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="pol9" value="+ isActive : Boolean = true" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPolicy">
+      <mxGeometry x="0" y="234" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="pol10" value="+ createdAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPolicy">
+      <mxGeometry x="0" y="260" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="pol11" value="+ updatedAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPolicy">
+      <mxGeometry x="0" y="286" width="280" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- ================================================================
+         COLUMN 3 (x=740): ProbationPeriod
+         ================================================================ -->
+
+    <mxCell id="ProbationPeriod" value="ProbationPeriod" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="740" y="40" width="380" height="520" as="geometry"/>
+    </mxCell>
+    <mxCell id="per1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPeriod">
+      <mxGeometry x="0" y="26" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="per2" value="+ employeeId : UUID  «FK→Employee»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPeriod">
+      <mxGeometry x="0" y="52" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="per3" value="+ policyId : UUID  «FK→ProbationPolicy»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPeriod">
+      <mxGeometry x="0" y="78" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="per4" value="+ status : ProbationStatus = ACTIVE" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPeriod">
+      <mxGeometry x="0" y="104" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="per5" value="+ startDate : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPeriod">
+      <mxGeometry x="0" y="130" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="per6" value="+ originalEndDate : DateTime  (startDate + policy.durationDays)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPeriod">
+      <mxGeometry x="0" y="156" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="per7" value="+ currentEndDate : DateTime  (updated on extension)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPeriod">
+      <mxGeometry x="0" y="182" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="per8" value="+ extensionCount : Int = 0  (max 1)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPeriod">
+      <mxGeometry x="0" y="208" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="per9" value="+ extensionDate : DateTime?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPeriod">
+      <mxGeometry x="0" y="234" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="per10" value="+ extensionReason : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPeriod">
+      <mxGeometry x="0" y="260" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="per11" value="+ decision : ProbationDecision?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPeriod">
+      <mxGeometry x="0" y="286" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="per12" value="+ decidedById : UUID?  «FK→Employee»  (manager)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPeriod">
+      <mxGeometry x="0" y="312" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="per13" value="+ decidedAt : DateTime?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPeriod">
+      <mxGeometry x="0" y="338" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="per14" value="+ decisionNotes : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPeriod">
+      <mxGeometry x="0" y="364" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="per15" value="+ confirmationLetterDocId : String?  «logical FK→Social.Document»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPeriod">
+      <mxGeometry x="0" y="390" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="per16" value="+ agentRiskHints : Json?  (AI-populated risk signals)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPeriod">
+      <mxGeometry x="0" y="416" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="per17" value="+ createdAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPeriod">
+      <mxGeometry x="0" y="442" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="per18" value="+ updatedAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationPeriod">
+      <mxGeometry x="0" y="468" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="per_uc" value="@@unique([employeeId, startDate])" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;fontStyle=2;fontColor=#888888;" vertex="1" parent="ProbationPeriod">
+      <mxGeometry x="0" y="494" width="380" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- ================================================================
+         COLUMN 4 (x=740): ProbationEvaluation (below ProbationPeriod)
+         ================================================================ -->
+
+    <mxCell id="ProbationEvaluation" value="ProbationEvaluation" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+      <mxGeometry x="740" y="600" width="380" height="700" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="26" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev2" value="+ probationPeriodId : UUID  «FK→ProbationPeriod»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="52" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev3" value="+ evaluatorId : UUID  «FK→Employee»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="78" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev4" value="+ evaluatorType : ProbationEvaluatorType" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="104" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev5" value="+ phase : ProbationPhase" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="130" width="380" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- Separator: Common fields -->
+    <mxCell id="ev_sep1" value="── Common fields ──" style="text;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontStyle=2;fontColor=#888888;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="156" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev6" value="+ overallRating : Int  (1-5, PerformanceRating scale)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="182" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev7" value="+ strengths : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="208" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev8" value="+ areasForImprovement : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="234" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev9" value="+ comments : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="260" width="380" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- Separator: Self-eval fields -->
+    <mxCell id="ev_sep2" value="── Self-eval fields (SELF only) ──" style="text;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontStyle=2;fontColor=#888888;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="286" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev10" value="+ onboardingExperience : Int?  (1-5, SatisfactionLevel)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="312" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev11" value="+ roleClarity : Int?  (1-5)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="338" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev12" value="+ supportReceived : Int?  (1-5)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="364" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev13" value="+ trainingAdequacy : Int?  (1-5)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="390" width="380" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- Separator: Manager-eval fields -->
+    <mxCell id="ev_sep3" value="── Manager-eval fields (MANAGER only) ──" style="text;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontStyle=2;fontColor=#888888;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="416" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev14" value="+ technicalCompetence : Int?  (1-5, PerformanceRating)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="442" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev15" value="+ teamIntegration : Int?  (1-5)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="468" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev16" value="+ communicationSkills : Int?  (1-5)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="494" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev17" value="+ initiative : Int?  (1-5)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="520" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev18" value="+ attendanceReliability : Int?  (1-5)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="546" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev19" value="+ recommendation : ProbationDecision?  (MANAGER only)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="572" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev20" value="+ recommendationReason : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="598" width="380" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- Separator: Timestamps -->
+    <mxCell id="ev_sep4" value="── Timestamps ──" style="text;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontStyle=2;fontColor=#888888;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="624" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev21" value="+ submittedAt : DateTime?  (null = draft)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="650" width="380" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev22" value="+ createdAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProbationEvaluation">
+      <mxGeometry x="0" y="676" width="380" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- ================================================================
+         COLUMN 2 (x=370): State Machine Diagram (below ProbationPolicy)
+         ================================================================ -->
+
+    <mxCell id="sm_box" value="Probation State Machine" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=center;fontSize=13;fontStyle=1;fillColor=none;dashed=1;strokeColor=#555;strokeWidth=1;spacingTop=5;arcSize=8;" vertex="1" parent="1">
+      <mxGeometry x="40" y="640" width="600" height="340" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="sm_active" value="ACTIVE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="80" y="700" width="110" height="36" as="geometry"/>
+    </mxCell>
+    <mxCell id="sm_eval_pend" value="EVALUATION&#xa;PENDING" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="260" y="700" width="110" height="36" as="geometry"/>
+    </mxCell>
+    <mxCell id="sm_eval_sub" value="EVALUATION&#xa;SUBMITTED" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="440" y="700" width="110" height="36" as="geometry"/>
+    </mxCell>
+    <mxCell id="sm_confirmed" value="CONFIRMED" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="440" y="800" width="110" height="36" as="geometry"/>
+    </mxCell>
+    <mxCell id="sm_terminated" value="TERMINATED" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="440" y="880" width="110" height="36" as="geometry"/>
+    </mxCell>
+
+    <!-- State transitions -->
+    <mxCell id="sm_t1" value="T-14 days" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;fontSize=10;" edge="1" source="sm_active" target="sm_eval_pend" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="sm_t2" value="both evals done" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;fontSize=10;" edge="1" source="sm_eval_pend" target="sm_eval_sub" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="sm_t3" value="CONFIRM" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;fontSize=10;" edge="1" source="sm_eval_sub" target="sm_confirmed" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="sm_t4" value="TERMINATE" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;fontSize=10;" edge="1" source="sm_eval_sub" target="sm_terminated" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="sm_t5" value="EXTEND&#xa;(max 1)" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;fontSize=10;curved=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=1;entryDx=0;entryDy=0;" edge="1" source="sm_eval_sub" target="sm_active" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="80" y="718"/>
+          <mxPoint x="80" y="770"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+
+    <!-- ================================================================
+         RELATIONSHIPS
+         ================================================================ -->
+
+    <!-- Employee 1 ——* ProbationPeriod (employee's probation periods) -->
+    <mxCell id="r_emp_per" edge="1" source="EmployeeStub" target="ProbationPeriod" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- ProbationPolicy 1 ——* ProbationPeriod -->
+    <mxCell id="r_pol_per" edge="1" source="ProbationPolicy" target="ProbationPeriod" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.2;exitDx=0;exitDy=0;entryX=0;entryY=0.15;entryDx=0;entryDy=0;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- ProbationPeriod 1 ——* ProbationEvaluation -->
+    <mxCell id="r_per_ev" edge="1" source="ProbationPeriod" target="ProbationEvaluation" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=0..2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- Employee 0..1 ——* ProbationPeriod (decidedBy — dashed) -->
+    <mxCell id="r_emp_decider" edge="1" source="EmployeeStub" target="ProbationPeriod" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;startLabel=0..1;endLabel=*;exitX=1;exitY=0.8;exitDx=0;exitDy=0;entryX=0;entryY=0.62;entryDx=0;entryDy=0;">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint as="offset"/>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="r_emp_decider_lbl" value="«decidedBy»" style="text;html=1;fontSize=10;fontStyle=2;align=center;" vertex="1" parent="1">
+      <mxGeometry x="560" y="340" width="80" height="20" as="geometry"/>
+    </mxCell>
+
+    <!-- Employee 1 ——* ProbationEvaluation (evaluator — dashed) -->
+    <mxCell id="r_emp_eval" edge="1" source="EmployeeStub" target="ProbationEvaluation" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;startLabel=1;endLabel=*;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.1;entryDx=0;entryDy=0;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="r_emp_eval_lbl" value="«evaluator»" style="text;html=1;fontSize=10;fontStyle=2;align=center;" vertex="1" parent="1">
+      <mxGeometry x="450" y="650" width="80" height="20" as="geometry"/>
+    </mxCell>
+
+    <!-- Enum «uses» edges -->
+    <mxCell id="u_ps_per" edge="1" source="ProbationStatus" target="ProbationPeriod" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;" value="«uses»">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="u_pd_per" edge="1" source="ProbationDecision" target="ProbationPeriod" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;" value="«uses»">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="u_pet_ev" edge="1" source="ProbationEvaluatorType" target="ProbationEvaluation" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;" value="«uses»">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="u_pp_ev" edge="1" source="ProbationPhase" target="ProbationEvaluation" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;" value="«uses»">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="u_pd_ev" edge="1" source="ProbationDecision" target="ProbationEvaluation" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.83;entryDx=0;entryDy=0;" value="«uses»">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+  </root>
+</mxGraphModel>

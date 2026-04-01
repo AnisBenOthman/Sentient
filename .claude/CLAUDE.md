@@ -94,7 +94,7 @@ by document category, then do ANN search). One database to deploy and back up.
 
 | Service          | Port  | Schema     | Owned Entities                                                                      | Count |
 |------------------|-------|------------|-------------------------------------------------------------------------------------|-------|
-| **HR Core**      | 3001  | `hr_core`  | User, Role, Permission, UserRole, RolePermission, Session, Employee, Department, Team, Position, Skill, EmployeeSkill, SalaryHistory, LeaveType, LeaveBalance, LeaveRequest, Complaint, PerformanceReview, Notification, Holiday | 20 |
+| **HR Core**      | 3001  | `hr_core`  | User, Role, Permission, UserRole, RolePermission, Session, Employee, Department, Team, Position, Skill, EmployeeSkill, SalaryHistory, LeaveType, LeaveBalance, LeaveRequest, Complaint, PerformanceReview, Notification, Holiday, ProbationPolicy, ProbationPeriod, ProbationEvaluation | 23 |
 | **Social**       | 3002  | `social`   | Announcement, Event, EventAttendee, Document, Feedback, EngagementSnapshot          | 6  |
 | **AI Agentic**   | 3003  | `ai_agent` | Conversation, Message, VectorDocument, AgentTaskLog                                 | 4  |
 
@@ -163,6 +163,14 @@ export type ServiceName = 'hr-core' | 'social' | 'ai-agentic';
 | `document.uploaded`          | Social       | AI Agentic        | `{ documentId, category }`       |
 | `agent.risk_assessment_done` | AI Agentic   | HR Core           | `{ leaveRequestId, assessment }` |
 | `agent.snapshot_generated`   | AI Agentic   | Social            | `{ snapshotId, entityType }`     |
+| `probation.started`           | HR Core      | AI Agentic        | `{ probationPeriodId, employeeId, managerId, startDate, endDate }` |
+| `probation.evaluation_due`    | HR Core      | AI Agentic        | `{ probationPeriodId, employeeId, managerId, dueDate }` |
+| `probation.self_eval_submitted` | HR Core    | AI Agentic        | `{ probationPeriodId, employeeId }` |
+| `probation.manager_eval_submitted` | HR Core | AI Agentic        | `{ probationPeriodId, employeeId, managerId }` |
+| `probation.decision.confirmed` | HR Core     | AI Agentic, Social | `{ probationPeriodId, employeeId, decidedById }` |
+| `probation.decision.extended`  | HR Core     | AI Agentic        | `{ probationPeriodId, employeeId, newEndDate }` |
+| `probation.decision.terminated`| HR Core     | AI Agentic, Social | `{ probationPeriodId, employeeId }` |
+| `probation.letter_generated`   | Social      | HR Core, AI Agentic | `{ documentId, probationPeriodId, employeeId }` |
 
 ---
 
@@ -186,6 +194,7 @@ sentient/
 │   │   │   │   ├── skills/               # Skill, EmployeeSkill
 │   │   │   │   ├── leaves/               # LeaveType, LeaveBalance, LeaveRequest
 │   │   │   │   ├── complaints/           # Complaint
+│   │   │   │   ├── probation/            # ProbationPolicy, ProbationPeriod, ProbationEvaluation
 │   │   │   │   ├── performance/          # PerformanceReview, SalaryHistory
 │   │   │   │   ├── notifications/        # Notification (multi-channel dispatch)
 │   │   │   │   └── config/               # Holiday, system settings
@@ -229,7 +238,8 @@ sentient/
 │   │   │   │   ├── career-agent/         # Profile analysis, interview prep
 │   │   │   │   ├── linguistic-agent/     # Professional reformulation
 │   │   │   │   ├── analytics-agent/      # Text-to-SQL for HR dashboards
-│   │   │   │   └── engagement-agent/     # Feedback synthesis
+│   │   │   │   ├── engagement-agent/     # Feedback synthesis
+│   │   │   │   └── onboarding-companion/ # Probation lifecycle support & check-ins
 │   │   │   ├── rag/                      # Vector search, document chunking
 │   │   │   │   ├── chunker.service.ts
 │   │   │   │   ├── embedder.service.ts
@@ -398,17 +408,18 @@ model Feedback {
 
 ---
 
-## 6. Domain Model — 27 Entities Across 3 Services
+## 6. Domain Model — 33 Entities Across 3 Services
 
 The complete class diagram specification lives in `sentient-class-diagram-spec.md`.
 
-### HR Core Service (20 entities, schema: `hr_core`)
+### HR Core Service (23 entities, schema: `hr_core`)
 
 | Domain           | Entities                                                                 |
 |------------------|--------------------------------------------------------------------------|
 | **IAM**          | User, Role, Permission, UserRole, RolePermission, Session                |
 | **Core HRIS**    | Employee, Department, Team, Position, Skill, EmployeeSkill, SalaryHistory |
 | **Leave**        | LeaveType, LeaveBalance, LeaveRequest                                    |
+| **Probation**    | ProbationPolicy, ProbationPeriod, ProbationEvaluation                    |
 | **Complaints**   | Complaint                                                                |
 | **Performance**  | PerformanceReview                                                        |
 | **Notifications**| Notification                                                             |
@@ -506,16 +517,17 @@ export class HrCoreClient {
 
 ## 8. AI Agent Architecture
 
-### 6 Agents (LangGraph Stateful Graphs)
+### 7 Agents (LangGraph Stateful Graphs)
 
-| Agent                | Purpose                                   | Calls Service  | Trigger Model     |
-|----------------------|-------------------------------------------|----------------|-------------------|
-| **HR Assistant**     | RAG-powered Q&A on policies/regulations   | HR Core, Social | Pull (user asks)  |
-| **Leave Agent**      | Context-aware leave with risk assessment  | HR Core        | Pull → Push alerts |
-| **Career Agent**     | Profile analysis, interview prep          | HR Core        | Pull (user asks)  |
-| **Linguistic Agent** | Professional reformulation of messages    | None (pure LLM) | Pull (user asks)  |
-| **Analytics Agent**  | Text-to-SQL for HR dashboards             | HR Core (read) | Pull (HR/exec)    |
-| **Engagement Agent** | Anonymous feedback synthesis              | Social         | Push (post-event) |
+| Agent                       | Purpose                                   | Calls Service  | Trigger Model     |
+|-----------------------------|-------------------------------------------|----------------|-------------------|
+| **HR Assistant**            | RAG-powered Q&A on policies/regulations   | HR Core, Social | Pull (user asks)  |
+| **Leave Agent**             | Context-aware leave with risk assessment  | HR Core        | Pull → Push alerts |
+| **Career Agent**            | Profile analysis, interview prep          | HR Core        | Pull (user asks)  |
+| **Linguistic Agent**        | Professional reformulation of messages    | None (pure LLM) | Pull (user asks)  |
+| **Analytics Agent**         | Text-to-SQL for HR dashboards             | HR Core (read) | Pull (HR/exec)    |
+| **Engagement Agent**        | Anonymous feedback synthesis              | Social         | Push (post-event) |
+| **Onboarding Companion**   | Probation lifecycle support & check-ins   | HR Core        | Push (scheduled + events) |
 
 ### Agent ↔ Service Boundary (ToolRegistry)
 
@@ -547,7 +559,7 @@ export class HrCoreClient {
 All 25 enums defined once, used by all 3 services and the frontend.
 Key enums (see class diagram spec for complete list):
 
-- `AgentType`: HR_ASSISTANT, LEAVE_AGENT, CAREER_AGENT, LINGUISTIC_AGENT, ANALYTICS_AGENT, ENGAGEMENT_AGENT
+- `AgentType`: HR_ASSISTANT, LEAVE_AGENT, CAREER_AGENT, LINGUISTIC_AGENT, ANALYTICS_AGENT, ENGAGEMENT_AGENT, ONBOARDING_COMPANION
 - `PermissionScope`: OWN, TEAM, DEPARTMENT, GLOBAL
 - `ChannelType`: WEB, SLACK, WHATSAPP, EMAIL, IN_APP
 - `EmploymentStatus`: ACTIVE, ON_LEAVE, PROBATION, TERMINATED
@@ -616,8 +628,10 @@ volumes:
 
 ## 13. Key File References
 
-- `sentient-class-diagram-spec.md` — Complete 27-entity class diagram
+- `sentient-class-diagram-spec.md` — Complete 33-entity class diagram
 - `Pfe___Sentient_Hris_document_De_Projet_Détaillé.pdf` — FYP project document
+- `probation-class-diagram.drawio` — Probation Management class diagram (3 entities, 4 enums, state machine)
+- `domains/probation_management.drawio` — Probation Management use case diagram
 - `.claude/rules/code-style.md` — TypeScript & NestJS conventions
 - `.claude/rules/testing.md` — Testing strategy per microservice
 - `.claude/rules/security.md` — RBAC, AI Governance, inter-service auth

@@ -1,617 +1,594 @@
-<mxGraphModel adaptiveColors="auto">
-  <root>
-    <mxCell id="0"/>
-    <mxCell id="1" parent="0"/>
-
-    <!-- ================================================================
-         COLUMN 1 (x=40): ENUMS — EducationLevel, MaritalStatus, ContractType
-         ================================================================ -->
-
-    <mxCell id="EducationLevel" value="«enumeration»&#xa;EducationLevel" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
-      <mxGeometry x="40" y="40" width="240" height="170" as="geometry"/>
-    </mxCell>
-    <mxCell id="el1" value="BELOW_COLLEGE = 1" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EducationLevel">
-      <mxGeometry x="0" y="40" width="240" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="el2" value="COLLEGE = 2" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EducationLevel">
-      <mxGeometry x="0" y="66" width="240" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="el3" value="BACHELOR = 3" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EducationLevel">
-      <mxGeometry x="0" y="92" width="240" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="el4" value="MASTER = 4" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EducationLevel">
-      <mxGeometry x="0" y="118" width="240" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="el5" value="DOCTOR = 5" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EducationLevel">
-      <mxGeometry x="0" y="144" width="240" height="26" as="geometry"/>
-    </mxCell>
-
-    <mxCell id="MaritalStatus" value="«enumeration»&#xa;MaritalStatus" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
-      <mxGeometry x="40" y="240" width="240" height="144" as="geometry"/>
-    </mxCell>
-    <mxCell id="ms1" value="SINGLE" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="MaritalStatus">
-      <mxGeometry x="0" y="40" width="240" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="ms2" value="MARRIED" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="MaritalStatus">
-      <mxGeometry x="0" y="66" width="240" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="ms3" value="DIVORCED" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="MaritalStatus">
-      <mxGeometry x="0" y="92" width="240" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="ms4" value="WIDOWED" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="MaritalStatus">
-      <mxGeometry x="0" y="118" width="240" height="26" as="geometry"/>
-    </mxCell>
-
-    <mxCell id="ContractType" value="«enumeration»&#xa;ContractType" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
-      <mxGeometry x="40" y="414" width="240" height="144" as="geometry"/>
-    </mxCell>
-    <mxCell id="ct1" value="FULL_TIME" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ContractType">
-      <mxGeometry x="0" y="40" width="240" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="ct2" value="PART_TIME" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ContractType">
-      <mxGeometry x="0" y="66" width="240" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="ct3" value="CONTRACTOR" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ContractType">
-      <mxGeometry x="0" y="92" width="240" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="ct4" value="INTERN" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ContractType">
-      <mxGeometry x="0" y="118" width="240" height="26" as="geometry"/>
-    </mxCell>
-
-    <mxCell id="EmploymentStatus" value="«enumeration»&#xa;EmploymentStatus" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
-      <mxGeometry x="40" y="588" width="240" height="144" as="geometry"/>
-    </mxCell>
-    <mxCell id="es1" value="ACTIVE" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EmploymentStatus">
-      <mxGeometry x="0" y="40" width="240" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="es2" value="ON_LEAVE" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EmploymentStatus">
-      <mxGeometry x="0" y="66" width="240" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="es3" value="PROBATION" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EmploymentStatus">
-      <mxGeometry x="0" y="92" width="240" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="es4" value="TERMINATED" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EmploymentStatus">
-      <mxGeometry x="0" y="118" width="240" height="26" as="geometry"/>
-    </mxCell>
-
-    <!-- ================================================================
-         COLUMN 2 (x=370): Department, Team, Position
-         ================================================================ -->
-
-    <mxCell id="DeptStub" value="Department" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
-      <mxGeometry x="370" y="40" width="260" height="234" as="geometry"/>
-    </mxCell>
-    <mxCell id="dept1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="DeptStub">
-      <mxGeometry x="0" y="26" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="dept2" value="+ name : String  «Unique»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="DeptStub">
-      <mxGeometry x="0" y="52" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="dept3" value="+ code : String  «Unique»  (e.g. ENG, HR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="DeptStub">
-      <mxGeometry x="0" y="78" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="dept4" value="+ description : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="DeptStub">
-      <mxGeometry x="0" y="104" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="dept5" value="+ headId : UUID?  «FK→Employee»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="DeptStub">
-      <mxGeometry x="0" y="130" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="dept6" value="+ isActive : Boolean = true" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="DeptStub">
-      <mxGeometry x="0" y="156" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="dept7" value="+ createdAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="DeptStub">
-      <mxGeometry x="0" y="182" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="dept8" value="+ updatedAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="DeptStub">
-      <mxGeometry x="0" y="208" width="260" height="26" as="geometry"/>
-    </mxCell>
-
-    <mxCell id="TeamStub" value="Team" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
-      <mxGeometry x="370" y="294" width="260" height="286" as="geometry"/>
-    </mxCell>
-    <mxCell id="tm1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="TeamStub">
-      <mxGeometry x="0" y="26" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="tm2" value="+ name : String" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="TeamStub">
-      <mxGeometry x="0" y="52" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="tm3" value="+ code : String?  «Unique»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="TeamStub">
-      <mxGeometry x="0" y="78" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="tm4" value="+ description : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="TeamStub">
-      <mxGeometry x="0" y="104" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="tm5" value="+ departmentId : UUID  «FK→Department»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="TeamStub">
-      <mxGeometry x="0" y="130" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="tm6" value="+ leadId : UUID?  «FK→Employee»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="TeamStub">
-      <mxGeometry x="0" y="156" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="tm7" value="+ projectFocus : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="TeamStub">
-      <mxGeometry x="0" y="182" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="tm8" value="+ isActive : Boolean = true" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="TeamStub">
-      <mxGeometry x="0" y="208" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="tm9" value="+ createdAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="TeamStub">
-      <mxGeometry x="0" y="234" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="tm10" value="+ updatedAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="TeamStub">
-      <mxGeometry x="0" y="260" width="260" height="26" as="geometry"/>
-    </mxCell>
-
-    <mxCell id="Position" value="Position" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#f5f5f5;strokeColor=#999999;" vertex="1" parent="1">
-      <mxGeometry x="370" y="600" width="260" height="156" as="geometry"/>
-    </mxCell>
-    <mxCell id="pos1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Position">
-      <mxGeometry x="0" y="26" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="pos2" value="+ title : String  «Unique»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Position">
-      <mxGeometry x="0" y="52" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="pos3" value="+ level : String?  (e.g. Junior, Senior)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Position">
-      <mxGeometry x="0" y="78" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="pos4" value="+ isActive : Boolean = true" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Position">
-      <mxGeometry x="0" y="104" width="260" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="pos5" value="+ createdAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Position">
-      <mxGeometry x="0" y="130" width="260" height="26" as="geometry"/>
-    </mxCell>
-
-    <!-- ================================================================
-         COLUMN 3 (x=720): EMPLOYEE (updated — removed terminationDate,
-         yearsInMostRecentRole; added isRehire, rehireDate,
-         employmentStatus)
-         ================================================================ -->
-
-    <mxCell id="Employee" value="Employee" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
-      <mxGeometry x="720" y="40" width="360" height="730" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="26" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp2" value="+ userId : UUID  «FK→User, Unique»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="52" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp3" value="+ employeeCode : String  «Unique»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="78" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp4" value="+ firstName : String" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="104" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp5" value="+ lastName : String" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="130" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp6" value="+ email : String" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="156" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp7" value="+ phone : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="182" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp8" value="+ avatarUrl : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="208" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp9" value="+ dateOfBirth : DateTime?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="234" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp10" value="+ hireDate : DateTime  (first ever start date)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="260" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp11" value="+ isRehire : Boolean = false" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="286" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp12" value="+ rehireDate : DateTime?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="312" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp13" value="+ employmentStatus : EmploymentStatus = ACTIVE" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="338" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp14" value="+ contractType : ContractType  «denorm from JobHistory»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="364" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp15" value="+ maritalStatus : MaritalStatus" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="390" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp16" value="+ education : EducationLevel" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="416" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp17" value="+ educationField : String  (e.g. Marketing)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="442" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp18" value="+ distanceFromHome : Int  (km)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="468" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp19" value="+ structure : String?  (country / business unit)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="494" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp20" value="+ totalExperience : Int  (years before company)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="520" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp21" value="+ grossSalary : Decimal  «CONFIDENTIAL, denorm»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="546" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp22" value="+ netSalary : Decimal  «CONFIDENTIAL, denorm»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="572" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp23" value="+ departmentId : UUID  «FK→Dept, denorm from JobHistory»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="598" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp24" value="+ positionId : UUID  «FK→Position, denorm from JobHistory»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="624" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp25" value="+ managerId : UUID?  «FK→self, denorm from JobHistory»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="650" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp26" value="+ teamId : UUID?  «FK→Team, denorm from JobHistory»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="676" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="emp27" value="+ createdAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Employee">
-      <mxGeometry x="0" y="702" width="360" height="26" as="geometry"/>
-    </mxCell>
-
-    <!-- ================================================================
-         COLUMN 4 (x=1160): JobHistory (NEW), SalaryHistory, PerformanceReview
-         ================================================================ -->
-
-    <!-- JobHistory — tenure/position tracker (y=40) -->
-    <mxCell id="JobHistory" value="JobHistory  «NEW»" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-      <mxGeometry x="1160" y="40" width="350" height="416" as="geometry"/>
-    </mxCell>
-    <mxCell id="jh1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="JobHistory">
-      <mxGeometry x="0" y="26" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="jh2" value="+ employeeId : UUID  «FK→Employee»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="JobHistory">
-      <mxGeometry x="0" y="52" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="jh3" value="+ positionId : UUID  «FK→Position»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="JobHistory">
-      <mxGeometry x="0" y="78" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="jh4" value="+ departmentId : UUID  «FK→Department»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="JobHistory">
-      <mxGeometry x="0" y="104" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="jh5" value="+ teamId : UUID?  «FK→Team»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="JobHistory">
-      <mxGeometry x="0" y="130" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="jh6" value="+ managerId : UUID?  «FK→Employee»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="JobHistory">
-      <mxGeometry x="0" y="156" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="jh7" value="+ contractType : ContractType" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="JobHistory">
-      <mxGeometry x="0" y="182" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="jh8" value="+ startDate : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="JobHistory">
-      <mxGeometry x="0" y="208" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="jh9" value="+ endDate : DateTime?  (null = current tenure)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="JobHistory">
-      <mxGeometry x="0" y="234" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="jh10" value="+ terminationReason : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="JobHistory">
-      <mxGeometry x="0" y="260" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="jh11" value="+ isRehire : Boolean = false" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="JobHistory">
-      <mxGeometry x="0" y="286" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="jh12" value="+ grossSalary : Decimal" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="JobHistory">
-      <mxGeometry x="0" y="312" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="jh13" value="+ netSalary : Decimal" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="JobHistory">
-      <mxGeometry x="0" y="338" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="jh14" value="+ previousSalary : Decimal?  (salary before this tenure)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="JobHistory">
-      <mxGeometry x="0" y="364" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="jh15" value="+ createdAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="JobHistory">
-      <mxGeometry x="0" y="390" width="350" height="26" as="geometry"/>
-    </mxCell>
-
-    <!-- SalaryHistory — pay raise timeline (y=490) -->
-    <mxCell id="SalaryHistory" value="SalaryHistory" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
-      <mxGeometry x="1160" y="490" width="350" height="286" as="geometry"/>
-    </mxCell>
-    <mxCell id="sh1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SalaryHistory">
-      <mxGeometry x="0" y="26" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="sh2" value="+ employeeId : UUID  «FK→Employee»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SalaryHistory">
-      <mxGeometry x="0" y="52" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="sh3" value="+ grossSalary : Decimal  (gross after change)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SalaryHistory">
-      <mxGeometry x="0" y="78" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="sh4" value="+ netSalary : Decimal  (net after change)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SalaryHistory">
-      <mxGeometry x="0" y="104" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="sh5" value="+ raiseAmount : Decimal?  (absolute raise)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SalaryHistory">
-      <mxGeometry x="0" y="130" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="sh6" value="+ raisePercentage : Decimal?  «computed»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SalaryHistory">
-      <mxGeometry x="0" y="156" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="sh7" value="+ reason : String?  (e.g. Promotion, Annual review)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SalaryHistory">
-      <mxGeometry x="0" y="182" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="sh8" value="+ effectiveDate : DateTime  (date of pay increase)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SalaryHistory">
-      <mxGeometry x="0" y="208" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="sh9" value="+ approvedBy : UUID?  «FK→Employee»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SalaryHistory">
-      <mxGeometry x="0" y="234" width="350" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="sh10" value="+ createdAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SalaryHistory">
-      <mxGeometry x="0" y="260" width="350" height="26" as="geometry"/>
-    </mxCell>
-
-    <!-- ================================================================
-         COLUMN 5 (x=1590): PerformanceReview + Enums
-         ================================================================ -->
-
-    <mxCell id="PerformanceReview" value="PerformanceReview" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
-      <mxGeometry x="1590" y="40" width="360" height="364" as="geometry"/>
-    </mxCell>
-    <mxCell id="pr1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="PerformanceReview">
-      <mxGeometry x="0" y="26" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="pr2" value="+ employeeId : UUID  «FK→Employee»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="PerformanceReview">
-      <mxGeometry x="0" y="52" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="pr3" value="+ reviewerId : UUID  «FK→Employee»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="PerformanceReview">
-      <mxGeometry x="0" y="78" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="pr4" value="+ reviewDate : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="PerformanceReview">
-      <mxGeometry x="0" y="104" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="pr5" value="+ environmentSatisfaction : SatisfactionLevel  (1-5)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="PerformanceReview">
-      <mxGeometry x="0" y="130" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="pr6" value="+ jobSatisfaction : SatisfactionLevel  (1-5)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="PerformanceReview">
-      <mxGeometry x="0" y="156" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="pr7" value="+ relationshipSatisfaction : SatisfactionLevel  (1-5)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="PerformanceReview">
-      <mxGeometry x="0" y="182" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="pr8" value="+ trainingOpportunitiesTaken : Int  (count)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="PerformanceReview">
-      <mxGeometry x="0" y="208" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="pr9" value="+ workLifeBalance : SatisfactionLevel  (1-5)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="PerformanceReview">
-      <mxGeometry x="0" y="234" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="pr10" value="+ selfRating : PerformanceRating  (1=Unacceptable, 5=Above and Beyond)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="PerformanceReview">
-      <mxGeometry x="0" y="260" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="pr11" value="+ managerRating : PerformanceRating  (same scale)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="PerformanceReview">
-      <mxGeometry x="0" y="286" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="pr12" value="+ comments : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="PerformanceReview">
-      <mxGeometry x="0" y="312" width="360" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="pr13" value="+ createdAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="PerformanceReview">
-      <mxGeometry x="0" y="338" width="360" height="26" as="geometry"/>
-    </mxCell>
-
-    <mxCell id="SatisfactionLevel" value="«enumeration»&#xa;SatisfactionLevel" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
-      <mxGeometry x="1590" y="440" width="250" height="170" as="geometry"/>
-    </mxCell>
-    <mxCell id="sl1" value="VERY_DISSATISFIED = 1" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SatisfactionLevel">
-      <mxGeometry x="0" y="40" width="250" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="sl2" value="DISSATISFIED = 2" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SatisfactionLevel">
-      <mxGeometry x="0" y="66" width="250" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="sl3" value="NEUTRAL = 3" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SatisfactionLevel">
-      <mxGeometry x="0" y="92" width="250" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="sl4" value="SATISFIED = 4" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SatisfactionLevel">
-      <mxGeometry x="0" y="118" width="250" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="sl5" value="VERY_SATISFIED = 5" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SatisfactionLevel">
-      <mxGeometry x="0" y="144" width="250" height="26" as="geometry"/>
-    </mxCell>
-
-    <mxCell id="PerformanceRating" value="«enumeration»&#xa;PerformanceRating" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
-      <mxGeometry x="1590" y="640" width="250" height="170" as="geometry"/>
-    </mxCell>
-    <mxCell id="rat1" value="UNACCEPTABLE = 1" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="PerformanceRating">
-      <mxGeometry x="0" y="40" width="250" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="rat2" value="NEEDS_IMPROVEMENT = 2" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="PerformanceRating">
-      <mxGeometry x="0" y="66" width="250" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="rat3" value="MEETS_EXPECTATIONS = 3" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="PerformanceRating">
-      <mxGeometry x="0" y="92" width="250" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="rat4" value="EXCEEDS_EXPECTATIONS = 4" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="PerformanceRating">
-      <mxGeometry x="0" y="118" width="250" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="rat5" value="ABOVE_AND_BEYOND = 5" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="PerformanceRating">
-      <mxGeometry x="0" y="144" width="250" height="26" as="geometry"/>
-    </mxCell>
-
-    <!-- ================================================================
-         EDGES — Structural Relationships
-         ================================================================ -->
-
-    <!-- Department(1) to Employee(*) "belongs to" -->
-    <mxCell id="e_dept_emp" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.83;entryDx=0;entryDy=0;" edge="1" source="DeptStub" target="Employee" parent="1">
-      <mxGeometry relative="1" as="geometry"/>
-    </mxCell>
-    <mxCell id="e_dept_emp_lbl" value="belongs to" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="e_dept_emp">
-      <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
-    </mxCell>
-
-    <!-- Team(0..1) to Employee(*) "member of" -->
-    <mxCell id="e_team_emp" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=0..1;endLabel=*;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.93;entryDx=0;entryDy=0;" edge="1" source="TeamStub" target="Employee" parent="1">
-      <mxGeometry relative="1" as="geometry"/>
-    </mxCell>
-    <mxCell id="e_team_emp_lbl" value="member of" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="e_team_emp">
-      <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
-    </mxCell>
-
-    <!-- Position(1) to Employee(*) "holds" -->
-    <mxCell id="e_pos_emp" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.87;entryDx=0;entryDy=0;" edge="1" source="Position" target="Employee" parent="1">
-      <mxGeometry relative="1" as="geometry"/>
-    </mxCell>
-    <mxCell id="e_pos_emp_lbl" value="holds" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="e_pos_emp">
-      <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
-    </mxCell>
-
-    <!-- Employee(0..1) to Employee(*) self "manages" -->
-    <mxCell id="e_emp_self" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=0..1;endLabel=*;exitX=1;exitY=0.92;exitDx=0;exitDy=0;entryX=1;entryY=0.08;entryDx=0;entryDy=0;" edge="1" source="Employee" target="Employee" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <Array as="points">
-          <mxPoint x="1120" y="711"/>
-          <mxPoint x="1120" y="98"/>
-        </Array>
-      </mxGeometry>
-    </mxCell>
-    <mxCell id="e_emp_self_lbl" value="manages" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="e_emp_self">
-      <mxGeometry x="0.2" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
-    </mxCell>
-
-    <!-- Employee(1) to JobHistory(*) "career timeline" -->
-    <mxCell id="e_emp_jh" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.2;exitDx=0;exitDy=0;entryX=0;entryY=0.15;entryDx=0;entryDy=0;" edge="1" source="Employee" target="JobHistory" parent="1">
-      <mxGeometry relative="1" as="geometry"/>
-    </mxCell>
-    <mxCell id="e_emp_jh_lbl" value="career timeline" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="e_emp_jh">
-      <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
-    </mxCell>
-
-    <!-- Employee(1) to SalaryHistory(*) "salary evolution" -->
-    <mxCell id="e_emp_sh" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.2;entryDx=0;entryDy=0;" edge="1" source="Employee" target="SalaryHistory" parent="1">
-      <mxGeometry relative="1" as="geometry"/>
-    </mxCell>
-    <mxCell id="e_emp_sh_lbl" value="salary evolution" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="e_emp_sh">
-      <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
-    </mxCell>
-
-    <!-- Employee(1) to PerformanceReview(*) "reviewed" -->
-    <mxCell id="e_emp_pr_reviewed" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.35;exitDx=0;exitDy=0;entryX=0;entryY=0.18;entryDx=0;entryDy=0;" edge="1" source="Employee" target="PerformanceReview" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <Array as="points">
-          <mxPoint x="1140" y="296"/>
-          <mxPoint x="1140" y="20"/>
-          <mxPoint x="1560" y="20"/>
-          <mxPoint x="1560" y="106"/>
-        </Array>
-      </mxGeometry>
-    </mxCell>
-    <mxCell id="e_emp_pr_reviewed_lbl" value="reviewed" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="e_emp_pr_reviewed">
-      <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
-    </mxCell>
-
-    <!-- Employee(0..1) to PerformanceReview(*) "reviewer" (dashed) -->
-    <mxCell id="e_emp_pr_reviewer" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;startLabel=0..1;endLabel=*;exitX=1;exitY=0.4;exitDx=0;exitDy=0;entryX=0;entryY=0.27;entryDx=0;entryDy=0;" edge="1" source="Employee" target="PerformanceReview" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <Array as="points">
-          <mxPoint x="1145" y="332"/>
-          <mxPoint x="1145" y="10"/>
-          <mxPoint x="1555" y="10"/>
-          <mxPoint x="1555" y="138"/>
-        </Array>
-      </mxGeometry>
-    </mxCell>
-    <mxCell id="e_emp_pr_reviewer_lbl" value="reviewer" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="e_emp_pr_reviewer">
-      <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
-    </mxCell>
-
-    <!-- ================================================================
-         EDGES — Enum Usage (dashed dependency arrows)
-         ================================================================ -->
-
-    <!-- EducationLevel ..> Employee -->
-    <mxCell id="e_el_emp" value="«uses»" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.58;entryDx=0;entryDy=0;" edge="1" source="EducationLevel" target="Employee" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <Array as="points">
-          <mxPoint x="320" y="125"/>
-          <mxPoint x="320" y="463"/>
-          <mxPoint x="720" y="463"/>
-        </Array>
-      </mxGeometry>
-    </mxCell>
-
-    <!-- MaritalStatus ..> Employee -->
-    <mxCell id="e_ms_emp" value="«uses»" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.54;entryDx=0;entryDy=0;" edge="1" source="MaritalStatus" target="Employee" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <Array as="points">
-          <mxPoint x="330" y="312"/>
-          <mxPoint x="330" y="434"/>
-          <mxPoint x="720" y="434"/>
-        </Array>
-      </mxGeometry>
-    </mxCell>
-
-    <!-- ContractType ..> Employee -->
-    <mxCell id="e_ct_emp" value="«uses»" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="ContractType" target="Employee" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <Array as="points">
-          <mxPoint x="340" y="486"/>
-          <mxPoint x="340" y="405"/>
-          <mxPoint x="720" y="405"/>
-        </Array>
-      </mxGeometry>
-    </mxCell>
-
-    <!-- ContractType ..> JobHistory -->
-    <mxCell id="e_ct_jh" value="«uses»" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="ContractType" target="JobHistory" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <Array as="points">
-          <mxPoint x="160" y="800"/>
-          <mxPoint x="1130" y="800"/>
-          <mxPoint x="1130" y="248"/>
-        </Array>
-      </mxGeometry>
-    </mxCell>
-
-    <!-- EmploymentStatus ..> Employee -->
-    <mxCell id="e_es_emp" value="«uses»" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.46;entryDx=0;entryDy=0;" edge="1" source="EmploymentStatus" target="Employee" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <Array as="points">
-          <mxPoint x="350" y="660"/>
-          <mxPoint x="350" y="376"/>
-          <mxPoint x="720" y="376"/>
-        </Array>
-      </mxGeometry>
-    </mxCell>
-
-    <!-- Team(*) to Department(1) "belongs to" -->
-    <mxCell id="e_team_dept" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=*;endLabel=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" source="TeamStub" target="DeptStub" parent="1">
-      <mxGeometry relative="1" as="geometry"/>
-    </mxCell>
-    <mxCell id="e_team_dept_lbl" value="belongs to" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="e_team_dept">
-      <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
-    </mxCell>
-
-    <!-- Department.headId ..> Employee "heads" -->
-    <mxCell id="e_dept_head" value="«heads»" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=1;exitY=0.42;exitDx=0;exitDy=0;entryX=0;entryY=0.04;entryDx=0;entryDy=0;" edge="1" source="DeptStub" target="Employee" parent="1">
-      <mxGeometry relative="1" as="geometry"/>
-    </mxCell>
-
-    <!-- Team.leadId ..> Employee "leads" -->
-    <mxCell id="e_team_lead" value="«leads»" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=1;exitY=0.6;exitDx=0;exitDy=0;entryX=0;entryY=0.97;entryDx=0;entryDy=0;" edge="1" source="TeamStub" target="Employee" parent="1">
-      <mxGeometry relative="1" as="geometry"/>
-    </mxCell>
-
-    <!-- SatisfactionLevel ..> PerformanceReview -->
-    <mxCell id="e_sl_pr" value="«uses»" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" source="SatisfactionLevel" target="PerformanceReview" parent="1">
-      <mxGeometry relative="1" as="geometry"/>
-    </mxCell>
-
-    <!-- PerformanceRating ..> PerformanceReview -->
-    <mxCell id="e_rat_pr" value="«uses»" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.8;entryDx=0;entryDy=0;" edge="1" source="PerformanceRating" target="PerformanceReview" parent="1">
-      <mxGeometry relative="1" as="geometry"/>
-    </mxCell>
-
-    <!-- Position to JobHistory -->
-    <mxCell id="e_pos_jh" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;" edge="1" source="Position" target="JobHistory" parent="1">
-      <mxGeometry relative="1" as="geometry">
-        <Array as="points">
-          <mxPoint x="680" y="647"/>
-          <mxPoint x="680" y="820"/>
-          <mxPoint x="1140" y="820"/>
-          <mxPoint x="1140" y="144"/>
-        </Array>
-      </mxGeometry>
-    </mxCell>
-    <mxCell id="e_pos_jh_lbl" value="position at time" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="e_pos_jh">
-      <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
-    </mxCell>
-
-  </root>
-</mxGraphModel>
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.6 Chrome/144.0.7559.236 Electron/40.8.4 Safari/537.36" version="29.6.6">
+  <diagram id="o1k70_loIwm3U5rbCSmd" name="Page-1">
+    <mxGraphModel dx="2937" dy="1746" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="EducationLevel" parent="1" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" value="«enumeration»&#xa;EducationLevel" vertex="1">
+          <mxGeometry height="170" width="240" x="40" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="el1" parent="EducationLevel" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="BELOW_COLLEGE = 1" vertex="1">
+          <mxGeometry height="26" width="240" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="el2" parent="EducationLevel" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="COLLEGE = 2" vertex="1">
+          <mxGeometry height="26" width="240" y="66" as="geometry" />
+        </mxCell>
+        <mxCell id="el3" parent="EducationLevel" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="BACHELOR = 3" vertex="1">
+          <mxGeometry height="26" width="240" y="92" as="geometry" />
+        </mxCell>
+        <mxCell id="el4" parent="EducationLevel" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="MASTER = 4" vertex="1">
+          <mxGeometry height="26" width="240" y="118" as="geometry" />
+        </mxCell>
+        <mxCell id="el5" parent="EducationLevel" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="DOCTOR = 5" vertex="1">
+          <mxGeometry height="26" width="240" y="144" as="geometry" />
+        </mxCell>
+        <mxCell id="MaritalStatus" parent="1" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" value="«enumeration»&#xa;MaritalStatus" vertex="1">
+          <mxGeometry height="144" width="240" x="40" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="ms1" parent="MaritalStatus" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="SINGLE" vertex="1">
+          <mxGeometry height="26" width="240" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="ms2" parent="MaritalStatus" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="MARRIED" vertex="1">
+          <mxGeometry height="26" width="240" y="66" as="geometry" />
+        </mxCell>
+        <mxCell id="ms3" parent="MaritalStatus" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="DIVORCED" vertex="1">
+          <mxGeometry height="26" width="240" y="92" as="geometry" />
+        </mxCell>
+        <mxCell id="ms4" parent="MaritalStatus" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="WIDOWED" vertex="1">
+          <mxGeometry height="26" width="240" y="118" as="geometry" />
+        </mxCell>
+        <mxCell id="ContractType" parent="1" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" value="«enumeration»&#xa;ContractType" vertex="1">
+          <mxGeometry height="144" width="240" x="40" y="414" as="geometry" />
+        </mxCell>
+        <mxCell id="ct1" parent="ContractType" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="FULL_TIME" vertex="1">
+          <mxGeometry height="26" width="240" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="ct2" parent="ContractType" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="PART_TIME" vertex="1">
+          <mxGeometry height="26" width="240" y="66" as="geometry" />
+        </mxCell>
+        <mxCell id="ct3" parent="ContractType" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="CONTRACTOR" vertex="1">
+          <mxGeometry height="26" width="240" y="92" as="geometry" />
+        </mxCell>
+        <mxCell id="ct4" parent="ContractType" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="INTERN" vertex="1">
+          <mxGeometry height="26" width="240" y="118" as="geometry" />
+        </mxCell>
+        <mxCell id="EmploymentStatus" parent="1" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" value="«enumeration»&#xa;EmploymentStatus" vertex="1">
+          <mxGeometry height="144" width="240" x="40" y="626" as="geometry" />
+        </mxCell>
+        <mxCell id="es1" parent="EmploymentStatus" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="ACTIVE" vertex="1">
+          <mxGeometry height="26" width="240" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="es2" parent="EmploymentStatus" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="ON_LEAVE" vertex="1">
+          <mxGeometry height="26" width="240" y="66" as="geometry" />
+        </mxCell>
+        <mxCell id="es3" parent="EmploymentStatus" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="PROBATION" vertex="1">
+          <mxGeometry height="26" width="240" y="92" as="geometry" />
+        </mxCell>
+        <mxCell id="es4" parent="EmploymentStatus" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="TERMINATED" vertex="1">
+          <mxGeometry height="26" width="240" y="118" as="geometry" />
+        </mxCell>
+        <mxCell id="DeptStub" parent="1" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Department" vertex="1">
+          <mxGeometry height="234" width="260" x="370" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="dept1" parent="DeptStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ id : UUID  «PK»" vertex="1">
+          <mxGeometry height="26" width="260" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="dept2" parent="DeptStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ name : String  «Unique»" vertex="1">
+          <mxGeometry height="26" width="260" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="dept3" parent="DeptStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ code : String  «Unique»  (e.g. ENG, HR)" vertex="1">
+          <mxGeometry height="26" width="260" y="78" as="geometry" />
+        </mxCell>
+        <mxCell id="dept4" parent="DeptStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ description : String?" vertex="1">
+          <mxGeometry height="26" width="260" y="104" as="geometry" />
+        </mxCell>
+        <mxCell id="dept5" parent="DeptStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ headId : UUID?  «FK→Employee»" vertex="1">
+          <mxGeometry height="26" width="260" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="dept6" parent="DeptStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ isActive : Boolean = true" vertex="1">
+          <mxGeometry height="26" width="260" y="156" as="geometry" />
+        </mxCell>
+        <mxCell id="dept7" parent="DeptStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ createdAt : DateTime" vertex="1">
+          <mxGeometry height="26" width="260" y="182" as="geometry" />
+        </mxCell>
+        <mxCell id="dept8" parent="DeptStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ updatedAt : DateTime" vertex="1">
+          <mxGeometry height="26" width="260" y="208" as="geometry" />
+        </mxCell>
+        <mxCell id="TeamStub" parent="1" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#d5e8d4;strokeColor=#82b366;" value="Team" vertex="1">
+          <mxGeometry height="286" width="260" x="370" y="294" as="geometry" />
+        </mxCell>
+        <mxCell id="tm1" parent="TeamStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ id : UUID  «PK»" vertex="1">
+          <mxGeometry height="26" width="260" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="tm2" parent="TeamStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ name : String" vertex="1">
+          <mxGeometry height="26" width="260" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="tm3" parent="TeamStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ code : String?  «Unique»" vertex="1">
+          <mxGeometry height="26" width="260" y="78" as="geometry" />
+        </mxCell>
+        <mxCell id="tm4" parent="TeamStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ description : String?" vertex="1">
+          <mxGeometry height="26" width="260" y="104" as="geometry" />
+        </mxCell>
+        <mxCell id="tm5" parent="TeamStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ departmentId : UUID  «FK→Department»" vertex="1">
+          <mxGeometry height="26" width="260" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="tm6" parent="TeamStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ leadId : UUID?  «FK→Employee»" vertex="1">
+          <mxGeometry height="26" width="260" y="156" as="geometry" />
+        </mxCell>
+        <mxCell id="tm7" parent="TeamStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ projectFocus : String?" vertex="1">
+          <mxGeometry height="26" width="260" y="182" as="geometry" />
+        </mxCell>
+        <mxCell id="tm8" parent="TeamStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ isActive : Boolean = true" vertex="1">
+          <mxGeometry height="26" width="260" y="208" as="geometry" />
+        </mxCell>
+        <mxCell id="tm9" parent="TeamStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ createdAt : DateTime" vertex="1">
+          <mxGeometry height="26" width="260" y="234" as="geometry" />
+        </mxCell>
+        <mxCell id="tm10" parent="TeamStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ updatedAt : DateTime" vertex="1">
+          <mxGeometry height="26" width="260" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="Position" parent="1" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#f5f5f5;strokeColor=#999999;" value="Position" vertex="1">
+          <mxGeometry height="156" width="260" x="370" y="600" as="geometry" />
+        </mxCell>
+        <mxCell id="pos1" parent="Position" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ id : UUID  «PK»" vertex="1">
+          <mxGeometry height="26" width="260" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="pos2" parent="Position" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ title : String  «Unique»" vertex="1">
+          <mxGeometry height="26" width="260" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="pos3" parent="Position" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ level : String?  (e.g. Junior, Senior)" vertex="1">
+          <mxGeometry height="26" width="260" y="78" as="geometry" />
+        </mxCell>
+        <mxCell id="pos4" parent="Position" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ isActive : Boolean = true" vertex="1">
+          <mxGeometry height="26" width="260" y="104" as="geometry" />
+        </mxCell>
+        <mxCell id="pos5" parent="Position" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ createdAt : DateTime" vertex="1">
+          <mxGeometry height="26" width="260" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="Employee" parent="1" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#d5e8d4;strokeColor=#82b366;" value="Employee" vertex="1">
+          <mxGeometry height="730" width="360" x="720" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="emp1" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ id : UUID  «PK»" vertex="1">
+          <mxGeometry height="26" width="360" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="emp2" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ userId : UUID  «FK→User, Unique»" vertex="1">
+          <mxGeometry height="26" width="360" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="emp3" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ employeeCode : String  «Unique»" vertex="1">
+          <mxGeometry height="26" width="360" y="78" as="geometry" />
+        </mxCell>
+        <mxCell id="emp4" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ firstName : String" vertex="1">
+          <mxGeometry height="26" width="360" y="104" as="geometry" />
+        </mxCell>
+        <mxCell id="emp5" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ lastName : String" vertex="1">
+          <mxGeometry height="26" width="360" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="emp6" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ email : String" vertex="1">
+          <mxGeometry height="26" width="360" y="156" as="geometry" />
+        </mxCell>
+        <mxCell id="emp7" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ phone : String?" vertex="1">
+          <mxGeometry height="26" width="360" y="182" as="geometry" />
+        </mxCell>
+        <mxCell id="emp8" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ avatarUrl : String?" vertex="1">
+          <mxGeometry height="26" width="360" y="208" as="geometry" />
+        </mxCell>
+        <mxCell id="emp9" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ dateOfBirth : DateTime?" vertex="1">
+          <mxGeometry height="26" width="360" y="234" as="geometry" />
+        </mxCell>
+        <mxCell id="emp10" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ hireDate : DateTime  (first ever start date)" vertex="1">
+          <mxGeometry height="26" width="360" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="emp11" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ isRehire : Boolean = false" vertex="1">
+          <mxGeometry height="26" width="360" y="286" as="geometry" />
+        </mxCell>
+        <mxCell id="emp12" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ rehireDate : DateTime?" vertex="1">
+          <mxGeometry height="26" width="360" y="312" as="geometry" />
+        </mxCell>
+        <mxCell id="emp13" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ employmentStatus : EmploymentStatus = ACTIVE" vertex="1">
+          <mxGeometry height="26" width="360" y="338" as="geometry" />
+        </mxCell>
+        <mxCell id="emp14" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ contractType : ContractType  «denorm from JobHistory»" vertex="1">
+          <mxGeometry height="26" width="360" y="364" as="geometry" />
+        </mxCell>
+        <mxCell id="emp15" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ maritalStatus : MaritalStatus" vertex="1">
+          <mxGeometry height="26" width="360" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="emp16" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ education : EducationLevel" vertex="1">
+          <mxGeometry height="26" width="360" y="416" as="geometry" />
+        </mxCell>
+        <mxCell id="emp17" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ educationField : String  (e.g. Marketing)" vertex="1">
+          <mxGeometry height="26" width="360" y="442" as="geometry" />
+        </mxCell>
+        <mxCell id="emp18" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ distanceFromHome : Int  (km)" vertex="1">
+          <mxGeometry height="26" width="360" y="468" as="geometry" />
+        </mxCell>
+        <mxCell id="emp19" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ structure : String?  (country / business unit)" vertex="1">
+          <mxGeometry height="26" width="360" y="494" as="geometry" />
+        </mxCell>
+        <mxCell id="emp20" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ totalExperience : Int  (years before company)" vertex="1">
+          <mxGeometry height="26" width="360" y="520" as="geometry" />
+        </mxCell>
+        <mxCell id="emp21" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ grossSalary : Decimal  «CONFIDENTIAL, denorm»" vertex="1">
+          <mxGeometry height="26" width="360" y="546" as="geometry" />
+        </mxCell>
+        <mxCell id="emp22" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ netSalary : Decimal  «CONFIDENTIAL, denorm»" vertex="1">
+          <mxGeometry height="26" width="360" y="572" as="geometry" />
+        </mxCell>
+        <mxCell id="emp23" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ departmentId : UUID  «FK→Dept, denorm from JobHistory»" vertex="1">
+          <mxGeometry height="26" width="360" y="598" as="geometry" />
+        </mxCell>
+        <mxCell id="emp24" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ positionId : UUID  «FK→Position, denorm from JobHistory»" vertex="1">
+          <mxGeometry height="26" width="360" y="624" as="geometry" />
+        </mxCell>
+        <mxCell id="emp25" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ managerId : UUID?  «FK→self, denorm from JobHistory»" vertex="1">
+          <mxGeometry height="26" width="360" y="650" as="geometry" />
+        </mxCell>
+        <mxCell id="emp26" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ teamId : UUID?  «FK→Team, denorm from JobHistory»" vertex="1">
+          <mxGeometry height="26" width="360" y="676" as="geometry" />
+        </mxCell>
+        <mxCell id="emp27" parent="Employee" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ createdAt : DateTime" vertex="1">
+          <mxGeometry height="26" width="360" y="702" as="geometry" />
+        </mxCell>
+        <mxCell id="JobHistory" parent="1" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#f8cecc;strokeColor=#b85450;" value="JobHistory  «NEW»" vertex="1">
+          <mxGeometry height="416" width="350" x="1160" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="jh1" parent="JobHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ id : UUID  «PK»" vertex="1">
+          <mxGeometry height="26" width="350" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="jh2" parent="JobHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ employeeId : UUID  «FK→Employee»" vertex="1">
+          <mxGeometry height="26" width="350" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="jh3" parent="JobHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ positionId : UUID  «FK→Position»" vertex="1">
+          <mxGeometry height="26" width="350" y="78" as="geometry" />
+        </mxCell>
+        <mxCell id="jh4" parent="JobHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ departmentId : UUID  «FK→Department»" vertex="1">
+          <mxGeometry height="26" width="350" y="104" as="geometry" />
+        </mxCell>
+        <mxCell id="jh5" parent="JobHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ teamId : UUID?  «FK→Team»" vertex="1">
+          <mxGeometry height="26" width="350" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="jh6" parent="JobHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ managerId : UUID?  «FK→Employee»" vertex="1">
+          <mxGeometry height="26" width="350" y="156" as="geometry" />
+        </mxCell>
+        <mxCell id="jh7" parent="JobHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ contractType : ContractType" vertex="1">
+          <mxGeometry height="26" width="350" y="182" as="geometry" />
+        </mxCell>
+        <mxCell id="jh8" parent="JobHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ startDate : DateTime" vertex="1">
+          <mxGeometry height="26" width="350" y="208" as="geometry" />
+        </mxCell>
+        <mxCell id="jh9" parent="JobHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ endDate : DateTime?  (null = current tenure)" vertex="1">
+          <mxGeometry height="26" width="350" y="234" as="geometry" />
+        </mxCell>
+        <mxCell id="jh10" parent="JobHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ terminationReason : String?" vertex="1">
+          <mxGeometry height="26" width="350" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="jh11" parent="JobHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ isRehire : Boolean = false" vertex="1">
+          <mxGeometry height="26" width="350" y="286" as="geometry" />
+        </mxCell>
+        <mxCell id="jh12" parent="JobHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ grossSalary : Decimal" vertex="1">
+          <mxGeometry height="26" width="350" y="312" as="geometry" />
+        </mxCell>
+        <mxCell id="jh13" parent="JobHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ netSalary : Decimal" vertex="1">
+          <mxGeometry height="26" width="350" y="338" as="geometry" />
+        </mxCell>
+        <mxCell id="jh14" parent="JobHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ previousSalary : Decimal?  (salary before this tenure)" vertex="1">
+          <mxGeometry height="26" width="350" y="364" as="geometry" />
+        </mxCell>
+        <mxCell id="jh15" parent="JobHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ createdAt : DateTime" vertex="1">
+          <mxGeometry height="26" width="350" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="SalaryHistory" parent="1" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="SalaryHistory" vertex="1">
+          <mxGeometry height="286" width="350" x="1200" y="810" as="geometry" />
+        </mxCell>
+        <mxCell id="sh1" parent="SalaryHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ id : UUID  «PK»" vertex="1">
+          <mxGeometry height="26" width="350" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="sh2" parent="SalaryHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ employeeId : UUID  «FK→Employee»" vertex="1">
+          <mxGeometry height="26" width="350" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="sh3" parent="SalaryHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ grossSalary : Decimal  (gross after change)" vertex="1">
+          <mxGeometry height="26" width="350" y="78" as="geometry" />
+        </mxCell>
+        <mxCell id="sh4" parent="SalaryHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ netSalary : Decimal  (net after change)" vertex="1">
+          <mxGeometry height="26" width="350" y="104" as="geometry" />
+        </mxCell>
+        <mxCell id="sh5" parent="SalaryHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ raiseAmount : Decimal?  (absolute raise)" vertex="1">
+          <mxGeometry height="26" width="350" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="sh6" parent="SalaryHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ raisePercentage : Decimal?  «computed»" vertex="1">
+          <mxGeometry height="26" width="350" y="156" as="geometry" />
+        </mxCell>
+        <mxCell id="sh7" parent="SalaryHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ reason : String?  (e.g. Promotion, Annual review)" vertex="1">
+          <mxGeometry height="26" width="350" y="182" as="geometry" />
+        </mxCell>
+        <mxCell id="sh8" parent="SalaryHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ effectiveDate : DateTime  (date of pay increase)" vertex="1">
+          <mxGeometry height="26" width="350" y="208" as="geometry" />
+        </mxCell>
+        <mxCell id="sh9" parent="SalaryHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ approvedBy : UUID?  «FK→Employee»" vertex="1">
+          <mxGeometry height="26" width="350" y="234" as="geometry" />
+        </mxCell>
+        <mxCell id="sh10" parent="SalaryHistory" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ createdAt : DateTime" vertex="1">
+          <mxGeometry height="26" width="350" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="PerformanceReview" parent="1" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#e1d5e7;strokeColor=#9673a6;" value="PerformanceReview" vertex="1">
+          <mxGeometry height="364" width="360" x="1590" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="pr1" parent="PerformanceReview" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ id : UUID  «PK»" vertex="1">
+          <mxGeometry height="26" width="360" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="pr2" parent="PerformanceReview" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ employeeId : UUID  «FK→Employee»" vertex="1">
+          <mxGeometry height="26" width="360" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="pr3" parent="PerformanceReview" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ reviewerId : UUID  «FK→Employee»" vertex="1">
+          <mxGeometry height="26" width="360" y="78" as="geometry" />
+        </mxCell>
+        <mxCell id="pr4" parent="PerformanceReview" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ reviewDate : DateTime" vertex="1">
+          <mxGeometry height="26" width="360" y="104" as="geometry" />
+        </mxCell>
+        <mxCell id="pr5" parent="PerformanceReview" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ environmentSatisfaction : SatisfactionLevel  (1-5)" vertex="1">
+          <mxGeometry height="26" width="360" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="pr6" parent="PerformanceReview" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ jobSatisfaction : SatisfactionLevel  (1-5)" vertex="1">
+          <mxGeometry height="26" width="360" y="156" as="geometry" />
+        </mxCell>
+        <mxCell id="pr7" parent="PerformanceReview" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ relationshipSatisfaction : SatisfactionLevel  (1-5)" vertex="1">
+          <mxGeometry height="26" width="360" y="182" as="geometry" />
+        </mxCell>
+        <mxCell id="pr8" parent="PerformanceReview" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ trainingOpportunitiesTaken : Int  (count)" vertex="1">
+          <mxGeometry height="26" width="360" y="208" as="geometry" />
+        </mxCell>
+        <mxCell id="pr9" parent="PerformanceReview" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ workLifeBalance : SatisfactionLevel  (1-5)" vertex="1">
+          <mxGeometry height="26" width="360" y="234" as="geometry" />
+        </mxCell>
+        <mxCell id="pr10" parent="PerformanceReview" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ selfRating : PerformanceRating  (1=Unacceptable, 5=Above and Beyond)" vertex="1">
+          <mxGeometry height="26" width="360" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="pr11" parent="PerformanceReview" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ managerRating : PerformanceRating  (same scale)" vertex="1">
+          <mxGeometry height="26" width="360" y="286" as="geometry" />
+        </mxCell>
+        <mxCell id="pr12" parent="PerformanceReview" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ comments : String?" vertex="1">
+          <mxGeometry height="26" width="360" y="312" as="geometry" />
+        </mxCell>
+        <mxCell id="pr13" parent="PerformanceReview" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ createdAt : DateTime" vertex="1">
+          <mxGeometry height="26" width="360" y="338" as="geometry" />
+        </mxCell>
+        <mxCell id="SatisfactionLevel" parent="1" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" value="«enumeration»&#xa;SatisfactionLevel" vertex="1">
+          <mxGeometry height="228" width="360" x="2050" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="sl1" parent="SatisfactionLevel" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="VERY_DISSATISFIED = 1" vertex="1">
+          <mxGeometry height="26" width="250" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="sl2" parent="SatisfactionLevel" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="DISSATISFIED = 2" vertex="1">
+          <mxGeometry height="26" width="250" y="66" as="geometry" />
+        </mxCell>
+        <mxCell id="sl3" parent="SatisfactionLevel" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="NEUTRAL = 3" vertex="1">
+          <mxGeometry height="26" width="250" y="92" as="geometry" />
+        </mxCell>
+        <mxCell id="sl4" parent="SatisfactionLevel" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="SATISFIED = 4" vertex="1">
+          <mxGeometry height="26" width="250" y="118" as="geometry" />
+        </mxCell>
+        <mxCell id="sl5" parent="SatisfactionLevel" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="VERY_SATISFIED = 5" vertex="1">
+          <mxGeometry height="26" width="250" y="144" as="geometry" />
+        </mxCell>
+        <mxCell id="ProbationEvalStub" parent="SatisfactionLevel" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#f5f5f5;strokeColor=#999;dashed=1;" value="ProbationEvaluation  «see probation diagram»" vertex="1">
+          <mxGeometry height="78" width="360" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="pestub1" parent="ProbationEvalStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ id : UUID  «PK»" vertex="1">
+          <mxGeometry height="26" width="360" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="pestub2" parent="ProbationEvalStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ evaluatorId : UUID  «FK→Employee»" vertex="1">
+          <mxGeometry height="26" width="360" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="hJ9tH5_ZIwkeBj16X8Jp-1" edge="1" parent="ProbationEvalStub" source="ProbationEvalStub" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=0;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;" target="pestub1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="PerformanceRating" parent="1" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" value="«enumeration»&#xa;PerformanceRating" vertex="1">
+          <mxGeometry height="170" width="250" x="1654" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="rat1" parent="PerformanceRating" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="UNACCEPTABLE = 1" vertex="1">
+          <mxGeometry height="26" width="250" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="rat2" parent="PerformanceRating" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="NEEDS_IMPROVEMENT = 2" vertex="1">
+          <mxGeometry height="26" width="250" y="66" as="geometry" />
+        </mxCell>
+        <mxCell id="rat3" parent="PerformanceRating" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="MEETS_EXPECTATIONS = 3" vertex="1">
+          <mxGeometry height="26" width="250" y="92" as="geometry" />
+        </mxCell>
+        <mxCell id="rat4" parent="PerformanceRating" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="EXCEEDS_EXPECTATIONS = 4" vertex="1">
+          <mxGeometry height="26" width="250" y="118" as="geometry" />
+        </mxCell>
+        <mxCell id="rat5" parent="PerformanceRating" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="ABOVE_AND_BEYOND = 5" vertex="1">
+          <mxGeometry height="26" width="250" y="144" as="geometry" />
+        </mxCell>
+        <mxCell id="e_dept_emp" edge="1" parent="1" source="DeptStub" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.83;entryDx=0;entryDy=0;" target="Employee" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_dept_emp_lbl" connectable="0" parent="e_dept_emp" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="belongs to" vertex="1">
+          <mxGeometry relative="1" x="-0.2" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_team_emp" edge="1" parent="1" source="TeamStub" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=0..1;endLabel=*;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.93;entryDx=0;entryDy=0;" target="Employee" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_team_emp_lbl" connectable="0" parent="e_team_emp" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="member of" vertex="1">
+          <mxGeometry relative="1" x="-0.2" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_pos_emp" edge="1" parent="1" source="Position" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.87;entryDx=0;entryDy=0;" target="Employee" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_pos_emp_lbl" connectable="0" parent="e_pos_emp" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="holds" vertex="1">
+          <mxGeometry relative="1" x="-0.2" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_emp_self" edge="1" parent="1" source="Employee" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=0..1;endLabel=*;exitX=1;exitY=0.92;exitDx=0;exitDy=0;entryX=1;entryY=0.08;entryDx=0;entryDy=0;" target="Employee" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1120" y="711" />
+              <mxPoint x="1120" y="98" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_emp_self_lbl" connectable="0" parent="e_emp_self" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="manages" vertex="1">
+          <mxGeometry relative="1" x="0.2" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_emp_jh" edge="1" parent="1" source="Employee" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.2;exitDx=0;exitDy=0;entryX=0;entryY=0.15;entryDx=0;entryDy=0;" target="JobHistory" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_emp_jh_lbl" connectable="0" parent="e_emp_jh" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="career timeline" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_emp_sh" edge="1" parent="1" source="Employee" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.2;entryDx=0;entryDy=0;" target="SalaryHistory" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_emp_sh_lbl" connectable="0" parent="e_emp_sh" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="salary evolution" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_emp_pr_reviewed" edge="1" parent="1" source="Employee" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.35;exitDx=0;exitDy=0;entryX=0;entryY=0.18;entryDx=0;entryDy=0;" target="PerformanceReview" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1140" y="296" />
+              <mxPoint x="1140" y="20" />
+              <mxPoint x="1560" y="20" />
+              <mxPoint x="1560" y="106" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_emp_pr_reviewed_lbl" connectable="0" parent="e_emp_pr_reviewed" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="reviewed" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_emp_pr_reviewer" edge="1" parent="1" source="Employee" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;startLabel=0..1;endLabel=*;exitX=1;exitY=0.4;exitDx=0;exitDy=0;entryX=0;entryY=0.27;entryDx=0;entryDy=0;" target="PerformanceReview" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1145" y="332" />
+              <mxPoint x="1145" y="10" />
+              <mxPoint x="1555" y="10" />
+              <mxPoint x="1555" y="138" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_emp_pr_reviewer_lbl" connectable="0" parent="e_emp_pr_reviewer" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="reviewer" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_el_emp" edge="1" parent="1" source="EducationLevel" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.58;entryDx=0;entryDy=0;" target="Employee" value="«uses»">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="320" y="125" />
+              <mxPoint x="320" y="463" />
+              <mxPoint x="720" y="463" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_ms_emp" edge="1" parent="1" source="MaritalStatus" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.54;entryDx=0;entryDy=0;" target="Employee" value="«uses»">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="330" y="312" />
+              <mxPoint x="330" y="434" />
+              <mxPoint x="720" y="434" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_ct_emp" edge="1" parent="1" source="ContractType" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="Employee" value="«uses»">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="340" y="486" />
+              <mxPoint x="340" y="405" />
+              <mxPoint x="720" y="405" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_ct_jh" edge="1" parent="1" source="ContractType" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="JobHistory" value="«uses»">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="160" y="800" />
+              <mxPoint x="1130" y="800" />
+              <mxPoint x="1130" y="248" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_es_emp" edge="1" parent="1" source="EmploymentStatus" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.46;entryDx=0;entryDy=0;" target="Employee" value="«uses»">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="350" y="660" />
+              <mxPoint x="350" y="376" />
+              <mxPoint x="720" y="376" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_team_dept" edge="1" parent="1" source="TeamStub" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=*;endLabel=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="DeptStub" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_team_dept_lbl" connectable="0" parent="e_team_dept" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="belongs to" vertex="1">
+          <mxGeometry relative="1" x="-0.2" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_dept_head" edge="1" parent="1" source="DeptStub" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=1;exitY=0.42;exitDx=0;exitDy=0;entryX=0;entryY=0.04;entryDx=0;entryDy=0;" target="Employee" value="«heads»">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_team_lead" edge="1" parent="1" source="TeamStub" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=1;exitY=0.6;exitDx=0;exitDy=0;entryX=0;entryY=0.97;entryDx=0;entryDy=0;" target="Employee" value="«leads»">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_sl_pr" edge="1" parent="1" source="SatisfactionLevel" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="PerformanceReview" value="«uses»">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_rat_pr" edge="1" parent="1" source="PerformanceRating" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.8;entryDx=0;entryDy=0;" target="PerformanceReview" value="«uses»">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_pos_jh" edge="1" parent="1" source="Position" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;" target="JobHistory" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="680" y="647" />
+              <mxPoint x="680" y="820" />
+              <mxPoint x="1140" y="820" />
+              <mxPoint x="1140" y="144" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_pos_jh_lbl" connectable="0" parent="e_pos_jh" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="position at time" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ProbationPeriodStub" parent="1" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#f5f5f5;strokeColor=#999;dashed=1;" value="ProbationPeriod  «see probation diagram»" vertex="1">
+          <mxGeometry height="78" width="360" x="1590" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="ppstub1" parent="ProbationPeriodStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ id : UUID  «PK»" vertex="1">
+          <mxGeometry height="26" width="360" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="ppstub2" parent="ProbationPeriodStub" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" value="+ employeeId : UUID  «FK→Employee»" vertex="1">
+          <mxGeometry height="26" width="360" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="e_emp_prob" edge="1" parent="1" source="Employee" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.68;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="ProbationPeriodStub" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_emp_prob_lbl" connectable="0" parent="e_emp_prob" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="probation" vertex="1">
+          <mxGeometry relative="1" x="-0.2" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_emp_peval" edge="1" parent="1" source="Employee" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;startLabel=1;endLabel=*;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="ProbationEvalStub" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_emp_peval_lbl" connectable="0" parent="e_emp_peval" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="«evaluator»" vertex="1">
+          <mxGeometry relative="1" x="-0.2" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
