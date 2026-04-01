@@ -1,0 +1,145 @@
+<mxGraphModel adaptiveColors="auto">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+
+    <!-- ════════════════ ENUM: ProficiencyLevel ════════════════ -->
+    <mxCell id="ProficiencyLevel" value="«enumeration»&#xa;ProficiencyLevel" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="40" y="40" width="240" height="144" as="geometry"/>
+    </mxCell>
+    <mxCell id="pl1" value="BEGINNER" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProficiencyLevel">
+      <mxGeometry x="0" y="40" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="pl2" value="INTERMEDIATE" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProficiencyLevel">
+      <mxGeometry x="0" y="66" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="pl3" value="ADVANCED" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProficiencyLevel">
+      <mxGeometry x="0" y="92" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="pl4" value="EXPERT" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="ProficiencyLevel">
+      <mxGeometry x="0" y="118" width="240" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- ════════════════ STUB: Employee ════════════════ -->
+    <mxCell id="EmployeeStub" value="Employee" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#f5f5f5;strokeColor=#999;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="40" y="240" width="240" height="52" as="geometry"/>
+    </mxCell>
+    <mxCell id="es1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EmployeeStub">
+      <mxGeometry x="0" y="26" width="240" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- ════════════════ Skill ════════════════ -->
+    <mxCell id="Skill" value="Skill" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="380" y="40" width="280" height="182" as="geometry"/>
+    </mxCell>
+    <mxCell id="sk1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Skill">
+      <mxGeometry x="0" y="26" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="sk2" value="+ name : String  «Unique»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Skill">
+      <mxGeometry x="0" y="52" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="sk3" value="+ category : String?  (e.g. Programming)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Skill">
+      <mxGeometry x="0" y="78" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="sk4" value="+ description : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Skill">
+      <mxGeometry x="0" y="104" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="sk5" value="+ isActive : Boolean = true" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Skill">
+      <mxGeometry x="0" y="130" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="sk6" value="+ createdAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Skill">
+      <mxGeometry x="0" y="156" width="280" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- ════════════════ EmployeeSkill (current snapshot) ════════════════ -->
+    <mxCell id="EmployeeSkill" value="EmployeeSkill  «current snapshot»" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="380" y="290" width="280" height="208" as="geometry"/>
+    </mxCell>
+    <mxCell id="esk1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EmployeeSkill">
+      <mxGeometry x="0" y="26" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="esk2" value="+ employeeId : UUID  «FK→Employee»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EmployeeSkill">
+      <mxGeometry x="0" y="52" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="esk3" value="+ skillId : UUID  «FK→Skill»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EmployeeSkill">
+      <mxGeometry x="0" y="78" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="esk4" value="+ proficiency : ProficiencyLevel" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EmployeeSkill">
+      <mxGeometry x="0" y="104" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="esk5" value="+ acquiredDate : DateTime?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EmployeeSkill">
+      <mxGeometry x="0" y="130" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="esk6" value="+ createdAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EmployeeSkill">
+      <mxGeometry x="0" y="156" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="esk7" value="+ updatedAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EmployeeSkill">
+      <mxGeometry x="0" y="182" width="280" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- ════════════════ SkillHistory (audit trail) ════════════════ -->
+    <mxCell id="SkillHistory" value="SkillHistory  «audit trail»" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="760" y="40" width="340" height="286" as="geometry"/>
+    </mxCell>
+    <mxCell id="skh1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SkillHistory">
+      <mxGeometry x="0" y="26" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="skh2" value="+ employeeId : UUID  «FK→Employee»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SkillHistory">
+      <mxGeometry x="0" y="52" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="skh3" value="+ skillId : UUID  «FK→Skill»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SkillHistory">
+      <mxGeometry x="0" y="78" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="skh4" value="+ previousLevel : ProficiencyLevel?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SkillHistory">
+      <mxGeometry x="0" y="104" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="skh5" value="+ newLevel : ProficiencyLevel" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SkillHistory">
+      <mxGeometry x="0" y="130" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="skh6" value="+ effectiveDate : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SkillHistory">
+      <mxGeometry x="0" y="156" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="skh7" value="+ source : String?  (Training / Certification / Manager)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SkillHistory">
+      <mxGeometry x="0" y="182" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="skh8" value="+ note : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SkillHistory">
+      <mxGeometry x="0" y="208" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="skh9" value="+ assessedBy : UUID?  «FK→Employee»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SkillHistory">
+      <mxGeometry x="0" y="234" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="skh10" value="+ createdAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="SkillHistory">
+      <mxGeometry x="0" y="260" width="340" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- Note -->
+    <mxCell id="note1" value="EmployeeSkill = latest state per skill.&#xa;SkillHistory = every level change logged.&#xa;HR queries history between two dates.&#xa;previousLevel is null on first assessment." style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;align=left;spacingLeft=8;spacingTop=2;" vertex="1" parent="1">
+      <mxGeometry x="760" y="370" width="300" height="80" as="geometry"/>
+    </mxCell>
+
+    <!-- ════════════════ RELATIONSHIPS ════════════════ -->
+    <mxCell id="re1" edge="1" source="EmployeeStub" target="EmployeeSkill" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="re2" edge="1" source="Skill" target="EmployeeSkill" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="re3" edge="1" source="Skill" target="SkillHistory" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="re4" edge="1" source="EmployeeStub" target="SkillHistory" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0;entryY=0.7;entryDx=0;entryDy=0;">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="340" y="250"/>
+          <mxPoint x="340" y="600"/>
+          <mxPoint x="720" y="600"/>
+          <mxPoint x="720" y="240"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="re4lbl" value="assessed on" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="re4">
+      <mxGeometry x="0.3" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+    </mxCell>
+
+  </root>
+</mxGraphModel>

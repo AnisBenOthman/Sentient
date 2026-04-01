@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la /root/*/Sentient*)",
+      "Read(//c/Users/Anis/Downloads/**)",
+      "Read(//c/Users/Anis/**)",
+      "Bash(start:*)"
+    ]
+  }
+}

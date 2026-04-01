@@ -1,0 +1,127 @@
+<mxGraphModel adaptiveColors="auto">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+
+    <!-- System Boundary -->
+    <mxCell id="sys" value="Social / Intranet &amp; Engagement" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=center;fontSize=16;fontStyle=1;fillColor=none;dashed=1;strokeColor=#555;strokeWidth=2;spacingTop=10;arcSize=2;" vertex="1" parent="1">
+      <mxGeometry x="220" y="20" width="1100" height="680" as="geometry"/>
+    </mxCell>
+
+    <!-- ACTORS -->
+    <mxCell id="a_emp" value="Employee" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="85" y="180" width="50" height="75" as="geometry"/>
+    </mxCell>
+    <mxCell id="a_mgr" value="Manager" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="85" y="450" width="50" height="75" as="geometry"/>
+    </mxCell>
+    <mxCell id="a_hr" value="HR Admin" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="85" y="590" width="50" height="75" as="geometry"/>
+    </mxCell>
+
+    <!-- Generalization -->
+    <mxCell id="gen1" edge="1" parent="1" source="a_mgr" target="a_emp" style="html=1;endArrow=block;endFill=0;endSize=14;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="gen2" edge="1" parent="1" source="a_hr" target="a_mgr" style="html=1;endArrow=block;endFill=0;endSize=14;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+    <!-- Row 1 — Employee: Consume content -->
+    <mxCell id="uc_ann" value="View Announcements" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="290" y="80" width="220" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc_evt" value="View Events / RSVP" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="580" y="80" width="220" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc_docs" value="View Documents" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="870" y="80" width="220" height="60" as="geometry"/>
+    </mxCell>
+
+    <!-- Row 2 — Employee: Participate / AI -->
+    <mxCell id="uc_fb" value="Submit Feedback" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="290" y="200" width="220" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc_anon_fb" value="Submit Anonymous&#xa;Feedback" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="580" y="195" width="220" height="70" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc_reword" value="Reword Message&#xa;(Linguistic Agent)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="870" y="195" width="220" height="70" as="geometry"/>
+    </mxCell>
+
+    <!-- Row 3 — Employee: Downloads -->
+    <mxCell id="uc_dloc" value="Download Document" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="290" y="330" width="220" height="60" as="geometry"/>
+    </mxCell>
+
+    <!-- Row 4 — Manager -->
+    <mxCell id="uc_pub" value="Publish Announcement" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D6B656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="290" y="435" width="220" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc_create_evt" value="Create Event" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D6B656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="580" y="435" width="220" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc_manage_evt" value="Manage Event&#xa;Attendance" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D6B656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="870" y="430" width="220" height="70" as="geometry"/>
+    </mxCell>
+
+    <!-- Row 5 — HR Admin -->
+    <mxCell id="uc_upload" value="Upload Documents" style="ellipse;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="290" y="575" width="220" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc_snap" value="View Engagement&#xa;Snapshots" style="ellipse;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="580" y="570" width="220" height="70" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc_view_fb" value="View All Feedback&#xa;(Anonymous)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="870" y="570" width="220" height="70" as="geometry"/>
+    </mxCell>
+
+    <!-- ACTOR EDGES -->
+    <mxCell id="e1" edge="1" parent="1" source="a_emp" target="uc_ann" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="e2" edge="1" parent="1" source="a_emp" target="uc_evt" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="e3" edge="1" parent="1" source="a_emp" target="uc_docs" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="e4" edge="1" parent="1" source="a_emp" target="uc_fb" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="e5" edge="1" parent="1" source="a_emp" target="uc_reword" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="e6" edge="1" parent="1" source="a_emp" target="uc_dloc" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="e7" edge="1" parent="1" source="a_mgr" target="uc_pub" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="e8" edge="1" parent="1" source="a_mgr" target="uc_create_evt" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="e9" edge="1" parent="1" source="a_mgr" target="uc_manage_evt" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="e10" edge="1" parent="1" source="a_hr" target="uc_upload" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="e11" edge="1" parent="1" source="a_hr" target="uc_snap" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="e12" edge="1" parent="1" source="a_hr" target="uc_view_fb" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+    <!-- RELATIONSHIPS -->
+    <mxCell id="r1" value="«extend»" edge="1" parent="1" source="uc_anon_fb" target="uc_fb" style="html=1;dashed=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;strokeColor=#6C8EBF;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="r2" value="«extend»" edge="1" parent="1" source="uc_dloc" target="uc_docs" style="html=1;dashed=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;strokeColor=#999;"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+    <!-- ENUMS -->
+    <mxCell id="enum_lbl" value="Enumerations" style="text;html=1;fontSize=13;fontStyle=1;align=left;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+      <mxGeometry x="220" y="730" width="160" height="25" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="e_aud" value="«enumeration»&#xa;AnnouncementAudience" style="swimlane;fontStyle=1;startSize=36;fillColor=#FFF9C4;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="220" y="765" width="230" height="130" as="geometry"/>
+    </mxCell>
+    <mxCell id="e_audv" value="ALL&#xa;DEPARTMENT&#xa;TEAM&#xa;MANAGEMENT" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=10;fontSize=11;" vertex="1" parent="e_aud">
+      <mxGeometry x="0" y="36" width="230" height="94" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="e_evt" value="«enumeration»&#xa;EventType" style="swimlane;fontStyle=1;startSize=36;fillColor=#FFF9C4;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="480" y="765" width="220" height="130" as="geometry"/>
+    </mxCell>
+    <mxCell id="e_evtv" value="MEETING&#xa;TRAINING&#xa;SOCIAL&#xa;TOWN_HALL" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=10;fontSize=11;" vertex="1" parent="e_evt">
+      <mxGeometry x="0" y="36" width="220" height="94" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="e_doc" value="«enumeration»&#xa;DocumentCategory" style="swimlane;fontStyle=1;startSize=36;fillColor=#FFF9C4;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="730" y="765" width="220" height="148" as="geometry"/>
+    </mxCell>
+    <mxCell id="e_docv" value="POLICY&#xa;PROCEDURE&#xa;TEMPLATE&#xa;LEGAL&#xa;ONBOARDING" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=10;fontSize=11;" vertex="1" parent="e_doc">
+      <mxGeometry x="0" y="36" width="220" height="112" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="e_fbt" value="«enumeration»&#xa;FeedbackType" style="swimlane;fontStyle=1;startSize=36;fillColor=#FFF9C4;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="980" y="765" width="220" height="130" as="geometry"/>
+    </mxCell>
+    <mxCell id="e_fbtv" value="EVENT&#xa;GENERAL&#xa;SUGGESTION&#xa;PULSE" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=10;fontSize=11;" vertex="1" parent="e_fbt">
+      <mxGeometry x="0" y="36" width="220" height="94" as="geometry"/>
+    </mxCell>
+
+  </root>
+</mxGraphModel>
