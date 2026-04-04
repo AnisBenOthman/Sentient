@@ -94,7 +94,7 @@ by document category, then do ANN search). One database to deploy and back up.
 
 | Service          | Port  | Schema     | Owned Entities                                                                      | Count |
 |------------------|-------|------------|-------------------------------------------------------------------------------------|-------|
-| **HR Core**      | 3001  | `hr_core`  | User, Role, Permission, UserRole, RolePermission, Session, Employee, Department, Team, Position, Skill, EmployeeSkill, SalaryHistory, LeaveType, LeaveBalance, LeaveRequest, Complaint, PerformanceReview, Notification, Holiday, ProbationPolicy, ProbationPeriod, ProbationEvaluation | 23 |
+| **HR Core**      | 3001  | `hr_core`  | User, Role, Permission, UserRole, RolePermission, Session, Employee, Department, Team, Position, Skill, EmployeeSkill, SalaryHistory, LeaveType, LeaveBalance, LeaveRequest, Complaint, PerformanceReview, Notification, Holiday, ProbationPolicy, ProbationPeriod, ProbationEvaluation, ContractAmendment | 24 |
 | **Social**       | 3002  | `social`   | Announcement, Event, EventAttendee, Document, Feedback, EngagementSnapshot          | 6  |
 | **AI Agentic**   | 3003  | `ai_agent` | Conversation, Message, VectorDocument, AgentTaskLog                                 | 4  |
 
@@ -171,6 +171,9 @@ export type ServiceName = 'hr-core' | 'social' | 'ai-agentic';
 | `probation.decision.extended`  | HR Core     | AI Agentic        | `{ probationPeriodId, employeeId, newEndDate }` |
 | `probation.decision.terminated`| HR Core     | AI Agentic, Social | `{ probationPeriodId, employeeId }` |
 | `probation.letter_generated`   | Social      | HR Core, AI Agentic | `{ documentId, probationPeriodId, employeeId }` |
+| `contract.amendment_submitted` | HR Core     | AI Agentic        | `{ amendmentId, employeeId, requestedById }` |
+| `contract.amendment_approved`  | HR Core     | AI Agentic        | `{ amendmentId, employeeId, effectiveDate }` |
+| `contract.amendment_rejected`  | HR Core     | AI Agentic        | `{ amendmentId, employeeId, reason }` |
 
 ---
 
@@ -195,6 +198,7 @@ sentient/
 │   │   │   │   ├── leaves/               # LeaveType, LeaveBalance, LeaveRequest
 │   │   │   │   ├── complaints/           # Complaint
 │   │   │   │   ├── probation/            # ProbationPolicy, ProbationPeriod, ProbationEvaluation
+│   │   │   │   ├── contract-amendments/  # ContractAmendment (Manager-initiated, HR-approved)
 │   │   │   │   ├── performance/          # PerformanceReview, SalaryHistory
 │   │   │   │   ├── notifications/        # Notification (multi-channel dispatch)
 │   │   │   │   └── config/               # Holiday, system settings
@@ -408,22 +412,23 @@ model Feedback {
 
 ---
 
-## 6. Domain Model — 33 Entities Across 3 Services
+## 6. Domain Model — 34 Entities Across 3 Services
 
 The complete class diagram specification lives in `sentient-class-diagram-spec.md`.
 
-### HR Core Service (23 entities, schema: `hr_core`)
+### HR Core Service (24 entities, schema: `hr_core`)
 
-| Domain           | Entities                                                                 |
-|------------------|--------------------------------------------------------------------------|
-| **IAM**          | User, Role, Permission, UserRole, RolePermission, Session                |
-| **Core HRIS**    | Employee, Department, Team, Position, Skill, EmployeeSkill, SalaryHistory |
-| **Leave**        | LeaveType, LeaveBalance, LeaveRequest                                    |
-| **Probation**    | ProbationPolicy, ProbationPeriod, ProbationEvaluation                    |
-| **Complaints**   | Complaint                                                                |
-| **Performance**  | PerformanceReview                                                        |
-| **Notifications**| Notification                                                             |
-| **Config**       | Holiday                                                                  |
+| Domain                  | Entities                                                                 |
+|-------------------------|--------------------------------------------------------------------------|
+| **IAM**                 | User, Role, Permission, UserRole, RolePermission, Session                |
+| **Core HRIS**           | Employee, Department, Team, Position, Skill, EmployeeSkill, SalaryHistory |
+| **Leave**               | LeaveType, LeaveBalance, LeaveRequest                                    |
+| **Probation**           | ProbationPolicy, ProbationPeriod, ProbationEvaluation                    |
+| **Contract Amendments** | ContractAmendment                                                        |
+| **Complaints**          | Complaint                                                                |
+| **Performance**         | PerformanceReview                                                        |
+| **Notifications**       | Notification                                                             |
+| **Config**              | Holiday                                                                  |
 
 ### Social Service (6 entities, schema: `social`)
 
@@ -458,6 +463,8 @@ The complete class diagram specification lives in `sentient-class-diagram-spec.m
 
 5. **Authentication is centralized in HR Core** — HR Core issues JWTs. Social and
    AI Agentic validate JWTs using the shared secret/public key from `packages/shared`.
+
+6. **ContractAmendment lives in HR Core** — Managers submit à-la-carte amendments (position, salary, contract type, team/dept). HR Admin approves. On approval, the system cascades changes into `Employee` (denormalized fields), `JobHistory`, and `SalaryHistory`. Career Agent assists during form creation (Pull only): pre-fills justification comment, flags anomalies (>40% raise, demotion). Scope: MANAGER creates for direct reports (TEAM scope), HR_ADMIN sees all (GLOBAL).
 
 ---
 
@@ -556,7 +563,7 @@ export class HrCoreClient {
 
 ## 9. Enum Registry (Centralized in `packages/shared/src/enums/`)
 
-All 25 enums defined once, used by all 3 services and the frontend.
+All 26 enums defined once, used by all 3 services and the frontend.
 Key enums (see class diagram spec for complete list):
 
 - `AgentType`: HR_ASSISTANT, LEAVE_AGENT, CAREER_AGENT, LINGUISTIC_AGENT, ANALYTICS_AGENT, ENGAGEMENT_AGENT, ONBOARDING_COMPANION
@@ -564,6 +571,7 @@ Key enums (see class diagram spec for complete list):
 - `ChannelType`: WEB, SLACK, WHATSAPP, EMAIL, IN_APP
 - `EmploymentStatus`: ACTIVE, ON_LEAVE, PROBATION, TERMINATED
 - `LeaveStatus`: PENDING, APPROVED, REJECTED, CANCELLED, ESCALATED
+- `AmendmentStatus`: DRAFT, PENDING_HR, APPROVED, REJECTED
 - `TaskTrigger`: USER, SYSTEM, SCHEDULE
 - `ServiceName`: HR_CORE, SOCIAL, AI_AGENTIC
 
@@ -628,7 +636,7 @@ volumes:
 
 ## 13. Key File References
 
-- `sentient-class-diagram-spec.md` — Complete 33-entity class diagram
+- `sentient-class-diagram-spec.md` — Complete 34-entity class diagram
 - `Pfe___Sentient_Hris_document_De_Projet_Détaillé.pdf` — FYP project document
 - `probation-class-diagram.drawio` — Probation Management class diagram (3 entities, 4 enums, state machine)
 - `domains/probation_management.drawio` — Probation Management use case diagram
