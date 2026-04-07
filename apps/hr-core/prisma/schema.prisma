@@ -1,0 +1,89 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("HR_CORE_DATABASE_URL")
+  schemas  = ["hr_core"]
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["multiSchema"]
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  ON_LEAVE
+  PROBATION
+  TERMINATED
+
+  @@schema("hr_core")
+}
+
+model Employee {
+  id               String           @id @default(uuid())
+  firstName        String
+  lastName         String
+  departmentId     String?
+  teamId           String?
+  employmentStatus EmploymentStatus @default(ACTIVE)
+
+  department Department? @relation(fields: [departmentId], references: [id])
+  team       Team?       @relation(fields: [teamId], references: [id])
+
+  @@schema("hr_core")
+  @@map("employees")
+  @@index([departmentId])
+  @@index([teamId])
+  @@index([employmentStatus])
+}
+
+model Department {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  code        String   @unique
+  description String?
+  headId      String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  teams     Team[]
+  employees Employee[]
+
+  @@schema("hr_core")
+  @@map("departments")
+  @@index([isActive])
+}
+
+model Team {
+  id           String   @id @default(uuid())
+  name         String
+  code         String?  @unique
+  description  String?
+  departmentId String
+  leadId       String?
+  projectFocus String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department Department @relation(fields: [departmentId], references: [id])
+  employees  Employee[]
+
+  @@schema("hr_core")
+  @@map("teams")
+  @@index([departmentId])
+  @@index([isActive])
+}
+
+model Position {
+  id        String   @id @default(uuid())
+  title     String   @unique
+  level     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@schema("hr_core")
+  @@map("positions")
+  @@index([isActive])
+}

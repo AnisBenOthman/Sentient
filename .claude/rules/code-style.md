@@ -143,18 +143,23 @@ export class LeavesController {
 ```typescript
 // ✅ Always in common/clients/ directory
 // ✅ Always @Injectable() for DI
-// ✅ Always forward the JWT for RBAC enforcement
+// ✅ Always accept AgentContext (not raw jwt: string) for RBAC enforcement
 // ✅ Always return typed responses using shared interfaces
+// ✅ Always wrap HTTP calls in try/catch — call GracefulDegradationHandler on 403
 
 @Injectable()
 export class HrCoreClient {
-  async getEmployee(id: string, jwt: string): Promise<EmployeeRef> { }
-  async getLeaveBalance(employeeId: string, jwt: string): Promise<LeaveBalance[]> { }
+  // WHY: AgentContext carries jwt + claims + isSystemContext + taskLogId.
+  // Accepting it instead of jwt: string ensures all tool calls are auditable
+  // and SYSTEM vs user JWT selection is explicit, not scattered across callers.
+  async getEmployee(id: string, context: AgentContext): Promise<EmployeeRef> { }
+  async getLeaveBalance(employeeId: string, context: AgentContext): Promise<LeaveBalance[]> { }
 }
 
 // ❌ Never call another service's database directly
 // ❌ Never import from another app's source code
 // ❌ Never hardcode service URLs (use ConfigService)
+// ❌ Never accept jwt: string in client methods — always AgentContext
 ```
 
 ### Dependency Injection
@@ -429,5 +434,28 @@ components/
 ├── leaves/              # Domain: Leave management
 ├── intranet/            # Domain: Social service data
 ├── chat/                # Domain: AI conversations
+│   └── citation-badge.tsx    # Feature 5: Source attribution badge (internal/regulation)
+├── governance/          # Feature 2: AI Governance Center
+│   ├── task-log-table.tsx
+│   ├── task-log-filters.tsx
+│   ├── agent-stats-grid.tsx
+│   ├── error-rate-chart.tsx
+│   └── tool-call-chain.tsx   # Recursive tree of parentLogId → childLogs
+├── exit-surveys/        # Feature 3: Exit survey admin views
+│   ├── exit-survey-table.tsx
+│   ├── exit-survey-aggregate-chart.tsx
+│   └── exit-survey-ai-summary.tsx
+├── org-chart/           # Feature 4: React Flow org chart + scenario modeler
+│   ├── org-chart-canvas.tsx   # 'use client'; @xyflow/react canvas
+│   ├── employee-node.tsx
+│   ├── department-group-node.tsx
+│   ├── scenario-change-list.tsx
+│   ├── scenario-analysis-panel.tsx
+│   └── scenario-approval-modal.tsx
 └── layout/              # Sidebar, Header, Navigation
 ```
+
+**React Flow note:** `org-chart-canvas.tsx` is the only component in `org-chart/` that
+requires `'use client'` — the parent `page.tsx` fetches initial org data as a Server
+Component and passes it as props. `@xyflow/react` (React Flow v12) is added to
+`apps/web/package.json`.
