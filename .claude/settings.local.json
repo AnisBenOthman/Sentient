@@ -26,7 +26,15 @@
       "Bash(grep:*)",
       "Bash(npm install:*)",
       "Bash(pnpm:*)",
-      "Bash(npx prisma:*)"
+      "Bash(npx prisma:*)",
+      "Bash(claude mcp:*)",
+      "Bash(psql -U postgres -c \"\\\\l\")",
+      "Bash(npx -y @fabriciofs/mcp-postgres --help)",
+      "Bash(psql:*)",
+      "Bash(npx -y @fabriciofs/mcp-postgres)",
+      "Bash(SQL_CONNECTION_URL=\"postgresql://postgres:anis@localhost:5432/sentient\" READONLY=\"true\" npx -y @fabriciofs/mcp-postgres)",
+      "Bash(pg_isready:*)",
+      "mcp__postgres-fabriciofs__schema_list_tables"
     ]
   }
 }

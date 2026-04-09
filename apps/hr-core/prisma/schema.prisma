@@ -6,7 +6,7 @@ datasource db {
 
 generator client {
   provider        = "prisma-client-js"
-  output          = "../src/generated/prisma"
+  output          = "../generated/prisma"
   previewFeatures = ["multiSchema"]
 }
 
@@ -15,6 +15,7 @@ enum EmploymentStatus {
   ON_LEAVE
   PROBATION
   TERMINATED
+  RESIGNED
 
   @@schema("hr_core")
 }
