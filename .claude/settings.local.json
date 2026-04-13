@@ -34,7 +34,14 @@
       "Bash(npx -y @fabriciofs/mcp-postgres)",
       "Bash(SQL_CONNECTION_URL=\"postgresql://postgres:anis@localhost:5432/sentient\" READONLY=\"true\" npx -y @fabriciofs/mcp-postgres)",
       "Bash(pg_isready:*)",
-      "mcp__postgres-fabriciofs__schema_list_tables"
+      "mcp__postgres-fabriciofs__schema_list_tables",
+      "Bash(.specify/scripts/bash/create-new-feature.sh Employee feature, take into consideration a small employee table in HR-core schema:*)",
+      "Bash(.specify/scripts/bash/setup-plan.sh:*)",
+      "Bash(.specify/scripts/bash/update-agent-context.sh claude:*)",
+      "Bash(echo \"Script exited with $?\")",
+      "Bash(.specify/scripts/bash/check-prerequisites.sh:*)",
+      "Bash(npx turbo:*)",
+      "Bash(npx jest:*)"
     ]
   }
 }

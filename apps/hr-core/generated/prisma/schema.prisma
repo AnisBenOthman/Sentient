@@ -10,6 +10,10 @@ generator client {
   previewFeatures = ["multiSchema"]
 }
 
+// ============================================================
+// ENUMS
+// ============================================================
+
 enum EmploymentStatus {
   ACTIVE
   ON_LEAVE
@@ -20,23 +24,19 @@ enum EmploymentStatus {
   @@schema("hr_core")
 }
 
-model Employee {
-  id               String           @id @default(uuid())
-  firstName        String
-  lastName         String
-  departmentId     String?
-  teamId           String?
-  employmentStatus EmploymentStatus @default(ACTIVE)
+enum ContractType {
+  FULL_TIME
+  PART_TIME
+  INTERN
+  CONTRACTOR
+  FIXED_TERM
 
-  department Department? @relation(fields: [departmentId], references: [id])
-  team       Team?       @relation(fields: [teamId], references: [id])
-
-  @@index([departmentId])
-  @@index([teamId])
-  @@index([employmentStatus])
-  @@map("employees")
   @@schema("hr_core")
 }
+
+// ============================================================
+// DOMAIN: Organization Structure
+// ============================================================
 
 model Department {
   id          String   @id @default(uuid())
@@ -84,7 +84,71 @@ model Position {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
+  employees Employee[]
+
   @@index([isActive])
   @@map("positions")
+  @@schema("hr_core")
+}
+
+// ============================================================
+// DOMAIN: Employees & Compensation
+// WHY: Employee is the central aggregate. All HR workflows
+// (leaves, performance, probation, complaints) reference it.
+// SalaryHistory is co-located because compensation is tightly
+// coupled to the employee lifecycle — not a separate domain.
+// ============================================================
+
+model Employee {
+  id               String           @id @default(uuid())
+  employeeCode     String           @unique
+  firstName        String
+  lastName         String
+  email            String           @unique
+  phone            String?
+  dateOfBirth      DateTime?
+  hireDate         DateTime
+  employmentStatus EmploymentStatus @default(ACTIVE)
+  contractType     ContractType     @default(FULL_TIME)
+  currentSalary    Decimal?         @db.Decimal(12, 2)
+  positionId       String?
+  departmentId     String?
+  teamId           String?
+  managerId        String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  position      Position?       @relation(fields: [positionId], references: [id])
+  department    Department?     @relation(fields: [departmentId], references: [id])
+  team          Team?           @relation(fields: [teamId], references: [id])
+  manager       Employee?       @relation("EmployeeManager", fields: [managerId], references: [id])
+  directReports Employee[]      @relation("EmployeeManager")
+  salaryHistory SalaryHistory[]
+
+  @@index([departmentId])
+  @@index([teamId])
+  @@index([employmentStatus])
+  @@index([positionId])
+  @@index([managerId])
+  @@index([email])
+  @@map("employees")
+  @@schema("hr_core")
+}
+
+model SalaryHistory {
+  id             String   @id @default(uuid())
+  employeeId     String
+  previousSalary Decimal  @db.Decimal(12, 2)
+  newSalary      Decimal  @db.Decimal(12, 2)
+  effectiveDate  DateTime
+  reason         String?
+  changedById    String
+  createdAt      DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
+  @@index([effectiveDate])
+  @@map("salary_history")
   @@schema("hr_core")
 }

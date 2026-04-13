@@ -122,15 +122,6 @@ exports.Prisma.TransactionIsolationLevel = makeStrictEnum({
   Serializable: 'Serializable'
 });
 
-exports.Prisma.EmployeeScalarFieldEnum = {
-  id: 'id',
-  firstName: 'firstName',
-  lastName: 'lastName',
-  departmentId: 'departmentId',
-  teamId: 'teamId',
-  employmentStatus: 'employmentStatus'
-};
-
 exports.Prisma.DepartmentScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -163,6 +154,37 @@ exports.Prisma.PositionScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.EmployeeScalarFieldEnum = {
+  id: 'id',
+  employeeCode: 'employeeCode',
+  firstName: 'firstName',
+  lastName: 'lastName',
+  email: 'email',
+  phone: 'phone',
+  dateOfBirth: 'dateOfBirth',
+  hireDate: 'hireDate',
+  employmentStatus: 'employmentStatus',
+  contractType: 'contractType',
+  currentSalary: 'currentSalary',
+  positionId: 'positionId',
+  departmentId: 'departmentId',
+  teamId: 'teamId',
+  managerId: 'managerId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.SalaryHistoryScalarFieldEnum = {
+  id: 'id',
+  employeeId: 'employeeId',
+  previousSalary: 'previousSalary',
+  newSalary: 'newSalary',
+  effectiveDate: 'effectiveDate',
+  reason: 'reason',
+  changedById: 'changedById',
+  createdAt: 'createdAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -185,11 +207,20 @@ exports.EmploymentStatus = exports.$Enums.EmploymentStatus = {
   RESIGNED: 'RESIGNED'
 };
 
+exports.ContractType = exports.$Enums.ContractType = {
+  FULL_TIME: 'FULL_TIME',
+  PART_TIME: 'PART_TIME',
+  INTERN: 'INTERN',
+  CONTRACTOR: 'CONTRACTOR',
+  FIXED_TERM: 'FIXED_TERM'
+};
+
 exports.Prisma.ModelName = {
-  Employee: 'Employee',
   Department: 'Department',
   Team: 'Team',
-  Position: 'Position'
+  Position: 'Position',
+  Employee: 'Employee',
+  SalaryHistory: 'SalaryHistory'
 };
 
 /**

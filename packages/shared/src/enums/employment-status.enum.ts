@@ -3,4 +3,5 @@ export enum EmploymentStatus {
   ON_LEAVE = "ON_LEAVE",
   PROBATION = "PROBATION",
   TERMINATED = "TERMINATED",
+  RESIGNED = "RESIGNED",
 }
