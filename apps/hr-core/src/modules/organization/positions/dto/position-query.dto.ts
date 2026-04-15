@@ -18,6 +18,14 @@ export class PositionQueryDto {
   @IsBoolean()
   isActive?: boolean;
 
+  @ApiPropertyOptional({ description: 'Filter by key position flag' })
+  @IsOptional()
+  @Transform(
+    ({ value }: { value: unknown }) => value === "true" || value === true,
+  )
+  @IsBoolean()
+  isKeyPosition?: boolean;
+
   @ApiPropertyOptional({ format: "uuid" })
   @IsOptional()
   @IsUUID()

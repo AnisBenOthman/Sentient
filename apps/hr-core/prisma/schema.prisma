@@ -62,6 +62,14 @@ enum PositionLevel {
   @@schema("hr_core")
 }
 
+enum KeyPositionRisk {
+  LOW
+  MEDIUM
+  HIGH
+
+  @@schema("hr_core")
+}
+
 enum SalaryChangeReason {
   PROMOTION
   ANNUAL_REVIEW
@@ -153,17 +161,22 @@ model Team {
 }
 
 model Position {
-  id        String         @id @default(uuid())
-  title     String         @unique
-  level     PositionLevel?
-  isActive  Boolean        @default(true)
-  createdAt DateTime       @default(now())
+  id              String           @id @default(uuid())
+  title           String           @unique
+  level           PositionLevel?
+  isActive        Boolean          @default(true)
+  isKeyPosition   Boolean          @default(false)
+  keyPositionRisk KeyPositionRisk? // null on non-key positions
+  hasSuccessor    Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   employees Employee[]
 
   @@schema("hr_core")
   @@map("positions")
   @@index([isActive])
+  @@index([isKeyPosition])
 }
 
 // ============================================================

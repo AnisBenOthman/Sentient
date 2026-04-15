@@ -23,7 +23,8 @@ import { SharedJwtGuard } from "../../../common/guards/shared-jwt.guard";
 import { CreatePositionDto } from "./dto/create-position.dto";
 import { PositionQueryDto } from "./dto/position-query.dto";
 import { UpdatePositionDto } from "./dto/update-position.dto";
-import { PositionsService } from "./positions.service";
+import { CursorPage, PositionsService } from "./positions.service";
+import { Position } from "../../../generated/prisma";
 
 @Controller("positions")
 // @UseGuards(SharedJwtGuard, RbacGuard) // TODO: re-enable when IAM module is implemented
@@ -43,6 +44,16 @@ export class PositionsController {
   @ApiOperation({ summary: "List positions" })
   findAll(@Query() query: PositionQueryDto, @CurrentUser() user?: JwtPayload) {
     return this.positionsService.findAll(query, (user ?? DEV_USER).roles);
+  }
+
+  @Get("key")
+  @Roles("MANAGER", "HR_ADMIN", "EXECUTIVE")
+  @ApiOperation({ summary: "List all active key positions" })
+  findKeyPositions(): Promise<CursorPage<Position>> {
+    return this.positionsService.findAll(
+      { isKeyPosition: true, limit: 200 },
+      ["HR_ADMIN"],
+    );
   }
 
   @Get(":id")

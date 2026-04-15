@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { Position } from "../../../generated/prisma";
+import { Prisma, Position } from "../../../generated/prisma";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { CreatePositionDto } from "./dto/create-position.dto";
 import { PositionQueryDto } from "./dto/position-query.dto";
@@ -26,6 +26,9 @@ export class PositionsService {
       data: {
         title: createPositionDto.title,
         level: createPositionDto.level,
+        isKeyPosition: createPositionDto.isKeyPosition ?? false,
+        keyPositionRisk: createPositionDto.keyPositionRisk,
+        hasSuccessor: createPositionDto.hasSuccessor ?? false,
       },
     });
   }
@@ -36,8 +39,11 @@ export class PositionsService {
   ): Promise<CursorPage<Position>> {
     const isAdmin = roles.includes("HR_ADMIN");
 
-    const where: { isActive: boolean } = {
+    const where: Prisma.PositionWhereInput = {
       isActive: isAdmin ? (query.isActive ?? true) : true,
+      ...(query.isKeyPosition !== undefined
+        ? { isKeyPosition: query.isKeyPosition }
+        : {}),
     };
 
     const [data, total] = await Promise.all([

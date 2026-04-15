@@ -2,6 +2,7 @@ export * from './agent-type.enum';
 export * from './education-level.enum';
 export * from './marital-status.enum';
 export * from './position-level.enum';
+export * from './key-position-risk.enum';
 export * from './salary-change-reason.enum';
 export * from './amendment-status.enum';
 export * from './amendment-type.enum';
