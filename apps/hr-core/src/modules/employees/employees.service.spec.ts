@@ -69,7 +69,11 @@ const baseEmployee = {
   hireDate: new Date('2024-01-15'),
   employmentStatus: 'ACTIVE' as EmploymentStatus,
   contractType: 'FULL_TIME' as ContractType,
-  currentSalary: new Decimal('70000'),
+  grossSalary: new Decimal('70000'),
+  netSalary: new Decimal('58000'),
+  maritalStatus: null,
+  educationLevel: null,
+  educationField: null,
   positionId: null,
   departmentId: 'dept-1',
   teamId: 'team-1',
@@ -154,14 +158,15 @@ describe('EmployeesService', () => {
     it('strips salary and DOB for non-privileged roles', async () => {
       mockPrisma.employee.findFirst.mockResolvedValue(baseEmployee);
       const result = await service.findById('emp-001', employeeUser);
-      expect(result.currentSalary).toBeNull();
+      expect(result.grossSalary).toBeNull();
+      expect(result.netSalary).toBeNull();
       expect(result.dateOfBirth).toBeNull();
     });
 
     it('returns salary for HR_ADMIN', async () => {
       mockPrisma.employee.findFirst.mockResolvedValue(baseEmployee);
       const result = await service.findById('emp-001', adminUser);
-      expect(result.currentSalary).not.toBeNull();
+      expect(result.grossSalary).not.toBeNull();
     });
   });
 

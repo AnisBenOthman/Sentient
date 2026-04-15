@@ -1,5 +1,7 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../prisma/prisma.module";
+import { BusinessUnitsController } from "./business-units/business-units.controller";
+import { BusinessUnitsService } from "./business-units/business-units.service";
 import { DepartmentsController } from "./departments/departments.controller";
 import { DepartmentsService } from "./departments/departments.service";
 import { OrgChartController } from "./org-chart/org-chart.controller";
@@ -12,18 +14,21 @@ import { TeamsService } from "./teams/teams.service";
 @Module({
   imports: [PrismaModule],
   controllers: [
+    BusinessUnitsController,
     DepartmentsController,
     TeamsController,
     PositionsController,
     OrgChartController,
   ],
   providers: [
+    BusinessUnitsService,
     DepartmentsService,
     TeamsService,
     PositionsService,
     OrgChartService,
   ],
   exports: [
+    BusinessUnitsService,
     DepartmentsService,
     TeamsService,
     PositionsService,

@@ -21,9 +21,16 @@ export interface TeamSummary {
   isActive: boolean;
 }
 
+export interface BusinessUnitRef {
+  id: string;
+  name: string;
+  address: string;
+}
+
 export interface DepartmentDetail extends Department {
   teams: TeamSummary[];
   head: EmployeeRef | null;
+  businessUnit: BusinessUnitRef | null;
 }
 
 export interface CursorPage<T> {
@@ -44,12 +51,17 @@ export class DepartmentsService {
       await this.resolveEmployee(dto.headId, true);
     }
 
+    if (dto.businessUnitId) {
+      await this.resolveBusinessUnit(dto.businessUnitId);
+    }
+
     return this.prisma.department.create({
       data: {
         name: dto.name,
         code: dto.code,
         description: dto.description,
         headId: dto.headId,
+        businessUnitId: dto.businessUnitId,
       },
     });
   }
@@ -91,6 +103,9 @@ export class DepartmentsService {
         teams: {
           select: { id: true, name: true, isActive: true },
         },
+        businessUnit: {
+          select: { id: true, name: true, address: true },
+        },
       },
     });
 
@@ -127,6 +142,11 @@ export class DepartmentsService {
         await this.resolveEmployee(dto.headId, true);
       }
     }
+    if (dto.businessUnitId !== undefined && dto.businessUnitId !== existing.businessUnitId) {
+      if (dto.businessUnitId) {
+        await this.resolveBusinessUnit(dto.businessUnitId);
+      }
+    }
 
     return this.prisma.department.update({
       where: { id },
@@ -136,6 +156,7 @@ export class DepartmentsService {
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.headId !== undefined && { headId: dto.headId }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+        ...(dto.businessUnitId !== undefined && { businessUnitId: dto.businessUnitId }),
       },
     });
   }
@@ -190,6 +211,23 @@ export class DepartmentsService {
     if (!employee && throwIfMissing) {
       throw new NotFoundException(
         `Employee ${employeeId} not found — headId must reference an existing employee`,
+      );
+    }
+  }
+
+  private async resolveBusinessUnit(businessUnitId: string): Promise<void> {
+    const bu = await this.prisma.businessUnit.findUnique({
+      where: { id: businessUnitId },
+      select: { id: true, isActive: true },
+    });
+    if (!bu) {
+      throw new NotFoundException(
+        `BusinessUnit ${businessUnitId} not found`,
+      );
+    }
+    if (!bu.isActive) {
+      throw new NotFoundException(
+        `BusinessUnit ${businessUnitId} is inactive`,
       );
     }
   }

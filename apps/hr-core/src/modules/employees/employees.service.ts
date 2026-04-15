@@ -9,9 +9,12 @@ import {
 import { randomUUID } from 'crypto';
 import {
   ContractType,
+  EducationLevel,
   Employee,
   EmploymentStatus,
+  MaritalStatus,
   Prisma,
+  SalaryChangeReason,
   SalaryHistory,
 } from '../../generated/prisma';
 import { Decimal } from '../../generated/prisma/runtime/library';
@@ -80,7 +83,11 @@ export class EmployeesService {
         dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
         hireDate: new Date(dto.hireDate),
         contractType: dto.contractType as ContractType,
-        currentSalary: dto.currentSalary ? new Decimal(dto.currentSalary) : undefined,
+        grossSalary: dto.grossSalary ? new Decimal(dto.grossSalary) : undefined,
+        netSalary: dto.netSalary ? new Decimal(dto.netSalary) : undefined,
+        maritalStatus: dto.maritalStatus as MaritalStatus | undefined,
+        educationLevel: dto.educationLevel as EducationLevel | undefined,
+        educationField: dto.educationField,
         positionId: dto.positionId,
         departmentId: dto.departmentId,
         teamId: dto.teamId,
@@ -165,31 +172,42 @@ export class EmployeesService {
       await this.validateEmployee(dto.managerId, 'managerId');
     }
 
-    const incomingSalary = dto.currentSalary ? new Decimal(dto.currentSalary) : undefined;
-    const previousSalary = existing.currentSalary;
-    const salaryChanged =
-      incomingSalary !== undefined &&
-      !incomingSalary.equals(previousSalary ?? new Decimal(0));
+    const incomingGross = dto.grossSalary ? new Decimal(dto.grossSalary) : undefined;
+    const incomingNet   = dto.netSalary   ? new Decimal(dto.netSalary)   : undefined;
+    const prevGross     = existing.grossSalary ?? new Decimal(0);
+    const prevNet       = existing.netSalary   ?? new Decimal(0);
+    const salaryChanged = incomingGross !== undefined && !incomingGross.equals(prevGross);
 
     let updated: EmployeeProfile;
 
-    if (salaryChanged && incomingSalary !== undefined) {
+    if (salaryChanged && incomingGross !== undefined) {
       // WHY: $transaction ensures salary history is always created when
       // the salary changes — no partial updates under concurrent writes.
       const [, emp] = await this.prisma.$transaction([
         this.prisma.salaryHistory.create({
           data: {
             employeeId: id,
-            previousSalary: previousSalary ?? new Decimal(0),
-            newSalary: incomingSalary,
+            previousGrossSalary: prevGross,
+            newGrossSalary: incomingGross,
+            previousNetSalary: prevNet,
+            newNetSalary: incomingNet,
+            grossRaisePercentage:
+              !prevGross.isZero()
+                ? incomingGross.minus(prevGross).div(prevGross).times(100).toDecimalPlaces(2)
+                : null,
+            netRaisePercentage:
+              incomingNet && !prevNet.isZero()
+                ? incomingNet.minus(prevNet).div(prevNet).times(100).toDecimalPlaces(2)
+                : null,
             effectiveDate: new Date(),
-            reason: dto.salaryChangeReason,
+            reason: dto.salaryChangeReason as unknown as SalaryChangeReason | undefined,
+            reasonComment: dto.salaryChangeComment,
             changedById: actorUserId,
           },
         }),
         this.prisma.employee.update({
           where: { id },
-          data: this.buildUpdateData(dto, incomingSalary),
+          data: this.buildUpdateData(dto, incomingGross, incomingNet),
           include: this.defaultInclude(),
         }),
       ]);
@@ -197,7 +215,7 @@ export class EmployeesService {
     } else {
       updated = await this.prisma.employee.update({
         where: { id },
-        data: this.buildUpdateData(dto, incomingSalary),
+        data: this.buildUpdateData(dto, incomingGross, incomingNet),
         include: this.defaultInclude(),
       }) as unknown as EmployeeProfile;
     }
@@ -345,7 +363,8 @@ export class EmployeesService {
     if (!isPrivileged) {
       return {
         ...employee,
-        currentSalary: null,
+        grossSalary: null,
+        netSalary: null,
         dateOfBirth: null,
         salaryHistory: undefined,
       };
@@ -355,7 +374,8 @@ export class EmployeesService {
 
   private buildUpdateData(
     dto: UpdateEmployeeDto,
-    incomingSalary: Decimal | undefined,
+    incomingGross: Decimal | undefined,
+    incomingNet: Decimal | undefined,
   ): Prisma.EmployeeUpdateInput {
     return {
       ...(dto.firstName !== undefined && { firstName: dto.firstName }),
@@ -364,7 +384,11 @@ export class EmployeesService {
       ...(dto.phone !== undefined && { phone: dto.phone }),
       ...(dto.dateOfBirth !== undefined && { dateOfBirth: new Date(dto.dateOfBirth) }),
       ...(dto.contractType !== undefined && { contractType: dto.contractType as ContractType }),
-      ...(incomingSalary !== undefined && { currentSalary: incomingSalary }),
+      ...(incomingGross !== undefined && { grossSalary: incomingGross }),
+      ...(incomingNet !== undefined && { netSalary: incomingNet }),
+      ...(dto.maritalStatus !== undefined && { maritalStatus: dto.maritalStatus as MaritalStatus }),
+      ...(dto.educationLevel !== undefined && { educationLevel: dto.educationLevel as EducationLevel }),
+      ...(dto.educationField !== undefined && { educationField: dto.educationField }),
       ...(dto.positionId !== undefined && { positionId: dto.positionId }),
       ...(dto.departmentId !== undefined && { departmentId: dto.departmentId }),
       ...(dto.teamId !== undefined && { teamId: dto.teamId }),

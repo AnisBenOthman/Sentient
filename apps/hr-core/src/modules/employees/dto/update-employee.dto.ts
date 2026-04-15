@@ -10,7 +10,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { ContractType } from '@sentient/shared';
+import { ContractType, EducationLevel, MaritalStatus, SalaryChangeReason } from '@sentient/shared';
 
 export class UpdateEmployeeDto {
   @ApiPropertyOptional()
@@ -46,20 +46,50 @@ export class UpdateEmployeeDto {
   @IsEnum(ContractType)
   contractType?: ContractType;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'New gross salary' })
   @IsOptional()
   @IsDecimal({ decimal_digits: '0,2' })
-  currentSalary?: string;
+  grossSalary?: string;
+
+  @ApiPropertyOptional({ description: 'New net salary' })
+  @IsOptional()
+  @IsDecimal({ decimal_digits: '0,2' })
+  netSalary?: string;
 
   @ApiPropertyOptional({
-    description: 'Required when currentSalary is provided',
+    enum: SalaryChangeReason,
+    description: 'Required when grossSalary is provided',
   })
-  // WHY: salaryChangeReason is only required when the salary actually changes.
-  // Cross-field validation enforced here so services trust their inputs.
-  @ValidateIf((o: UpdateEmployeeDto) => o.currentSalary !== undefined)
+  // WHY: salaryChangeReason is required when the gross salary changes.
+  // Cross-field validation enforced at the DTO boundary so services trust their inputs.
+  @ValidateIf((o: UpdateEmployeeDto) => o.grossSalary !== undefined)
+  @IsEnum(SalaryChangeReason)
+  salaryChangeReason?: SalaryChangeReason;
+
+  @ApiPropertyOptional({
+    description: 'Required when salaryChangeReason is OTHER',
+    maxLength: 500,
+  })
+  @ValidateIf((o: UpdateEmployeeDto) => o.salaryChangeReason === SalaryChangeReason.OTHER)
   @IsString()
   @MaxLength(500)
-  salaryChangeReason?: string;
+  salaryChangeComment?: string;
+
+  @ApiPropertyOptional({ enum: MaritalStatus })
+  @IsOptional()
+  @IsEnum(MaritalStatus)
+  maritalStatus?: MaritalStatus;
+
+  @ApiPropertyOptional({ enum: EducationLevel })
+  @IsOptional()
+  @IsEnum(EducationLevel)
+  educationLevel?: EducationLevel;
+
+  @ApiPropertyOptional({ maxLength: 100 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  educationField?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

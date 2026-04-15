@@ -11,7 +11,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ContractType } from '@sentient/shared';
+import { ContractType, EducationLevel, MaritalStatus } from '@sentient/shared';
 
 export class CreateEmployeeDto {
   @ApiProperty({ example: 'Anis' })
@@ -49,10 +49,31 @@ export class CreateEmployeeDto {
   @IsEnum(ContractType)
   contractType!: ContractType;
 
-  @ApiPropertyOptional({ example: '75000.00' })
+  @ApiPropertyOptional({ example: '75000.00', description: 'Gross salary' })
   @IsOptional()
   @IsDecimal({ decimal_digits: '0,2' })
-  currentSalary?: string;
+  grossSalary?: string;
+
+  @ApiPropertyOptional({ example: '62000.00', description: 'Net salary' })
+  @IsOptional()
+  @IsDecimal({ decimal_digits: '0,2' })
+  netSalary?: string;
+
+  @ApiPropertyOptional({ enum: MaritalStatus, example: MaritalStatus.SINGLE })
+  @IsOptional()
+  @IsEnum(MaritalStatus)
+  maritalStatus?: MaritalStatus;
+
+  @ApiPropertyOptional({ enum: EducationLevel, example: EducationLevel.BACHELOR })
+  @IsOptional()
+  @IsEnum(EducationLevel)
+  educationLevel?: EducationLevel;
+
+  @ApiPropertyOptional({ example: 'Computer Science', maxLength: 100 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  educationField?: string;
 
   @ApiPropertyOptional({ example: 'uuid-of-position' })
   @IsOptional()

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, Length } from 'class-validator';
+import { IsEnum, IsOptional, IsString, Length } from 'class-validator';
+import { PositionLevel } from '@sentient/shared';
 
 export class CreatePositionDto {
   @ApiProperty({ example: 'Software Engineer', minLength: 1, maxLength: 100 })
@@ -8,13 +9,11 @@ export class CreatePositionDto {
   title!: string;
 
   @ApiPropertyOptional({
-    example: 'Senior',
-    minLength: 1,
-    maxLength: 50,
-    description: 'Seniority level, e.g. Junior, Senior, Lead',
+    enum: PositionLevel,
+    example: PositionLevel.SENIOR_1,
+    description: 'Seniority level',
   })
   @IsOptional()
-  @IsString()
-  @Length(1, 50)
-  level?: string;
+  @IsEnum(PositionLevel)
+  level?: PositionLevel;
 }
