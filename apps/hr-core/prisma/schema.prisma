@@ -120,16 +120,16 @@ model BusinessUnit {
 
 model Department {
   id             String   @id @default(uuid())
-  name           String   @unique
-  code           String   @unique
+  name           String
+  code           String
   description    String?
   headId         String?
-  businessUnitId String?
+  businessUnitId String
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  businessUnit BusinessUnit? @relation(fields: [businessUnitId], references: [id])
+  businessUnit BusinessUnit @relation(fields: [businessUnitId], references: [id])
   teams        Team[]
   employees    Employee[]
 
@@ -137,6 +137,8 @@ model Department {
   @@map("departments")
   @@index([isActive])
   @@index([businessUnitId])
+  @@unique([name, businessUnitId])
+  @@unique([code, businessUnitId])
 }
 
 model Team {

@@ -4,7 +4,10 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import morgan from 'morgan';
 import { AppModule } from './app.module';
+import { HttpExceptionFilter } from './common/filters';
+import { TimeoutInterceptor } from './common/interceptors';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
@@ -12,6 +15,7 @@ async function bootstrap(): Promise<void> {
   const configService = app.get(ConfigService);
 
   app.use(helmet());
+  app.use(morgan('dev'));
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -20,6 +24,9 @@ async function bootstrap(): Promise<void> {
       transform: true,
     }),
   );
+
+  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalInterceptors(new TimeoutInterceptor(configService));
 
   app.enableCors({
     origin: configService.get<string>('FRONTEND_URL', 'http://localhost:3000'),

@@ -37,11 +37,10 @@ export class CreateDepartmentDto {
   @IsUUID()
   headId?: string;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     format: 'uuid',
     description: 'UUID of the business unit this department belongs to',
   })
-  @IsOptional()
   @IsUUID()
-  businessUnitId?: string;
+  businessUnitId!: string;
 }

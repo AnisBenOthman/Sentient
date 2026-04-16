@@ -44,8 +44,8 @@ export class DepartmentsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateDepartmentDto): Promise<Department> {
-    await this.ensureUniqueName(null, dto.name);
-    await this.ensureUniqueCode(null, dto.code);
+    await this.ensureUniqueName(null, dto.name, dto.businessUnitId);
+    await this.ensureUniqueCode(null, dto.code, dto.businessUnitId);
 
     if (dto.headId) {
       await this.resolveEmployee(dto.headId, true);
@@ -131,11 +131,20 @@ export class DepartmentsService {
       throw new NotFoundException(`Department ${id} not found`);
     }
 
-    if (dto.name && dto.name !== existing.name) {
-      await this.ensureUniqueName(id, dto.name);
+    const effectiveBuId =
+      dto.businessUnitId !== undefined
+        ? dto.businessUnitId
+        : existing.businessUnitId;
+
+    const buChanged =
+      dto.businessUnitId !== undefined &&
+      dto.businessUnitId !== existing.businessUnitId;
+
+    if ((dto.name && dto.name !== existing.name) || buChanged) {
+      await this.ensureUniqueName(id, dto.name ?? existing.name, effectiveBuId);
     }
-    if (dto.code && dto.code !== existing.code) {
-      await this.ensureUniqueCode(id, dto.code);
+    if ((dto.code && dto.code !== existing.code) || buChanged) {
+      await this.ensureUniqueCode(id, dto.code ?? existing.code, effectiveBuId);
     }
     if (dto.headId !== undefined && dto.headId !== existing.headId) {
       if (dto.headId) {
@@ -179,24 +188,30 @@ export class DepartmentsService {
   private async ensureUniqueName(
     excludeId: string | null,
     name: string,
+    businessUnitId: string,
   ): Promise<void> {
     const existing = await this.prisma.department.findFirst({
-      where: { name },
+      where: { name, businessUnitId: businessUnitId  },
     });
     if (existing && existing.id !== excludeId) {
-      throw new ConflictException('Department name already exists');
+      throw new ConflictException(
+        'Department name already exists within this business unit',
+      );
     }
   }
 
   private async ensureUniqueCode(
     excludeId: string | null,
     code: string,
+    businessUnitId: string ,
   ): Promise<void> {
     const existing = await this.prisma.department.findFirst({
-      where: { code },
+      where: { code, businessUnitId: businessUnitId  },
     });
     if (existing && existing.id !== excludeId) {
-      throw new ConflictException('Department code already exists');
+      throw new ConflictException(
+        'Department code already exists within this business unit',
+      );
     }
   }
 
