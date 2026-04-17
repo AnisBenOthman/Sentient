@@ -70,6 +70,25 @@ enum KeyPositionRisk {
   @@schema("hr_core")
 }
 
+enum ProficiencyLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+
+  @@schema("hr_core")
+}
+
+enum SourceLevel {
+  RECRUITMENT
+  TRAINING
+  CERTIFICATION
+  MANAGER
+  PEER_REVIEW
+
+  @@schema("hr_core")
+}
+
 enum SalaryChangeReason {
   PROMOTION
   ANNUAL_REVIEW
@@ -218,12 +237,15 @@ model Employee {
   updatedAt        DateTime         @updatedAt
   deletedAt        DateTime?
 
-  position       Position?       @relation(fields: [positionId], references: [id])
-  department     Department?     @relation(fields: [departmentId], references: [id])
-  team           Team?           @relation(fields: [teamId], references: [id])
-  manager        Employee?       @relation("EmployeeManager", fields: [managerId], references: [id])
-  directReports  Employee[]      @relation("EmployeeManager")
-  salaryHistory  SalaryHistory[]
+  position             Position?       @relation(fields: [positionId], references: [id])
+  department           Department?     @relation(fields: [departmentId], references: [id])
+  team                 Team?           @relation(fields: [teamId], references: [id])
+  manager              Employee?       @relation("EmployeeManager", fields: [managerId], references: [id])
+  directReports        Employee[]      @relation("EmployeeManager")
+  salaryHistory        SalaryHistory[]
+  skills               EmployeeSkill[]
+  skillHistory         SkillHistory[]
+  assessedSkillHistory SkillHistory[]  @relation("AssessedSkillHistories")
 
   @@schema("hr_core")
   @@map("employees")
@@ -256,4 +278,71 @@ model SalaryHistory {
   @@map("salary_history")
   @@index([employeeId])
   @@index([effectiveDate])
+}
+
+// ============================================================
+// DOMAIN: Skills
+// WHY: Separated from Employee to allow independent catalog
+// evolution and to isolate the append-only SkillHistory audit
+// trail from the mutable current-snapshot (EmployeeSkill).
+// ============================================================
+
+model Skill {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  category    String?
+  description String?
+  createdAt   DateTime @default(now())
+
+  employeeSkills EmployeeSkill[]
+  history        SkillHistory[]
+
+  @@schema("hr_core")
+  @@map("skills")
+  @@index([category])
+}
+
+model EmployeeSkill {
+  id           String           @id @default(uuid())
+  employeeId   String
+  skillId      String
+  proficiency  ProficiencyLevel
+  acquiredDate DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  deletedAt    DateTime?
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+  skill    Skill    @relation(fields: [skillId], references: [id])
+
+  @@schema("hr_core")
+  @@map("employee_skills")
+  @@index([employeeId])
+  @@index([skillId])
+  @@index([deletedAt])
+}
+
+model SkillHistory {
+  id            String            @id @default(uuid())
+  employeeId    String
+  skillId       String
+  previousLevel ProficiencyLevel?
+  newLevel      ProficiencyLevel?
+  effectiveDate DateTime
+  source        SourceLevel
+  note          String?
+  assessedById  String?
+  createdAt     DateTime          @default(now())
+
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+  skill      Skill     @relation(fields: [skillId], references: [id])
+  assessedBy Employee? @relation("AssessedSkillHistories", fields: [assessedById], references: [id])
+
+  @@schema("hr_core")
+  @@map("skill_history")
+  @@index([employeeId, effectiveDate])
+  @@index([skillId, effectiveDate])
+  @@index([effectiveDate])
+  @@index([source])
+  @@index([assessedById])
 }

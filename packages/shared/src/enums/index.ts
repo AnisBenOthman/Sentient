@@ -29,3 +29,5 @@ export * from './review-status.enum';
 export * from './service-name.enum';
 export * from './task-status.enum';
 export * from './task-trigger.enum';
+export * from './proficiency-level.enum';
+export * from './source-level.enum';

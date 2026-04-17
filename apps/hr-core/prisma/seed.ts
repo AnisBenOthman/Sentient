@@ -1,94 +1,84 @@
+import path from "node:path";
+import { config as loadEnv } from "dotenv";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PositionLevel, PrismaClient } from "../src/generated/prisma";
 
-const prisma = new PrismaClient();
+loadEnv({ path: path.join(__dirname, "..", ".env") });
+
+const adapter = new PrismaPg({ connectionString: process.env["HR_CORE_DATABASE_URL"] });
+const prisma = new PrismaClient({ adapter });
 
 async function main(): Promise<void> {
+  // BusinessUnit must exist before departments (FK constraint).
+  const bu = await prisma.businessUnit.upsert({
+    where:  { name: "Sentient HQ" },
+    update: {},
+    create: { name: "Sentient HQ", address: "Algiers, Algeria" },
+  });
+
+  // Departments — unique per (name, businessUnitId).
   await prisma.department.createMany({
     data: [
-      {
-        name: "Engineering",
-        code: "ENG",
-        description: "Engineering department",
-      },
-      { name: "Human Resources", code: "HR", description: "People operations" },
-      { name: "Product", code: "PRD", description: "Product management" },
+      { name: "Engineering",    code: "ENG", description: "Engineering department", businessUnitId: bu.id },
+      { name: "Human Resources", code: "HR",  description: "People operations",      businessUnitId: bu.id },
+      { name: "Product",        code: "PRD", description: "Product management",      businessUnitId: bu.id },
     ],
     skipDuplicates: true,
   });
 
   await prisma.position.createMany({
     data: [
-      { title: "Software Engineer - Junior", level: PositionLevel.JUNIOR },
-      { title: "Software Engineer - Senior I", level: PositionLevel.SENIOR_1 },
-      { title: "HR Generalist", level: PositionLevel.CONFIRMED },
-      { title: "Product Manager", level: PositionLevel.CONFIRMED },
-      { title: "DevOps Engineer", level: PositionLevel.MEDIUM },
+      { title: "Software Engineer - Junior",   level: PositionLevel.JUNIOR    },
+      { title: "Software Engineer - Senior I", level: PositionLevel.SENIOR_1  },
+      { title: "HR Generalist",                level: PositionLevel.CONFIRMED },
+      { title: "Product Manager",              level: PositionLevel.CONFIRMED },
+      { title: "DevOps Engineer",              level: PositionLevel.MEDIUM    },
     ],
     skipDuplicates: true,
   });
 
   const departments = await prisma.department.findMany({
-    where: {
-      code: {
-        in: ["ENG", "HR", "PRD"],
-      },
-    },
-    select: {
-      id: true,
-      code: true,
-      businessUnitId: true,
-    },
+    where:  { code: { in: ["ENG", "HR", "PRD"] }, businessUnitId: bu.id },
+    select: { id: true, code: true, businessUnitId: true },
   });
 
-  const byCode   = new Map(departments.map((d) => [d.code, d.id]));
-  const buByCode = new Map(departments.map((d) => [d.code, d.businessUnitId]));
+  const byCode = new Map(departments.map((d) => [d.code, d.id]));
 
-  // Team seed depends on seeded departments, so we resolve IDs by code first.
   await prisma.team.createMany({
     data: [
-      {
-        name: "Backend",
-        code: "ENG-BE",
-        departmentId:   byCode.get("ENG") ?? "",
-        businessUnitId: buByCode.get("ENG") ?? "",
-      },
-      {
-        name: "Frontend",
-        code: "ENG-FE",
-        departmentId:   byCode.get("ENG") ?? "",
-        businessUnitId: buByCode.get("ENG") ?? "",
-      },
-      {
-        name: "Talent Acquisition",
-        code: "HR-TA",
-        departmentId:   byCode.get("HR") ?? "",
-        businessUnitId: buByCode.get("HR") ?? "",
-      },
-      {
-        name: "Learning & Development",
-        code: "HR-LD",
-        departmentId:   byCode.get("HR") ?? "",
-        businessUnitId: buByCode.get("HR") ?? "",
-      },
-      {
-        name: "Product Strategy",
-        code: "PRD-PS",
-        departmentId:   byCode.get("PRD") ?? "",
-        businessUnitId: buByCode.get("PRD") ?? "",
-      },
-      {
-        name: "Product Design",
-        code: "PRD-DS",
-        departmentId:   byCode.get("PRD") ?? "",
-        businessUnitId: buByCode.get("PRD") ?? "",
-      },
-    ].filter((team) => Boolean(team.departmentId)),
+      { name: "Backend",              code: "ENG-BE", departmentId: byCode.get("ENG") ?? "", businessUnitId: bu.id },
+      { name: "Frontend",             code: "ENG-FE", departmentId: byCode.get("ENG") ?? "", businessUnitId: bu.id },
+      { name: "Talent Acquisition",   code: "HR-TA",  departmentId: byCode.get("HR")  ?? "", businessUnitId: bu.id },
+      { name: "Learning & Development", code: "HR-LD", departmentId: byCode.get("HR") ?? "", businessUnitId: bu.id },
+      { name: "Product Strategy",     code: "PRD-PS", departmentId: byCode.get("PRD") ?? "", businessUnitId: bu.id },
+      { name: "Product Design",       code: "PRD-DS", departmentId: byCode.get("PRD") ?? "", businessUnitId: bu.id },
+    ].filter((t) => Boolean(t.departmentId)),
     skipDuplicates: true,
   });
 
-  // Seed EnumMeta for ordered dropdowns and numeric comparison.
-  // WHY: Prisma enums are stored as strings — EnumMeta provides rank + label
-  // so the UI can show ordered option lists and the app can compare levels numerically.
+  // Skill catalog — upsert by name so the seed is safe to re-run.
+  const catalogSkills = [
+    { name: "React",         category: "Frontend"    },
+    { name: "TypeScript",    category: "Programming" },
+    { name: "PostgreSQL",    category: "Database"    },
+    { name: "Docker",        category: "DevOps"      },
+    { name: "Kubernetes",    category: "DevOps"      },
+    { name: "English",       category: "Language"    },
+    { name: "French",        category: "Language"    },
+    { name: "Arabic",        category: "Language"    },
+    { name: "Communication", category: "Soft Skills" },
+    { name: "Leadership",    category: "Soft Skills" },
+  ];
+
+  for (const skill of catalogSkills) {
+    await prisma.skill.upsert({
+      where:  { name: skill.name },
+      update: {},
+      create: skill,
+    });
+  }
+
+  // EnumMeta for ordered dropdowns and numeric comparison.
   await prisma.enumMeta.createMany({
     data: [
       { enumName: "PositionLevel", key: "JUNIOR",        rank: 0, label: "Junior"        },

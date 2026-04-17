@@ -7,6 +7,7 @@ import { AppService } from './app.service';
 import { CorrelationIdMiddleware } from './common/middleware';
 import { EmployeesModule } from './modules/employees/employees.module';
 import { OrganizationModule } from './modules/organization/organization.module';
+import { SkillsModule } from './modules/skills/skills.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -27,6 +28,7 @@ import { PrismaModule } from './prisma/prisma.module';
     PrismaModule,
     OrganizationModule,
     EmployeesModule,
+    SkillsModule,
   ],
   controllers: [AppController],
   providers: [

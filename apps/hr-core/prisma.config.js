@@ -9,6 +9,9 @@ const { defineConfig } = require('prisma/config');
 // Writing this as plain CJS avoids the mismatch.
 module.exports = defineConfig({
   schema: path.join(__dirname, 'prisma', 'schema.prisma'),
+  migrations: {
+    seed: 'ts-node prisma/seed.ts',
+  },
   datasource: {
     url: process.env['HR_CORE_DATABASE_URL'],
   },

@@ -48,7 +48,8 @@
       "Bash(node -e \"const p = require\\('./node_modules/prisma/package.json'\\); console.log\\(p.version\\)\")",
       "Bash(node -e \"const m = require\\('C:/Users/Anis/Downloads/Sentient/apps/hr-core/node_modules/prisma/build/index.js'\\); console.log\\(typeof m\\)\")",
       "Bash(node -e \"require\\('./generated/prisma'\\)\")",
-      "Bash(npx nest:*)"
+      "Bash(npx nest:*)",
+      "Bash(.specify/scripts/bash/create-new-feature.sh *)"
     ]
   }
 }
