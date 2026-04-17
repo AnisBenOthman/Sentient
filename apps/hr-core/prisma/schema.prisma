@@ -112,6 +112,7 @@ model BusinessUnit {
   updatedAt DateTime @updatedAt
 
   departments Department[]
+  teams       Team[]
 
   @@schema("hr_core")
   @@map("business_units")
@@ -142,24 +143,28 @@ model Department {
 }
 
 model Team {
-  id           String   @id @default(uuid())
-  name         String
-  code         String?  @unique
-  description  String?
-  departmentId String
-  leadId       String?
-  projectFocus String?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String   @id @default(uuid())
+  name           String
+  code           String?
+  description    String?
+  departmentId   String
+  businessUnitId String
+  leadId         String?
+  projectFocus   String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  department Department @relation(fields: [departmentId], references: [id])
-  employees  Employee[]
+  department   Department   @relation(fields: [departmentId], references: [id])
+  businessUnit BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  employees    Employee[]
 
   @@schema("hr_core")
   @@map("teams")
   @@index([departmentId])
+  @@index([businessUnitId])
   @@index([isActive])
+  @@unique([code, businessUnitId])
 }
 
 model Position {
@@ -211,6 +216,7 @@ model Employee {
   managerId        String?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?
 
   position       Position?       @relation(fields: [positionId], references: [id])
   department     Department?     @relation(fields: [departmentId], references: [id])
@@ -226,6 +232,7 @@ model Employee {
   @@index([employmentStatus])
   @@index([positionId])
   @@index([managerId])
+  @@index([deletedAt])
 }
 
 model SalaryHistory {

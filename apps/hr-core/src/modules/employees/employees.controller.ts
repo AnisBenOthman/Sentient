@@ -2,7 +2,10 @@ import {
   Body,
   Controller,
   DefaultValuePipe,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
   ParseUUIDPipe,
@@ -118,6 +121,22 @@ export class EmployeesController {
     @CurrentUser() user?: JwtPayload,
   ): Promise<Employee> {
     return this.employeesService.updateStatus(id, dto, (user ?? DEV_USER).sub);
+  }
+
+  // ---- US7: Delete ----
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  // @Roles('HR_ADMIN') // TODO: re-enable when IAM module is implemented
+  @ApiOperation({ summary: 'Soft-delete an employee record (sets deletedAt, record is retained for audit)' })
+  @ApiResponse({ status: 204, description: 'Employee deleted' })
+  @ApiResponse({ status: 403, description: 'Forbidden — HR_ADMIN role required' })
+  @ApiResponse({ status: 404, description: 'Employee not found or already deleted' })
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user?: JwtPayload,
+  ): Promise<void> {
+    return this.employeesService.remove(id, (user ?? DEV_USER).sub);
   }
 
   // ---- US6: Salary History ----

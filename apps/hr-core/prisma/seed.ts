@@ -36,12 +36,12 @@ async function main(): Promise<void> {
     select: {
       id: true,
       code: true,
+      businessUnitId: true,
     },
   });
 
-  const byCode = new Map(
-    departments.map((department) => [department.code, department.id]),
-  );
+  const byCode   = new Map(departments.map((d) => [d.code, d.id]));
+  const buByCode = new Map(departments.map((d) => [d.code, d.businessUnitId]));
 
   // Team seed depends on seeded departments, so we resolve IDs by code first.
   await prisma.team.createMany({
@@ -49,32 +49,38 @@ async function main(): Promise<void> {
       {
         name: "Backend",
         code: "ENG-BE",
-        departmentId: byCode.get("ENG") ?? "",
+        departmentId:   byCode.get("ENG") ?? "",
+        businessUnitId: buByCode.get("ENG") ?? "",
       },
       {
         name: "Frontend",
         code: "ENG-FE",
-        departmentId: byCode.get("ENG") ?? "",
+        departmentId:   byCode.get("ENG") ?? "",
+        businessUnitId: buByCode.get("ENG") ?? "",
       },
       {
         name: "Talent Acquisition",
         code: "HR-TA",
-        departmentId: byCode.get("HR") ?? "",
+        departmentId:   byCode.get("HR") ?? "",
+        businessUnitId: buByCode.get("HR") ?? "",
       },
       {
         name: "Learning & Development",
         code: "HR-LD",
-        departmentId: byCode.get("HR") ?? "",
+        departmentId:   byCode.get("HR") ?? "",
+        businessUnitId: buByCode.get("HR") ?? "",
       },
       {
         name: "Product Strategy",
         code: "PRD-PS",
-        departmentId: byCode.get("PRD") ?? "",
+        departmentId:   byCode.get("PRD") ?? "",
+        businessUnitId: buByCode.get("PRD") ?? "",
       },
       {
         name: "Product Design",
         code: "PRD-DS",
-        departmentId: byCode.get("PRD") ?? "",
+        departmentId:   byCode.get("PRD") ?? "",
+        businessUnitId: buByCode.get("PRD") ?? "",
       },
     ].filter((team) => Boolean(team.departmentId)),
     skipDuplicates: true,

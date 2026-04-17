@@ -6,7 +6,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter } from './common/filters';
+import { HttpExceptionFilter, PrismaExceptionFilter } from './common/filters';
 import { TimeoutInterceptor } from './common/interceptors';
 
 async function bootstrap(): Promise<void> {
@@ -25,7 +25,7 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalFilters(new PrismaExceptionFilter(), new HttpExceptionFilter());
   app.useGlobalInterceptors(new TimeoutInterceptor(configService));
 
   app.enableCors({

@@ -69,9 +69,13 @@ export class EmployeesService {
     await this.ensureEmployeeCodeUnique(null, employeeCode);
 
     if (dto.positionId) await this.validatePosition(dto.positionId);
-    if (dto.departmentId) await this.validateDepartment(dto.departmentId);
-    if (dto.teamId) await this.validateTeam(dto.teamId);
     if (dto.managerId) await this.validateEmployee(dto.managerId, 'managerId');
+
+    // Validate team↔department alignment; auto-derive departmentId from team when omitted.
+    const effectiveDepartmentId = await this.resolveTeamDepartmentAlignment(
+      dto.teamId ?? null,
+      dto.departmentId ?? null,
+    );
 
     const employee = await this.prisma.employee.create({
       data: {
@@ -89,7 +93,7 @@ export class EmployeesService {
         educationLevel: dto.educationLevel as EducationLevel | undefined,
         educationField: dto.educationField,
         positionId: dto.positionId,
-        departmentId: dto.departmentId,
+        departmentId: effectiveDepartmentId,
         teamId: dto.teamId,
         managerId: dto.managerId,
       },
@@ -118,7 +122,7 @@ export class EmployeesService {
 
   async findById(id: string, user: JwtPayload): Promise<EmployeeProfile> {
     const scopeFilter = this.buildScopeFilter(user);
-    const where: Prisma.EmployeeWhereInput = { AND: [scopeFilter, { id }] };
+    const where: Prisma.EmployeeWhereInput = { AND: [scopeFilter, { id, deletedAt: null }] };
     const isPrivileged = user.roles.includes('HR_ADMIN') || user.roles.includes('EXECUTIVE');
 
     const employee = await this.prisma.employee.findFirst({
@@ -134,12 +138,12 @@ export class EmployeesService {
     });
 
     if (!employee) {
-      // Distinguish 403 (scope) from 404 (not found):
+      // Distinguish 403 (scope) from 404 (not found or deleted):
       const exists = await this.prisma.employee.findUnique({
         where: { id },
-        select: { id: true },
+        select: { id: true, deletedAt: true },
       });
-      if (exists) {
+      if (exists && !exists.deletedAt) {
         throw new ForbiddenException('You do not have permission to view this employee');
       }
       throw new NotFoundException(`Employee ${id} not found`);
@@ -154,7 +158,7 @@ export class EmployeesService {
 
   async update(id: string, dto: UpdateEmployeeDto, actorUserId: string): Promise<EmployeeProfile> {
     const existing = await this.prisma.employee.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException(`Employee ${id} not found`);
+    if (!existing || existing.deletedAt) throw new NotFoundException(`Employee ${id} not found`);
 
     if (dto.email !== undefined && dto.email !== existing.email) {
       await this.ensureEmailUnique(id, dto.email);
@@ -162,14 +166,21 @@ export class EmployeesService {
     if (dto.positionId !== undefined && dto.positionId !== existing.positionId) {
       await this.validatePosition(dto.positionId);
     }
-    if (dto.departmentId !== undefined && dto.departmentId !== existing.departmentId) {
-      await this.validateDepartment(dto.departmentId);
-    }
-    if (dto.teamId !== undefined && dto.teamId !== existing.teamId) {
-      await this.validateTeam(dto.teamId);
-    }
     if (dto.managerId !== undefined && dto.managerId !== existing.managerId) {
       await this.validateEmployee(dto.managerId, 'managerId');
+    }
+
+    // Determine the team and department that will be in effect after the update.
+    const teamChanging = dto.teamId !== undefined && dto.teamId !== existing.teamId;
+    const deptChanging = dto.departmentId !== undefined && dto.departmentId !== existing.departmentId;
+
+    if (teamChanging || deptChanging) {
+      const effectiveTeamId =
+        dto.teamId !== undefined ? (dto.teamId ?? null) : (existing.teamId ?? null);
+      const effectiveDeptId =
+        dto.departmentId !== undefined ? (dto.departmentId ?? null) : (existing.departmentId ?? null);
+
+      await this.resolveTeamDepartmentAlignment(effectiveTeamId, effectiveDeptId);
     }
 
     const incomingGross = dto.grossSalary ? new Decimal(dto.grossSalary) : undefined;
@@ -239,7 +250,7 @@ export class EmployeesService {
   async findAll(query: EmployeeQueryDto, user: JwtPayload): Promise<PaginatedEmployees> {
     const scopeFilter = this.buildScopeFilter(user);
 
-    const filters: Prisma.EmployeeWhereInput[] = [scopeFilter];
+    const filters: Prisma.EmployeeWhereInput[] = [scopeFilter, { deletedAt: null }];
 
     if (query.departmentId) filters.push({ departmentId: query.departmentId });
     if (query.teamId) filters.push({ teamId: query.teamId });
@@ -289,7 +300,7 @@ export class EmployeesService {
     actorUserId: string,
   ): Promise<Employee> {
     const existing = await this.prisma.employee.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException(`Employee ${id} not found`);
+    if (!existing || existing.deletedAt) throw new NotFoundException(`Employee ${id} not found`);
 
     if (existing.employmentStatus === dto.status) {
       throw new ConflictException(`Employee is already in status ${dto.status}`);
@@ -332,14 +343,37 @@ export class EmployeesService {
   async getSalaryHistory(employeeId: string, limit: number): Promise<SalaryHistory[]> {
     const exists = await this.prisma.employee.findUnique({
       where: { id: employeeId },
-      select: { id: true },
+      select: { id: true, deletedAt: true },
     });
-    if (!exists) throw new NotFoundException(`Employee ${employeeId} not found`);
+    if (!exists || exists.deletedAt) throw new NotFoundException(`Employee ${employeeId} not found`);
 
     return this.prisma.salaryHistory.findMany({
       where: { employeeId },
       orderBy: { effectiveDate: 'desc' },
       take: limit,
+    });
+  }
+
+  // ============================================================
+  // US7: Soft Delete
+  // ============================================================
+
+  async remove(id: string, actorUserId: string): Promise<void> {
+    const existing = await this.prisma.employee.findUnique({ where: { id } });
+    if (!existing || existing.deletedAt) throw new NotFoundException(`Employee ${id} not found`);
+
+    await this.prisma.employee.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+
+    await this.eventBus.emit({
+      id: randomUUID(),
+      type: 'employee.deleted',
+      source: 'HR_CORE',
+      timestamp: new Date(),
+      payload: { employeeId: id },
+      metadata: { userId: actorUserId, correlationId: randomUUID() },
     });
   }
 
@@ -447,20 +481,42 @@ export class EmployeesService {
     if (!pos) throw new NotFoundException(`Position ${positionId} not found`);
   }
 
-  private async validateDepartment(departmentId: string): Promise<void> {
-    const dept = await this.prisma.department.findUnique({
-      where: { id: departmentId },
-      select: { id: true },
-    });
-    if (!dept) throw new NotFoundException(`Department ${departmentId} not found`);
-  }
+  /**
+   * WHY: An employee's team must always belong to their department.
+   * If teamId is provided without departmentId, we auto-derive the department
+   * from the team so HR admins don't need to repeat redundant data.
+   * If both are provided, they must agree.
+   *
+   * Returns the resolved departmentId (may differ from input when auto-derived).
+   */
+  private async resolveTeamDepartmentAlignment(
+    teamId: string | null,
+    departmentId: string | null,
+  ): Promise<string | null> {
+    if (!teamId) {
+      if (departmentId) {
+        const dept = await this.prisma.department.findUnique({
+          where: { id: departmentId },
+          select: { id: true },
+        });
+        if (!dept) throw new NotFoundException(`Department ${departmentId} not found`);
+      }
+      return departmentId;
+    }
 
-  private async validateTeam(teamId: string): Promise<void> {
     const team = await this.prisma.team.findUnique({
       where: { id: teamId },
-      select: { id: true },
+      select: { id: true, name: true, departmentId: true, department: { select: { name: true } } },
     });
     if (!team) throw new NotFoundException(`Team ${teamId} not found`);
+
+    if (departmentId && departmentId !== team.departmentId) {
+      throw new BadRequestException(
+        `Team "${team.name}" belongs to department "${team.department.name}" (${team.departmentId}), not the specified department (${departmentId})`,
+      );
+    }
+
+    return team.departmentId;
   }
 
   private async validateEmployee(employeeId: string, field: string): Promise<void> {

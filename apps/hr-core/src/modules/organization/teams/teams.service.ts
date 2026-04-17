@@ -31,7 +31,8 @@ export class TeamsService {
     // WHY: Department must be active — creating a team under an inactive dept
     // would produce an orphaned record that can't be reached from the org chart.
     const department = await this.prisma.department.findFirst({
-      where: { id: dto.departmentId, isActive: true },
+      where:  { id: dto.departmentId, isActive: true },
+      select: { id: true, businessUnitId: true },
     });
     if (!department) {
       throw new BadRequestException(
@@ -52,17 +53,18 @@ export class TeamsService {
     }
 
     if (dto.code) {
-      await this.ensureUniqueCode(null, dto.code);
+      await this.ensureUniqueCode(null, dto.code, department.businessUnitId);
     }
 
     return this.prisma.team.create({
       data: {
-        name: dto.name,
-        code: dto.code,
-        description: dto.description,
-        departmentId: dto.departmentId,
-        leadId: dto.leadId,
-        projectFocus: dto.projectFocus,
+        name:           dto.name,
+        code:           dto.code,
+        description:    dto.description,
+        departmentId:   dto.departmentId,
+        businessUnitId: department.businessUnitId,
+        leadId:         dto.leadId,
+        projectFocus:   dto.projectFocus,
       },
     });
   }
@@ -151,15 +153,19 @@ export class TeamsService {
       throw new NotFoundException(`Team ${id} not found`);
     }
 
+    let effectiveBusinessUnitId: string = existing.businessUnitId;
+
     if (dto.departmentId && dto.departmentId !== existing.departmentId) {
       const department = await this.prisma.department.findFirst({
-        where: { id: dto.departmentId, isActive: true },
+        where:  { id: dto.departmentId, isActive: true },
+        select: { id: true, businessUnitId: true },
       });
       if (!department) {
         throw new BadRequestException(
           `Department ${dto.departmentId} is inactive or does not exist`,
         );
       }
+      effectiveBusinessUnitId = department.businessUnitId;
     }
 
     if (dto.leadId !== undefined && dto.leadId !== existing.leadId) {
@@ -178,7 +184,7 @@ export class TeamsService {
 
     if (dto.code !== undefined && dto.code !== existing.code) {
       if (dto.code) {
-        await this.ensureUniqueCode(id, dto.code);
+        await this.ensureUniqueCode(id, dto.code, effectiveBusinessUnitId);
       }
     }
 
@@ -189,7 +195,8 @@ export class TeamsService {
         ...(dto.code !== undefined && { code: dto.code }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.departmentId !== undefined && {
-          departmentId: dto.departmentId,
+          departmentId:   dto.departmentId,
+          businessUnitId: effectiveBusinessUnitId,
         }),
         ...(dto.leadId !== undefined && { leadId: dto.leadId }),
         ...(dto.projectFocus !== undefined && {
@@ -218,10 +225,15 @@ export class TeamsService {
   private async ensureUniqueCode(
     excludeId: string | null,
     code: string,
+    businessUnitId: string,
   ): Promise<void> {
-    const existing = await this.prisma.team.findFirst({ where: { code } });
+    const existing = await this.prisma.team.findFirst({
+      where: { code, businessUnitId },
+    });
     if (existing && existing.id !== excludeId) {
-      throw new ConflictException('Team code already exists');
+      throw new ConflictException(
+        'Team code already exists within this business unit',
+      );
     }
   }
 }
