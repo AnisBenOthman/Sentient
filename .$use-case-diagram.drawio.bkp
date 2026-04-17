@@ -1,0 +1,354 @@
+<mxGraphModel adaptiveColors="auto">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+
+    <!-- System boundary -->
+    <mxCell id="sys" value="Sentient HRIS System" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=center;fontSize=18;fontStyle=1;fillColor=none;dashed=1;arcSize=2;strokeColor=#555555;strokeWidth=2;spacingTop=10;" vertex="1" parent="1">
+      <mxGeometry x="220" y="20" width="1100" height="1700" as="geometry"/>
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- ACTORS -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <mxCell id="a1" value="Employee" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="100" y="320" width="50" height="75" as="geometry"/>
+    </mxCell>
+    <mxCell id="a2" value="Manager" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="100" y="900" width="50" height="75" as="geometry"/>
+    </mxCell>
+    <mxCell id="a3" value="HR" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="100" y="1380" width="50" height="75" as="geometry"/>
+    </mxCell>
+
+    <!-- Actor generalization arrows -->
+    <mxCell id="gen1" edge="1" parent="1" source="a2" target="a1" style="html=1;endArrow=block;endFill=0;endSize=16;strokeWidth=2;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="gen2" edge="1" parent="1" source="a3" target="a2" style="html=1;endArrow=block;endFill=0;endSize=16;strokeWidth=2;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- SECTION LABELS -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <mxCell id="lbl1" value="Employee Use Cases (17)" style="text;html=1;fontSize=13;fontStyle=3;align=left;strokeColor=none;fillColor=none;fontColor=#1a5276;" vertex="1" parent="1">
+      <mxGeometry x="240" y="30" width="280" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="lbl2" value="Manager Use Cases (7)" style="text;html=1;fontSize=13;fontStyle=3;align=left;strokeColor=none;fillColor=none;fontColor=#784212;" vertex="1" parent="1">
+      <mxGeometry x="240" y="800" width="260" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="lbl3" value="HR Use Cases (10)" style="text;html=1;fontSize=13;fontStyle=3;align=left;strokeColor=none;fillColor=none;fontColor=#1e8449;" vertex="1" parent="1">
+      <mxGeometry x="240" y="1265" width="220" height="25" as="geometry"/>
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- SECTION SEPARATORS -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <mxCell id="sep1" value="" edge="1" parent="1" style="html=1;endArrow=none;dashed=1;strokeColor=#888888;strokeWidth=2;">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="220" y="790" as="sourcePoint"/>
+        <mxPoint x="1320" y="790" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="sep2" value="" edge="1" parent="1" style="html=1;endArrow=none;dashed=1;strokeColor=#888888;strokeWidth=2;">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="220" y="1255" as="sourcePoint"/>
+        <mxPoint x="1320" y="1255" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- EMPLOYEE USE CASES (Row layout, 3 columns) -->
+    <!-- ═══════════════════════════════════════════════════ -->
+
+    <!-- Row 1 -->
+    <mxCell id="uc1" value="Authenticate" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="290" y="80" width="200" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc2" value="View Own Profile" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="560" y="80" width="200" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc3" value="View Notifications" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="830" y="80" width="200" height="55" as="geometry"/>
+    </mxCell>
+
+    <!-- Row 2 -->
+    <mxCell id="uc4" value="Submit Leave Request" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="290" y="185" width="200" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc5" value="View Leave Balance" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="560" y="185" width="200" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc6" value="File Complaint" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="830" y="185" width="200" height="55" as="geometry"/>
+    </mxCell>
+
+    <!-- Row 3 -->
+    <mxCell id="uc7" value="Request Certificate" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="290" y="295" width="200" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc8" value="Auto-Generate&#xa;Certificate" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="560" y="290" width="200" height="65" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc9" value="View Documents" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="830" y="295" width="200" height="55" as="geometry"/>
+    </mxCell>
+
+    <!-- Row 4 -->
+    <mxCell id="uc10" value="Submit Self-Review" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="290" y="410" width="200" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc11" value="View Own&#xa;Performance Review" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="560" y="405" width="200" height="65" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc12" value="View Announcements" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="830" y="410" width="200" height="55" as="geometry"/>
+    </mxCell>
+
+    <!-- Row 5 -->
+    <mxCell id="uc13" value="View Events / RSVP" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="290" y="525" width="200" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc14" value="Submit Feedback" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="560" y="525" width="200" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc15" value="Reword Message&#xa;(Linguistic Agent)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="830" y="520" width="200" height="65" as="geometry"/>
+    </mxCell>
+
+    <!-- Row 6 — AI Agent cluster -->
+    <mxCell id="uc16" value="Chat with AI Assistant" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="290" y="640" width="200" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc17" value="Process Sick Leave" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="560" y="640" width="200" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc18" value="Get Career Advice" style="ellipse;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="830" y="640" width="200" height="55" as="geometry"/>
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- MANAGER USE CASES -->
+    <!-- ═══════════════════════════════════════════════════ -->
+
+    <!-- Row 1 -->
+    <mxCell id="uc19" value="Approve / Reject&#xa;Leave Request" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D6B656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="290" y="840" width="200" height="65" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc20" value="View Analytics" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D6B656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="560" y="845" width="200" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc21" value="Text-to-SQL Query" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D6B656;fontSize=12;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="830" y="845" width="200" height="55" as="geometry"/>
+    </mxCell>
+
+    <!-- Row 2 -->
+    <mxCell id="uc22" value="Conduct Team&#xa;Performance Review" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D6B656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="290" y="970" width="200" height="65" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc23" value="Publish Announcement" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D6B656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="560" y="975" width="200" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc24" value="Create Event" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D6B656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="830" y="975" width="200" height="55" as="geometry"/>
+    </mxCell>
+
+    <!-- Row 3 -->
+    <mxCell id="uc25" value="View Team Complaints" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D6B656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="290" y="1100" width="200" height="55" as="geometry"/>
+    </mxCell>
+    <!-- Scope note -->
+    <mxCell id="note1" value="&lt;b&gt;Scope:&lt;/b&gt; Manager = Team&#xa;HR = Global" style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+      <mxGeometry x="570" y="1095" width="175" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="nc1" edge="1" parent="1" source="note1" target="uc25" style="html=1;dashed=1;endArrow=none;strokeColor=#aaaaaa;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- HR USE CASES -->
+    <!-- ═══════════════════════════════════════════════════ -->
+
+    <!-- Row 1 -->
+    <mxCell id="uc26" value="Add Person" style="ellipse;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="290" y="1300" width="200" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc27" value="Edit Person" style="ellipse;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="560" y="1300" width="200" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc28" value="Deactivate Person" style="ellipse;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="830" y="1300" width="200" height="55" as="geometry"/>
+    </mxCell>
+
+    <!-- Row 2 -->
+    <mxCell id="uc29" value="Assign / Change&#xa;Profile Role" style="ellipse;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="290" y="1415" width="200" height="65" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc30" value="Approve Certificate&#xa;Request" style="ellipse;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="560" y="1410" width="200" height="65" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc31" value="View Certificate&#xa;Request History" style="ellipse;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="830" y="1410" width="200" height="65" as="geometry"/>
+    </mxCell>
+
+    <!-- Row 3 -->
+    <mxCell id="uc32" value="Manage Complaints&#xa;(resolve / close)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="290" y="1535" width="200" height="65" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc33" value="Upload Documents" style="ellipse;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="560" y="1540" width="200" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="uc34" value="Manage Leave&#xa;Configuration" style="ellipse;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="830" y="1535" width="200" height="65" as="geometry"/>
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- ACTOR → USE CASE CONNECTIONS -->
+    <!-- Employee -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <mxCell id="ea1"  edge="1" parent="1" source="a1" target="uc1"  style="html=1;endArrow=none;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ea2"  edge="1" parent="1" source="a1" target="uc2"  style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ea3"  edge="1" parent="1" source="a1" target="uc3"  style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ea4"  edge="1" parent="1" source="a1" target="uc4"  style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ea5"  edge="1" parent="1" source="a1" target="uc6"  style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ea6"  edge="1" parent="1" source="a1" target="uc7"  style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ea7"  edge="1" parent="1" source="a1" target="uc9"  style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ea8"  edge="1" parent="1" source="a1" target="uc10" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ea9"  edge="1" parent="1" source="a1" target="uc12" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ea10" edge="1" parent="1" source="a1" target="uc13" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ea11" edge="1" parent="1" source="a1" target="uc14" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ea12" edge="1" parent="1" source="a1" target="uc15" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ea13" edge="1" parent="1" source="a1" target="uc16" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+    <!-- Manager -->
+    <mxCell id="ma1" edge="1" parent="1" source="a2" target="uc19" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ma2" edge="1" parent="1" source="a2" target="uc20" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ma3" edge="1" parent="1" source="a2" target="uc22" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ma4" edge="1" parent="1" source="a2" target="uc23" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ma5" edge="1" parent="1" source="a2" target="uc24" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ma6" edge="1" parent="1" source="a2" target="uc25" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+    <!-- HR -->
+    <mxCell id="ha1" edge="1" parent="1" source="a3" target="uc26" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ha2" edge="1" parent="1" source="a3" target="uc27" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ha3" edge="1" parent="1" source="a3" target="uc28" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ha4" edge="1" parent="1" source="a3" target="uc30" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ha5" edge="1" parent="1" source="a3" target="uc31" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ha6" edge="1" parent="1" source="a3" target="uc32" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ha7" edge="1" parent="1" source="a3" target="uc33" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ha8" edge="1" parent="1" source="a3" target="uc34" style="html=1;endArrow=none;"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- RELATIONSHIPS -->
+    <!-- ═══════════════════════════════════════════════════ -->
+
+    <!-- <<include>> Submit Leave → View Leave Balance -->
+    <mxCell id="inc1" value="&lt;&lt;include&gt;&gt;" edge="1" parent="1" source="uc4" target="uc5" style="html=1;dashed=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;strokeColor=#6C8EBF;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- <<include>> Request Certificate → Auto-Generate Certificate -->
+    <mxCell id="inc2" value="&lt;&lt;include&gt;&gt;" edge="1" parent="1" source="uc7" target="uc8" style="html=1;dashed=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;strokeColor=#6C8EBF;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- <<include>> View Analytics → Text-to-SQL Query -->
+    <mxCell id="inc3" value="&lt;&lt;include&gt;&gt;" edge="1" parent="1" source="uc20" target="uc21" style="html=1;dashed=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;strokeColor=#D6B656;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- <<include>> Add Person → Assign/Change Profile Role -->
+    <mxCell id="inc4" value="&lt;&lt;include&gt;&gt;" edge="1" parent="1" source="uc26" target="uc29" style="html=1;dashed=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;strokeColor=#82B366;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- <<extend>> Process Sick Leave → Chat with AI Assistant -->
+    <mxCell id="ext1" value="&lt;&lt;extend&gt;&gt;" edge="1" parent="1" source="uc17" target="uc16" style="html=1;dashed=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;strokeColor=#999999;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- <<extend>> Get Career Advice → Chat with AI Assistant -->
+    <mxCell id="ext2" value="&lt;&lt;extend&gt;&gt;" edge="1" parent="1" source="uc18" target="uc16" style="html=1;dashed=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;strokeColor=#999999;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- LEGEND -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <mxCell id="leg_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;arcSize=8;strokeWidth=1.5;" vertex="1" parent="1">
+      <mxGeometry x="15" y="1450" width="185" height="165" as="geometry"/>
+    </mxCell>
+    <mxCell id="leg_t" value="Legend" style="text;html=1;fontSize=13;fontStyle=1;align=left;" vertex="1" parent="1">
+      <mxGeometry x="25" y="1458" width="80" height="22" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="l1d" value="" style="ellipse;fillColor=#DAE8FC;strokeColor=#6C8EBF;html=1;" vertex="1" parent="1">
+      <mxGeometry x="28" y="1488" width="16" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="l1t" value="Employee Use Cases" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="52" y="1485" width="140" height="22" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="l2d" value="" style="ellipse;fillColor=#FFE6CC;strokeColor=#D6B656;html=1;" vertex="1" parent="1">
+      <mxGeometry x="28" y="1515" width="16" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="l2t" value="Manager Use Cases" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="52" y="1512" width="140" height="22" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="l3d" value="" style="ellipse;fillColor=#D5E8D4;strokeColor=#82B366;html=1;" vertex="1" parent="1">
+      <mxGeometry x="28" y="1542" width="16" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="l3t" value="HR-Only Use Cases" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="52" y="1539" width="140" height="22" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="l4d" value="" style="ellipse;fillColor=#ffffff;strokeColor=#555555;html=1;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="28" y="1569" width="16" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="l4t" value="Included / Extended UC" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="52" y="1566" width="140" height="22" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="l5line" value="" edge="1" parent="1" style="html=1;dashed=1;endArrow=open;endFill=0;strokeColor=#555555;entryX=1;entryY=0.5;" source="l5src" target="l5tgt">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="l5src" value="" style="point;html=1;" vertex="1" parent="1"><mxGeometry x="28" y="1595" width="1" height="1" as="geometry"/></mxCell>
+    <mxCell id="l5tgt" value="" style="point;html=1;" vertex="1" parent="1"><mxGeometry x="75" y="1595" width="1" height="1" as="geometry"/></mxCell>
+    <mxCell id="l5t" value="&lt;&lt;include&gt;&gt; / &lt;&lt;extend&gt;&gt;" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="52" y="1589" width="145" height="22" as="geometry"/>
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- CONTRACT AMENDMENT USE CASES -->
+    <!-- ═══════════════════════════════════════════════════ -->
+
+    <!-- Manager: Amend Employee Contract (uc35) — in Manager section, 4th column row 1 -->
+    <mxCell id="uc35" value="Amend Employee&#xa;Contract" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D6B656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="1100" y="870" width="200" height="65" as="geometry"/>
+    </mxCell>
+
+    <!-- HR: Review Contract Amendment (uc36) — in HR section, 4th column row 1 -->
+    <mxCell id="uc36" value="Review Contract&#xa;Amendment" style="ellipse;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="1100" y="1300" width="200" height="65" as="geometry"/>
+    </mxCell>
+
+    <!-- Manager → uc35 -->
+    <mxCell id="ma7" edge="1" parent="1" source="a2" target="uc35" style="html=1;endArrow=none;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- HR → uc36 -->
+    <mxCell id="ha9" edge="1" parent="1" source="a3" target="uc36" style="html=1;endArrow=none;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- <<include>> Amend Employee Contract → Review Contract Amendment -->
+    <!-- WHY: Submitting an amendment always triggers the HR review step -->
+    <mxCell id="inc5" value="&lt;&lt;include&gt;&gt;" edge="1" parent="1" source="uc35" target="uc36" style="html=1;dashed=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;strokeColor=#D6B656;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+  </root>
+</mxGraphModel>

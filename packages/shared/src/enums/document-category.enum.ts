@@ -1,0 +1,7 @@
+export enum DocumentCategory {
+  POLICY = 'POLICY',
+  PROCEDURE = 'PROCEDURE',
+  TEMPLATE = 'TEMPLATE',
+  REGULATION = 'REGULATION',
+  OTHER = 'OTHER',
+}

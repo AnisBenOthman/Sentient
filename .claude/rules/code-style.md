@@ -143,18 +143,23 @@ export class LeavesController {
 ```typescript
 // ✅ Always in common/clients/ directory
 // ✅ Always @Injectable() for DI
-// ✅ Always forward the JWT for RBAC enforcement
+// ✅ Always accept AgentContext (not raw jwt: string) for RBAC enforcement
 // ✅ Always return typed responses using shared interfaces
+// ✅ Always wrap HTTP calls in try/catch — call GracefulDegradationHandler on 403
 
 @Injectable()
 export class HrCoreClient {
-  async getEmployee(id: string, jwt: string): Promise<EmployeeRef> { }
-  async getLeaveBalance(employeeId: string, jwt: string): Promise<LeaveBalance[]> { }
+  // WHY: AgentContext carries jwt + claims + isSystemContext + taskLogId.
+  // Accepting it instead of jwt: string ensures all tool calls are auditable
+  // and SYSTEM vs user JWT selection is explicit, not scattered across callers.
+  async getEmployee(id: string, context: AgentContext): Promise<EmployeeRef> { }
+  async getLeaveBalance(employeeId: string, context: AgentContext): Promise<LeaveBalance[]> { }
 }
 
 // ❌ Never call another service's database directly
 // ❌ Never import from another app's source code
 // ❌ Never hardcode service URLs (use ConfigService)
+// ❌ Never accept jwt: string in client methods — always AgentContext
 ```
 
 ### Dependency Injection
@@ -238,6 +243,37 @@ npx prisma migrate dev --name add_agent_risk_assessment_to_leave_requests
 # Never edit a migration after it's been applied
 # Never run one service's migrations from another service's directory
 ```
+
+### Critical: DROP INDEX vs DROP CONSTRAINT for Prisma-generated unique constraints
+
+Prisma generates `@@unique()` fields as **standalone indexes** (`CREATE UNIQUE INDEX`),
+NOT as named constraints. This means when you need to remove or replace a unique constraint
+in a migration, you MUST use `DROP INDEX`, not `DROP CONSTRAINT`.
+
+```sql
+-- ❌ WRONG — silently no-ops with IF EXISTS; the unique index survives
+ALTER TABLE hr_core.departments DROP CONSTRAINT IF EXISTS "departments_name_key";
+
+-- ✅ CORRECT — actually drops the Prisma-generated unique index
+DROP INDEX IF EXISTS "hr_core"."departments_name_key";
+```
+
+**Rule:** Whenever you write a migration that changes a `@@unique()` or `@unique`
+constraint (rename, replace with composite, or remove):
+1. Use `DROP INDEX IF EXISTS "schema"."index_name"` to remove the old one
+2. Then add the new constraint with `ADD CONSTRAINT ... UNIQUE (...)`
+3. After writing the migration, verify no old standalone indexes will survive alongside
+   the new constraint — check the init migration to confirm index names
+
+**Checklist before writing any migration that touches unique constraints:**
+- [ ] Read the earliest migration that created the table to find the exact index name
+- [ ] Confirm it was created with `CREATE UNIQUE INDEX` (Prisma default) or `ADD CONSTRAINT UNIQUE`
+- [ ] Use the appropriate drop command (`DROP INDEX` vs `ALTER TABLE ... DROP CONSTRAINT`)
+- [ ] Verify the new constraint name does not conflict with existing index names
+
+**Prisma exception filter:** Always register `PrismaExceptionFilter` globally in `main.ts`
+so that unhandled Prisma P2002 errors return 409 ConflictException instead of 500.
+This provides a safety net for any constraint violations that slip through service-level checks.
 
 ---
 
@@ -429,5 +465,28 @@ components/
 ├── leaves/              # Domain: Leave management
 ├── intranet/            # Domain: Social service data
 ├── chat/                # Domain: AI conversations
+│   └── citation-badge.tsx    # Feature 5: Source attribution badge (internal/regulation)
+├── governance/          # Feature 2: AI Governance Center
+│   ├── task-log-table.tsx
+│   ├── task-log-filters.tsx
+│   ├── agent-stats-grid.tsx
+│   ├── error-rate-chart.tsx
+│   └── tool-call-chain.tsx   # Recursive tree of parentLogId → childLogs
+├── exit-surveys/        # Feature 3: Exit survey admin views
+│   ├── exit-survey-table.tsx
+│   ├── exit-survey-aggregate-chart.tsx
+│   └── exit-survey-ai-summary.tsx
+├── org-chart/           # Feature 4: React Flow org chart + scenario modeler
+│   ├── org-chart-canvas.tsx   # 'use client'; @xyflow/react canvas
+│   ├── employee-node.tsx
+│   ├── department-group-node.tsx
+│   ├── scenario-change-list.tsx
+│   ├── scenario-analysis-panel.tsx
+│   └── scenario-approval-modal.tsx
 └── layout/              # Sidebar, Header, Navigation
 ```
+
+**React Flow note:** `org-chart-canvas.tsx` is the only component in `org-chart/` that
+requires `'use client'` — the parent `page.tsx` fetches initial org data as a Server
+Component and passes it as props. `@xyflow/react` (React Flow v12) is added to
+`apps/web/package.json`.

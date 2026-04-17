@@ -1,0 +1,259 @@
+datasource db {
+  provider = "postgresql"
+  schemas  = ["hr_core"]
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum EmploymentStatus {
+  ACTIVE
+  ON_LEAVE
+  PROBATION
+  TERMINATED
+  RESIGNED
+
+  @@schema("hr_core")
+}
+
+enum ContractType {
+  FULL_TIME
+  PART_TIME
+  INTERN
+  CONTRACTOR //free_lance
+  FIXED_TERM
+
+  @@schema("hr_core")
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+
+  @@schema("hr_core")
+}
+
+enum EducationLevel {
+  BELOW_COLLEGE
+  COLLEGE
+  BACHELOR
+  MASTER
+  DOCTOR
+
+  @@schema("hr_core")
+}
+
+enum PositionLevel {
+  JUNIOR
+  MEDIUM
+  CONFIRMED
+  SENIOR_1
+  SENIOR_2
+  EXPERT
+
+  @@schema("hr_core")
+}
+
+enum KeyPositionRisk {
+  LOW
+  MEDIUM
+  HIGH
+
+  @@schema("hr_core")
+}
+
+enum SalaryChangeReason {
+  PROMOTION
+  ANNUAL_REVIEW
+  NEW_FUNCTION
+  OTHER
+
+  @@schema("hr_core")
+}
+
+// ============================================================
+// DOMAIN: Enum Metadata
+// WHY: Prisma enums are stored as strings — no native integer
+// mapping. EnumMeta provides rank + label for ordered dropdowns
+// and numeric comparisons (e.g. "at least SENIOR_1").
+// ============================================================
+
+model EnumMeta {
+  id       String @id @default(uuid())
+  enumName String
+  key      String
+  rank     Int
+  label    String
+
+  @@unique([enumName, key])
+  @@schema("hr_core")
+  @@map("enum_meta")
+  @@index([enumName])
+}
+
+// ============================================================
+// DOMAIN: Organization Structure
+// ============================================================
+
+model BusinessUnit {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  address   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  departments Department[]
+  teams       Team[]
+
+  @@schema("hr_core")
+  @@map("business_units")
+  @@index([isActive])
+}
+
+model Department {
+  id             String   @id @default(uuid())
+  name           String
+  code           String
+  description    String?
+  headId         String?
+  businessUnitId String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  businessUnit BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  teams        Team[]
+  employees    Employee[]
+
+  @@schema("hr_core")
+  @@map("departments")
+  @@index([isActive])
+  @@index([businessUnitId])
+  @@unique([name, businessUnitId])
+  @@unique([code, businessUnitId])
+}
+
+model Team {
+  id             String   @id @default(uuid())
+  name           String
+  code           String?
+  description    String?
+  departmentId   String
+  businessUnitId String
+  leadId         String?
+  projectFocus   String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  department   Department   @relation(fields: [departmentId], references: [id])
+  businessUnit BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  employees    Employee[]
+
+  @@schema("hr_core")
+  @@map("teams")
+  @@index([departmentId])
+  @@index([businessUnitId])
+  @@index([isActive])
+  @@unique([code, businessUnitId])
+}
+
+model Position {
+  id              String           @id @default(uuid())
+  title           String           @unique
+  level           PositionLevel?
+  isActive        Boolean          @default(true)
+  isKeyPosition   Boolean          @default(false)
+  keyPositionRisk KeyPositionRisk? // null on non-key positions
+  hasSuccessor    Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  employees Employee[]
+
+  @@schema("hr_core")
+  @@map("positions")
+  @@index([isActive])
+  @@index([isKeyPosition])
+}
+
+// ============================================================
+// DOMAIN: Employees & Compensation
+// WHY: Employee is the central aggregate. All HR workflows
+// (leaves, performance, probation, complaints) reference it.
+// SalaryHistory is co-located because compensation is tightly
+// coupled to the employee lifecycle — not a separate domain.
+// ============================================================
+
+model Employee {
+  id               String           @id @default(uuid())
+  employeeCode     String           @unique
+  firstName        String
+  lastName         String
+  email            String           @unique
+  phone            String?
+  dateOfBirth      DateTime?
+  hireDate         DateTime
+  employmentStatus EmploymentStatus @default(ACTIVE)
+  contractType     ContractType     @default(FULL_TIME)
+  grossSalary      Decimal?         @db.Decimal(12, 2)
+  netSalary        Decimal?         @db.Decimal(12, 2)
+  maritalStatus    MaritalStatus?
+  educationLevel   EducationLevel?
+  educationField   String?
+  positionId       String?
+  departmentId     String?
+  teamId           String?
+  managerId        String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?
+
+  position       Position?       @relation(fields: [positionId], references: [id])
+  department     Department?     @relation(fields: [departmentId], references: [id])
+  team           Team?           @relation(fields: [teamId], references: [id])
+  manager        Employee?       @relation("EmployeeManager", fields: [managerId], references: [id])
+  directReports  Employee[]      @relation("EmployeeManager")
+  salaryHistory  SalaryHistory[]
+
+  @@schema("hr_core")
+  @@map("employees")
+  @@index([departmentId])
+  @@index([teamId])
+  @@index([employmentStatus])
+  @@index([positionId])
+  @@index([managerId])
+  @@index([deletedAt])
+}
+
+model SalaryHistory {
+  id                   String              @id @default(uuid())
+  employeeId           String
+  previousGrossSalary  Decimal             @db.Decimal(12, 2)
+  newGrossSalary       Decimal             @db.Decimal(12, 2)
+  previousNetSalary    Decimal?            @db.Decimal(12, 2)
+  newNetSalary         Decimal?            @db.Decimal(12, 2)
+  grossRaisePercentage Decimal?            @db.Decimal(6, 2)
+  netRaisePercentage   Decimal?            @db.Decimal(6, 2)
+  effectiveDate        DateTime
+  reason               SalaryChangeReason?
+  reasonComment        String?
+  changedById          String
+  createdAt            DateTime            @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@schema("hr_core")
+  @@map("salary_history")
+  @@index([employeeId])
+  @@index([effectiveDate])
+}

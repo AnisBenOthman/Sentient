@@ -192,22 +192,37 @@ export class RbacGuard implements CanActivate {
 
 ### Endpoint-Level RBAC Matrix (Social)
 
-| Endpoint                           | EMPLOYEE | MANAGER | HR_ADMIN | EXECUTIVE |
-|------------------------------------|----------|---------|----------|-----------|
-| GET /announcements                 | ✅       | ✅      | ✅       | ✅        |
-| POST /announcements                | ❌       | ❌      | ✅       | ❌        |
-| POST /feedback                     | ✅       | ✅      | ✅       | ✅        |
-| GET /feedback (anonymous)          | ❌       | ❌      | ✅       | ✅        |
-| GET /engagement-snapshots          | ❌       | ❌      | ✅       | ✅        |
+| Endpoint                           | EMPLOYEE | MANAGER | HR_ADMIN | EXECUTIVE | SYSTEM |
+|------------------------------------|----------|---------|----------|-----------|--------|
+| GET /announcements                 | ✅       | ✅      | ✅       | ✅        | ❌     |
+| POST /announcements                | ❌       | ❌      | ✅       | ❌        | ❌     |
+| POST /feedback                     | ✅       | ✅      | ✅       | ✅        | ❌     |
+| GET /feedback (anonymous)          | ❌       | ❌      | ✅       | ✅        | ❌     |
+| GET /engagement-snapshots          | ❌       | ❌      | ✅       | ✅        | ❌     |
+| POST /exit-surveys                 | ❌       | ❌      | ❌       | ❌        | ✅     |
+| PATCH /exit-surveys/:id/send       | ❌       | ❌      | ❌       | ❌        | ✅     |
+| POST /exit-surveys/:id/respond     | Survey token only (no JWT) — public scoped endpoint |||||
+| GET /exit-surveys                  | ❌       | ❌      | ✅       | ❌        | ❌     |
+| GET /exit-surveys/aggregate        | ❌       | ❌      | ✅       | ✅        | ❌     |
+| PATCH /exit-surveys/:id/cancel     | ❌       | ❌      | ✅       | ❌        | ❌     |
 
 ### Endpoint-Level RBAC Matrix (AI Agentic)
 
-| Endpoint                           | EMPLOYEE | MANAGER | HR_ADMIN | EXECUTIVE |
-|------------------------------------|----------|---------|----------|-----------|
-| POST /conversations                | ✅       | ✅      | ✅       | ✅        |
-| POST /conversations/:id/messages   | ✅       | ✅      | ✅       | ✅        |
-| GET /conversations (own only)      | ✅       | ✅      | ✅       | ✅        |
-| Analytics Agent queries            | ❌       | ❌      | ✅       | ✅        |
+| Endpoint                              | EMPLOYEE | MANAGER | HR_ADMIN | EXECUTIVE | SYSTEM_ADMIN |
+|---------------------------------------|----------|---------|----------|-----------|--------------|
+| POST /conversations                   | ✅       | ✅      | ✅       | ✅        | ❌           |
+| POST /conversations/:id/messages      | ✅       | ✅      | ✅       | ✅        | ❌           |
+| GET /conversations (own only)         | ✅       | ✅      | ✅       | ✅        | ❌           |
+| Analytics Agent queries               | ❌       | ❌      | ✅       | ✅        | ❌           |
+| GET /task-logs                        | ❌       | ❌      | ✅       | ❌        | ✅           |
+| GET /task-logs/:id                    | ❌       | ❌      | ✅       | ❌        | ✅           |
+| GET /task-logs/stats                  | ❌       | ❌      | ✅       | ❌        | ✅           |
+| POST /org-scenarios                   | ❌       | ✅      | ✅       | ❌        | ❌           |
+| GET /org-scenarios (OWN/GLOBAL scope) | ❌       | ✅      | ✅       | ❌        | ❌           |
+| POST /org-scenarios/:id/analyze       | ❌       | ✅      | ✅       | ❌        | ❌           |
+| POST /org-scenarios/:id/approve       | ❌       | ❌      | ✅       | ❌        | ❌           |
+| POST /vector-documents/seed-regulations| ❌      | ❌      | ❌       | ❌        | ✅           |
+| GET /vector-documents                 | ❌       | ❌      | ✅       | ❌        | ✅           |
 
 ---
 
@@ -242,6 +257,25 @@ will review overlap during approval."
 **This is intentional.** An EMPLOYEE's agent should NOT see team data. A MANAGER's
 agent CAN, because the JWT carries MANAGER role claims.
 
+### AgentContext — The JWT Carrier
+
+Every agent graph state carries an `AgentContext` (defined in `packages/shared/src/auth/`).
+This replaces ad-hoc `jwt: string` passing and makes RBAC enforcement explicit:
+
+```typescript
+interface AgentContext {
+  jwt: string;              // Forwarded unchanged from original HTTP request
+  claims: JwtPayload;       // Decoded once at conversation start
+  isSystemContext: boolean; // true for SCHEDULE/SYSTEM tasks
+  taskLogId: string;        // Parent AgentTaskLog ID for tool call chain grouping
+}
+```
+
+When a tool call receives **HTTP 403**, the `GracefulDegradationHandler` returns an
+`AgentDegradationResult` — it does NOT throw. The LangGraph graph continues with reduced
+context and the agent explains the limitation to the user. The `AgentTaskLog.status`
+is set to `DEGRADED` (not `FAILED`), distinguishing permission boundaries from errors.
+
 ### AgentTaskLog — Full Audit Trail
 
 Every tool call, every inter-service request, every LLM invocation is logged.
@@ -254,17 +288,23 @@ interface AgentTaskLogEntry {
   taskType: string;                    // 'leave_balance_check', 'text_to_sql'
   input: Record<string, unknown>;
   output: Record<string, unknown>;
-  status: TaskStatus;
+  status: TaskStatus;                  // Includes DEGRADED (graceful 403) and PARTIAL
   durationMs: number;
   errorMessage: string | null;
-  triggeredBy: TaskTrigger;            // USER, SYSTEM, SCHEDULE
+  triggeredBy: TaskTrigger;            // USER, SYSTEM, SCHEDULE, AGENT_CHAIN
   // Cross-service tracking
   targetService: ServiceName | null;   // Which service was called
   httpMethod: string | null;           // GET, POST, PATCH
   httpStatusCode: number | null;       // Response status
+  // Governance Center fields (Feature 2)
+  parentLogId: string | null;          // Groups child tool calls under one agent run
+  actorUserId: string | null;          // userId from JWT at execution time
   createdAt: Date;
 }
 ```
+
+The `parentLogId` hierarchy enables the AI Governance Center dashboard to render
+per-request tool call chains: one parent log per agent invocation, N child logs per tool call.
 
 ### Text-to-SQL Safety (Analytics Agent)
 
@@ -301,18 +341,27 @@ user's JWT. This means:
 
 - **No service accounts** in Phase 1 — every call carries a real user's permissions
 - **EventBus webhooks** include the originating user's JWT in headers
-- **Push/scheduled tasks** (e.g., engagement snapshot generation) use a SYSTEM
-  service account with explicitly scoped permissions
+- **Push/scheduled tasks** (e.g., exit survey dispatch, engagement snapshots) use a SYSTEM
+  service account minted by `AgentContextFactory.forSystemTask()` with explicitly scoped permissions
 
 ```typescript
-// System service account — used ONLY for scheduled tasks
+// System service account — used ONLY for scheduled/system tasks
+// Minted by AgentContextFactory.forSystemTask() in ai-agentic
+// Signed with SYSTEM_JWT_SECRET (separate from user JWT_SECRET)
 interface SystemJwtPayload {
   sub: 'system';
   roles: ['SYSTEM'];
-  scope: 'GLOBAL';     // Only for read operations
-  taskType: string;     // e.g., 'engagement_snapshot'
+  scope: 'GLOBAL';     // Only for infrastructure read operations
+  taskType: string;    // e.g., 'exit_survey_dispatch', 'engagement_snapshot', 'org_scenario_amendment'
+  iat: number;
+  exp: number;         // Short-lived: 5 minutes max
 }
 ```
+
+**SYSTEM JWT usage rules:**
+- Only `AgentContextFactory.forSystemTask()` may create a SYSTEM JWT — never manually
+- SYSTEM role bypasses EMPLOYEE/MANAGER scope filters but is still limited by endpoint RBAC guards
+- Social and HR Core must explicitly allow `SYSTEM` role on endpoints called by scheduled agents
 
 ### Request Tracing
 
@@ -354,6 +403,8 @@ export class CorrelationIdMiddleware implements NestMiddleware {
 |----------------------------|---------------|--------------------------------|
 | `Feedback.employeeId`     | RESTRICTED    | System only (null when anon)   |
 | `EngagementSnapshot`      | INTERNAL      | HR_ADMIN, EXECUTIVE            |
+| `ExitSurvey.respondentId` | RESTRICTED    | System only — nulled on COMPLETED |
+| `ExitSurveyResponse.*`    | RESTRICTED    | Aggregate only (HR_ADMIN via /aggregate endpoint) |
 
 **AI Agentic:**
 
