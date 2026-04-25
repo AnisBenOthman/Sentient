@@ -70,11 +70,117 @@ enum KeyPositionRisk {
   @@schema("hr_core")
 }
 
+enum ProficiencyLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+
+  @@schema("hr_core")
+}
+
+enum SourceLevel {
+  RECRUITMENT
+  TRAINING
+  CERTIFICATION
+  MANAGER
+  PEER_REVIEW
+
+  @@schema("hr_core")
+}
+
 enum SalaryChangeReason {
   PROMOTION
   ANNUAL_REVIEW
   NEW_FUNCTION
   OTHER
+
+  @@schema("hr_core")
+}
+
+enum HalfDay {
+  MORNING
+  AFTERNOON
+
+  @@schema("hr_core")
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  ESCALATED
+
+  @@schema("hr_core")
+}
+
+enum AccrualFrequency {
+  MONTHLY
+  YEARLY
+
+  @@schema("hr_core")
+}
+
+enum UserStatus {
+  PENDING_ACTIVATION
+  ACTIVE
+  LOCKED
+  DISABLED
+
+  @@schema("hr_core")
+}
+
+enum SecurityEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  LOGOUT
+  TOKEN_REFRESHED
+  PASSWORD_CHANGED
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+  ACCOUNT_LOCKED
+  ACCOUNT_UNLOCKED
+  USER_CREATED
+  USER_DISABLED
+  ROLE_ASSIGNED
+  ROLE_REVOKED
+  ROLE_CREATED
+  ROLE_DELETED
+  ROLE_PERMISSION_ADDED
+  ROLE_PERMISSION_REMOVED
+  INVITE_SENT
+  INVITE_CLAIMED
+
+  @@schema("hr_core")
+}
+
+enum PermissionAction {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  APPROVE
+
+  @@schema("hr_core")
+}
+
+enum PermissionScope {
+  OWN
+  TEAM
+  DEPARTMENT
+  BUSINESS_UNIT
+  GLOBAL
+
+  @@schema("hr_core")
+}
+
+enum ChannelType {
+  WEB
+  SLACK
+  WHATSAPP
+  EMAIL
+  IN_APP
 
   @@schema("hr_core")
 }
@@ -113,6 +219,8 @@ model BusinessUnit {
 
   departments Department[]
   teams       Team[]
+  leaveTypes  LeaveType[]
+  holidays    Holiday[]
 
   @@schema("hr_core")
   @@map("business_units")
@@ -218,12 +326,19 @@ model Employee {
   updatedAt        DateTime         @updatedAt
   deletedAt        DateTime?
 
-  position       Position?       @relation(fields: [positionId], references: [id])
-  department     Department?     @relation(fields: [departmentId], references: [id])
-  team           Team?           @relation(fields: [teamId], references: [id])
-  manager        Employee?       @relation("EmployeeManager", fields: [managerId], references: [id])
-  directReports  Employee[]      @relation("EmployeeManager")
-  salaryHistory  SalaryHistory[]
+  position             Position?       @relation(fields: [positionId], references: [id])
+  department           Department?     @relation(fields: [departmentId], references: [id])
+  team                 Team?           @relation(fields: [teamId], references: [id])
+  manager              Employee?       @relation("EmployeeManager", fields: [managerId], references: [id])
+  directReports        Employee[]      @relation("EmployeeManager")
+  salaryHistory        SalaryHistory[]
+  skills               EmployeeSkill[]
+  skillHistory         SkillHistory[]
+  assessedSkillHistory SkillHistory[]  @relation("AssessedSkillHistories")
+  leaveBalances        LeaveBalance[]
+  leaveRequests        LeaveRequest[]  @relation("EmployeeLeaveRequests")
+  reviewedLeaves       LeaveRequest[]  @relation("EmployeeReviewedLeaves")
+  user                 User?
 
   @@schema("hr_core")
   @@map("employees")
@@ -256,4 +371,378 @@ model SalaryHistory {
   @@map("salary_history")
   @@index([employeeId])
   @@index([effectiveDate])
+}
+
+// ============================================================
+// DOMAIN: Skills
+// WHY: Separated from Employee to allow independent catalog
+// evolution and to isolate the append-only SkillHistory audit
+// trail from the mutable current-snapshot (EmployeeSkill).
+// ============================================================
+
+model Skill {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  category    String?
+  description String?
+  createdAt   DateTime @default(now())
+
+  employeeSkills EmployeeSkill[]
+  history        SkillHistory[]
+
+  @@schema("hr_core")
+  @@map("skills")
+  @@index([category])
+}
+
+model EmployeeSkill {
+  id           String           @id @default(uuid())
+  employeeId   String
+  skillId      String
+  proficiency  ProficiencyLevel
+  acquiredDate DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  deletedAt    DateTime?
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+  skill    Skill    @relation(fields: [skillId], references: [id])
+
+  @@schema("hr_core")
+  @@map("employee_skills")
+  @@index([employeeId])
+  @@index([skillId])
+  @@index([deletedAt])
+}
+
+model SkillHistory {
+  id            String            @id @default(uuid())
+  employeeId    String
+  skillId       String
+  previousLevel ProficiencyLevel?
+  newLevel      ProficiencyLevel?
+  effectiveDate DateTime
+  source        SourceLevel
+  note          String?
+  assessedById  String?
+  createdAt     DateTime          @default(now())
+
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+  skill      Skill     @relation(fields: [skillId], references: [id])
+  assessedBy Employee? @relation("AssessedSkillHistories", fields: [assessedById], references: [id])
+
+  @@schema("hr_core")
+  @@map("skill_history")
+  @@index([employeeId, effectiveDate])
+  @@index([skillId, effectiveDate])
+  @@index([effectiveDate])
+  @@index([source])
+  @@index([assessedById])
+}
+
+// ============================================================
+// DOMAIN: Leave Management
+// ============================================================
+
+model LeaveType {
+  id                 String           @id @default(uuid())
+  businessUnitId     String
+  name               String
+  defaultDaysPerYear Decimal          @db.Decimal(5, 2)
+  accrualFrequency   AccrualFrequency @default(MONTHLY)
+  maxCarryoverDays   Decimal          @db.Decimal(5, 2) @default(0)
+  requiresApproval   Boolean          @default(true)
+  color              String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  businessUnit BusinessUnit   @relation(fields: [businessUnitId], references: [id])
+  balances     LeaveBalance[]
+  requests     LeaveRequest[]
+
+  @@schema("hr_core")
+  @@map("leave_types")
+  @@unique([name, businessUnitId])
+  @@index([businessUnitId])
+}
+
+model LeaveBalance {
+  id          String   @id @default(uuid())
+  employeeId  String
+  leaveTypeId String
+  year        Int
+  totalDays   Decimal  @db.Decimal(5, 2) @default(0)
+  usedDays    Decimal  @db.Decimal(5, 2) @default(0)
+  pendingDays Decimal  @db.Decimal(5, 2) @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  employee    Employee                  @relation(fields: [employeeId], references: [id])
+  leaveType   LeaveType                 @relation(fields: [leaveTypeId], references: [id])
+  adjustments LeaveBalanceAdjustment[]
+
+  @@schema("hr_core")
+  @@map("leave_balances")
+  @@unique([employeeId, leaveTypeId, year])
+  @@index([employeeId])
+  @@index([leaveTypeId])
+  @@index([year])
+}
+
+model LeaveRequest {
+  id                  String      @id @default(uuid())
+  employeeId          String
+  leaveTypeId         String
+  startDate           DateTime    @db.Date
+  endDate             DateTime    @db.Date
+  startHalfDay        HalfDay?
+  endHalfDay          HalfDay?
+  totalDays           Decimal     @db.Decimal(5, 2)
+  reason              String?     @db.VarChar(500)
+  status              LeaveStatus @default(PENDING)
+  reviewedById        String?
+  reviewedAt          DateTime?
+  reviewNote          String?     @db.VarChar(500)
+  agentRiskAssessment Json?
+  agentSuggestedDates Json?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  employee   Employee  @relation("EmployeeLeaveRequests", fields: [employeeId], references: [id])
+  leaveType  LeaveType @relation(fields: [leaveTypeId], references: [id])
+  reviewedBy Employee? @relation("EmployeeReviewedLeaves", fields: [reviewedById], references: [id])
+
+  @@schema("hr_core")
+  @@map("leave_requests")
+  @@index([employeeId, status, startDate, endDate])
+  @@index([leaveTypeId])
+  @@index([reviewedById])
+  @@index([status])
+  @@index([startDate])
+}
+
+model Holiday {
+  id             String   @id @default(uuid())
+  businessUnitId String
+  name           String
+  date           DateTime @db.Date
+  isRecurring    Boolean  @default(false)
+  year           Int?
+  createdAt      DateTime @default(now())
+
+  businessUnit BusinessUnit @relation(fields: [businessUnitId], references: [id])
+
+  @@schema("hr_core")
+  @@map("holidays")
+  @@unique([date, businessUnitId, year])
+  @@index([businessUnitId])
+  @@index([year])
+  @@index([isRecurring])
+}
+
+model LeaveBalanceAdjustment {
+  id                String   @id @default(uuid())
+  balanceId         String
+  adjustedBy        String
+  previousTotalDays Decimal  @db.Decimal(5, 2)
+  newTotalDays      Decimal  @db.Decimal(5, 2)
+  reason            String   @db.VarChar(255)
+  createdAt         DateTime @default(now())
+
+  balance LeaveBalance @relation(fields: [balanceId], references: [id])
+
+  @@schema("hr_core")
+  @@map("leave_balance_adjustments")
+  @@index([balanceId, createdAt])
+  @@index([createdAt])
+}
+
+model LeaveAccrualRun {
+  id                 String   @id @default(uuid())
+  runMonth           String   @unique @db.VarChar(7)
+  executedAt         DateTime @default(now())
+  employeesProcessed Int
+
+  @@schema("hr_core")
+  @@map("leave_accrual_runs")
+  @@index([executedAt])
+}
+
+// ============================================================
+// DOMAIN: IAM — Identity & Access Management
+// WHY: Centralized auth in HR Core. Other services validate JWTs
+// but never issue them. Scope lives on UserRole per-assignment,
+// not on User, enabling scope-polymorphic roles (e.g. MANAGER
+// can hold TEAM scope in one BU and DEPARTMENT scope in another).
+// ============================================================
+
+model User {
+  id                 String     @id @default(uuid())
+  email              String     @unique
+  passwordHash       String
+  passwordHistory    Json       @default("[]")
+  status             UserStatus @default(PENDING_ACTIVATION)
+  employeeId         String?    @unique
+  failedLoginCount   Int        @default(0)
+  lockedUntil        DateTime?
+  mustChangePassword Boolean    @default(false)
+  lastLoginAt        DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  employee            Employee?            @relation(fields: [employeeId], references: [id])
+  userRoles           UserRole[]
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
+  inviteTokens        InviteToken[]
+  securityEvents      SecurityEvent[]
+
+  @@schema("hr_core")
+  @@map("users")
+  @@index([status])
+  @@index([employeeId])
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
+  isEditable  Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@schema("hr_core")
+  @@map("roles")
+  @@index([isSystem])
+  @@index([isEditable])
+}
+
+model Permission {
+  id       String          @id @default(uuid())
+  resource String
+  action   PermissionAction
+  scope    PermissionScope
+
+  rolePermissions RolePermission[]
+
+  @@unique([resource, action, scope])
+  @@schema("hr_core")
+  @@map("permissions")
+  @@index([resource])
+  @@index([action])
+}
+
+model UserRole {
+  id            String          @id @default(uuid())
+  userId        String
+  roleId        String
+  scope         PermissionScope
+  scopeEntityId String?
+  assignedById  String?
+  assignedAt    DateTime        @default(now())
+  revokedAt     DateTime?
+  revokedById   String?
+
+  user User @relation(fields: [userId], references: [id])
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@schema("hr_core")
+  @@map("user_roles")
+  @@index([userId])
+  @@index([roleId])
+  @@index([revokedAt])
+  @@index([userId, roleId])
+}
+
+model RolePermission {
+  id           String   @id @default(uuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+  @@schema("hr_core")
+  @@map("role_permissions")
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+model Session {
+  id                String      @id @default(uuid())
+  userId            String
+  channel           ChannelType
+  accessTokenHash   String
+  refreshTokenHash  String
+  previousTokenHash String?
+  previousRotatedAt DateTime?
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@schema("hr_core")
+  @@map("sessions")
+  @@index([userId])
+  @@index([revokedAt])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@schema("hr_core")
+  @@map("password_reset_tokens")
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model SecurityEvent {
+  id        String            @id @default(uuid())
+  userId    String
+  eventType SecurityEventType
+  ipAddress String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime          @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@schema("hr_core")
+  @@map("security_events")
+  @@index([userId, eventType])
+  @@index([createdAt])
+  @@index([eventType])
+}
+
+model InviteToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@schema("hr_core")
+  @@map("invite_tokens")
+  @@index([userId])
+  @@index([expiresAt])
 }

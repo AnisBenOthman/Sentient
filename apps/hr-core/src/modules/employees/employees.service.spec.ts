@@ -26,36 +26,24 @@ const mockPrisma = {
 const mockEventBus = { emit: jest.fn().mockResolvedValue(undefined), subscribe: jest.fn() };
 
 const adminUser: JwtPayload = {
-  sub: 'user-admin',
-  employeeId: 'emp-admin',
-  roles: ['HR_ADMIN'],
-  departmentId: 'dept-1',
-  teamId: null,
-  channel: 'WEB' as any,
-  iat: 0,
-  exp: 9999999999,
+  sub: 'user-admin', employeeId: 'emp-admin', roles: ['HR_ADMIN'],
+  departmentId: 'dept-1', teamId: null, businessUnitId: null,
+  channel: 'WEB' as any, roleAssignments: [], sessionId: 'test-session',
+  iat: 0, exp: 9999999999,
 };
 
 const employeeUser: JwtPayload = {
-  sub: 'user-emp',
-  employeeId: 'emp-001',
-  roles: ['EMPLOYEE'],
-  departmentId: 'dept-1',
-  teamId: 'team-1',
-  channel: 'WEB' as any,
-  iat: 0,
-  exp: 9999999999,
+  sub: 'user-emp', employeeId: 'emp-001', roles: ['EMPLOYEE'],
+  departmentId: 'dept-1', teamId: 'team-1', businessUnitId: null,
+  channel: 'WEB' as any, roleAssignments: [], sessionId: 'test-session',
+  iat: 0, exp: 9999999999,
 };
 
 const managerUser: JwtPayload = {
-  sub: 'user-mgr',
-  employeeId: 'emp-mgr',
-  roles: ['MANAGER'],
-  departmentId: 'dept-1',
-  teamId: 'team-1',
-  channel: 'WEB' as any,
-  iat: 0,
-  exp: 9999999999,
+  sub: 'user-mgr', employeeId: 'emp-mgr', roles: ['MANAGER'],
+  departmentId: 'dept-1', teamId: 'team-1', businessUnitId: null,
+  channel: 'WEB' as any, roleAssignments: [], sessionId: 'test-session',
+  iat: 0, exp: 9999999999,
 };
 
 const baseEmployee = {
