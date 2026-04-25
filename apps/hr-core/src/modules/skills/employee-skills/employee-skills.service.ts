@@ -1,12 +1,13 @@
 import {
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { EVENT_BUS, IEventBus, ProficiencyLevel, SourceLevel } from '@sentient/shared';
-import { EmployeeSkill, EmploymentStatus, SkillHistory } from '../../../generated/prisma';
+import { EVENT_BUS, IEventBus, JwtPayload, ProficiencyLevel, ScopeFilter, SourceLevel, buildScopeFilter } from '@sentient/shared';
+import { EmployeeSkill, EmploymentStatus, Prisma, SkillHistory } from '../../../generated/prisma';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmployeeSkillQueryDto } from '../dto/employee-skill-query.dto';
 import { UpsertEmployeeSkillDto } from '../dto/upsert-employee-skill.dto';
@@ -48,6 +49,21 @@ const TERMINAL_STATUSES = new Set<EmploymentStatus>([
   EmploymentStatus.RESIGNED,
 ]);
 
+// WHY: ScopeFilter from buildScopeFilter returns flat keys. EmployeeSkill queries
+// need OWN-scope employeeId on the top level; TEAM/DEPT/BU keys nested under employee:{}.
+function toEmployeeSkillScope(scopeFilter: ScopeFilter): Prisma.EmployeeSkillWhereInput {
+  if (Object.keys(scopeFilter).length === 0) return {};
+  const { employeeId, ...employeeFields } = scopeFilter;
+  const result: Prisma.EmployeeSkillWhereInput = {};
+  if (employeeId !== undefined) {
+    result.employeeId = employeeId ?? undefined;
+  }
+  if (Object.keys(employeeFields).length > 0) {
+    result.employee = employeeFields as Prisma.EmployeeWhereInput;
+  }
+  return result;
+}
+
 // WHY: Prisma's PrismaClientKnownRequestError shape varies between major versions.
 // Duck-typing the P2002 unique-violation code is stable across upgrades.
 function isUniqueViolation(error: unknown): boolean {
@@ -66,7 +82,7 @@ export class EmployeeSkillsService {
     @Inject(EVENT_BUS) private readonly eventBus: IEventBus,
   ) {}
 
-  async upsert(employeeId: string, dto: UpsertEmployeeSkillDto): Promise<UpsertResult> {
+  async upsert(employeeId: string, dto: UpsertEmployeeSkillDto, actorId: string | null): Promise<UpsertResult> {
     const employee = await this.prisma.employee.findFirst({
       where: { id: employeeId, deletedAt: null },
       select: { id: true, employmentStatus: true },
@@ -85,8 +101,7 @@ export class EmployeeSkillsService {
 
     const effectiveDate = dto.effectiveDate ? new Date(dto.effectiveDate) : new Date();
     const acquiredDate = dto.acquiredDate ? new Date(dto.acquiredDate) : undefined;
-    // const assessedById = user.employeeId; // TODO: re-enable when IAM module is implemented
-    const assessedById: string | null = null;
+    const assessedById = actorId;
 
     // Case B — no-op
     if (activeRow && activeRow.proficiency === dto.proficiency) {
@@ -192,7 +207,7 @@ export class EmployeeSkillsService {
     return { changed: true, current: result.current, history: result.history };
   }
 
-  async remove(employeeId: string, skillId: string): Promise<void> {
+  async remove(employeeId: string, skillId: string, actorId: string | null): Promise<void> {
     const employee = await this.prisma.employee.findFirst({
       where: { id: employeeId, deletedAt: null },
       select: { id: true, employmentStatus: true },
@@ -208,8 +223,7 @@ export class EmployeeSkillsService {
     if (!activeRow) throw new NotFoundException(`Active skill assignment not found for employee ${employeeId}`);
 
     const previousLevel = activeRow.proficiency;
-    // const assessedById = user.employeeId; // TODO: re-enable when IAM module is implemented
-    const assessedById: string | null = null;
+    const assessedById = actorId;
 
     // Soft-delete + append a removal tombstone in SkillHistory so the audit
     // trail records when and why the assignment ended. newLevel=null marks removal.
@@ -250,9 +264,12 @@ export class EmployeeSkillsService {
 
   async findForEmployee(
     employeeId: string,
+    user: JwtPayload,
     query: { minLevel?: ProficiencyLevel },
   ): Promise<EmployeeSkill[]> {
-    // const scope = buildScopeFilter(user, 'employee_skill', 'READ'); // TODO: re-enable when IAM module is implemented
+    const scopeFilter = buildScopeFilter(user.roleAssignments, user);
+    if (!scopeFilter) throw new ForbiddenException('No active role assignments');
+    const scopeWhere = toEmployeeSkillScope(scopeFilter);
 
     const employee = await this.prisma.employee.findFirst({
       where: { id: employeeId, deletedAt: null },
@@ -270,6 +287,7 @@ export class EmployeeSkillsService {
         employeeId,
         deletedAt: null,
         ...(levelFilter ? { proficiency: { in: levelFilter } } : {}),
+        ...scopeWhere,
       },
       include: {
         skill: {
@@ -282,9 +300,12 @@ export class EmployeeSkillsService {
 
   async findByEmployeesForSkill(
     skillId: string,
+    user: JwtPayload,
     query: EmployeeSkillQueryDto,
   ): Promise<PaginatedResult<EmployeeSkillWithEmployee>> {
-    // const scope = buildScopeFilter(user, 'employee_skill', 'READ'); // TODO: re-enable when IAM module is implemented
+    const scopeFilter = buildScopeFilter(user.roleAssignments, user);
+    if (!scopeFilter) throw new ForbiddenException('No active role assignments');
+    const { employeeId: scopeEmployeeId, ...employeeFields } = scopeFilter;
 
     const skill = await this.prisma.skill.findUnique({ where: { id: skillId }, select: { id: true } });
     if (!skill) throw new NotFoundException(`Skill ${skillId} not found`);
@@ -293,12 +314,14 @@ export class EmployeeSkillsService {
     const limit = query.limit ?? 20;
     const levelFilter = query.minLevel ? this.levelsAtOrAbove(query.minLevel) : undefined;
 
-    const where = {
+    const where: Prisma.EmployeeSkillWhereInput = {
       skillId,
       deletedAt: null,
+      ...(scopeEmployeeId !== undefined ? { employeeId: scopeEmployeeId ?? undefined } : {}),
       ...(levelFilter ? { proficiency: { in: levelFilter } } : {}),
       employee: {
         deletedAt: null,
+        ...employeeFields,
         ...(query.departmentId ? { departmentId: query.departmentId } : {}),
         ...(query.teamId ? { teamId: query.teamId } : {}),
       },

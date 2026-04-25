@@ -1,20 +1,18 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { SkillHistory } from '../../../generated/prisma';
-// import { Roles } from '../../../common/decorators/roles.decorator'; // TODO: re-enable when IAM module is implemented
-// import { RbacGuard } from '../../../common/guards/rbac.guard'; // TODO: re-enable when IAM module is implemented
-// import { SharedJwtGuard } from '../../../common/guards/shared-jwt.guard'; // TODO: re-enable when IAM module is implemented
+import { RbacGuard, Roles, SharedJwtGuard } from '@sentient/shared';
+import { UserStatusGuard } from '../../iam/guards/user-status.guard';
 import { HistoryQueryDto } from '../dto/history-query.dto';
 import { HistoryService, PaginatedHistory } from './history.service';
 
 @Controller('skills/history')
-// @UseGuards(SharedJwtGuard, RbacGuard) // TODO: re-enable when IAM module is implemented
+@UseGuards(SharedJwtGuard, UserStatusGuard, RbacGuard)
 @ApiTags('Skills Catalog')
 export class HistoryController {
   constructor(private readonly historyService: HistoryService) {}
 
   @Get()
-  // @Roles('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'EXECUTIVE') // TODO: re-enable when IAM module is implemented
+  @Roles('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'EXECUTIVE')
   @ApiOperation({
     summary: 'Audit skill-level evolution between two dates',
     description:

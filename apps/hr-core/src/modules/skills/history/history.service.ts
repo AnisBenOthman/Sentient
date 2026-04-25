@@ -17,7 +17,11 @@ export class HistoryService {
   constructor(private readonly prisma: PrismaService) {}
 
   async query(dto: HistoryQueryDto): Promise<PaginatedHistory> {
-    // const if (user.role === 'EMPLOYEE' && dto.employeeId !== user.employeeId) throw new ForbiddenException(); // TODO: re-enable when IAM module is implemented
+    if (!dto.employeeId && !dto.teamId && !dto.departmentId && !dto.skillId) {
+      throw new BadRequestException(
+        'At least one of employeeId, teamId, departmentId, skillId must be provided',
+      );
+    }
 
     if (dto.fromDate && dto.toDate && new Date(dto.fromDate) > new Date(dto.toDate)) {
       throw new BadRequestException('fromDate must be before or equal to toDate');
@@ -38,12 +42,16 @@ export class HistoryService {
     const page = dto.page ?? 1;
     const limit = dto.limit ?? 50;
 
+    const employeeFilter = {
+      ...(dto.teamId ? { teamId: dto.teamId } : {}),
+      ...(dto.departmentId ? { departmentId: dto.departmentId } : {}),
+    };
+
     const where = {
       ...(dto.employeeId ? { employeeId: dto.employeeId } : {}),
       ...(dto.skillId ? { skillId: dto.skillId } : {}),
       ...(dto.source ? { source: dto.source } : {}),
-      ...(dto.teamId ? { employee: { teamId: dto.teamId } } : {}),
-      ...(dto.departmentId ? { employee: { departmentId: dto.departmentId } } : {}),
+      ...(Object.keys(employeeFilter).length ? { employee: employeeFilter } : {}),
       ...(fromDate || toDate
         ? {
             effectiveDate: {

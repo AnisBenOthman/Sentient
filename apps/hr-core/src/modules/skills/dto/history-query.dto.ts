@@ -9,39 +9,13 @@ import {
   IsUUID,
   Max,
   Min,
-  registerDecorator,
-  ValidationArguments,
-  ValidationOptions,
 } from 'class-validator';
 import { SourceLevel } from '@sentient/shared';
-
-// WHY: Enforce "at least one scope filter" at the DTO layer so the rule
-// lives with the contract instead of being re-checked in every controller.
-function AtLeastOneScope(validationOptions?: ValidationOptions) {
-  return function (object: object, propertyName: string): void {
-    registerDecorator({
-      name: 'atLeastOneScope',
-      target: object.constructor,
-      propertyName,
-      options: validationOptions,
-      validator: {
-        validate(_value: unknown, args: ValidationArguments): boolean {
-          const o = args.object as HistoryQueryDto;
-          return Boolean(o.employeeId || o.teamId || o.departmentId || o.skillId);
-        },
-        defaultMessage(): string {
-          return 'At least one of employeeId, teamId, departmentId, skillId must be provided';
-        },
-      },
-    });
-  };
-}
 
 export class HistoryQueryDto {
   @ApiPropertyOptional({ format: 'uuid', description: 'Filter by employee' })
   @IsOptional()
   @IsUUID()
-  @AtLeastOneScope()
   employeeId?: string;
 
   @ApiPropertyOptional({ format: 'uuid', description: 'Filter by team' })

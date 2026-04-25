@@ -49,7 +49,9 @@
       "Bash(node -e \"const m = require\\('C:/Users/Anis/Downloads/Sentient/apps/hr-core/node_modules/prisma/build/index.js'\\); console.log\\(typeof m\\)\")",
       "Bash(node -e \"require\\('./generated/prisma'\\)\")",
       "Bash(npx nest:*)",
-      "Bash(.specify/scripts/bash/create-new-feature.sh *)"
+      "Bash(.specify/scripts/bash/create-new-feature.sh *)",
+      "Bash(.specify/scripts/bash/setup-plan.sh *)",
+      "Bash(turbo build *)"
     ]
   }
 }

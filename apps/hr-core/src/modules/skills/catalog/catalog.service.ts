@@ -58,12 +58,14 @@ export class CatalogService {
 
   async update(id: string, dto: UpdateSkillDto): Promise<Skill> {
     await this.findById(id);
-    if (dto.name) {
-      const name = dto.name.trim();
-      await this.assertNameAvailable(name, id);
-      dto = { ...dto, name };
+    const data: { name?: string; category?: string; description?: string } = {};
+    if (dto.name !== undefined) {
+      data.name = dto.name.trim();
+      await this.assertNameAvailable(data.name, id);
     }
-    return this.prisma.skill.update({ where: { id }, data: dto });
+    if (dto.category !== undefined) data.category = dto.category;
+    if (dto.description !== undefined) data.description = dto.description;
+    return this.prisma.skill.update({ where: { id }, data });
   }
 
   private async assertNameAvailable(name: string, excludeId: string | null): Promise<void> {

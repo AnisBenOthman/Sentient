@@ -18,7 +18,7 @@ import {
   SalaryHistory,
 } from '../../generated/prisma';
 import { Decimal } from '../../generated/prisma/runtime/library';
-import { IEventBus, EVENT_BUS, JwtPayload } from '@sentient/shared';
+import { IEventBus, EVENT_BUS, JwtPayload, PermissionScope } from '@sentient/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
@@ -385,10 +385,29 @@ export class EmployeesService {
     if (user.roles.includes('HR_ADMIN') || user.roles.includes('EXECUTIVE')) {
       return {};
     }
+    // WHY: BUSINESS_UNIT scope is a per-assignment claim, not a role code.
+    // Employee has no direct businessUnitId — filter via department or team.
+    const buAssignment = user.roleAssignments.find(
+      (ra) => ra.scope === PermissionScope.BUSINESS_UNIT,
+    );
+    if (buAssignment) {
+      const buId = buAssignment.scopeEntityId ?? user.businessUnitId;
+      if (buId) {
+        return {
+          OR: [
+            { department: { businessUnitId: buId } },
+            { team: { businessUnitId: buId } },
+          ],
+        };
+      }
+    }
     if (user.roles.includes('MANAGER') && user.teamId) {
       return { teamId: user.teamId };
     }
-    // Default: OWN scope
+    // OWN scope — an account with no linked employee has no visibility
+    if (!user.employeeId) {
+      throw new ForbiddenException('No employee profile linked to this account');
+    }
     return { id: user.employeeId };
   }
 

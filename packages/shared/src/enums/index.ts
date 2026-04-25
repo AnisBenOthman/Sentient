@@ -31,3 +31,8 @@ export * from './task-status.enum';
 export * from './task-trigger.enum';
 export * from './proficiency-level.enum';
 export * from './source-level.enum';
+export * from './half-day.enum';
+export * from './accrual-frequency.enum';
+export * from './user-status.enum';
+export * from './security-event-type.enum';
+export * from './role-code.enum';

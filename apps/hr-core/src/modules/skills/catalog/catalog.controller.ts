@@ -9,25 +9,25 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { RbacGuard, Roles, SharedJwtGuard } from '@sentient/shared';
 import { Skill } from '../../../generated/prisma';
-// import { Roles } from '../../../common/decorators/roles.decorator'; // TODO: re-enable when IAM module is implemented
-// import { RbacGuard } from '../../../common/guards/rbac.guard'; // TODO: re-enable when IAM module is implemented
-// import { SharedJwtGuard } from '../../../common/guards/shared-jwt.guard'; // TODO: re-enable when IAM module is implemented
+import { UserStatusGuard } from '../../iam/guards/user-status.guard';
 import { CreateSkillDto } from '../dto/create-skill.dto';
 import { SkillQueryDto } from '../dto/skill-query.dto';
 import { UpdateSkillDto } from '../dto/update-skill.dto';
 import { CatalogService, PaginatedSkills } from './catalog.service';
 
 @Controller('skills')
-// @UseGuards(SharedJwtGuard, RbacGuard) // TODO: re-enable when IAM module is implemented
+@UseGuards(SharedJwtGuard, UserStatusGuard, RbacGuard)
 @ApiTags('Skills Catalog')
 export class CatalogController {
   constructor(private readonly catalogService: CatalogService) {}
 
   @Post()
-  // @Roles('HR_ADMIN') // TODO: re-enable when IAM module is implemented
+  @Roles('HR_ADMIN')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new skill in the catalog' })
   @ApiResponse({ status: 201, description: 'Skill created' })
@@ -38,7 +38,7 @@ export class CatalogController {
   }
 
   @Get()
-  // @Roles('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'EXECUTIVE') // TODO: re-enable when IAM module is implemented
+  @Roles('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'EXECUTIVE')
   @ApiOperation({ summary: 'List catalog skills with filtering and pagination' })
   @ApiResponse({ status: 200, description: '{ data: Skill[], total, page, limit }' })
   async findAll(@Query() query: SkillQueryDto): Promise<PaginatedSkills> {
@@ -46,7 +46,7 @@ export class CatalogController {
   }
 
   @Get(':id')
-  // @Roles('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'EXECUTIVE') // TODO: re-enable when IAM module is implemented
+  @Roles('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'EXECUTIVE')
   @ApiOperation({ summary: 'Get a single catalog skill by ID' })
   @ApiResponse({ status: 200, description: 'Skill object' })
   @ApiResponse({ status: 404, description: 'Skill not found' })
@@ -55,7 +55,7 @@ export class CatalogController {
   }
 
   @Patch(':id')
-  // @Roles('HR_ADMIN') // TODO: re-enable when IAM module is implemented
+  @Roles('HR_ADMIN')
   @ApiOperation({ summary: 'Edit catalog skill entry (name, category, description)' })
   @ApiResponse({ status: 200, description: 'Updated skill object' })
   @ApiResponse({ status: 400, description: 'Validation error' })
