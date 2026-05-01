@@ -1,8 +1,5 @@
-export default function Home() {
-  return (
-    <main>
-      <h1>Sentient HRIS</h1>
-      <p>Coming soon.</p>
-    </main>
-  );
+import { redirect } from 'next/navigation';
+
+export default function RootPage() {
+  redirect('/dashboard');
 }

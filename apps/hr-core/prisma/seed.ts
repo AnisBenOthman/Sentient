@@ -5,6 +5,7 @@ import * as argon2 from "argon2";
 import { PrismaPg } from "@prisma/adapter-pg";
 import {
   AccrualFrequency,
+  Prisma,
   PermissionAction,
   PermissionScope,
   PositionLevel,
@@ -19,6 +20,7 @@ const prisma = new PrismaClient({ adapter });
 
 async function main(): Promise<void> {
   await seedIam();
+  await seedDemoUsers();
 
   // BusinessUnit must exist before departments (FK constraint).
   const bu = await prisma.businessUnit.upsert({
@@ -162,6 +164,8 @@ async function main(): Promise<void> {
     ],
     skipDuplicates: true,
   });
+
+  await seedDemoEmployees();
 }
 
 async function seedIam(): Promise<void> {
@@ -406,6 +410,172 @@ async function seedIam(): Promise<void> {
     console.log(`║  Password: ${adminPassword}  ║`);
     console.log("║  SAVE THIS — shown only once                 ║");
     console.log("╚══════════════════════════════════════════════╝\n");
+  }
+}
+
+async function seedDemoUsers(): Promise<void> {
+  const DEMO_PASSWORD = "Sentient@2026!";
+  const passwordHash = await argon2.hash(DEMO_PASSWORD, {
+    type: argon2.argon2id,
+    memoryCost: 65536,
+    timeCost: 3,
+    parallelism: 1,
+  });
+
+  const demos: { email: string; roleCode: string }[] = [
+    { email: "hradmin@sentient.dev",  roleCode: "HR_ADMIN"  },
+    { email: "manager@sentient.dev",  roleCode: "MANAGER"   },
+    { email: "employee@sentient.dev", roleCode: "EMPLOYEE"  },
+  ];
+
+  for (const { email, roleCode } of demos) {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    const roleRow = await prisma.role.findUnique({ where: { code: roleCode } });
+    if (!roleRow) continue;
+
+    const user = existing ?? await prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        passwordHistory: [passwordHash],
+        status: UserStatus.ACTIVE,
+        mustChangePassword: false,
+      },
+    });
+
+    const existingRole = await prisma.userRole.findFirst({
+      where: { userId: user.id, roleId: roleRow.id, revokedAt: null },
+    });
+    if (!existingRole) {
+      await prisma.userRole.create({
+        data: { userId: user.id, roleId: roleRow.id, scope: PermissionScope.GLOBAL },
+      });
+    }
+  }
+
+  console.log("\n╔══════════════════════════════════════════════╗");
+  console.log("║  Demo Accounts (password: Sentient@2026!)    ║");
+  console.log("║  hradmin@sentient.dev   → HR_ADMIN           ║");
+  console.log("║  manager@sentient.dev   → MANAGER            ║");
+  console.log("║  employee@sentient.dev  → EMPLOYEE           ║");
+  console.log("╚══════════════════════════════════════════════╝\n");
+}
+
+async function seedDemoEmployees(): Promise<void> {
+  const bu = await prisma.businessUnit.findFirstOrThrow({ where: { name: "Sentient HQ" } });
+
+  const depts = await prisma.department.findMany({
+    where: { businessUnitId: bu.id },
+    select: { id: true, code: true },
+  });
+  const deptByCode = new Map(depts.map((d) => [d.code, d.id]));
+
+  const teams = await prisma.team.findMany({
+    where: { businessUnitId: bu.id },
+    select: { id: true, code: true },
+  });
+  const teamByCode = new Map(teams.map((t) => [t.code, t.id]));
+
+  const positions = await prisma.position.findMany({ select: { id: true, title: true } });
+  const posById = new Map(positions.map((p) => [p.title, p.id]));
+
+  const leaveTypes = await prisma.leaveType.findMany({
+    where: { businessUnitId: bu.id },
+    select: { id: true, name: true, defaultDaysPerYear: true },
+  });
+
+  const YEAR = 2026;
+
+  // ── Manager demo employee ──────────────────────────────────────────────
+  const managerUser = await prisma.user.findUnique({ where: { email: "manager@sentient.dev" } });
+  if (managerUser && !managerUser.employeeId) {
+    const managerEmp = await prisma.employee.upsert({
+      where: { email: "manager@sentient.dev" },
+      update: {},
+      create: {
+        employeeCode: "EMP-MGR-001",
+        firstName: "Alex",
+        lastName: "Manager",
+        email: "manager@sentient.dev",
+        hireDate: new Date("2023-01-10"),
+        grossSalary: 95000,
+        netSalary: 72000,
+        departmentId: deptByCode.get("ENG") ?? null,
+        teamId: teamByCode.get("ENG-BE") ?? null,
+        positionId: posById.get("Software Engineer - Senior I") ?? null,
+      },
+    });
+    await prisma.user.update({ where: { id: managerUser.id }, data: { employeeId: managerEmp.id } });
+    await seedBalances(managerEmp.id, leaveTypes, YEAR);
+  }
+
+  // ── HR Admin demo employee ─────────────────────────────────────────────
+  const hrAdminUser = await prisma.user.findUnique({ where: { email: "hradmin@sentient.dev" } });
+  if (hrAdminUser && !hrAdminUser.employeeId) {
+    const hrAdminEmp = await prisma.employee.upsert({
+      where: { email: "hradmin@sentient.dev" },
+      update: {},
+      create: {
+        employeeCode: "EMP-HR-001",
+        firstName: "Sarah",
+        lastName: "HRAdmin",
+        email: "hradmin@sentient.dev",
+        hireDate: new Date("2022-06-01"),
+        grossSalary: 85000,
+        netSalary: 65000,
+        departmentId: deptByCode.get("HR") ?? null,
+        teamId: teamByCode.get("HR-TA") ?? null,
+        positionId: posById.get("HR Generalist") ?? null,
+      },
+    });
+    await prisma.user.update({ where: { id: hrAdminUser.id }, data: { employeeId: hrAdminEmp.id } });
+    await seedBalances(hrAdminEmp.id, leaveTypes, YEAR);
+  }
+
+  // ── Employee demo employee (reports to manager) ───────────────────────
+  const employeeUser = await prisma.user.findUnique({ where: { email: "employee@sentient.dev" } });
+  if (employeeUser && !employeeUser.employeeId) {
+    const managerEmpRef = await prisma.employee.findUnique({ where: { email: "manager@sentient.dev" } });
+    const empEmp = await prisma.employee.upsert({
+      where: { email: "employee@sentient.dev" },
+      update: {},
+      create: {
+        employeeCode: "EMP-ENG-001",
+        firstName: "Jordan",
+        lastName: "Employee",
+        email: "employee@sentient.dev",
+        hireDate: new Date("2024-03-01"),
+        grossSalary: 65000,
+        netSalary: 50000,
+        departmentId: deptByCode.get("ENG") ?? null,
+        teamId: teamByCode.get("ENG-BE") ?? null,
+        positionId: posById.get("Software Engineer - Junior") ?? null,
+        managerId: managerEmpRef?.id ?? null,
+      },
+    });
+    await prisma.user.update({ where: { id: employeeUser.id }, data: { employeeId: empEmp.id } });
+    await seedBalances(empEmp.id, leaveTypes, YEAR);
+  }
+}
+
+async function seedBalances(
+  employeeId: string,
+  leaveTypes: { id: string; name: string; defaultDaysPerYear: Prisma.Decimal }[],
+  year: number,
+): Promise<void> {
+  for (const lt of leaveTypes) {
+    await prisma.leaveBalance.upsert({
+      where: { employeeId_leaveTypeId_year: { employeeId, leaveTypeId: lt.id, year } },
+      update: {},
+      create: {
+        employeeId,
+        leaveTypeId: lt.id,
+        year,
+        totalDays: lt.defaultDaysPerYear,
+        usedDays: 0,
+        pendingDays: 0,
+      },
+    });
   }
 }
 

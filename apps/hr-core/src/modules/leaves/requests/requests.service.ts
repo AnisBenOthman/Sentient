@@ -19,6 +19,17 @@ import { HolidaysService } from '../holidays/holidays.service';
 import { resolveEmployeeBusinessUnitId } from '../util/bu-resolver.util';
 import { countBusinessDays } from '../util/business-day.util';
 
+export type LeaveRequestWithType = Prisma.LeaveRequestGetPayload<{
+  include: { leaveType: { select: { id: true; name: true; color: true } } };
+}>;
+
+export type LeaveRequestQueueEntry = Prisma.LeaveRequestGetPayload<{
+  include: {
+    leaveType: { select: { id: true; name: true; color: true } };
+    employee: { select: { id: true; firstName: true; lastName: true } };
+  };
+}>;
+
 export interface TeamCalendarEntry {
   employeeId: string;
   employeeName: string;
@@ -157,7 +168,7 @@ export class RequestsService {
     return createdRequest;
   }
 
-  async findByEmployee(employeeId: string, query: LeaveQueryDto): Promise<LeaveRequest[]> {
+  async findByEmployee(employeeId: string, query: LeaveQueryDto): Promise<LeaveRequestWithType[]> {
     return this.prisma.leaveRequest.findMany({
       where: {
         employeeId,
@@ -170,7 +181,36 @@ export class RequestsService {
             }
           : {}),
       },
+      include: {
+        leaveType: { select: { id: true, name: true, color: true } },
+      },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findPendingQueue(
+    currentEmployeeId: string,
+    roles: string[],
+  ): Promise<LeaveRequestQueueEntry[]> {
+    const isPrivileged = roles.some(r => ['HR_ADMIN', 'EXECUTIVE'].includes(r));
+
+    const include = {
+      leaveType: { select: { id: true, name: true, color: true } },
+      employee: { select: { id: true, firstName: true, lastName: true } },
+    } as const;
+
+    if (isPrivileged) {
+      return this.prisma.leaveRequest.findMany({
+        where: { status: LeaveStatus.PENDING },
+        include,
+        orderBy: { createdAt: 'asc' },
+      });
+    }
+
+    return this.prisma.leaveRequest.findMany({
+      where: { status: LeaveStatus.PENDING, employee: { managerId: currentEmployeeId } },
+      include,
+      orderBy: { createdAt: 'asc' },
     });
   }
 

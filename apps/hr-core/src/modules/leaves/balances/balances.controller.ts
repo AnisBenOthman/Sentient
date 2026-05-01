@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -37,7 +38,14 @@ export class BalancesController {
   async findByEmployee(
     @Query('employeeId') employeeId: string,
     @Query('year', ParseIntPipe) year: number,
+    @CurrentUser() user: JwtPayload,
   ): Promise<LeaveBalanceDto[]> {
+    const privileged = user.roles.some(r =>
+      ['MANAGER', 'HR_ADMIN', 'EXECUTIVE', 'SYSTEM'].includes(r),
+    );
+    if (!privileged && employeeId !== user.employeeId) {
+      throw new ForbiddenException('Insufficient permissions to view this balance');
+    }
     return this.balancesService.findByEmployee(employeeId, year);
   }
 

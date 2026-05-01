@@ -21,11 +21,11 @@ import { CreateLeaveRequestDto } from '../dto/create-leave-request.dto';
 import { LeaveQueryDto } from '../dto/leave-query.dto';
 import { PatchAgentAssessmentDto } from '../dto/patch-agent-assessment.dto';
 import { ReviewLeaveRequestDto } from '../dto/review-leave-request.dto';
-import { RequestsService, TeamCalendarEntry } from './requests.service';
+import { RequestsService, TeamCalendarEntry, LeaveRequestWithType, LeaveRequestQueueEntry } from './requests.service';
 
 function requireEmployeeId(user: JwtPayload): string {
-  if (!requireEmployeeId(user)) throw new ForbiddenException('No employee record linked to this account');
-  return requireEmployeeId(user);
+  if (!user.employeeId) throw new ForbiddenException('No employee record linked to this account');
+  return user.employeeId;
 }
 
 @Controller('leave-requests')
@@ -55,7 +55,7 @@ export class RequestsController {
   async findByEmployee(
     @Query() query: LeaveQueryDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<LeaveRequest[]> {
+  ): Promise<LeaveRequestWithType[]> {
     return this.requestsService.findByEmployee(requireEmployeeId(user), query);
   }
 
@@ -71,6 +71,16 @@ export class RequestsController {
     @CurrentUser() user: JwtPayload,
   ): Promise<TeamCalendarEntry[]> {
     return this.requestsService.teamCalendar(requireEmployeeId(user), from, to, departmentId, teamId);
+  }
+
+  @Get('pending-queue')
+  @Roles('MANAGER', 'HR_ADMIN')
+  @ApiOperation({ summary: 'List pending leave requests for review (Manager: team only; HR Admin: all)' })
+  @ApiResponse({ status: 200, description: 'Pending leave requests with employee and leave type details' })
+  async findPendingQueue(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<LeaveRequestQueueEntry[]> {
+    return this.requestsService.findPendingQueue(requireEmployeeId(user), user.roles);
   }
 
   @Get(':id')

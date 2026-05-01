@@ -1,25 +1,25 @@
 -- CreateEnum
-CREATE TYPE "UserStatus" AS ENUM ('PENDING_ACTIVATION', 'ACTIVE', 'LOCKED', 'DISABLED');
+CREATE TYPE "hr_core"."UserStatus" AS ENUM ('PENDING_ACTIVATION', 'ACTIVE', 'LOCKED', 'DISABLED');
 
 -- CreateEnum
-CREATE TYPE "SecurityEventType" AS ENUM ('LOGIN_SUCCESS', 'LOGIN_FAILED', 'LOGOUT', 'TOKEN_REFRESHED', 'PASSWORD_CHANGED', 'PASSWORD_RESET_REQUESTED', 'PASSWORD_RESET_COMPLETED', 'ACCOUNT_LOCKED', 'ACCOUNT_UNLOCKED', 'USER_CREATED', 'USER_DISABLED', 'ROLE_ASSIGNED', 'ROLE_REVOKED', 'ROLE_CREATED', 'ROLE_DELETED', 'ROLE_PERMISSION_ADDED', 'ROLE_PERMISSION_REMOVED');
+CREATE TYPE "hr_core"."SecurityEventType" AS ENUM ('LOGIN_SUCCESS', 'LOGIN_FAILED', 'LOGOUT', 'TOKEN_REFRESHED', 'PASSWORD_CHANGED', 'PASSWORD_RESET_REQUESTED', 'PASSWORD_RESET_COMPLETED', 'ACCOUNT_LOCKED', 'ACCOUNT_UNLOCKED', 'USER_CREATED', 'USER_DISABLED', 'ROLE_ASSIGNED', 'ROLE_REVOKED', 'ROLE_CREATED', 'ROLE_DELETED', 'ROLE_PERMISSION_ADDED', 'ROLE_PERMISSION_REMOVED');
 
 -- CreateEnum
-CREATE TYPE "PermissionAction" AS ENUM ('CREATE', 'READ', 'UPDATE', 'DELETE', 'APPROVE');
+CREATE TYPE "hr_core"."PermissionAction" AS ENUM ('CREATE', 'READ', 'UPDATE', 'DELETE', 'APPROVE');
 
 -- CreateEnum
-CREATE TYPE "PermissionScope" AS ENUM ('OWN', 'TEAM', 'DEPARTMENT', 'BUSINESS_UNIT', 'GLOBAL');
+CREATE TYPE "hr_core"."PermissionScope" AS ENUM ('OWN', 'TEAM', 'DEPARTMENT', 'BUSINESS_UNIT', 'GLOBAL');
 
 -- CreateEnum
-CREATE TYPE "ChannelType" AS ENUM ('WEB', 'SLACK', 'WHATSAPP', 'EMAIL', 'IN_APP');
+CREATE TYPE "hr_core"."ChannelType" AS ENUM ('WEB', 'SLACK', 'WHATSAPP', 'EMAIL', 'IN_APP');
 
 -- CreateTable
-CREATE TABLE "users" (
+CREATE TABLE "hr_core"."users" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "passwordHash" TEXT NOT NULL,
     "passwordHistory" JSONB NOT NULL DEFAULT '[]',
-    "status" "UserStatus" NOT NULL DEFAULT 'PENDING_ACTIVATION',
+    "status" "hr_core"."UserStatus" NOT NULL DEFAULT 'PENDING_ACTIVATION',
     "employeeId" TEXT,
     "failedLoginCount" INTEGER NOT NULL DEFAULT 0,
     "lockedUntil" TIMESTAMP(3),
@@ -32,7 +32,7 @@ CREATE TABLE "users" (
 );
 
 -- CreateTable
-CREATE TABLE "roles" (
+CREATE TABLE "hr_core"."roles" (
     "id" TEXT NOT NULL,
     "code" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -46,21 +46,21 @@ CREATE TABLE "roles" (
 );
 
 -- CreateTable
-CREATE TABLE "permissions" (
+CREATE TABLE "hr_core"."permissions" (
     "id" TEXT NOT NULL,
     "resource" TEXT NOT NULL,
-    "action" "PermissionAction" NOT NULL,
-    "scope" "PermissionScope" NOT NULL,
+    "action" "hr_core"."PermissionAction" NOT NULL,
+    "scope" "hr_core"."PermissionScope" NOT NULL,
 
     CONSTRAINT "permissions_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "user_roles" (
+CREATE TABLE "hr_core"."user_roles" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "roleId" TEXT NOT NULL,
-    "scope" "PermissionScope" NOT NULL,
+    "scope" "hr_core"."PermissionScope" NOT NULL,
     "scopeEntityId" TEXT,
     "assignedById" TEXT,
     "assignedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -71,7 +71,7 @@ CREATE TABLE "user_roles" (
 );
 
 -- CreateTable
-CREATE TABLE "role_permissions" (
+CREATE TABLE "hr_core"."role_permissions" (
     "id" TEXT NOT NULL,
     "roleId" TEXT NOT NULL,
     "permissionId" TEXT NOT NULL,
@@ -81,10 +81,10 @@ CREATE TABLE "role_permissions" (
 );
 
 -- CreateTable
-CREATE TABLE "sessions" (
+CREATE TABLE "hr_core"."sessions" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "channel" "ChannelType" NOT NULL,
+    "channel" "hr_core"."ChannelType" NOT NULL,
     "accessTokenHash" TEXT NOT NULL,
     "refreshTokenHash" TEXT NOT NULL,
     "previousTokenHash" TEXT,
@@ -98,7 +98,7 @@ CREATE TABLE "sessions" (
 );
 
 -- CreateTable
-CREATE TABLE "password_reset_tokens" (
+CREATE TABLE "hr_core"."password_reset_tokens" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "tokenHash" TEXT NOT NULL,
@@ -110,10 +110,10 @@ CREATE TABLE "password_reset_tokens" (
 );
 
 -- CreateTable
-CREATE TABLE "security_events" (
+CREATE TABLE "hr_core"."security_events" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "eventType" "SecurityEventType" NOT NULL,
+    "eventType" "hr_core"."SecurityEventType" NOT NULL,
     "ipAddress" TEXT,
     "userAgent" TEXT,
     "metadata" JSONB,
@@ -123,114 +123,114 @@ CREATE TABLE "security_events" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+CREATE UNIQUE INDEX "users_email_key" ON "hr_core"."users"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "users_employeeId_key" ON "users"("employeeId");
+CREATE UNIQUE INDEX "users_employeeId_key" ON "hr_core"."users"("employeeId");
 
 -- CreateIndex
-CREATE INDEX "users_status_idx" ON "users"("status");
+CREATE INDEX "users_status_idx" ON "hr_core"."users"("status");
 
 -- CreateIndex
-CREATE INDEX "users_employeeId_idx" ON "users"("employeeId");
+CREATE INDEX "users_employeeId_idx" ON "hr_core"."users"("employeeId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "roles_code_key" ON "roles"("code");
+CREATE UNIQUE INDEX "roles_code_key" ON "hr_core"."roles"("code");
 
 -- CreateIndex
-CREATE INDEX "roles_isSystem_idx" ON "roles"("isSystem");
+CREATE INDEX "roles_isSystem_idx" ON "hr_core"."roles"("isSystem");
 
 -- CreateIndex
-CREATE INDEX "roles_isEditable_idx" ON "roles"("isEditable");
+CREATE INDEX "roles_isEditable_idx" ON "hr_core"."roles"("isEditable");
 
 -- CreateIndex
-CREATE INDEX "permissions_resource_idx" ON "permissions"("resource");
+CREATE INDEX "permissions_resource_idx" ON "hr_core"."permissions"("resource");
 
 -- CreateIndex
-CREATE INDEX "permissions_action_idx" ON "permissions"("action");
+CREATE INDEX "permissions_action_idx" ON "hr_core"."permissions"("action");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "permissions_resource_action_scope_key" ON "permissions"("resource", "action", "scope");
+CREATE UNIQUE INDEX "permissions_resource_action_scope_key" ON "hr_core"."permissions"("resource", "action", "scope");
 
 -- CreateIndex
-CREATE INDEX "user_roles_userId_idx" ON "user_roles"("userId");
+CREATE INDEX "user_roles_userId_idx" ON "hr_core"."user_roles"("userId");
 
 -- CreateIndex
-CREATE INDEX "user_roles_roleId_idx" ON "user_roles"("roleId");
+CREATE INDEX "user_roles_roleId_idx" ON "hr_core"."user_roles"("roleId");
 
 -- CreateIndex
-CREATE INDEX "user_roles_revokedAt_idx" ON "user_roles"("revokedAt");
+CREATE INDEX "user_roles_revokedAt_idx" ON "hr_core"."user_roles"("revokedAt");
 
 -- CreateIndex
-CREATE INDEX "user_roles_userId_roleId_idx" ON "user_roles"("userId", "roleId");
+CREATE INDEX "user_roles_userId_roleId_idx" ON "hr_core"."user_roles"("userId", "roleId");
 
 -- CreateIndex
-CREATE INDEX "role_permissions_roleId_idx" ON "role_permissions"("roleId");
+CREATE INDEX "role_permissions_roleId_idx" ON "hr_core"."role_permissions"("roleId");
 
 -- CreateIndex
-CREATE INDEX "role_permissions_permissionId_idx" ON "role_permissions"("permissionId");
+CREATE INDEX "role_permissions_permissionId_idx" ON "hr_core"."role_permissions"("permissionId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "role_permissions_roleId_permissionId_key" ON "role_permissions"("roleId", "permissionId");
+CREATE UNIQUE INDEX "role_permissions_roleId_permissionId_key" ON "hr_core"."role_permissions"("roleId", "permissionId");
 
 -- CreateIndex
-CREATE INDEX "sessions_userId_idx" ON "sessions"("userId");
+CREATE INDEX "sessions_userId_idx" ON "hr_core"."sessions"("userId");
 
 -- CreateIndex
-CREATE INDEX "sessions_revokedAt_idx" ON "sessions"("revokedAt");
+CREATE INDEX "sessions_revokedAt_idx" ON "hr_core"."sessions"("revokedAt");
 
 -- CreateIndex
-CREATE INDEX "sessions_expiresAt_idx" ON "sessions"("expiresAt");
+CREATE INDEX "sessions_expiresAt_idx" ON "hr_core"."sessions"("expiresAt");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "password_reset_tokens_tokenHash_key" ON "password_reset_tokens"("tokenHash");
+CREATE UNIQUE INDEX "password_reset_tokens_tokenHash_key" ON "hr_core"."password_reset_tokens"("tokenHash");
 
 -- CreateIndex
-CREATE INDEX "password_reset_tokens_userId_idx" ON "password_reset_tokens"("userId");
+CREATE INDEX "password_reset_tokens_userId_idx" ON "hr_core"."password_reset_tokens"("userId");
 
 -- CreateIndex
-CREATE INDEX "password_reset_tokens_expiresAt_idx" ON "password_reset_tokens"("expiresAt");
+CREATE INDEX "password_reset_tokens_expiresAt_idx" ON "hr_core"."password_reset_tokens"("expiresAt");
 
 -- CreateIndex
-CREATE INDEX "security_events_userId_eventType_idx" ON "security_events"("userId", "eventType");
+CREATE INDEX "security_events_userId_eventType_idx" ON "hr_core"."security_events"("userId", "eventType");
 
 -- CreateIndex
-CREATE INDEX "security_events_createdAt_idx" ON "security_events"("createdAt");
+CREATE INDEX "security_events_createdAt_idx" ON "hr_core"."security_events"("createdAt");
 
 -- CreateIndex
-CREATE INDEX "security_events_eventType_idx" ON "security_events"("eventType");
+CREATE INDEX "security_events_eventType_idx" ON "hr_core"."security_events"("eventType");
 
 -- AddForeignKey
-ALTER TABLE "users" ADD CONSTRAINT "users_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "hr_core"."users" ADD CONSTRAINT "users_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "hr_core"."employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr_core"."user_roles" ADD CONSTRAINT "user_roles_userId_fkey" FOREIGN KEY ("userId") REFERENCES "hr_core"."users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "roles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr_core"."user_roles" ADD CONSTRAINT "user_roles_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "hr_core"."roles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "role_permissions" ADD CONSTRAINT "role_permissions_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "roles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr_core"."role_permissions" ADD CONSTRAINT "role_permissions_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "hr_core"."roles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "role_permissions" ADD CONSTRAINT "role_permissions_permissionId_fkey" FOREIGN KEY ("permissionId") REFERENCES "permissions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr_core"."role_permissions" ADD CONSTRAINT "role_permissions_permissionId_fkey" FOREIGN KEY ("permissionId") REFERENCES "hr_core"."permissions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "sessions" ADD CONSTRAINT "sessions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr_core"."sessions" ADD CONSTRAINT "sessions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "hr_core"."users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "password_reset_tokens" ADD CONSTRAINT "password_reset_tokens_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr_core"."password_reset_tokens" ADD CONSTRAINT "password_reset_tokens_userId_fkey" FOREIGN KEY ("userId") REFERENCES "hr_core"."users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "security_events" ADD CONSTRAINT "security_events_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr_core"."security_events" ADD CONSTRAINT "security_events_userId_fkey" FOREIGN KEY ("userId") REFERENCES "hr_core"."users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- Partial unique index: one active role assignment per (user, role, scope entity).
 -- COALESCE maps NULL → '' so GLOBAL/OWN rows without a scopeEntityId collide correctly.
 CREATE UNIQUE INDEX "user_roles_active_assignment_uidx"
-  ON "user_roles" ("userId", "roleId", COALESCE("scopeEntityId", ''))
+  ON "hr_core"."user_roles" ("userId", "roleId", COALESCE("scopeEntityId", ''))
   WHERE "revokedAt" IS NULL;
 
 -- Partial unique index: one active session per (user, channel).
 CREATE UNIQUE INDEX "sessions_active_channel_uidx"
-  ON "sessions" ("userId", "channel")
+  ON "hr_core"."sessions" ("userId", "channel")
   WHERE "revokedAt" IS NULL;
