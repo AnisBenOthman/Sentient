@@ -1,0 +1,249 @@
+Build a "Position Role Cards" feature in the existing Next.js 14 frontend for the Sentient HRIS platform. This
+  connects to an already-running NestJS backend at http://localhost:3001.
+
+  ## What to build
+
+  Two things:
+  1. A new `/positions` page where HR admins define the skills profile for each role
+  2. A Skills Gap panel on the existing employee detail page (`/employees/[id]`)
+
+  ---
+
+  ## Tech constraints — match the existing codebase exactly
+
+  - Next.js 14 App Router, TypeScript strict mode
+  - `'use client'` only on interactive components; data-fetching pages use `useSWR`
+  - All HTTP calls go through `apps/web/src/lib/api/hr-core.ts` using the existing `hrClient` axios instance
+  - **Styling: inline `style` objects only** — the codebase does NOT use Tailwind utility classes in JSX. Match this
+  exact dark-theme palette:
+    - Page bg: `#0a0f1e`, Panel bg: `#0f172a`, Card bg: `rgba(15,23,42,0.9)`
+    - Border: `rgba(148,163,184,0.1)`, Accent: `#6366f1`, Accent muted: `#8b5cf6`
+    - Text primary: `#f1f5f9`, Text secondary: `#94a3b8`, Text muted: `#475569`
+    - Success green: `#34d399`, Warning amber: `#f59e0b`, Error red: `#f87171`
+  - Sidebar link: add "Positions" entry (visible to HR_ADMIN and EXECUTIVE) to
+  `apps/web/src/components/layout/sidebar.tsx`
+  - Role guard pattern: same as org-chart page — `useAuth()`, `hasRole(user.roles, ['HR_ADMIN', 'EXECUTIVE'])`
+
+  ---
+
+  ## Step 1 — Add API functions to `apps/web/src/lib/api/hr-core.ts`
+
+  Add these TypeScript interfaces and functions at the end of the file:
+
+  ```typescript
+  // ── Skills Catalog ─────────────────────────────────────────────────────────
+
+  export interface Skill {
+    id: string;
+    name: string;
+    category: string | null;
+    description: string | null;
+  }
+
+  export async function getSkills(params?: { category?: string }): Promise<Skill[]> {
+    const { data } = await hrClient.get<{ data: Skill[] } | Skill[]>('/skills', {
+      params: { limit: 200, ...params },
+    });
+    return Array.isArray(data) ? data : data.data;
+  }
+
+  // ── Position Skills ────────────────────────────────────────────────────────
+
+  export type ProficiencyLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
+  export type SkillRequirementLevel = 'MANDATORY' | 'EXPECTED' | 'NICE_TO_HAVE';
+
+  export interface PositionSkill {
+    id: string;
+    positionId: string;
+    skillId: string;
+    minimumProficiency: ProficiencyLevel;
+    requirementLevel: SkillRequirementLevel;
+    createdAt: string;
+    skill: { id: string; name: string; category: string | null };
+  }
+
+  export async function getPositionSkills(positionId: string): Promise<PositionSkill[]> {
+    const { data } = await hrClient.get<PositionSkill[]>(`/positions/${positionId}/skills`);
+    return data;
+  }
+
+  export async function bulkReplacePositionSkills(
+    positionId: string,
+    skills: Array<{
+      skillId: string;
+      minimumProficiency: ProficiencyLevel;
+      requirementLevel: SkillRequirementLevel;
+    }>,
+  ): Promise<PositionSkill[]> {
+    const { data } = await hrClient.put<PositionSkill[]>(`/positions/${positionId}/skills`, { skills });
+    return data;
+  }
+
+  export async function deletePositionSkill(positionId: string, skillId: string): Promise<void> {
+    await hrClient.delete(`/positions/${positionId}/skills/${skillId}`);
+  }
+
+  // ── Skills Gap Analysis ────────────────────────────────────────────────────
+
+  export type GapStatus = 'MET' | 'EXCEEDS' | 'PARTIAL' | 'MISSING';
+
+  export interface SkillGapItem {
+    skill: { id: string; name: string; category: string | null };
+    requirementLevel: SkillRequirementLevel;
+    requiredProficiency: ProficiencyLevel;
+    acquiredProficiency: ProficiencyLevel | null;
+    gapSize: number;
+    status: GapStatus;
+  }
+
+  export interface SkillsGapResult {
+    employeeId: string;
+    positionId: string;
+    positionTitle: string;
+    summary: {
+      totalRequired: number;
+      met: number;
+      exceeds: number;
+      partial: number;
+      missing: number;
+      byLevel: Record<SkillRequirementLevel, { total: number; met: number; gaps: number }>;
+    };
+    items: SkillGapItem[];
+  }
+
+  export async function getSkillsGap(
+    employeeId: string,
+    positionId?: string,
+  ): Promise<SkillsGapResult> {
+    const { data } = await hrClient.get<SkillsGapResult>(`/employees/${employeeId}/skills-gap`, {
+      params: positionId ? { positionId } : undefined,
+    });
+    return data;
+  }
+
+  ---
+  Step 2 — Create apps/web/src/app/positions/page.tsx
+
+  This is the main feature. Build it as a single 'use client' file.
+
+  Layout
+
+  Two-column layout: left sidebar (positions list) + right panel (skill profile editor).
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  Role Profiles                                          [+ New Role] │  ← header
+  ├──────────────────┬──────────────────────────────────────────────────┤
+  │  Search roles... │  [Selected role title]  [PositionLevel badge]    │
+  │                  │  [Edit Profile] button (HR_ADMIN only)            │
+  │  > Senior FE Dev │  ─────────────────────────────────────────────── │
+  │    Staff Eng     │  MANDATORY (3)    EXPECTED (2)    NICE_TO_HAVE(1)│
+  │    Tech Lead     │                                                   │
+  │    HR Manager    │  TECHNICAL                                        │
+  │    ...           │    React        ████████  ADVANCED                │
+  │                  │    TypeScript   ██████    INTERMEDIATE            │
+  │                  │                                                   │
+  │                  │  LEADERSHIP                                       │
+  │                  │    Communication ████      BEGINNER               │
+  └──────────────────┴──────────────────────────────────────────────────┘
+
+  Left panel — Positions list
+
+  - Fetch with getPositions() (already in hr-core.ts)
+  - Show position title + level badge (color-coded: JUNIOR=green, MID=blue, SENIOR=indigo, LEAD=purple, EXECUTIVE=amber)
+  - Count of required skills from loaded profile (show as small chip: "5 skills")
+  - Click to select → loads skills for that position
+  - Search input filters by title
+
+  Right panel — Skill Profile View
+
+  When no position selected: empty state "Select a position to view its skill profile".
+
+  When selected (read mode):
+  - Header: position title + level badge + edit button (HR_ADMIN only)
+  - Summary bar: 3 counters side-by-side — MANDATORY count (red chip), EXPECTED count (amber chip), NICE_TO_HAVE count
+  (grey chip)
+  - Skills grouped by skill.category (e.g., "TECHNICAL", "LEADERSHIP", "BEHAVIORAL", "DOMAIN"). If category is null,
+  group under "OTHER"
+  - Within each group, show skills sorted by requirementLevel (MANDATORY first)
+  - Each skill row:
+    - Skill name (text)
+    - RequirementLevel badge: MANDATORY=red fill, EXPECTED=amber fill, NICE_TO_HAVE=grey outline
+    - Proficiency bar + label: BEGINNER=1/4 fill, INTERMEDIATE=2/4, ADVANCED=3/4, EXPERT=4/4 (use indigo color #6366f1
+  for the fill bar, 4 segments)
+
+  Edit mode (HR_ADMIN only — toggle with "Edit Profile" button)
+
+  Edit mode overlays the right panel with:
+  - A working copy of the current skills (stored in local state, not saved until "Save")
+  - Each existing skill gets an "×" remove button
+  - "Add Skill" button opens a dialog (see below)
+  - "Save Profile" button → calls bulkReplacePositionSkills(positionId, workingCopy) → exits edit mode on success
+  - "Cancel" button → discards working copy, exits edit mode
+
+  Add Skill dialog (modal)
+
+  Fields in a modal overlay:
+  1. Category filter — horizontal pill tabs at top: ALL | TECHNICAL | LEADERSHIP | BEHAVIORAL | DOMAIN (filter the skill
+   list below)
+  2. Skill search — text input to filter skills by name
+  3. Skill list — scrollable list of getSkills() results. Skills already in the working copy shown as disabled with a
+  checkmark. Clicking a skill stages it (highlights the row).
+  4. After selecting a skill, show two dropdowns inline below the list:
+    - Minimum Proficiency: BEGINNER | INTERMEDIATE | ADVANCED | EXPERT (show with visual bar indicator, 1–4 filled
+  segments)
+    - Requirement Level: MANDATORY ("Hard requirement — must have this skill") | EXPECTED ("Development target — gap
+  leads to IDP") | NICE_TO_HAVE ("Bonus signal, not blocking")
+  5. "Add to Profile" button → adds to working copy → closes dialog
+
+  ---
+  Step 3 — Skills gap panel on employee detail page
+
+  The employee detail page already exists at apps/web/src/app/employees/[id]/page.tsx. Add a "Skills Gap" section after
+  the existing skills section.
+
+  The section should:
+  - Only render if the employee has a position assigned
+  - Call getSkillsGap(employeeId) (no positionId — defaults to current position)
+  - Show a compact summary: 3 stat boxes (Met, Partial/Missing, Exceeds)
+  - Below that, a table of gap items:
+
+  ┌───────────────┬────────────┬───────────────────┬───────────────────┬──────────┐
+  │     Skill     │  Category  │     Required      │     Acquired      │   Gap    │
+  ├───────────────┼────────────┼───────────────────┼───────────────────┼──────────┤
+  │ React         │ Technical  │ ADVANCED ████████ │ INTERMEDIATE ████ │ -1 level │
+  ├───────────────┼────────────┼───────────────────┼───────────────────┼──────────┤
+  │ TypeScript    │ Technical  │ ADVANCED          │ ADVANCED          │ ✓ Met    │
+  ├───────────────┼────────────┼───────────────────┼───────────────────┼──────────┤
+  │ Communication │ Leadership │ INTERMEDIATE      │ —                 │ Missing  │
+  └───────────────┴────────────┴───────────────────┴───────────────────┴──────────┘
+
+  - Row color coding:
+    - MET or EXCEEDS → no highlight (or subtle green left border)
+    - PARTIAL → amber left border
+    - MISSING + MANDATORY requirementLevel → red left border
+    - MISSING + EXPECTED or NICE_TO_HAVE → amber left border
+
+  ---
+  Color reference for requirement levels (use consistently)
+
+  MANDATORY    → background: rgba(239,68,68,0.15),  text: #f87171, border: rgba(239,68,68,0.3)
+  EXPECTED     → background: rgba(245,158,11,0.15), text: #fbbf24, border: rgba(245,158,11,0.3)
+  NICE_TO_HAVE → background: rgba(100,116,139,0.15),text: #94a3b8, border: rgba(100,116,139,0.3)
+
+  Color reference for proficiency levels
+
+  BEGINNER     → #34d399 (green)
+  INTERMEDIATE → #60a5fa (blue)
+  ADVANCED     → #a78bfa (purple)
+  EXPERT       → #f59e0b (amber/gold)
+
+  Proficiency bar component
+
+  4-segment bar. Fill color = proficiency color above. Width = 80px total, 4 segments of 16px with 4px gap.
+
+  BEGINNER:      [■][ ][ ][ ]   green
+  INTERMEDIATE:  [■][■][ ][ ]   blue
+  ADVANCED:      [■][■][■][ ]   purple
+  EXPERT:        [■][■][■][■]   amber
+
+  ---

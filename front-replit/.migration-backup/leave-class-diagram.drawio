@@ -1,0 +1,219 @@
+<mxGraphModel adaptiveColors="auto">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+
+    <!-- ════════════════ ENUM: LeaveStatus ════════════════ -->
+    <mxCell id="LeaveStatus" value="«enumeration»&#xa;LeaveStatus" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="40" y="40" width="240" height="170" as="geometry"/>
+    </mxCell>
+    <mxCell id="ls1" value="PENDING" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveStatus">
+      <mxGeometry x="0" y="40" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ls2" value="APPROVED" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveStatus">
+      <mxGeometry x="0" y="66" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ls3" value="REJECTED" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveStatus">
+      <mxGeometry x="0" y="92" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ls4" value="CANCELLED" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveStatus">
+      <mxGeometry x="0" y="118" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ls5" value="ESCALATED" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveStatus">
+      <mxGeometry x="0" y="144" width="240" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- ════════════════ STUB: Employee ════════════════ -->
+    <mxCell id="EmployeeStub" value="Employee" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#f5f5f5;strokeColor=#999999;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="420" y="640" width="220" height="52" as="geometry"/>
+    </mxCell>
+    <mxCell id="estub1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EmployeeStub">
+      <mxGeometry x="0" y="26" width="220" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- ════════════════ LeaveType ════════════════ -->
+    <mxCell id="LeaveType" value="LeaveType" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+      <mxGeometry x="40" y="260" width="270" height="156" as="geometry"/>
+    </mxCell>
+    <mxCell id="lt1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveType">
+      <mxGeometry x="0" y="26" width="270" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lt2" value="+ name : String  «Unique»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveType">
+      <mxGeometry x="0" y="52" width="270" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lt3" value="+ defaultDaysPerYear : Int" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveType">
+      <mxGeometry x="0" y="78" width="270" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lt4" value="+ requiresApproval : Boolean = true" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveType">
+      <mxGeometry x="0" y="104" width="270" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lt5" value="+ color : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveType">
+      <mxGeometry x="0" y="130" width="270" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- ════════════════ LeaveBalance ════════════════ -->
+    <mxCell id="LeaveBalance" value="LeaveBalance" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+      <mxGeometry x="410" y="180" width="280" height="234" as="geometry"/>
+    </mxCell>
+    <mxCell id="lb1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveBalance">
+      <mxGeometry x="0" y="26" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lb2" value="+ employeeId : UUID  «FK→Employee»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveBalance">
+      <mxGeometry x="0" y="52" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lb3" value="+ leaveTypeId : UUID  «FK→LeaveType»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveBalance">
+      <mxGeometry x="0" y="78" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lb4" value="+ year : Int" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveBalance">
+      <mxGeometry x="0" y="104" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lb5" value="+ totalDays : Decimal" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveBalance">
+      <mxGeometry x="0" y="130" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lb6" value="+ usedDays : Decimal = 0" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveBalance">
+      <mxGeometry x="0" y="156" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lb7" value="+ pendingDays : Decimal = 0" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveBalance">
+      <mxGeometry x="0" y="182" width="280" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lb8" value="+ remainingDays : Decimal  «computed»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveBalance">
+      <mxGeometry x="0" y="208" width="280" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- ════════════════ LeaveRequest ════════════════ -->
+    <mxCell id="LeaveRequest" value="LeaveRequest" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+      <mxGeometry x="810" y="40" width="300" height="416" as="geometry"/>
+    </mxCell>
+    <mxCell id="lr1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveRequest">
+      <mxGeometry x="0" y="26" width="300" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lr2" value="+ employeeId : UUID  «FK→Employee»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveRequest">
+      <mxGeometry x="0" y="52" width="300" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lr3" value="+ leaveTypeId : UUID  «FK→LeaveType»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveRequest">
+      <mxGeometry x="0" y="78" width="300" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lr4" value="+ startDate : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveRequest">
+      <mxGeometry x="0" y="104" width="300" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lr5" value="+ endDate : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveRequest">
+      <mxGeometry x="0" y="130" width="300" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lr6" value="+ totalDays : Decimal  «computed»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveRequest">
+      <mxGeometry x="0" y="156" width="300" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lr7" value="+ reason : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveRequest">
+      <mxGeometry x="0" y="182" width="300" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lr8" value="+ status : LeaveStatus = PENDING" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveRequest">
+      <mxGeometry x="0" y="208" width="300" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lr9" value="+ reviewedBy : UUID?  «FK→Employee»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveRequest">
+      <mxGeometry x="0" y="234" width="300" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lr10" value="+ reviewedAt : DateTime?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveRequest">
+      <mxGeometry x="0" y="260" width="300" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lr11" value="+ reviewNote : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveRequest">
+      <mxGeometry x="0" y="286" width="300" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lr12" value="+ agentRiskAssessment : Json?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveRequest">
+      <mxGeometry x="0" y="312" width="300" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lr13" value="+ agentSuggestedDates : Json?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveRequest">
+      <mxGeometry x="0" y="338" width="300" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lr14" value="+ createdAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveRequest">
+      <mxGeometry x="0" y="364" width="300" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="lr15" value="+ updatedAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="LeaveRequest">
+      <mxGeometry x="0" y="390" width="300" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- ════════════════ Holiday (NEW) ════════════════ -->
+    <mxCell id="Holiday" value="Holiday  «NEW»" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="40" y="470" width="270" height="208" as="geometry"/>
+    </mxCell>
+    <mxCell id="hol1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Holiday">
+      <mxGeometry x="0" y="26" width="270" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="hol2" value="+ name : String  (e.g. Eid al-Fitr)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Holiday">
+      <mxGeometry x="0" y="52" width="270" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="hol3" value="+ date : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Holiday">
+      <mxGeometry x="0" y="78" width="270" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="hol4" value="+ isRecurring : Boolean = false" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Holiday">
+      <mxGeometry x="0" y="104" width="270" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="hol5" value="+ country : String?  (null = company-wide)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Holiday">
+      <mxGeometry x="0" y="130" width="270" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="hol6" value="+ year : Int?  (null if recurring)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Holiday">
+      <mxGeometry x="0" y="156" width="270" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="hol7" value="+ createdAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="Holiday">
+      <mxGeometry x="0" y="182" width="270" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- ════════════════ EDGES ════════════════ -->
+
+    <!-- LeaveType(1) → LeaveBalance(*) -->
+    <mxCell id="le1" edge="1" source="LeaveType" target="LeaveBalance" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.4;entryDx=0;entryDy=0;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- LeaveType(1) → LeaveRequest(*) -->
+    <mxCell id="le2" edge="1" source="LeaveType" target="LeaveRequest" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0;entryY=0.2;entryDx=0;entryDy=0;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- Employee(1) → LeaveBalance(*) -->
+    <mxCell id="le3" edge="1" source="EmployeeStub" target="LeaveBalance" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- Employee(1) → LeaveRequest(*) "requester" -->
+    <mxCell id="le4" edge="1" source="EmployeeStub" target="LeaveRequest" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="720" y="666"/>
+          <mxPoint x="720" y="560"/>
+          <mxPoint x="780" y="560"/>
+          <mxPoint x="780" y="354"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="le4lbl" value="requester" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="le4">
+      <mxGeometry x="0.5" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+    </mxCell>
+
+    <!-- Employee(0..1) → LeaveRequest(*) "reviewer" (dashed) -->
+    <mxCell id="le5" edge="1" source="EmployeeStub" target="LeaveRequest" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=0..1;endLabel=*;dashed=1;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0;entryY=0.88;entryDx=0;entryDy=0;">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="730" y="656"/>
+          <mxPoint x="730" y="610"/>
+          <mxPoint x="790" y="610"/>
+          <mxPoint x="790" y="406"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="le5lbl" value="reviewer" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="le5">
+      <mxGeometry x="0.5" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+    </mxCell>
+
+    <!-- LeaveStatus ..> LeaveRequest -->
+    <mxCell id="e_ls_lr" value="«uses»" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.55;entryDx=0;entryDy=0;" edge="1" source="LeaveStatus" target="LeaveRequest" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="300" y="125"/>
+          <mxPoint x="300" y="10"/>
+          <mxPoint x="790" y="10"/>
+          <mxPoint x="790" y="269"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+
+  </root>
+</mxGraphModel>

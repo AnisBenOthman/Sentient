@@ -1,0 +1,7 @@
+.datagarden-blob {
+  animation: datagarden-float 20s infinite ease-in-out alternate;
+}
+@keyframes datagarden-float {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(30px, -30px) scale(1.05); }
+}

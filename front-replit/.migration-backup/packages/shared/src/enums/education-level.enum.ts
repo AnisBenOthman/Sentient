@@ -1,0 +1,7 @@
+export enum EducationLevel {
+  BELOW_COLLEGE = 'BELOW_COLLEGE',
+  COLLEGE = 'COLLEGE',
+  BACHELOR = 'BACHELOR',
+  MASTER = 'MASTER',
+  DOCTOR = 'DOCTOR',
+}

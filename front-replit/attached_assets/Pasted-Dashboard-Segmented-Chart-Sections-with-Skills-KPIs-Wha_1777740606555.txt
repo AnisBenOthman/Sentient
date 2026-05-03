@@ -1,0 +1,48 @@
+Dashboard — Segmented Chart Sections with Skills KPIs
+What & Why
+Replace the current flat dashboard with four clearly labelled sections — Employees, Payroll, Leave, and Skills — each containing relevant KPI cards and trend charts. The Skills section is elevated to a first-class section with BU / Department / Team granularity toggling.
+
+Done looks like
+The dashboard is divided into four sections, each with a bold heading, icon, and subtle divider.
+Employees section shows:
+KPI cards: Total Employees, Active Employees, Employees on Leave / Remote
+Line chart: Headcount over time (monthly, last 12 months) — role-scoped
+Bar chart: Total employees per department
+Bar chart: New hires by department over time (monthly)
+Payroll section shows:
+KPI cards: Total Payroll Cost, Average Salary
+Bar chart: Wages (gross salary) per department
+Line chart: Payroll cost per team over time (quarterly, from salary history)
+Leave section shows:
+KPI cards: Pending Approvals, My Pending Leaves, My Approved Leaves
+Bar chart: Leave days per department
+Line chart: Leave requests over time per leave type (Annual, Sick, Personal)
+The existing "My Recent Requests" and "Pending Approvals" action lists remain inside this section
+Skills section shows:
+KPI cards: Avg Skill Score (out of 5), Skills Tracked, Top Skill in scope
+A BU / Department / Team granularity toggle
+Radar chart: average proficiency per skill for the selected scope
+Bar chart: average skill score ranked by BU, department, or team (depending on toggle)
+Line chart: skill score evolution over time (quarters) for the selected scope, using existing skillHistory data
+The existing role switcher at the top still filters all four sections appropriately.
+All chart data is derived from existing mock data or new mock time-series data in mock-data.ts.
+Out of scope
+Real backend data or live database queries
+Collapsible / expandable section toggles
+Exporting charts as images (separate task)
+Steps
+Extend mock data — Add time-series arrays to mock-data.ts: (a) monthly headcount by department (12 months); (b) monthly new-hire counts by department; (c) monthly leave counts by type; (d) quarterly payroll cost by team derived from salary history. Also add a buMap that groups employees by BU id for the Skills section.
+
+Employees section — Build the section with 3 KPI cards, a headcount-over-time line chart, an employees-per-department bar chart, and a new-hires-over-time bar chart. All scoped by the active role.
+
+Payroll section — Build the section with 2 KPI cards (total cost, avg salary), a wages-per-department bar chart, and a payroll-cost-over-time line chart by team.
+
+Leave section — Build the section with 3 KPI cards, a leave-days-per-department bar chart, a leave-over-time line chart by type, and the existing request lists.
+
+Skills section — Build the section with 3 KPI cards, a BU/Department/Team granularity toggle, a radar chart (scope-aware, replacing the existing one), a bar chart ranking groups by avg skill score, and a quarterly skill evolution line chart using skillHistory.
+
+Layout & styling — Each section uses a consistent header pattern (icon + title + divider) and a responsive 2-column chart grid (lg:grid-cols-2). Sections are stacked vertically in order: Employees → Payroll → Leave → Skills.
+
+Relevant files
+artifacts/sentient-hris/src/pages/dashboard.tsx
+artifacts/sentient-hris/src/lib/mock-data.ts
