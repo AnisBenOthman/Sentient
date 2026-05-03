@@ -54,7 +54,17 @@
       "Bash(turbo build *)",
       "Bash(node -e 'const { PrismaClient } = require\\('\\\\''./src/generated/prisma'\\\\''\\); const { PrismaPg } = require\\('\\\\''@prisma/adapter-pg'\\\\''\\); const adapter = new PrismaPg\\({ connectionString: '\\\\''postgresql://postgres:anis@localhost:5432/sentient?schema=hr_core'\\\\'' }\\); const prisma = new PrismaClient\\({ adapter }\\); prisma.user.findFirst\\({ where: { email: '\\\\''hradmin@sentient.dev'\\\\'' } }\\).then\\(u => console.log\\('\\\\''User found:'\\\\'', u ? '\\\\''YES'\\\\'' : '\\\\''NO'\\\\''\\)\\).catch\\(e => console.error\\('\\\\''DB ERROR:'\\\\'', e.message, e.code\\)\\).finally\\(\\(\\) => prisma.$disconnect\\(\\)\\)')",
       "Bash(node -e ' *)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "Bash(git -C \"C:\\\\Users\\\\Anis\\\\Downloads\\\\Sentient\" ls-files front-replit/)",
+      "Bash(Remove-Item *)",
+      "Bash(gh pr *)",
+      "PowerShell(gh pr *)",
+      "Bash(unzip -l \"/c/Users/Anis/Downloads/Sentient.zip\")",
+      "Bash(cd /tmp)",
+      "Bash(unzip -o \"/c/Users/Anis/Downloads/Sentient.zip\" \"Sentient/artifacts/mockup-sandbox/*\" -d /tmp/sentient_mockup)",
+      "Bash(unzip -o \"/c/Users/Anis/Downloads/Sentient.zip\" \"Sentient/artifacts/mockup-sandbox/src/*\" -d /tmp/sentient_mockup)",
+      "Read(//tmp/sentient_mockup/Sentient/artifacts/mockup-sandbox/src/components/mockups/**)",
+      "Bash(unzip *)"
     ]
   }
 }

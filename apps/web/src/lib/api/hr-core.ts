@@ -101,12 +101,23 @@ export interface Department {
   id: string;
   name: string;
   code: string;
+  description: string | null;
+  isActive: boolean;
+  businessUnitId: string;
+  headId: string | null;
+  businessUnit: { id: string; name: string } | null;
 }
 
 export interface Team {
   id: string;
   name: string;
   code: string;
+  description: string | null;
+  isActive: boolean;
+  departmentId: string;
+  leadId: string | null;
+  projectFocus: string | null;
+  department: { id: string; name: string } | null;
 }
 
 export interface Position {
@@ -128,6 +139,95 @@ export async function getTeams(): Promise<Team[]> {
 export async function getPositions(): Promise<Position[]> {
   const { data } = await hrClient.get<{ data: Position[] } | Position[]>('/positions', { params: { limit: 200 } });
   return Array.isArray(data) ? data : data.data;
+}
+
+// ── Business Units ────────────────────────────────────────────────────────
+
+export interface BusinessUnit {
+  id: string;
+  name: string;
+  address: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export async function getBusinessUnits(): Promise<BusinessUnit[]> {
+  const { data } = await hrClient.get<{ data: BusinessUnit[] } | BusinessUnit[]>(
+    '/business-units', { params: { limit: 200 } },
+  );
+  return Array.isArray(data) ? data : data.data;
+}
+
+export async function createBusinessUnit(dto: { name: string; address: string }): Promise<BusinessUnit> {
+  const { data } = await hrClient.post<BusinessUnit>('/business-units', dto);
+  return data;
+}
+
+export async function updateBusinessUnit(
+  id: string,
+  dto: Partial<{ name: string; address: string; isActive: boolean }>,
+): Promise<BusinessUnit> {
+  const { data } = await hrClient.patch<BusinessUnit>(`/business-units/${id}`, dto);
+  return data;
+}
+
+export async function deleteBusinessUnit(id: string): Promise<void> {
+  await hrClient.delete(`/business-units/${id}`);
+}
+
+// ── Department CRUD ───────────────────────────────────────────────────────
+
+export interface CreateDepartmentPayload {
+  name: string;
+  code: string;
+  businessUnitId: string;
+  description?: string;
+  headId?: string;
+}
+
+export async function createDepartment(dto: CreateDepartmentPayload): Promise<Department> {
+  const { data } = await hrClient.post<Department>('/departments', dto);
+  return data;
+}
+
+export async function updateDepartment(
+  id: string,
+  dto: Partial<CreateDepartmentPayload & { isActive: boolean }>,
+): Promise<Department> {
+  const { data } = await hrClient.patch<Department>(`/departments/${id}`, dto);
+  return data;
+}
+
+export async function deleteDepartment(id: string): Promise<void> {
+  await hrClient.delete(`/departments/${id}`);
+}
+
+// ── Team CRUD ─────────────────────────────────────────────────────────────
+
+export interface CreateTeamPayload {
+  name: string;
+  departmentId: string;
+  code?: string;
+  description?: string;
+  projectFocus?: string;
+  leadId?: string;
+}
+
+export async function createTeam(dto: CreateTeamPayload): Promise<Team> {
+  const { data } = await hrClient.post<Team>('/teams', dto);
+  return data;
+}
+
+export async function updateTeam(
+  id: string,
+  dto: Partial<CreateTeamPayload & { isActive: boolean }>,
+): Promise<Team> {
+  const { data } = await hrClient.patch<Team>(`/teams/${id}`, dto);
+  return data;
+}
+
+export async function deleteTeam(id: string): Promise<void> {
+  await hrClient.delete(`/teams/${id}`);
 }
 
 // ── Salary History ────────────────────────────────────────────────────────
@@ -173,6 +273,16 @@ export async function getMyLeaveRequests(params?: {
   status?: string;
 }): Promise<LeaveRequest[]> {
   const { data } = await hrClient.get<LeaveRequest[]>('/leave-requests', { params });
+  return data;
+}
+
+export async function getEmployeeLeaveRequests(
+  employeeId: string,
+  params?: { status?: string },
+): Promise<LeaveRequest[]> {
+  const { data } = await hrClient.get<LeaveRequest[]>('/leave-requests', {
+    params: { employeeId, ...params },
+  });
   return data;
 }
 

@@ -5,7 +5,7 @@ import useSWR from 'swr';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/auth-provider';
 import { hasRole } from '@/lib/auth';
-import { getEmployee, getSalaryHistory, getEmployeeSkills, getMyLeaveRequests } from '@/lib/api/hr-core';
+import { getEmployee, getSalaryHistory, getEmployeeSkills, getEmployeeLeaveRequests } from '@/lib/api/hr-core';
 import { ArrowLeft, Mail, Phone, Calendar, Building2, Users, Briefcase } from 'lucide-react';
 
 // ── UI helpers ────────────────────────────────────────────────────────────
@@ -177,7 +177,7 @@ function SkillsTab({ employeeId }: { employeeId: string }) {
 function LeavesTab({ employeeId }: { employeeId: string }) {
   const { data: leaves = [], isLoading } = useSWR(
     `leaves-${employeeId}`,
-    () => getMyLeaveRequests(),
+    () => getEmployeeLeaveRequests(employeeId),
   );
   const STATUS_STYLES_LOCAL: Record<string, { color: string; bg: string }> = {
     PENDING:   { color: '#fbbf24', bg: 'rgba(251,191,36,0.1)'  },

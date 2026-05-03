@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
 import { getOrgChart, getTeamMembers } from '@/lib/api/hr-core';
 import type { OrgDepartment, OrgTeam, EmployeeProfile } from '@/lib/api/hr-core';
 import { X, Eye } from 'lucide-react';
+import { useAuth } from '@/components/providers/auth-provider';
+import { hasRole } from '@/lib/auth';
 
 // ── Avatar ────────────────────────────────────────────────────────────────
 
@@ -134,8 +136,16 @@ function TeamCard({ team, onClick }: { team: OrgTeam; onClick: () => void }) {
 
 export default function OrgChartPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const { data: depts = [], isLoading } = useSWR('org-chart', getOrgChart);
   const [selectedTeam, setSelectedTeam] = useState<OrgTeam | null>(null);
+
+  useEffect(() => {
+    if (user === null) return;
+    if (!hasRole(user.roles, ['HR_ADMIN', 'EXECUTIVE'])) router.replace('/dashboard');
+  }, [user, router]);
+
+  if (user === null || !hasRole(user.roles, ['HR_ADMIN', 'EXECUTIVE'])) return null;
 
   const totalActive = depts.reduce((sum, d) => sum + d.teams.reduce((s, t) => s + t.employeeCount, 0), 0);
 

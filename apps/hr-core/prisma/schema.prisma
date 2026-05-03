@@ -79,6 +79,14 @@ enum ProficiencyLevel {
   @@schema("hr_core")
 }
 
+enum SkillRequirementLevel {
+  MANDATORY
+  EXPECTED
+  NICE_TO_HAVE
+
+  @@schema("hr_core")
+}
+
 enum SourceLevel {
   RECRUITMENT
   TRAINING
@@ -286,12 +294,32 @@ model Position {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
-  employees Employee[]
+  employees      Employee[]
+  requiredSkills PositionSkill[]
 
   @@schema("hr_core")
   @@map("positions")
   @@index([isActive])
   @@index([isKeyPosition])
+}
+
+model PositionSkill {
+  id                 String           @id @default(uuid())
+  positionId         String
+  skillId            String
+  minimumProficiency ProficiencyLevel
+  requirementLevel   SkillRequirementLevel @default(MANDATORY)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  position Position @relation(fields: [positionId], references: [id])
+  skill    Skill    @relation(fields: [skillId], references: [id])
+
+  @@unique([positionId, skillId])
+  @@schema("hr_core")
+  @@map("position_skills")
+  @@index([positionId])
+  @@index([skillId])
 }
 
 // ============================================================
@@ -389,6 +417,7 @@ model Skill {
 
   employeeSkills EmployeeSkill[]
   history        SkillHistory[]
+  positionSkills PositionSkill[]
 
   @@schema("hr_core")
   @@map("skills")

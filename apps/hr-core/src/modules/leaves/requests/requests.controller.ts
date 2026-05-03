@@ -28,6 +28,12 @@ function requireEmployeeId(user: JwtPayload): string {
   return user.employeeId;
 }
 
+function resolveTargetEmployeeId(user: JwtPayload, queryEmployeeId?: string): string {
+  const canViewOthers = user.roles.some(r => ['HR_ADMIN', 'EXECUTIVE'].includes(r));
+  if (canViewOthers && queryEmployeeId) return queryEmployeeId;
+  return requireEmployeeId(user);
+}
+
 @Controller('leave-requests')
 @UseGuards(SharedJwtGuard, UserStatusGuard, RbacGuard)
 @ApiTags('Leave Management')
@@ -56,7 +62,7 @@ export class RequestsController {
     @Query() query: LeaveQueryDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<LeaveRequestWithType[]> {
-    return this.requestsService.findByEmployee(requireEmployeeId(user), query);
+    return this.requestsService.findByEmployee(resolveTargetEmployeeId(user, query.employeeId), query);
   }
 
   @Get('team-calendar')

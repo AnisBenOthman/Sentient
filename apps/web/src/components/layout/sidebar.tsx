@@ -6,8 +6,10 @@ import {
   LayoutDashboard, Users, CalendarDays, GitBranch,
   Settings, LogOut, ChevronRight,
 } from 'lucide-react';
+import useSWR from 'swr';
 import { useAuth } from '@/components/providers/auth-provider';
 import { roleLabel, hasRole } from '@/lib/auth';
+import { getEmployee } from '@/lib/api/hr-core';
 
 const NAV = [
   { href: '/dashboard',  label: 'Dashboard', icon: LayoutDashboard, roles: [] },
@@ -38,9 +40,18 @@ export function Sidebar() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const roles = user?.roles ?? [];
-  const displayName = user ? `User ${user.sub.slice(0, 6)}` : '—';
+  const { data: profile } = useSWR(
+    user?.employeeId ? `me-${user.employeeId}` : null,
+    () => getEmployee(user!.employeeId!),
+  );
+  const displayName = profile
+    ? `${profile.firstName} ${profile.lastName}`
+    : user
+      ? `User ${user.sub.slice(0, 6)}`
+      : '—';
 
   const visibleNav = NAV.filter(n => n.roles.length === 0 || hasRole(roles, n.roles));
+  const settingsActive = pathname === '/settings' || pathname.startsWith('/settings/');
 
   return (
     <aside style={{
@@ -98,11 +109,22 @@ export function Sidebar() {
         {hasRole(roles, ['HR_ADMIN', 'SYSTEM_ADMIN']) && (
           <div style={{ marginTop: 16, padding: '0 4px' }}>
             <div style={{ fontSize: 10, fontWeight: 600, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Admin</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, color: '#334155', fontSize: 13 }}>
+            <Link
+              href="/settings"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 12px', borderRadius: 10, marginBottom: 2,
+                background: settingsActive ? 'rgba(99,102,241,0.15)' : 'transparent',
+                color: settingsActive ? '#a5b4fc' : '#64748b',
+                textDecoration: 'none', fontSize: 13, fontWeight: settingsActive ? 600 : 400,
+                transition: 'all 0.15s',
+                border: settingsActive ? '1px solid rgba(99,102,241,0.2)' : '1px solid transparent',
+              }}
+            >
               <Settings size={16} />
               Settings
-              <span style={{ marginLeft: 'auto', fontSize: 9, background: 'rgba(99,102,241,0.1)', color: '#475569', padding: '1px 6px', borderRadius: 4, fontWeight: 600 }}>SOON</span>
-            </div>
+              {settingsActive && <ChevronRight size={12} style={{ marginLeft: 'auto', opacity: 0.5 }} />}
+            </Link>
           </div>
         )}
       </nav>

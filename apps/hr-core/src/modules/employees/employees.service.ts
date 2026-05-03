@@ -18,9 +18,10 @@ import {
   SalaryHistory,
 } from '../../generated/prisma';
 import { Decimal } from '../../generated/prisma/runtime/library';
-import { IEventBus, EVENT_BUS, JwtPayload, PermissionScope } from '@sentient/shared';
+import { IEventBus, EVENT_BUS, JwtPayload, PermissionScope, ProficiencyLevel, SkillRequirementLevel } from '@sentient/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
+import { SkillsGapQueryDto } from './dto/skills-gap-query.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { UpdateEmployeeStatusDto } from './dto/update-employee-status.dto';
 import { EmployeeQueryDto } from './dto/employee-query.dto';
@@ -45,6 +46,39 @@ export interface PaginatedEmployees {
   page: number;
   limit: number;
 }
+
+type GapStatus = 'MET' | 'EXCEEDS' | 'PARTIAL' | 'MISSING';
+
+export interface SkillGapItem {
+  skill: { id: string; name: string; category: string | null };
+  requirementLevel: SkillRequirementLevel;
+  requiredProficiency: ProficiencyLevel;
+  acquiredProficiency: ProficiencyLevel | null;
+  gapSize: number;
+  status: GapStatus;
+}
+
+export interface SkillsGapResult {
+  employeeId: string;
+  positionId: string;
+  positionTitle: string;
+  summary: {
+    totalRequired: number;
+    met: number;
+    exceeds: number;
+    partial: number;
+    missing: number;
+    byLevel: Record<SkillRequirementLevel, { total: number; met: number; gaps: number }>;
+  };
+  items: SkillGapItem[];
+}
+
+const PROFICIENCY_RANK: Record<ProficiencyLevel, number> = {
+  [ProficiencyLevel.BEGINNER]: 0,
+  [ProficiencyLevel.INTERMEDIATE]: 1,
+  [ProficiencyLevel.ADVANCED]: 2,
+  [ProficiencyLevel.EXPERT]: 3,
+};
 
 const TERMINAL_STATUSES = new Set<string>([
   EmploymentStatus.TERMINATED,
@@ -375,6 +409,108 @@ export class EmployeesService {
       payload: { employeeId: id },
       metadata: { userId: actorUserId, correlationId: randomUUID() },
     });
+  }
+
+  // ============================================================
+  // Skills gap analysis
+  // ============================================================
+
+  async getSkillsGap(employeeId: string, query: SkillsGapQueryDto, user: JwtPayload): Promise<SkillsGapResult> {
+    const scopeFilter = this.buildScopeFilter(user);
+    const employee = await this.prisma.employee.findFirst({
+      where: { AND: [scopeFilter, { id: employeeId, deletedAt: null }] },
+      select: { id: true, positionId: true },
+    });
+
+    if (!employee) {
+      const exists = await this.prisma.employee.findUnique({ where: { id: employeeId }, select: { id: true, deletedAt: true } });
+      if (exists && !exists.deletedAt) throw new ForbiddenException('You do not have permission to view this employee');
+      throw new NotFoundException(`Employee ${employeeId} not found`);
+    }
+
+    const positionId = query.positionId ?? employee.positionId;
+    if (!positionId) {
+      throw new BadRequestException('Employee has no assigned position. Provide a positionId query parameter.');
+    }
+
+    const position = await this.prisma.position.findUnique({
+      where: { id: positionId },
+      select: {
+        id: true,
+        title: true,
+        requiredSkills: {
+          include: { skill: { select: { id: true, name: true, category: true } } },
+          orderBy: { createdAt: 'asc' as const },
+        },
+      },
+    });
+    if (!position) throw new NotFoundException(`Position ${positionId} not found`);
+
+    const employeeSkills = await this.prisma.employeeSkill.findMany({
+      where: { employeeId, deletedAt: null },
+      select: { skillId: true, proficiency: true },
+    });
+
+    const acquiredMap = new Map(employeeSkills.map((es) => [es.skillId, es.proficiency as ProficiencyLevel]));
+
+    const items: SkillGapItem[] = position.requiredSkills.map((ps) => {
+      const acquiredProficiency = acquiredMap.get(ps.skillId) ?? null;
+      const requiredRank = PROFICIENCY_RANK[ps.minimumProficiency as ProficiencyLevel] ?? 0;
+      const acquiredRank = acquiredProficiency !== null ? (PROFICIENCY_RANK[acquiredProficiency] ?? 0) : null;
+
+      let status: GapStatus;
+      let gapSize: number;
+
+      if (acquiredRank === null) {
+        status = 'MISSING';
+        gapSize = requiredRank;
+      } else {
+        gapSize = requiredRank - acquiredRank;
+        if (gapSize > 0) status = 'PARTIAL';
+        else if (gapSize === 0) status = 'MET';
+        else status = 'EXCEEDS';
+      }
+
+      return {
+        skill: ps.skill,
+        requirementLevel: ps.requirementLevel as SkillRequirementLevel,
+        requiredProficiency: ps.minimumProficiency as ProficiencyLevel,
+        acquiredProficiency,
+        gapSize,
+        status,
+      };
+    });
+
+    const emptyLevelStat = () => ({ total: 0, met: 0, gaps: 0 });
+    const byLevel: Record<SkillRequirementLevel, { total: number; met: number; gaps: number }> = {
+      [SkillRequirementLevel.MANDATORY]: emptyLevelStat(),
+      [SkillRequirementLevel.EXPECTED]: emptyLevelStat(),
+      [SkillRequirementLevel.NICE_TO_HAVE]: emptyLevelStat(),
+    };
+
+    for (const item of items) {
+      const bucket = byLevel[item.requirementLevel];
+      if (bucket !== undefined) {
+        bucket.total += 1;
+        if (item.status === 'MET' || item.status === 'EXCEEDS') bucket.met += 1;
+        else bucket.gaps += 1;
+      }
+    }
+
+    return {
+      employeeId,
+      positionId,
+      positionTitle: position.title,
+      summary: {
+        totalRequired: items.length,
+        met: items.filter((i) => i.status === 'MET').length,
+        exceeds: items.filter((i) => i.status === 'EXCEEDS').length,
+        partial: items.filter((i) => i.status === 'PARTIAL').length,
+        missing: items.filter((i) => i.status === 'MISSING').length,
+        byLevel,
+      },
+      items,
+    };
   }
 
   // ============================================================

@@ -23,11 +23,11 @@ export class DepartmentQueryDto {
   @IsUUID()
   cursor?: string;
 
-  @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
+  @ApiPropertyOptional({ minimum: 1, maximum: 200, default: 20 })
   @IsOptional()
   @Transform(({ value }: { value: unknown }) => Number(value ?? 20))
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(200)
   limit = 20;
 }
