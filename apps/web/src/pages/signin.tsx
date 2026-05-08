@@ -28,7 +28,10 @@ export default function SignIn() {
   });
 
   const errorMessage: string | null = error
-    ? ((error as { response?: { data?: { message?: string } } }).response?.data?.message ?? "Invalid email or password.")
+    ? ((error as { response?: { data?: { message?: string } }; request?: unknown }).response?.data?.message
+      ?? ((error as { request?: unknown }).request
+        ? "Unable to reach the HR Core service. Check the API URL and CORS origin."
+        : "Invalid email or password."))
     : null;
 
   function handleSubmit(e: React.FormEvent) {
