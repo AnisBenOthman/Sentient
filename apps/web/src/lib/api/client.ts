@@ -2,7 +2,7 @@ import axios from 'axios';
 import { authStore } from '../auth';
 
 export const hrClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_HR_CORE_URL ?? 'http://localhost:3001',
+  baseURL: import.meta.env.VITE_HR_CORE_URL ?? 'http://localhost:3001',
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -25,7 +25,7 @@ hrClient.interceptors.response.use(
       const refreshToken = authStore.getRefresh();
       if (!refreshToken) {
         authStore.clear();
-        window.location.replace('/login');
+        window.location.replace('/signin');
         return Promise.reject(error);
       }
       try {
@@ -46,7 +46,7 @@ hrClient.interceptors.response.use(
         return hrClient(original);
       } catch {
         authStore.clear();
-        window.location.replace('/login');
+        window.location.replace('/signin');
         return Promise.reject(error);
       }
     }

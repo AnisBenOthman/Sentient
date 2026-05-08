@@ -124,6 +124,10 @@ export interface Position {
   id: string;
   title: string;
   level: string | null;
+  isKeyPosition: boolean;
+  keyPositionRisk: string | null;
+  hasSuccessor: boolean;
+  isActive: boolean;
 }
 
 export async function getDepartments(): Promise<Department[]> {
@@ -139,6 +143,35 @@ export async function getTeams(): Promise<Team[]> {
 export async function getPositions(): Promise<Position[]> {
   const { data } = await hrClient.get<{ data: Position[] } | Position[]>('/positions', { params: { limit: 200 } });
   return Array.isArray(data) ? data : data.data;
+}
+
+export async function createPosition(dto: {
+  title: string;
+  level?: string;
+  isKeyPosition?: boolean;
+  keyPositionRisk?: string;
+  hasSuccessor?: boolean;
+}): Promise<Position> {
+  const { data } = await hrClient.post<Position>('/positions', dto);
+  return data;
+}
+
+export async function updatePosition(
+  id: string,
+  dto: Partial<{
+    title: string;
+    level: string;
+    isKeyPosition: boolean;
+    keyPositionRisk: string;
+    hasSuccessor: boolean;
+  }>,
+): Promise<Position> {
+  const { data } = await hrClient.patch<Position>(`/positions/${id}`, dto);
+  return data;
+}
+
+export async function deactivatePosition(id: string): Promise<void> {
+  await hrClient.delete(`/positions/${id}`);
 }
 
 // ── Business Units ────────────────────────────────────────────────────────
@@ -341,16 +374,92 @@ export async function getLeaveBalances(
 
 export interface LeaveType {
   id: string;
+  businessUnitId: string;
   name: string;
   defaultDaysPerYear: number;
   requiresApproval: boolean;
   accrualFrequency: string;
+  maxCarryoverDays: number;
   color: string | null;
 }
 
 export async function getLeaveTypes(): Promise<LeaveType[]> {
   const { data } = await hrClient.get<LeaveType[]>('/leave-types');
   return data;
+}
+
+export async function createLeaveType(dto: {
+  businessUnitId: string;
+  name: string;
+  defaultDaysPerYear: number;
+  requiresApproval: boolean;
+  maxCarryoverDays?: number;
+  accrualFrequency?: string;
+  color?: string;
+}): Promise<LeaveType> {
+  const { data } = await hrClient.post<LeaveType>('/leave-types', dto);
+  return data;
+}
+
+export async function updateLeaveType(
+  id: string,
+  dto: Partial<{
+    name: string;
+    defaultDaysPerYear: number;
+    requiresApproval: boolean;
+    maxCarryoverDays: number;
+    color: string;
+  }>,
+): Promise<LeaveType> {
+  const { data } = await hrClient.patch<LeaveType>(`/leave-types/${id}`, dto);
+  return data;
+}
+
+// ── Holidays ──────────────────────────────────────────────────────────────
+
+export interface Holiday {
+  id: string;
+  businessUnitId: string;
+  name: string;
+  date: string;
+  isRecurring: boolean;
+  year: number | null;
+}
+
+export async function getHolidays(params?: {
+  businessUnitId?: string;
+  year?: number;
+}): Promise<Holiday[]> {
+  const { data } = await hrClient.get<Holiday[]>('/holidays', { params });
+  return data;
+}
+
+export async function createHoliday(dto: {
+  businessUnitId: string;
+  name: string;
+  date: string;
+  isRecurring: boolean;
+  year?: number | null;
+}): Promise<Holiday> {
+  const { data } = await hrClient.post<Holiday>('/holidays', dto);
+  return data;
+}
+
+export async function updateHoliday(
+  id: string,
+  dto: Partial<{
+    name: string;
+    date: string;
+    isRecurring: boolean;
+    year: number | null;
+  }>,
+): Promise<Holiday> {
+  const { data } = await hrClient.patch<Holiday>(`/holidays/${id}`, dto);
+  return data;
+}
+
+export async function deleteHoliday(id: string): Promise<void> {
+  await hrClient.delete(`/holidays/${id}`);
 }
 
 // ── Employee Skills ───────────────────────────────────────────────────────

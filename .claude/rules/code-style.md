@@ -429,64 +429,98 @@ async findByScope(id: string, scope: PermissionScope): Promise<Employee[]> { }
 
 ---
 
-## 9. Frontend (Next.js + Tailwind)
+## 9. Frontend (React + Vite + Tailwind CSS v4)
 
-### API Gateway Pattern
+### Stack
 
-The Next.js `app/api/` routes act as the API gateway, proxying requests to the
-correct microservice:
+- **Framework:** React 18 + Vite 7 — pure SPA, no SSR
+- **Routing:** wouter (`<Switch>` + `<Route>`) — lightweight, no file-based routing
+- **Data fetching:** TanStack Query v5 (`useQuery`, `useMutation`) wrapping Axios functions
+- **Styling:** Tailwind CSS v4 — config lives in `src/index.css` via `@theme {}`, no `tailwind.config.ts`
+- **UI library:** shadcn/ui components in `src/components/ui/`
+- **Forms:** React Hook Form + Zod
+
+### API Client Pattern
+
+No Next.js API routes. The Vite dev server proxies `/api` to hr-core (`:3001`) directly.
+All data access goes through typed Axios clients in `src/lib/api/`:
 
 ```typescript
-// app/api/hr/[...path]/route.ts — proxies to HR Core :3001
-// app/api/social/[...path]/route.ts — proxies to Social :3002
-// app/api/ai/[...path]/route.ts — proxies to AI Agentic :3003
+// vite.config.ts — dev proxy
+server: {
+  proxy: {
+    '/api': { target: 'http://localhost:3001', changeOrigin: true },
+  },
+}
+
+// src/lib/api/hr-core.ts — typed Axios functions
+export async function getEmployees(params?: EmployeeQuery): Promise<PaginatedEmployees> {
+  const { data } = await hrClient.get('/api/hr/employees', { params });
+  return data;
+}
+
+// src/pages/employees.tsx — wrap with TanStack Query
+const { data, isLoading } = useQuery({
+  queryKey: ['employees', params],
+  queryFn: () => getEmployees(params),
+});
 ```
 
 ### File Conventions
 
-- **App Router** — `app/` directory with `page.tsx`, `layout.tsx`, `loading.tsx`
-- **Server Components by default** — Only `'use client'` when state/effects needed
-- **Route groups** — `(auth)`, `(dashboard)`, `(intranet)`, `(ai)` for organization
-- **Typed API clients** — One per service in `lib/api/`
+- **No SSR, no server components** — every file is a normal React component
+- **Pages in `src/pages/`** — one file per route (e.g., `dashboard.tsx`, `employees.tsx`)
+- **Routes declared in `src/App.tsx`** — using wouter `<Switch>` + `<Route>`
+- **Public routes** (no sidebar): `/`, `/signin`, `/forgot-password`, `/first-connection`
+- **Authenticated routes** (wrapped in `<Layout>`): all others
+- **Auth guard** — `<ProtectedRoute>` checks `authStore.isLoggedIn()`, redirects to `/signin`
+- **Typed API clients** — one per service in `src/lib/api/` (hr-core.ts, social.ts, ai.ts)
 
-### Tailwind Rules
+### Tailwind v4 Rules
 
-- **No inline styles** — Everything through Tailwind utilities
+- **No `tailwind.config.ts`** — design tokens live in `src/index.css` under `@theme {}`
+- **No postcss.config.js** — uses `@tailwindcss/vite` plugin instead
+- **Custom tokens** declared as CSS variables: `--color-brand`, `--color-surface`, etc.
 - **Component variants** — Use `cva` (class-variance-authority)
-- **Design tokens** — Define in `tailwind.config.ts`
-- **Dark mode ready** — Use `dark:` variants from day one
+- **Dark mode** — class-based via `@custom-variant dark (&:is(.dark *))`
 
 ### Component Structure
 
 ```
-components/
-├── ui/                  # Generic primitives (Button, Card, Input)
-├── employees/           # Domain: HR Core data
-├── leaves/              # Domain: Leave management
-├── intranet/            # Domain: Social service data
-├── chat/                # Domain: AI conversations
-│   └── citation-badge.tsx    # Feature 5: Source attribution badge (internal/regulation)
-├── governance/          # Feature 2: AI Governance Center
-│   ├── task-log-table.tsx
-│   ├── task-log-filters.tsx
-│   ├── agent-stats-grid.tsx
-│   ├── error-rate-chart.tsx
-│   └── tool-call-chain.tsx   # Recursive tree of parentLogId → childLogs
-├── exit-surveys/        # Feature 3: Exit survey admin views
-│   ├── exit-survey-table.tsx
-│   ├── exit-survey-aggregate-chart.tsx
-│   └── exit-survey-ai-summary.tsx
-├── org-chart/           # Feature 4: React Flow org chart + scenario modeler
-│   ├── org-chart-canvas.tsx   # 'use client'; @xyflow/react canvas
-│   ├── employee-node.tsx
-│   ├── department-group-node.tsx
-│   ├── scenario-change-list.tsx
-│   ├── scenario-analysis-panel.tsx
-│   └── scenario-approval-modal.tsx
-└── layout/              # Sidebar, Header, Navigation
+src/
+├── pages/               # Route pages (one per route)
+│   ├── signin.tsx
+│   ├── dashboard.tsx
+│   ├── employees.tsx
+│   ├── employee-profile.tsx
+│   ├── leaves.tsx
+│   ├── leave-management.tsx
+│   ├── org-chart.tsx
+│   ├── settings.tsx
+│   ├── positions.tsx
+│   ├── performance-reviews.tsx
+│   └── not-found.tsx
+│
+├── components/
+│   ├── ui/              # shadcn/ui primitives (Button, Card, Input, Dialog…)
+│   ├── layout.tsx       # Sidebar + main content shell
+│   ├── protected-route.tsx  # Auth guard
+│   └── providers/       # AuthProvider (React Context)
+│
+├── hooks/
+│   ├── use-mobile.tsx
+│   └── use-toast.ts
+│
+├── lib/
+│   ├── auth.ts          # JWT decode, authStore, roleLabel, hasRole
+│   ├── utils.ts         # cn() utility
+│   └── api/
+│       ├── client.ts    # Axios instance + refresh interceptor
+│       ├── hr-core.ts   # 40+ typed API functions
+│       ├── social.ts
+│       └── ai.ts
+│
+├── App.tsx              # wouter router + providers
+├── main.tsx             # React root mount
+└── index.css            # Tailwind v4 @import + @theme tokens + CSS variables
 ```
-
-**React Flow note:** `org-chart-canvas.tsx` is the only component in `org-chart/` that
-requires `'use client'` — the parent `page.tsx` fetches initial org data as a Server
-Component and passes it as props. `@xyflow/react` (React Flow v12) is added to
-`apps/web/package.json`.

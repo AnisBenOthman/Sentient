@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     authStore.clear();
     document.cookie = 'sentient_logged_in=; path=/; max-age=0';
     setUser(null);
-    window.location.replace('/login');
+    window.location.replace('/signin');
   }, []);
 
   return <AuthCtx.Provider value={{ user, login, logout }}>{children}</AuthCtx.Provider>;

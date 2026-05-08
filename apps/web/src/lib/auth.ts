@@ -63,3 +63,31 @@ export function roleLabel(roles: string[]): string {
 export function hasRole(roles: string[], check: string[]): boolean {
   return check.some(r => roles.includes(r));
 }
+
+export type RoleTier = 'hr_admin' | 'dept_manager' | 'team_lead' | 'employee';
+
+export function getRoleTier(payload: JwtPayload): RoleTier {
+  const { roles, roleAssignments } = payload;
+  if (roles.includes('HR_ADMIN') || roles.includes('EXECUTIVE')) return 'hr_admin';
+  if (roles.includes('MANAGER')) {
+    const hasDept = roleAssignments.some(
+      (a) => a.roleCode === 'MANAGER' && a.scope === 'DEPARTMENT',
+    );
+    if (hasDept) return 'dept_manager';
+    const hasTeam = roleAssignments.some(
+      (a) => a.roleCode === 'MANAGER' && a.scope === 'TEAM',
+    );
+    if (hasTeam) return 'team_lead';
+  }
+  return 'employee';
+}
+
+export function roleTierLabel(tier: RoleTier): string {
+  const labels: Record<RoleTier, string> = {
+    hr_admin:     'HR Admin',
+    dept_manager: 'Manager',
+    team_lead:    'Team Lead',
+    employee:     'Employee',
+  };
+  return labels[tier];
+}
