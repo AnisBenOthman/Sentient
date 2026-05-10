@@ -50,7 +50,7 @@ Write production-quality code immediately. No placeholder stubs, no TODO comment
 | Layer              | Technology                          | Notes                                  |
 |--------------------|-------------------------------------|----------------------------------------|
 | Backend            | NestJS (TypeScript)                 | One app per microservice               |
-| Frontend           | Next.js 14+ (App Router) + Tailwind | Single SPA, calls services via gateway |
+| Frontend           | React 18 + Vite 7 + Tailwind CSS v4 | SPA, wouter routing, TanStack Query    |
 | Database           | PostgreSQL 16 + pgvector            | Shared instance, 3 separate schemas    |
 | ORM                | Prisma                              | One client per service (per schema)    |
 | AI Orchestration   | LangGraph (TypeScript)              | AI Agentic service only                |
@@ -58,7 +58,7 @@ Write production-quality code immediately. No placeholder stubs, no TODO comment
 | Embeddings         | `text-embedding-3-small` (1536d)    | Stored in pgvector (ai_agent schema)   |
 | Channels           | Slack SDK + Twilio (WhatsApp)       | Multi-channel via Session.channel      |
 | Inter-Service      | REST (Phase 1) -> Kafka (Phase 2)   | Abstracted behind IEventBus            |
-| API Gateway        | Next.js API routes or NestJS GW     | Single entry point for frontend        |
+| API Gateway        | Vite dev proxy + lib/api/ clients   | Direct Axios calls to microservices    |
 
 **Why pgvector?** Keeps embeddings inside PostgreSQL for transactional consistency,
 hybrid SQL + vector queries, and single-database deployment.
@@ -68,9 +68,9 @@ hybrid SQL + vector queries, and single-database deployment.
 ## 3. Microservice Architecture — 3 Services
 
 ```
-    Next.js Frontend (SPA)
+    React + Vite SPA (Vite dev proxy /api/* -> :3001/:3002/:3003)
            |
-    API Gateway (/api/hr/* -> :3001, /api/social/* -> :3002, /api/ai/* -> :3003)
+    lib/api/ Axios clients (hr-core.ts, social.ts, ai.ts)
        |           |           |
   HR Core:3001  Social:3002  AI Agentic:3003
   [hr_core]     [social]     [ai_agent]
@@ -219,10 +219,11 @@ sentient/
 │   │   ├── prisma/schema.prisma          # ai_agent schema — 5 entities + pgvector
 │   │   └── prisma/seeds/regulations/     # Algerian Labour Code .txt files
 │   │
-│   └── web/                              # Next.js frontend (SPA)
-│       ├── src/app/                      # App Router: (auth), (dashboard), (intranet), (ai), (survey), api/
-│       ├── src/components/               # ui/, employees/, leaves/, chat/, governance/, exit-surveys/, org-chart/, layout/
-│       └── src/lib/api/                  # Typed clients: hr-core, social, ai
+│   └── web/                              # React + Vite SPA (port 3000)
+│       ├── src/pages/                    # wouter pages: signin, home, dashboard, employees, leaves, org-chart, settings…
+│       ├── src/components/               # ui/ (shadcn), layout/, providers/, shared components
+│       ├── src/hooks/                    # use-mobile, use-toast
+│       └── src/lib/api/                  # Typed Axios clients: hr-core.ts, social.ts, ai.ts
 │
 ├── packages/shared/                      # Shared across ALL services
 │   └── src/
@@ -483,3 +484,137 @@ When generating code or architecture, **always provide**:
 - `rules/code-style.md` — TypeScript, NestJS, Prisma, frontend conventions
 - `rules/security.md` — RBAC, AI Governance, inter-service auth, data privacy, RBAC matrices
 - `rules/testing.md` — Testing pyramid, contract tests, agent tests
+
+---
+
+## 15. Frontend: front-replit Origin & Migration Status
+
+### What is front-replit?
+
+`front-replit/` is a **separate Replit-hosted pnpm workspace** — a UI prototype of the
+Sentient HRIS, ported from the original Vercel/Next.js monorepo to a Replit-compatible
+stack. It is the source of the current `apps/web/` UI. It is **never imported** by any
+service and is kept as a reference only.
+
+**front-replit internal structure:**
+```
+front-replit/
+├── artifacts/
+│   ├── sentient-hris/          # React + Vite frontend — the UI we copied from
+│   │   ├── src/pages/          # 17 pages (all mock data)
+│   │   ├── src/components/     # layout.tsx, neural-background.tsx, org-structure-card.tsx,
+│   │   │                       # add-employee-wizard.tsx, dashboard-scope-filter.tsx
+│   │   ├── src/components/ui/  # 55 shadcn/ui components (Radix UI-based)
+│   │   ├── src/hooks/          # use-mobile.tsx, use-toast.ts
+│   │   ├── src/lib/            # mock-data.ts, employee-store.ts, org-structure-store.ts,
+│   │   │                       # leave-config-store.ts, performance-review-store.ts,
+│   │   │                       # positions-api.ts, promotion-store.ts, use-dashboard-scope.ts
+│   │   └── src/index.css       # Tailwind v4 @theme tokens (source of apps/web/src/index.css)
+│   │
+│   └── api-server/             # Express 5 + Drizzle ORM backend — NOT adopted by Sentient
+│                               # (Sentient uses NestJS + Prisma)
+├── lib/
+│   ├── api-spec/               # OpenAPI spec + Orval codegen — NOT adopted
+│   ├── api-client-react/       # Orval-generated React Query hooks — NOT adopted
+│   ├── api-zod/                # Orval-generated Zod schemas — NOT adopted
+│   └── db/                     # Drizzle ORM schema — NOT adopted
+└── replit.md                   # Stack overview for Replit environment
+```
+
+### What was copied into apps/web/
+
+**Taken from `front-replit/artifacts/sentient-hris/src/`:**
+- All 17 pages → `apps/web/src/pages/`
+- All 55 shadcn/ui components → `apps/web/src/components/ui/`
+- `layout.tsx`, `neural-background.tsx`, `org-structure-card.tsx`,
+  `add-employee-wizard.tsx`, `dashboard-scope-filter.tsx` → `apps/web/src/components/`
+- `hooks/use-mobile.tsx`, `hooks/use-toast.ts` → `apps/web/src/hooks/`
+- `lib/mock-data.ts`, `lib/employee-store.ts`, `lib/org-structure-store.ts`,
+  `lib/leave-config-store.ts`, `lib/performance-review-store.ts`, `lib/positions-api.ts`,
+  `lib/promotion-store.ts`, `lib/use-dashboard-scope.ts` → `apps/web/src/lib/`
+- `index.css` (Tailwind v4 @theme) → `apps/web/src/index.css`
+
+**NOT taken from front-replit (built from scratch or preserved from original apps/web):**
+- `api-server/` (Express+Drizzle) — Sentient uses NestJS+Prisma
+- `lib/api-spec/`, `lib/api-client-react/`, `lib/api-zod/` — Sentient uses handwritten Axios clients
+- `lib/db/` (Drizzle) — Sentient uses Prisma
+- Auth layer: `apps/web/src/lib/auth.ts` — preserved from original apps/web (JWT decode, authStore)
+- API clients: `apps/web/src/lib/api/client.ts`, `hr-core.ts` — preserved from original apps/web
+- Auth provider: `apps/web/src/components/providers/auth-provider.tsx` — preserved from original
+
+**Key infrastructure changes made during migration:**
+- `vite.config.ts`: removed Replit-specific plugins; proxy target changed from `:8080` (Express) → `:3001` (NestJS)
+- `tsconfig.json`: `"noUncheckedIndexedAccess": false` override added temporarily (front-replit code wasn't written against the monorepo's strict flag — restore as pages are re-wired)
+- `App.tsx`: `ProtectedRoute` wraps authenticated routes using `authStore.isLoggedIn()` — replaces Next.js `middleware.ts`
+
+### Current Migration Status (Phase 4 — API Wiring in Progress)
+
+**Pages still using mock data (lib/mock-data.ts):**
+All 17 pages currently import from `lib/mock-data.ts` or the Zustand-like stores. Each page
+needs to be migrated to `useQuery`/`useMutation` wrapping `lib/api/hr-core.ts` functions.
+
+**Priority order for wiring pages to real API:**
+| # | Page | Real API functions |
+|---|------|-------------------|
+| 1 | `signin.tsx` | `login(email, password)` |
+| 2 | `home.tsx` | `getEmployees()` for counts |
+| 3 | `dashboard.tsx` | `getEmployees`, `getPendingLeaveQueue`, `getLeaveBalances` |
+| 4 | `employees.tsx` | `getEmployees(params)` with pagination/search |
+| 5 | `employee-profile.tsx` | `getEmployee(id)`, `getEmployeeSkills`, `getSalaryHistory` |
+| 6 | `leaves.tsx` | `getMyLeaveRequests`, `createLeaveRequest`, `cancelLeaveRequest` |
+| 7 | `leave-management.tsx` | `getPendingLeaveQueue`, `approveLeaveRequest`, `rejectLeaveRequest` |
+| 8 | `org-chart.tsx` | `getOrgChart()` |
+| 9 | `settings.tsx` | `updateProfile(dto)` (add to hr-core.ts) |
+| 10 | `positions.tsx` | `getPositions/createPosition/updatePosition/deletePosition` (add to hr-core.ts) |
+| 11 | `performance-reviews.tsx` | `getPerformanceReviews()` (add to hr-core.ts) |
+| 12 | `simulation.tsx`, `recruitment.tsx` | Mock data acceptable for now |
+
+**Pattern for every page migration:**
+```tsx
+// Replace: import { employees } from '@/lib/mock-data'
+// With:
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { getEmployees } from '@/lib/api/hr-core';
+
+const { data, isLoading } = useQuery({
+  queryKey: ['employees', params],
+  queryFn: () => getEmployees(params),
+});
+```
+
+---
+
+## 16. Agent Coordination Protocol
+
+This project uses **two agents in sequence**: Claude Code (you) and Codex. You never run at the
+same time. The shared source of truth is **git history** and **`specs/*/tasks.md`**.
+
+### At Every Session Start — Do These Before Writing Any Code
+
+1. Run `git log --oneline -10` to see what Codex last did and which branch is active.
+2. Identify the active feature branch (e.g., `009-performance-review`) and read
+   `specs/<feature>/tasks.md` to know which tasks are done (`[x]`) and which remain (`[ ]`).
+3. Check `AGENTS.md` → `## Recent Changes` for the last thing Codex delivered.
+
+### Commit Message Convention
+
+Prefix every commit with `[claude]` so the git log clearly shows which agent produced each change:
+
+```
+[claude] feat(performance-review): implement ReviewCyclesService create/initiate
+[claude] fix(shared): correct PerformanceRating enum export
+```
+
+Codex uses `[codex]` for the same reason. This makes `git log --oneline` a readable
+cross-agent work log without any extra tooling.
+
+### When You Finish a Session
+
+Update `AGENTS.md` → `## Recent Changes` with what you implemented so Codex sees it next session.
+Use the same one-liner format as existing entries.
+
+### What You Do NOT Need to Do
+
+- No `WORK_STATE.md` — git is the state; a separate file rots when sessions are killed or `/clear`'d.
+- No task attribution beyond `[x]` — git blame covers who did what.
+- No synchronization file — sequential execution means no collision risk.

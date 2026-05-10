@@ -1,9 +1,9 @@
 -- AlterEnum
-ALTER TYPE "SecurityEventType" ADD VALUE 'INVITE_SENT';
-ALTER TYPE "SecurityEventType" ADD VALUE 'INVITE_CLAIMED';
+ALTER TYPE "hr_core"."SecurityEventType" ADD VALUE 'INVITE_SENT';
+ALTER TYPE "hr_core"."SecurityEventType" ADD VALUE 'INVITE_CLAIMED';
 
 -- CreateTable
-CREATE TABLE "invite_tokens" (
+CREATE TABLE "hr_core"."invite_tokens" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "tokenHash" TEXT NOT NULL,
@@ -15,13 +15,13 @@ CREATE TABLE "invite_tokens" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "invite_tokens_tokenHash_key" ON "invite_tokens"("tokenHash");
+CREATE UNIQUE INDEX "invite_tokens_tokenHash_key" ON "hr_core"."invite_tokens"("tokenHash");
 
 -- CreateIndex
-CREATE INDEX "invite_tokens_userId_idx" ON "invite_tokens"("userId");
+CREATE INDEX "invite_tokens_userId_idx" ON "hr_core"."invite_tokens"("userId");
 
 -- CreateIndex
-CREATE INDEX "invite_tokens_expiresAt_idx" ON "invite_tokens"("expiresAt");
+CREATE INDEX "invite_tokens_expiresAt_idx" ON "hr_core"."invite_tokens"("expiresAt");
 
 -- AddForeignKey
-ALTER TABLE "invite_tokens" ADD CONSTRAINT "invite_tokens_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr_core"."invite_tokens" ADD CONSTRAINT "invite_tokens_userId_fkey" FOREIGN KEY ("userId") REFERENCES "hr_core"."users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

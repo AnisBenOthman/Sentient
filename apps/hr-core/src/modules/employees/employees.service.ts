@@ -18,9 +18,10 @@ import {
   SalaryHistory,
 } from '../../generated/prisma';
 import { Decimal } from '../../generated/prisma/runtime/library';
-import { IEventBus, EVENT_BUS, JwtPayload, PermissionScope } from '@sentient/shared';
+import { IEventBus, EVENT_BUS, JwtPayload, PermissionScope, ProficiencyLevel, SkillDomain, SkillRequirementLevel } from '@sentient/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
+import { SkillsGapQueryDto } from './dto/skills-gap-query.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { UpdateEmployeeStatusDto } from './dto/update-employee-status.dto';
 import { EmployeeQueryDto } from './dto/employee-query.dto';
@@ -45,6 +46,39 @@ export interface PaginatedEmployees {
   page: number;
   limit: number;
 }
+
+type GapStatus = 'MET' | 'EXCEEDS' | 'PARTIAL' | 'MISSING';
+
+export interface SkillGapItem {
+  skill: { id: string; name: string; domain: SkillDomain | null; category: string | null };
+  requirementLevel: SkillRequirementLevel;
+  requiredProficiency: ProficiencyLevel;
+  acquiredProficiency: ProficiencyLevel | null;
+  gapSize: number;
+  status: GapStatus;
+}
+
+export interface SkillsGapResult {
+  employeeId: string;
+  positionId: string;
+  positionTitle: string;
+  summary: {
+    totalRequired: number;
+    met: number;
+    exceeds: number;
+    partial: number;
+    missing: number;
+    byLevel: Record<SkillRequirementLevel, { total: number; met: number; gaps: number }>;
+  };
+  items: SkillGapItem[];
+}
+
+const PROFICIENCY_RANK: Record<ProficiencyLevel, number> = {
+  [ProficiencyLevel.BEGINNER]: 0,
+  [ProficiencyLevel.INTERMEDIATE]: 1,
+  [ProficiencyLevel.ADVANCED]: 2,
+  [ProficiencyLevel.EXPERT]: 3,
+};
 
 const TERMINAL_STATUSES = new Set<string>([
   EmploymentStatus.TERMINATED,
@@ -252,9 +286,18 @@ export class EmployeesService {
 
     const filters: Prisma.EmployeeWhereInput[] = [scopeFilter, { deletedAt: null }];
 
+    if (query.businessUnitId) {
+      filters.push({
+        OR: [
+          { department: { businessUnitId: query.businessUnitId } },
+          { team: { businessUnitId: query.businessUnitId } },
+        ],
+      });
+    }
     if (query.departmentId) filters.push({ departmentId: query.departmentId });
     if (query.teamId) filters.push({ teamId: query.teamId });
-    if (query.employmentStatus) filters.push({ employmentStatus: query.employmentStatus as EmploymentStatus });
+    const employmentStatus = query.employmentStatus ?? query.status;
+    if (employmentStatus) filters.push({ employmentStatus: employmentStatus as EmploymentStatus });
     if (query.contractType) filters.push({ contractType: query.contractType as ContractType });
     if (query.positionId) filters.push({ positionId: query.positionId });
     if (query.search) {
@@ -378,11 +421,118 @@ export class EmployeesService {
   }
 
   // ============================================================
+  // Skills gap analysis
+  // ============================================================
+
+  async getSkillsGap(employeeId: string, query: SkillsGapQueryDto, user: JwtPayload): Promise<SkillsGapResult> {
+    const scopeFilter = this.buildScopeFilter(user);
+    const employee = await this.prisma.employee.findFirst({
+      where: { AND: [scopeFilter, { id: employeeId, deletedAt: null }] },
+      select: { id: true, positionId: true },
+    });
+
+    if (!employee) {
+      const exists = await this.prisma.employee.findUnique({ where: { id: employeeId }, select: { id: true, deletedAt: true } });
+      if (exists && !exists.deletedAt) throw new ForbiddenException('You do not have permission to view this employee');
+      throw new NotFoundException(`Employee ${employeeId} not found`);
+    }
+
+    const positionId = query.positionId ?? employee.positionId;
+    if (!positionId) {
+      throw new BadRequestException('Employee has no assigned position. Provide a positionId query parameter.');
+    }
+
+    const position = await this.prisma.position.findUnique({
+      where: { id: positionId },
+      select: {
+        id: true,
+        title: true,
+        requiredSkills: {
+          include: { skill: { select: { id: true, name: true, domain: true, category: true } } },
+          orderBy: { createdAt: 'asc' as const },
+        },
+      },
+    });
+    if (!position) throw new NotFoundException(`Position ${positionId} not found`);
+
+    const employeeSkills = await this.prisma.employeeSkill.findMany({
+      where: { employeeId, deletedAt: null },
+      select: { skillId: true, proficiency: true },
+    });
+
+    const acquiredMap = new Map(employeeSkills.map((es) => [es.skillId, es.proficiency as ProficiencyLevel]));
+
+    const items: SkillGapItem[] = position.requiredSkills.map((ps) => {
+      const acquiredProficiency = acquiredMap.get(ps.skillId) ?? null;
+      const requiredRank = PROFICIENCY_RANK[ps.minimumProficiency as ProficiencyLevel] ?? 0;
+      const acquiredRank = acquiredProficiency !== null ? (PROFICIENCY_RANK[acquiredProficiency] ?? 0) : null;
+
+      let status: GapStatus;
+      let gapSize: number;
+
+      if (acquiredRank === null) {
+        status = 'MISSING';
+        gapSize = requiredRank;
+      } else {
+        gapSize = requiredRank - acquiredRank;
+        if (gapSize > 0) status = 'PARTIAL';
+        else if (gapSize === 0) status = 'MET';
+        else status = 'EXCEEDS';
+      }
+
+      return {
+        skill: { ...ps.skill, domain: ps.skill.domain as SkillDomain | null },
+        requirementLevel: ps.requirementLevel as SkillRequirementLevel,
+        requiredProficiency: ps.minimumProficiency as ProficiencyLevel,
+        acquiredProficiency,
+        gapSize,
+        status,
+      };
+    });
+
+    const emptyLevelStat = () => ({ total: 0, met: 0, gaps: 0 });
+    const byLevel: Record<SkillRequirementLevel, { total: number; met: number; gaps: number }> = {
+      [SkillRequirementLevel.MANDATORY]: emptyLevelStat(),
+      [SkillRequirementLevel.EXPECTED]: emptyLevelStat(),
+      [SkillRequirementLevel.NICE_TO_HAVE]: emptyLevelStat(),
+    };
+
+    for (const item of items) {
+      const bucket = byLevel[item.requirementLevel];
+      if (bucket !== undefined) {
+        bucket.total += 1;
+        if (item.status === 'MET' || item.status === 'EXCEEDS') bucket.met += 1;
+        else bucket.gaps += 1;
+      }
+    }
+
+    return {
+      employeeId,
+      positionId,
+      positionTitle: position.title,
+      summary: {
+        totalRequired: items.length,
+        met: items.filter((i) => i.status === 'MET').length,
+        exceeds: items.filter((i) => i.status === 'EXCEEDS').length,
+        partial: items.filter((i) => i.status === 'PARTIAL').length,
+        missing: items.filter((i) => i.status === 'MISSING').length,
+        byLevel,
+      },
+      items,
+    };
+  }
+
+  // ============================================================
   // Private helpers
   // ============================================================
 
   private buildScopeFilter(user: JwtPayload): Prisma.EmployeeWhereInput {
-    if (user.roles.includes('HR_ADMIN') || user.roles.includes('EXECUTIVE')) {
+    const hasGlobalVisibility = user.roleAssignments.some(
+      (ra) =>
+        ra.scope === PermissionScope.GLOBAL &&
+        ['HR_ADMIN', 'GLOBAL_HR_ADMIN', 'EXECUTIVE', 'SYSTEM_ADMIN'].includes(ra.roleCode),
+    );
+    if (hasGlobalVisibility || user.roles.includes('HR_ADMIN') || user.roles.includes('EXECUTIVE')) {
       return {};
     }
     // WHY: BUSINESS_UNIT scope is a per-assignment claim, not a role code.
@@ -401,8 +551,24 @@ export class EmployeesService {
         };
       }
     }
-    if (user.roles.includes('MANAGER') && user.teamId) {
-      return { teamId: user.teamId };
+    const departmentAssignment = user.roleAssignments.find(
+      (ra) => ra.scope === PermissionScope.DEPARTMENT,
+    );
+    const departmentId = departmentAssignment?.scopeEntityId ?? null;
+    if (departmentId) {
+      return { departmentId };
+    }
+
+    if (user.roleAssignments.length === 0 && user.roles.includes('EMPLOYEE') && user.employeeId) {
+      return { id: user.employeeId };
+    }
+
+    const teamAssignment = user.roleAssignments.find(
+      (ra) => ra.scope === PermissionScope.TEAM,
+    );
+    const teamId = teamAssignment?.scopeEntityId ?? user.teamId;
+    if (teamId) {
+      return { teamId };
     }
     // OWN scope — an account with no linked employee has no visibility
     if (!user.employeeId) {

@@ -1,0 +1,109 @@
+<mxGraphModel adaptiveColors="auto">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+
+    <!-- ════════════════ ENUM: CertificateType ════════════════ -->
+    <mxCell id="CertificateType" value="«enumeration»&#xa;CertificateType" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="40" y="40" width="240" height="170" as="geometry"/>
+    </mxCell>
+    <mxCell id="ct1" value="EMPLOYMENT" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateType">
+      <mxGeometry x="0" y="40" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ct2" value="SALARY" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateType">
+      <mxGeometry x="0" y="66" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ct3" value="EXPERIENCE" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateType">
+      <mxGeometry x="0" y="92" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ct4" value="INTERNSHIP" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateType">
+      <mxGeometry x="0" y="118" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="ct5" value="END_OF_SERVICE" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateType">
+      <mxGeometry x="0" y="144" width="240" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- ════════════════ ENUM: CertificateStatus ════════════════ -->
+    <mxCell id="CertificateStatus" value="«enumeration»&#xa;CertificateStatus" style="swimlane;fontStyle=1;align=center;startSize=40;container=1;collapsible=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="40" y="250" width="240" height="144" as="geometry"/>
+    </mxCell>
+    <mxCell id="crs1" value="PENDING" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateStatus">
+      <mxGeometry x="0" y="40" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="crs2" value="APPROVED" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateStatus">
+      <mxGeometry x="0" y="66" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="crs3" value="REJECTED" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateStatus">
+      <mxGeometry x="0" y="92" width="240" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="crs4" value="GENERATED" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateStatus">
+      <mxGeometry x="0" y="118" width="240" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- ════════════════ STUB: Employee ════════════════ -->
+    <mxCell id="EmployeeStub" value="Employee" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#f5f5f5;strokeColor=#999;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="40" y="440" width="240" height="52" as="geometry"/>
+    </mxCell>
+    <mxCell id="es1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="EmployeeStub">
+      <mxGeometry x="0" y="26" width="240" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- ════════════════ CertificateRequest ════════════════ -->
+    <mxCell id="CertificateRequest" value="CertificateRequest" style="swimlane;fontStyle=1;align=center;startSize=26;container=1;collapsible=0;fillColor=#d0e0e3;strokeColor=#006EAF;" vertex="1" parent="1">
+      <mxGeometry x="380" y="40" width="340" height="364" as="geometry"/>
+    </mxCell>
+    <mxCell id="cr1" value="+ id : UUID  «PK»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateRequest">
+      <mxGeometry x="0" y="26" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="cr2" value="+ employeeId : UUID  «FK→Employee»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateRequest">
+      <mxGeometry x="0" y="52" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="cr3" value="+ certificateType : CertificateType" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateRequest">
+      <mxGeometry x="0" y="78" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="cr4" value="+ status : CertificateStatus = PENDING" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateRequest">
+      <mxGeometry x="0" y="104" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="cr5" value="+ purpose : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateRequest">
+      <mxGeometry x="0" y="130" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="cr6" value="+ generatedFileUrl : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateRequest">
+      <mxGeometry x="0" y="156" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="cr7" value="+ approvedById : UUID?  «FK→Employee»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateRequest">
+      <mxGeometry x="0" y="182" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="cr8" value="+ approvedAt : DateTime?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateRequest">
+      <mxGeometry x="0" y="208" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="cr9" value="+ rejectionReason : String?" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateRequest">
+      <mxGeometry x="0" y="234" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="cr10" value="+ expiresAt : DateTime?  (certificate validity)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateRequest">
+      <mxGeometry x="0" y="260" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="cr11" value="+ downloadCount : Int = 0" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateRequest">
+      <mxGeometry x="0" y="286" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="cr12" value="+ createdAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateRequest">
+      <mxGeometry x="0" y="312" width="340" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="cr13" value="+ updatedAt : DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="CertificateRequest">
+      <mxGeometry x="0" y="338" width="340" height="26" as="geometry"/>
+    </mxCell>
+
+    <!-- Note -->
+    <mxCell id="note1" value="HR-only approval: certificates involve&#xa;salary data + official company stamp.&#xa;Auto-generated on approval → PDF stored." style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;align=left;spacingLeft=8;spacingTop=2;" vertex="1" parent="1">
+      <mxGeometry x="380" y="430" width="290" height="60" as="geometry"/>
+    </mxCell>
+
+    <!-- RELATIONSHIPS -->
+    <mxCell id="re1" edge="1" source="EmployeeStub" target="CertificateRequest" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;startLabel=1;endLabel=*;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="re1lbl" value="requester" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="re1">
+      <mxGeometry x="0.5" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+    </mxCell>
+
+  </root>
+</mxGraphModel>

@@ -13,7 +13,7 @@ export class BusinessUnitQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(200)
   limit: number = 20;
 
   @ApiPropertyOptional({ description: 'Filter by active status (HR_ADMIN only sees inactive)' })

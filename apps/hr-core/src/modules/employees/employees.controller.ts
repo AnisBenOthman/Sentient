@@ -25,9 +25,10 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserStatusGuard } from '../iam/guards/user-status.guard';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { EmployeeQueryDto } from './dto/employee-query.dto';
+import { SkillsGapQueryDto } from './dto/skills-gap-query.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { UpdateEmployeeStatusDto } from './dto/update-employee-status.dto';
-import { EmployeesService, EmployeeProfile, PaginatedEmployees } from './employees.service';
+import { EmployeesService, EmployeeProfile, PaginatedEmployees, SkillsGapResult } from './employees.service';
 
 @Controller('employees')
 @UseGuards(SharedJwtGuard, UserStatusGuard, RbacGuard)
@@ -119,6 +120,24 @@ export class EmployeesController {
     @CurrentUser() user: JwtPayload,
   ): Promise<void> {
     return this.employeesService.remove(id, user.sub);
+  }
+
+  @Get(':id/skills-gap')
+  @Roles('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'EXECUTIVE')
+  @ApiOperation({
+    summary: 'Compare an employee\'s acquired skills against a position\'s required skills',
+    description: 'Omit positionId to default to the employee\'s current position. EMPLOYEE role is scope-filtered to own profile.',
+  })
+  @ApiResponse({ status: 200, description: 'Gap analysis with per-skill status and level-weighted summary' })
+  @ApiResponse({ status: 400, description: 'Employee has no assigned position and positionId was not provided' })
+  @ApiResponse({ status: 403, description: 'Forbidden — scope violation' })
+  @ApiResponse({ status: 404, description: 'Employee or position not found' })
+  async getSkillsGap(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: SkillsGapQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<SkillsGapResult> {
+    return this.employeesService.getSkillsGap(id, query, user);
   }
 
   @Get(':id/salary-history')

@@ -7,11 +7,13 @@ import { RbacGuard, SharedJwtGuard } from '@sentient/shared';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CorrelationIdMiddleware } from './common/middleware';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { EmployeesModule } from './modules/employees/employees.module';
 import { IamModule } from './modules/iam/iam.module';
 import { UserStatusGuard } from './modules/iam/guards/user-status.guard';
 import { LeavesModule } from './modules/leaves/leaves.module';
 import { OrganizationModule } from './modules/organization/organization.module';
+import { PerformanceReviewsModule } from './modules/performance-reviews/performance-reviews.module';
 import { SkillsModule } from './modules/skills/skills.module';
 import { PrismaModule } from './prisma/prisma.module';
 
@@ -33,10 +35,12 @@ import { PrismaModule } from './prisma/prisma.module';
     ScheduleModule.forRoot(),
     PrismaModule,
     IamModule,
+    AnalyticsModule,
     OrganizationModule,
     EmployeesModule,
     SkillsModule,
     LeavesModule,
+    PerformanceReviewsModule,
   ],
   controllers: [AppController],
   providers: [

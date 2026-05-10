@@ -1,0 +1,6 @@
+export enum SalaryChangeReason {
+  PROMOTION = 'PROMOTION',
+  ANNUAL_REVIEW = 'ANNUAL_REVIEW',
+  NEW_FUNCTION = 'NEW_FUNCTION',
+  OTHER = 'OTHER',
+}

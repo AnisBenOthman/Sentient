@@ -21,10 +21,16 @@ import { CreateLeaveRequestDto } from '../dto/create-leave-request.dto';
 import { LeaveQueryDto } from '../dto/leave-query.dto';
 import { PatchAgentAssessmentDto } from '../dto/patch-agent-assessment.dto';
 import { ReviewLeaveRequestDto } from '../dto/review-leave-request.dto';
-import { RequestsService, TeamCalendarEntry } from './requests.service';
+import { RequestsService, TeamCalendarEntry, LeaveRequestWithType, LeaveRequestQueueEntry } from './requests.service';
 
 function requireEmployeeId(user: JwtPayload): string {
-  if (!requireEmployeeId(user)) throw new ForbiddenException('No employee record linked to this account');
+  if (!user.employeeId) throw new ForbiddenException('No employee record linked to this account');
+  return user.employeeId;
+}
+
+function resolveTargetEmployeeId(user: JwtPayload, queryEmployeeId?: string): string {
+  const canViewOthers = user.roles.some(r => ['HR_ADMIN', 'EXECUTIVE'].includes(r));
+  if (canViewOthers && queryEmployeeId) return queryEmployeeId;
   return requireEmployeeId(user);
 }
 
@@ -55,8 +61,8 @@ export class RequestsController {
   async findByEmployee(
     @Query() query: LeaveQueryDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<LeaveRequest[]> {
-    return this.requestsService.findByEmployee(requireEmployeeId(user), query);
+  ): Promise<LeaveRequestWithType[]> {
+    return this.requestsService.findByEmployee(resolveTargetEmployeeId(user, query.employeeId), query);
   }
 
   @Get('team-calendar')
@@ -70,7 +76,18 @@ export class RequestsController {
     @Query('teamId') teamId: string | undefined,
     @CurrentUser() user: JwtPayload,
   ): Promise<TeamCalendarEntry[]> {
-    return this.requestsService.teamCalendar(requireEmployeeId(user), from, to, departmentId, teamId);
+    return this.requestsService.teamCalendar(user, from, to, departmentId, teamId);
+  }
+
+  @Get('pending-queue')
+  @Roles('MANAGER', 'HR_ADMIN')
+  @ApiOperation({ summary: 'List pending leave requests for review (Manager: team only; HR Admin: all)' })
+  @ApiResponse({ status: 200, description: 'Pending leave requests with employee and leave type details' })
+  async findPendingQueue(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<LeaveRequestQueueEntry[]> {
+    requireEmployeeId(user);
+    return this.requestsService.findPendingQueue(user);
   }
 
   @Get(':id')

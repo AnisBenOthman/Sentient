@@ -67,7 +67,7 @@ export class HistoryService {
       this.prisma.skillHistory.findMany({
         where,
         include: {
-          skill: { select: { id: true, name: true, category: true } },
+          skill: { select: { id: true, name: true, domain: true, category: true } },
           assessedBy: { select: { id: true, firstName: true, lastName: true } },
         },
         orderBy: [{ effectiveDate: order }, { createdAt: order }],

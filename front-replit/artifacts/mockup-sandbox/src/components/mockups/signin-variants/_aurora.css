@@ -1,0 +1,62 @@
+.aurora-bg {
+  background-color: #0d0221;
+}
+
+.aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.35;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.blob-1 {
+  width: 700px;
+  height: 400px;
+  background: #7c3aed; /* violet */
+  top: -10%;
+  left: -10%;
+  animation: aurora-drift-1 12s infinite alternate ease-in-out;
+}
+
+.blob-2 {
+  width: 600px;
+  height: 500px;
+  background: #ec4899; /* pink */
+  top: 40%;
+  right: -5%;
+  animation: aurora-drift-2 15s infinite alternate ease-in-out;
+}
+
+.blob-3 {
+  width: 800px;
+  height: 400px;
+  background: #0ea5e9; /* teal */
+  bottom: -20%;
+  left: 20%;
+  animation: aurora-drift-3 10s infinite alternate ease-in-out;
+}
+
+@keyframes aurora-drift-1 {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(150px, 100px) scale(1.1); }
+}
+
+@keyframes aurora-drift-2 {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(-100px, 200px) scale(1.2); }
+}
+
+@keyframes aurora-drift-3 {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(-150px, -150px) scale(0.9); }
+}
+
+.dot-grid-overlay {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+}

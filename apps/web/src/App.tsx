@@ -1,0 +1,168 @@
+import { Switch, Route, useParams, Redirect } from "wouter";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+
+import { AuthProvider } from "@/components/providers/auth-provider";
+import { Layout } from "@/components/layout";
+import Welcome from "@/pages/welcome";
+import Home from "@/pages/home";
+import SignIn from "@/pages/signin";
+import ForgotPassword from "@/pages/forgot-password";
+import FirstConnection from "@/pages/first-connection";
+import Dashboard from "@/pages/dashboard";
+import Employees from "@/pages/employees";
+import EmployeeProfile from "@/pages/employee-profile";
+import Leaves from "@/pages/leaves";
+import OrgChart from "@/pages/org-chart";
+import Settings from "@/pages/settings";
+import Positions from "@/pages/positions";
+import LeaveManagement from "@/pages/leave-management";
+import Simulation from "@/pages/simulation";
+import PerformanceReviews from "@/pages/performance-reviews";
+import NotFound from "@/pages/not-found";
+import { authStore, getRoleTier, type RoleTier } from "@/lib/auth";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30_000,
+    },
+  },
+});
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  if (!authStore.isLoggedIn()) return <Redirect to="/signin" />;
+  return <>{children}</>;
+}
+
+function RoleGatedRoute({ allowed, children }: { allowed: RoleTier[]; children: React.ReactNode }) {
+  const payload = authStore.getPayload();
+  if (!payload) return <Redirect to="/signin" />;
+  if (!allowed.includes(getRoleTier(payload))) return <Redirect to="/home" />;
+  return <>{children}</>;
+}
+
+function EmployeeProfileRoute() {
+  const params = useParams<{ id: string }>();
+  return <EmployeeProfile key={params.id} />;
+}
+
+function AppRoutes() {
+  return (
+    <Switch>
+      {/* Public pages — no sidebar */}
+      <Route path="/" component={Welcome} />
+      <Route path="/signin" component={SignIn} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/first-connection" component={FirstConnection} />
+
+      {/* Authenticated pages — with sidebar layout */}
+      <Route path="/home">
+        <ProtectedRoute>
+          <Layout>
+            <Home />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/dashboard">
+        <ProtectedRoute>
+          <RoleGatedRoute allowed={["hr_admin", "dept_manager"]}>
+            <Layout>
+              <Dashboard />
+            </Layout>
+          </RoleGatedRoute>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/employees">
+        <ProtectedRoute>
+          <Layout>
+            <Employees />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/employees/:id">
+        <ProtectedRoute>
+          <Layout>
+            <EmployeeProfileRoute />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/leaves">
+        <ProtectedRoute>
+          <Layout>
+            <Leaves />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/org-chart">
+        <ProtectedRoute>
+          <Layout>
+            <OrgChart />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/settings">
+        <ProtectedRoute>
+          <Layout>
+            <Settings />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/positions">
+        <ProtectedRoute>
+          <RoleGatedRoute allowed={["hr_admin"]}>
+            <Layout>
+              <Positions />
+            </Layout>
+          </RoleGatedRoute>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/simulation">
+        <ProtectedRoute>
+          <RoleGatedRoute allowed={["hr_admin"]}>
+            <Layout>
+              <Simulation />
+            </Layout>
+          </RoleGatedRoute>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/performance-reviews">
+        <ProtectedRoute>
+          <RoleGatedRoute allowed={["hr_admin", "dept_manager"]}>
+            <Layout>
+              <PerformanceReviews />
+            </Layout>
+          </RoleGatedRoute>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/leave-management">
+        <ProtectedRoute>
+          <RoleGatedRoute allowed={["hr_admin"]}>
+            <Layout>
+              <LeaveManagement />
+            </Layout>
+          </RoleGatedRoute>
+        </ProtectedRoute>
+      </Route>
+
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TooltipProvider>
+          <AppRoutes />
+          <Toaster />
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+}
+
+export default App;

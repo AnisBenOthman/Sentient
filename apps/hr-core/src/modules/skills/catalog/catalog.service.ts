@@ -24,7 +24,7 @@ export class CatalogService {
     const name = dto.name.trim();
     await this.assertNameAvailable(name, null);
     return this.prisma.skill.create({
-      data: { name, category: dto.category, description: dto.description },
+      data: { name, domain: dto.domain, category: dto.category, description: dto.description },
     });
   }
 
@@ -34,6 +34,7 @@ export class CatalogService {
 
     const where = {
       ...(query.search ? { name: { contains: query.search, mode: 'insensitive' as const } } : {}),
+      ...(query.domain !== undefined ? { domain: query.domain } : {}),
       ...(query.category !== undefined ? { category: query.category } : {}),
     };
 
@@ -58,11 +59,12 @@ export class CatalogService {
 
   async update(id: string, dto: UpdateSkillDto): Promise<Skill> {
     await this.findById(id);
-    const data: { name?: string; category?: string; description?: string } = {};
+    const data: { name?: string; domain?: typeof dto.domain; category?: string; description?: string } = {};
     if (dto.name !== undefined) {
       data.name = dto.name.trim();
       await this.assertNameAvailable(data.name, id);
     }
+    if (dto.domain !== undefined) data.domain = dto.domain;
     if (dto.category !== undefined) data.category = dto.category;
     if (dto.description !== undefined) data.description = dto.description;
     return this.prisma.skill.update({ where: { id }, data });

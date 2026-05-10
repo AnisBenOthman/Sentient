@@ -1,0 +1,10 @@
+[mcp_servers.postgres-fabriciofs]
+args = [
+    "-y",
+    "@fabriciofs/mcp-postgres",
+]
+command = "npx"
+
+[mcp_servers.postgres-fabriciofs.env]
+READONLY = "true"
+SQL_CONNECTION_URL = "postgresql://postgres:anis@localhost:5432/sentient"

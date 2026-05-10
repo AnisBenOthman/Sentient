@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsEnum,
   IsIn,
   IsInt,
   IsOptional,
@@ -9,6 +10,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { SkillDomain } from '@sentient/shared';
 
 export class SkillQueryDto {
   @ApiPropertyOptional({ default: 1, minimum: 1 })
@@ -31,6 +33,11 @@ export class SkillQueryDto {
   @IsString()
   @MaxLength(120)
   search?: string;
+
+  @ApiPropertyOptional({ enum: SkillDomain, description: 'Filter by skill domain' })
+  @IsOptional()
+  @IsEnum(SkillDomain)
+  domain?: SkillDomain;
 
   @ApiPropertyOptional({ description: 'Exact match on category' })
   @IsOptional()

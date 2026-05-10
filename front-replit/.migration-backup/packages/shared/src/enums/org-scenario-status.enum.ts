@@ -1,0 +1,8 @@
+export enum OrgScenarioStatus {
+  DRAFT = 'DRAFT',
+  PENDING_AI = 'PENDING_AI',
+  ANALYZED = 'ANALYZED',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  APPLIED = 'APPLIED',
+}

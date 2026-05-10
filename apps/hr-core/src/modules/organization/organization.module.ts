@@ -6,6 +6,8 @@ import { DepartmentsController } from "./departments/departments.controller";
 import { DepartmentsService } from "./departments/departments.service";
 import { OrgChartController } from "./org-chart/org-chart.controller";
 import { OrgChartService } from "./org-chart/org-chart.service";
+import { PositionSkillsController } from "./positions/position-skills.controller";
+import { PositionSkillsService } from "./positions/position-skills.service";
 import { PositionsController } from "./positions/positions.controller";
 import { PositionsService } from "./positions/positions.service";
 import { TeamsController } from "./teams/teams.controller";
@@ -18,6 +20,7 @@ import { TeamsService } from "./teams/teams.service";
     DepartmentsController,
     TeamsController,
     PositionsController,
+    PositionSkillsController,
     OrgChartController,
   ],
   providers: [
@@ -25,6 +28,7 @@ import { TeamsService } from "./teams/teams.service";
     DepartmentsService,
     TeamsService,
     PositionsService,
+    PositionSkillsService,
     OrgChartService,
   ],
   exports: [
