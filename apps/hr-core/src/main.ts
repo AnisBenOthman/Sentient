@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { HttpStatus, ValidationPipe } from '@nestjs/common';
+import { HttpStatus, Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { NextFunction, Request, Response } from 'express';
@@ -99,6 +99,10 @@ async function bootstrap(): Promise<void> {
 
   const port = configService.get<number>('HR_CORE_PORT', 3001);
   await app.listen(port);
+
+  const logger = new Logger('Bootstrap');
+  logger.log(`HR Core running on http://localhost:${port}`);
+  logger.log(`Swagger docs  http://localhost:${port}/api/docs`);
 }
 
 bootstrap();

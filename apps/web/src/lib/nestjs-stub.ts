@@ -4,6 +4,7 @@
 
 export const Injectable = () => (_target: unknown) => {};
 export const Optional = () => (_target: unknown, _key?: unknown, _idx?: unknown) => {};
+export const createParamDecorator = (_factory: unknown) => (_data?: unknown) => (_target: unknown, _key?: unknown, _idx?: unknown) => {};
 export class ForbiddenException extends Error { constructor(msg?: string) { super(msg); } }
 export class UnauthorizedException extends Error { constructor(msg?: string) { super(msg); } }
 export class BadRequestException extends Error { constructor(msg?: string) { super(msg); } }

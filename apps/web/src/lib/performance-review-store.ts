@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 
-const STORAGE_KEY = "hris_performance_reviews_v2";
+const UPDATE_EVENT = "performance-reviews-updated";
 
 export type SatisfactionLevel = 1 | 2 | 3 | 4 | 5;
 export type PerformanceRating = 1 | 2 | 3 | 4 | 5;
@@ -495,24 +495,12 @@ const SEED_REVIEWS: PerformanceReview[] = [
 ];
 
 function readAll(): PerformanceReview[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_REVIEWS));
-      return [...SEED_REVIEWS];
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as PerformanceReview[]) : [];
-  } catch {
-    return [];
-  }
+  return [...SEED_REVIEWS];
 }
 
-function writeAll(reviews: PerformanceReview[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(reviews));
-  } catch {
-    /* storage full or unavailable — no-op */
+function writeAll(_reviews: PerformanceReview[]): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(UPDATE_EVENT));
   }
 }
 
@@ -535,7 +523,7 @@ export function addPerformanceReview(review: PerformanceReview) {
   all.unshift(review);
   writeAll(all);
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("performance-reviews-updated"));
+    window.dispatchEvent(new CustomEvent(UPDATE_EVENT));
   }
 }
 
@@ -556,14 +544,9 @@ export function usePerformanceReviews(): [PerformanceReview[], () => void] {
 
   useEffect(() => {
     const onUpdate = () => refresh();
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) refresh();
-    };
-    window.addEventListener("performance-reviews-updated", onUpdate);
-    window.addEventListener("storage", onStorage);
+    window.addEventListener(UPDATE_EVENT, onUpdate);
     return () => {
-      window.removeEventListener("performance-reviews-updated", onUpdate);
-      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(UPDATE_EVENT, onUpdate);
     };
   }, [refresh]);
 

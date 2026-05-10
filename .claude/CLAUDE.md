@@ -581,3 +581,40 @@ const { data, isLoading } = useQuery({
   queryFn: () => getEmployees(params),
 });
 ```
+
+---
+
+## 16. Agent Coordination Protocol
+
+This project uses **two agents in sequence**: Claude Code (you) and Codex. You never run at the
+same time. The shared source of truth is **git history** and **`specs/*/tasks.md`**.
+
+### At Every Session Start — Do These Before Writing Any Code
+
+1. Run `git log --oneline -10` to see what Codex last did and which branch is active.
+2. Identify the active feature branch (e.g., `009-performance-review`) and read
+   `specs/<feature>/tasks.md` to know which tasks are done (`[x]`) and which remain (`[ ]`).
+3. Check `AGENTS.md` → `## Recent Changes` for the last thing Codex delivered.
+
+### Commit Message Convention
+
+Prefix every commit with `[claude]` so the git log clearly shows which agent produced each change:
+
+```
+[claude] feat(performance-review): implement ReviewCyclesService create/initiate
+[claude] fix(shared): correct PerformanceRating enum export
+```
+
+Codex uses `[codex]` for the same reason. This makes `git log --oneline` a readable
+cross-agent work log without any extra tooling.
+
+### When You Finish a Session
+
+Update `AGENTS.md` → `## Recent Changes` with what you implemented so Codex sees it next session.
+Use the same one-liner format as existing entries.
+
+### What You Do NOT Need to Do
+
+- No `WORK_STATE.md` — git is the state; a separate file rots when sessions are killed or `/clear`'d.
+- No task attribution beyond `[x]` — git blame covers who did what.
+- No synchronization file — sequential execution means no collision risk.

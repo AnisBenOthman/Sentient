@@ -1,11 +1,18 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getPositions,
   createPosition,
   updatePosition,
   deactivatePosition,
+  getPositionSkills,
+  addPositionSkill,
+  deletePositionSkill,
+  getSkillsCatalog,
   type Position,
+  type PositionSkill,
+  type ProficiencyLevel,
+  type SkillRequirementLevel,
 } from "@/lib/api/hr-core";
 import { useAuth } from "@/components/providers/auth-provider";
 import {
@@ -49,7 +56,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, Briefcase, Plus, Pencil, Trash2, ShieldAlert, Key } from "lucide-react";
+import { ChevronDown, ChevronRight, Search, Briefcase, Plus, Pencil, Trash2, ShieldAlert, Key, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const POSITION_LEVELS = [
@@ -60,6 +67,32 @@ const POSITION_LEVELS = [
   { value: "SENIOR_2", label: "Senior II" },
   { value: "EXPERT", label: "Expert" },
 ];
+
+const PROFICIENCY_LEVELS: { value: ProficiencyLevel; label: string }[] = [
+  { value: "BEGINNER", label: "Beginner" },
+  { value: "INTERMEDIATE", label: "Intermediate" },
+  { value: "ADVANCED", label: "Advanced" },
+  { value: "EXPERT", label: "Expert" },
+];
+
+const REQUIREMENT_LEVELS: { value: SkillRequirementLevel; label: string }[] = [
+  { value: "MANDATORY", label: "Mandatory" },
+  { value: "EXPECTED", label: "Expected" },
+  { value: "NICE_TO_HAVE", label: "Nice to Have" },
+];
+
+const REQUIREMENT_COLORS: Record<SkillRequirementLevel, string> = {
+  MANDATORY: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400",
+  EXPECTED: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400",
+  NICE_TO_HAVE: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400",
+};
+
+const DOMAIN_LABELS: Record<string, string> = {
+  TECHNICAL: "Technical",
+  LEADERSHIP: "Leadership",
+  SOFT_SKILLS: "Soft Skills",
+  DOMAIN_EXPERTISE: "Domain Expertise",
+};
 
 const LEVEL_COLORS: Record<string, string> = {
   JUNIOR: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
@@ -75,6 +108,221 @@ const RISK_COLORS: Record<string, string> = {
   MEDIUM: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
   HIGH: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
+
+// ── Required Skills Panel ──────────────────────────────────────────────────────
+function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmin: boolean }) {
+  const queryClient = useQueryClient();
+  const [addOpen, setAddOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<PositionSkill | null>(null);
+  const [skillSearch, setSkillSearch] = useState("");
+  const [addForm, setAddForm] = useState<{
+    skillId: string;
+    minimumProficiency: ProficiencyLevel;
+    requirementLevel: SkillRequirementLevel;
+  }>({ skillId: "", minimumProficiency: "INTERMEDIATE", requirementLevel: "MANDATORY" });
+
+  const { data: positionSkills = [], isLoading } = useQuery({
+    queryKey: ["position-skills", position.id],
+    queryFn: () => getPositionSkills(position.id),
+  });
+
+  const { data: catalog } = useQuery({
+    queryKey: ["skills-catalog", skillSearch],
+    queryFn: () => getSkillsCatalog({ search: skillSearch || undefined }),
+    enabled: addOpen,
+  });
+
+  const catalogSkills = catalog?.data ?? [];
+  const existingSkillIds = new Set(positionSkills.map((ps) => ps.skillId));
+  const availableSkills = catalogSkills.filter((s) => !existingSkillIds.has(s.id));
+
+  const addMutation = useMutation({
+    mutationFn: () =>
+      addPositionSkill(position.id, {
+        skillId: addForm.skillId,
+        minimumProficiency: addForm.minimumProficiency,
+        requirementLevel: addForm.requirementLevel,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["position-skills", position.id] });
+      setAddOpen(false);
+      setAddForm({ skillId: "", minimumProficiency: "INTERMEDIATE", requirementLevel: "MANDATORY" });
+      setSkillSearch("");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (skillId: string) => deletePositionSkill(position.id, skillId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["position-skills", position.id] });
+      setDeleteTarget(null);
+    },
+  });
+
+  return (
+    <div className="border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30 px-4 pb-4 pt-3">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <BookOpen className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-muted-foreground">Required Skills</span>
+          {positionSkills.length > 0 && (
+            <Badge variant="secondary" className="text-xs">{positionSkills.length}</Badge>
+          )}
+        </div>
+        {isAdmin && (
+          <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => setAddOpen(true)}>
+            <Plus className="w-3 h-3" />
+            Add Skill
+          </Button>
+        )}
+      </div>
+
+      {isLoading ? (
+        <p className="text-xs text-muted-foreground py-2">Loading…</p>
+      ) : positionSkills.length === 0 ? (
+        <p className="text-xs text-muted-foreground py-2 italic">No required skills defined for this position.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {positionSkills.map((ps) => (
+            <div
+              key={ps.id}
+              className="flex items-center gap-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2"
+            >
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-medium truncate">{ps.skill.name}</span>
+                {ps.skill.domain && (
+                  <span className="ml-2 text-xs text-muted-foreground">{DOMAIN_LABELS[ps.skill.domain] ?? ps.skill.domain}</span>
+                )}
+              </div>
+              <span className={cn("text-[11px] font-medium px-2 py-0.5 rounded-full border", REQUIREMENT_COLORS[ps.requirementLevel])}>
+                {REQUIREMENT_LEVELS.find((r) => r.value === ps.requirementLevel)?.label ?? ps.requirementLevel}
+              </span>
+              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                {PROFICIENCY_LEVELS.find((p) => p.value === ps.minimumProficiency)?.label ?? ps.minimumProficiency}+
+              </span>
+              {isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex-shrink-0"
+                  onClick={() => setDeleteTarget(ps)}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add skill dialog */}
+      <Dialog open={addOpen} onOpenChange={(v) => { if (!v) { setAddOpen(false); setSkillSearch(""); } }}>
+        <DialogContent className="sm:max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Add Required Skill — {position.title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Skill</Label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search skills…"
+                  className="pl-8 text-sm"
+                  value={skillSearch}
+                  onChange={(e) => { setSkillSearch(e.target.value); setAddForm((f) => ({ ...f, skillId: "" })); }}
+                />
+              </div>
+              {availableSkills.length > 0 && (
+                <div className="max-h-40 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
+                  {availableSkills.map((skill) => (
+                    <button
+                      key={skill.id}
+                      type="button"
+                      className={cn(
+                        "w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors",
+                        addForm.skillId === skill.id && "bg-indigo-50 dark:bg-indigo-900/20 font-medium",
+                      )}
+                      onClick={() => setAddForm((f) => ({ ...f, skillId: skill.id }))}
+                    >
+                      {skill.name}
+                      {skill.domain && <span className="ml-2 text-xs text-muted-foreground">{DOMAIN_LABELS[skill.domain] ?? skill.domain}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Minimum Proficiency</Label>
+              <Select
+                value={addForm.minimumProficiency}
+                onValueChange={(v) => setAddForm((f) => ({ ...f, minimumProficiency: v as ProficiencyLevel }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROFICIENCY_LEVELS.map((l) => (
+                    <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Requirement Level</Label>
+              <Select
+                value={addForm.requirementLevel}
+                onValueChange={(v) => setAddForm((f) => ({ ...f, requirementLevel: v as SkillRequirementLevel }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {REQUIREMENT_LEVELS.map((l) => (
+                    <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setAddOpen(false); setSkillSearch(""); }}>Cancel</Button>
+            <Button
+              onClick={() => addMutation.mutate()}
+              disabled={!addForm.skillId || addMutation.isPending}
+            >
+              {addMutation.isPending ? "Adding…" : "Add Skill"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove "{deleteTarget?.skill.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This skill requirement will be removed from the position profile. Existing employees won't be affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => { if (deleteTarget) deleteMutation.mutate(deleteTarget.skillId); }}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Removing…" : "Remove"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
 
 // ── Position Form ─────────────────────────────────────────────────────────────
 type PosForm = {
@@ -204,6 +452,7 @@ export default function Positions() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Position | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Position | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const isAdmin = user?.roles.includes("HR_ADMIN") ?? false;
 
@@ -336,79 +585,96 @@ export default function Positions() {
               </TableHeader>
               <TableBody>
                 {filtered.map((pos) => (
-                  <TableRow key={pos.id} data-testid={`row-pos-${pos.id}`}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Briefcase className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                        <span className="font-medium text-sm">{pos.title}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {pos.level ? (
-                        <span
-                          className={cn(
-                            "text-xs font-medium px-2 py-0.5 rounded-full",
-                            LEVEL_COLORS[pos.level] ?? "bg-gray-100 text-gray-600",
-                          )}
-                        >
-                          {POSITION_LEVELS.find((l) => l.value === pos.level)?.label ?? pos.level}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        {pos.isKeyPosition && (
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-xs gap-1",
-                              pos.keyPositionRisk
-                                ? RISK_COLORS[pos.keyPositionRisk]
-                                : "bg-amber-100 text-amber-700 border-amber-200",
-                            )}
-                          >
-                            <Key className="w-3 h-3" />
-                            Key
-                            {pos.keyPositionRisk && ` · ${pos.keyPositionRisk.charAt(0)}${pos.keyPositionRisk.slice(1).toLowerCase()} risk`}
-                          </Badge>
-                        )}
-                        {pos.isKeyPosition && !pos.hasSuccessor && (
-                          <Badge
-                            variant="outline"
-                            className="text-xs gap-1 bg-red-50 text-red-600 border-red-200"
-                          >
-                            <ShieldAlert className="w-3 h-3" />
-                            No successor
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    {isAdmin && (
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEdit(pos)}
-                            data-testid={`button-edit-pos-${pos.id}`}
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                            onClick={() => setDeleteTarget(pos)}
-                            data-testid={`button-delete-pos-${pos.id}`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                  <React.Fragment key={pos.id}>
+                    <TableRow
+                      data-testid={`row-pos-${pos.id}`}
+                      className="cursor-pointer hover:bg-muted/30"
+                      onClick={() => setExpandedId(expandedId === pos.id ? null : pos.id)}
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {expandedId === pos.id
+                            ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                            : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                          }
+                          <Briefcase className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <span className="font-medium text-sm">{pos.title}</span>
                         </div>
                       </TableCell>
+                      <TableCell>
+                        {pos.level ? (
+                          <span
+                            className={cn(
+                              "text-xs font-medium px-2 py-0.5 rounded-full",
+                              LEVEL_COLORS[pos.level] ?? "bg-gray-100 text-gray-600",
+                            )}
+                          >
+                            {POSITION_LEVELS.find((l) => l.value === pos.level)?.label ?? pos.level}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          {pos.isKeyPosition && (
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-xs gap-1",
+                                pos.keyPositionRisk
+                                  ? RISK_COLORS[pos.keyPositionRisk]
+                                  : "bg-amber-100 text-amber-700 border-amber-200",
+                              )}
+                            >
+                              <Key className="w-3 h-3" />
+                              Key
+                              {pos.keyPositionRisk && ` · ${pos.keyPositionRisk.charAt(0)}${pos.keyPositionRisk.slice(1).toLowerCase()} risk`}
+                            </Badge>
+                          )}
+                          {pos.isKeyPosition && !pos.hasSuccessor && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs gap-1 bg-red-50 text-red-600 border-red-200"
+                            >
+                              <ShieldAlert className="w-3 h-3" />
+                              No successor
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      {isAdmin && (
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEdit(pos)}
+                              data-testid={`button-edit-pos-${pos.id}`}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              onClick={() => setDeleteTarget(pos)}
+                              data-testid={`button-delete-pos-${pos.id}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                    {expandedId === pos.id && (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell colSpan={isAdmin ? 4 : 3} className="p-0">
+                          <RequiredSkillsPanel position={pos} isAdmin={isAdmin} />
+                        </TableCell>
+                      </TableRow>
                     )}
-                  </TableRow>
+                  </React.Fragment>
                 ))}
                 {filtered.length === 0 && (
                   <TableRow>

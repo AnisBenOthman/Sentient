@@ -11,7 +11,8 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "lint": "eslint src --ext .ts",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "seed:replit": "ts-node prisma/seed-replit.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",
@@ -52,7 +53,7 @@
     "typescript": "^5.7.3"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "ts-node prisma/seed-replit.ts"
   },
   "jest": {
     "moduleFileExtensions": [

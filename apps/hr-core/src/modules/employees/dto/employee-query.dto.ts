@@ -22,18 +22,23 @@ export class EmployeeQueryDto {
   @Min(1)
   page?: number = 1;
 
-  @ApiPropertyOptional({ default: 20, maximum: 100 })
+  @ApiPropertyOptional({ default: 20, maximum: 500 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(500)
   limit?: number = 20;
 
   @ApiPropertyOptional({ description: 'Partial match on firstName or lastName' })
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  businessUnitId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -49,6 +54,14 @@ export class EmployeeQueryDto {
   @IsOptional()
   @IsEnum(EmploymentStatus)
   employmentStatus?: EmploymentStatus;
+
+  @ApiPropertyOptional({
+    enum: EmploymentStatus,
+    description: 'Alias for employmentStatus used by the web client',
+  })
+  @IsOptional()
+  @IsEnum(EmploymentStatus)
+  status?: EmploymentStatus;
 
   @ApiPropertyOptional({ enum: ContractType })
   @IsOptional()

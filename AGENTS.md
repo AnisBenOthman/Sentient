@@ -47,6 +47,7 @@ See `.claude/rules/code-style.md` for full conventions. Key rules:
 - Every endpoint: `@UseGuards(SharedJwtGuard, RbacGuard)` + `@Roles(...)`. Except `/health`.
 
 ## Recent Changes
+- skills-domain: Added SkillDomain enum (TECHNICAL/LEADERSHIP/SOFT_SKILLS/DOMAIN_EXPERTISE) to shared pkg + Prisma schema; wired domain field into catalog DTOs, position-skills, employee-skills, history, and gap analysis services; added position required skills CRUD panel to positions.tsx (expandable per row, add/delete dialog, HR_ADMIN gated); replaced flat SkillsRadarCard with GapRadarCard (required vs acquired overlay) on employee-profile.tsx; enhanced SkillsGapCard with By Domain / By Requirement Level / All Skills tabs; seeded domains into seed-replit.ts via TECHNICAL/LEADERSHIP/BEHAVIORAL→SOFT_SKILLS/DOMAIN category mapping; migration at 20260510000000_add_skill_domain; run `prisma migrate dev` to apply
 - 009-coordination: Established Claude Code ↔ Codex session-start protocol and fixed .claude/rules path reference in AGENTS.md
 - 009-performance-review: Planned HR Core performance review cycles, self-review, manager review, HR outcome tracking, and API-backed web workflow using the existing TypeScript/NestJS/Prisma/React stack
 - 005-leave-module: Added TypeScript 5.x (strict mode) + NestJS 10, Prisma 5 (multiSchema), class-validator, class-transformer, @nestjs/swagger, @nestjs/schedule (for monthly accrual cron), @nestjs/config

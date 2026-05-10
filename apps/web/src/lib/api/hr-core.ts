@@ -1,4 +1,16 @@
 import { hrClient } from './client';
+import type {
+  PerformanceRating,
+  PerformanceReviewAuditDto,
+  PerformanceReviewCycleDto,
+  PerformanceReviewCycleInitiationDto,
+  PerformanceReviewCycleSummaryDto,
+  PerformanceReviewDto,
+  PerformanceReviewListDto,
+  PerformanceReviewSalaryFollowUpDto,
+  ReviewType,
+  SatisfactionLevel,
+} from '@sentient/shared';
 
 // ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -46,6 +58,11 @@ export interface EmployeeProfile {
   netSalary: number | null;
   maritalStatus: string | null;
   educationLevel: string | null;
+  educationField?: string | null;
+  positionId?: string | null;
+  departmentId?: string | null;
+  teamId?: string | null;
+  managerId?: string | null;
   deletedAt: string | null;
   department: { id: string; name: string } | null;
   team: { id: string; name: string } | null;
@@ -66,14 +83,47 @@ export async function getEmployees(params?: {
   limit?: number;
   search?: string;
   status?: string;
+  employmentStatus?: string;
+  businessUnitId?: string;
   departmentId?: string;
+  teamId?: string;
 }): Promise<PaginatedEmployees> {
-  const { data } = await hrClient.get<PaginatedEmployees>('/employees', { params });
+  const { status, ...rest } = params ?? {};
+  const queryParams = status ? { ...rest, employmentStatus: status } : rest;
+  const { data } = await hrClient.get<PaginatedEmployees>('/employees', { params: queryParams });
   return data;
 }
 
 export async function getEmployee(id: string): Promise<EmployeeProfile> {
   const { data } = await hrClient.get<EmployeeProfile>(`/employees/${id}`);
+  return data;
+}
+
+export type UpdateEmployeeDto = Partial<{
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  dateOfBirth: string;
+  contractType: string;
+  grossSalary: string;
+  netSalary: string;
+  salaryChangeReason: string;
+  salaryChangeComment: string;
+  maritalStatus: string;
+  educationLevel: string;
+  educationField: string;
+  positionId: string;
+  departmentId: string;
+  teamId: string;
+  managerId: string;
+}>;
+
+export async function updateEmployee(
+  id: string,
+  dto: UpdateEmployeeDto,
+): Promise<EmployeeProfile> {
+  const { data } = await hrClient.patch<EmployeeProfile>(`/employees/${id}`, dto);
   return data;
 }
 
@@ -268,19 +318,45 @@ export async function deleteTeam(id: string): Promise<void> {
 export interface SalaryHistoryEntry {
   id: string;
   effectiveDate: string;
-  grossBefore: number;
-  grossAfter: number;
-  netBefore: number;
-  netAfter: number;
-  reason: string;
-  changedByName?: string;
+  grossBefore: number | null;
+  grossAfter: number | null;
+  netBefore: number | null;
+  netAfter: number | null;
+  reason: string | null;
+  changedByName: string | null;
+}
+
+interface ApiSalaryHistoryEntry {
+  id: string;
+  effectiveDate: string;
+  previousGrossSalary: number | string | null;
+  newGrossSalary: number | string | null;
+  previousNetSalary: number | string | null;
+  newNetSalary: number | string | null;
+  reason: string | null;
+  changedById: string | null;
+}
+
+function toNullableNumber(value: number | string | null): number | null {
+  if (value === null) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 export async function getSalaryHistory(employeeId: string): Promise<SalaryHistoryEntry[]> {
-  const { data } = await hrClient.get<SalaryHistoryEntry[]>(
+  const { data } = await hrClient.get<ApiSalaryHistoryEntry[]>(
     `/employees/${employeeId}/salary-history`,
   );
-  return data;
+  return data.map((entry) => ({
+    id: entry.id,
+    effectiveDate: entry.effectiveDate,
+    grossBefore: toNullableNumber(entry.previousGrossSalary),
+    grossAfter: toNullableNumber(entry.newGrossSalary),
+    netBefore: toNullableNumber(entry.previousNetSalary),
+    netAfter: toNullableNumber(entry.newNetSalary),
+    reason: entry.reason,
+    changedByName: entry.changedById,
+  }));
 }
 
 // ── Leave Requests ────────────────────────────────────────────────────────
@@ -464,18 +540,207 @@ export async function deleteHoliday(id: string): Promise<void> {
 
 // ── Employee Skills ───────────────────────────────────────────────────────
 
+export type SkillDomain = 'TECHNICAL' | 'LEADERSHIP' | 'SOFT_SKILLS' | 'DOMAIN_EXPERTISE';
+export type SkillRequirementLevel = 'MANDATORY' | 'EXPECTED' | 'NICE_TO_HAVE';
+export type ProficiencyLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
+
+export interface SkillRef {
+  id: string;
+  name: string;
+  domain: SkillDomain | null;
+  category: string | null;
+}
+
 export interface EmployeeSkill {
   id: string;
   skillId: string;
   proficiencyLevel: string;
+  proficiency?: string;
   yearsOfExperience: number | null;
-  skill: { id: string; name: string; category: string | null };
+  skill: SkillRef;
+}
+
+export interface PositionSkill {
+  id: string;
+  positionId: string;
+  skillId: string;
+  skill: SkillRef;
+  minimumProficiency: ProficiencyLevel;
+  requirementLevel: SkillRequirementLevel;
+}
+
+export async function getPositionSkills(positionId: string): Promise<PositionSkill[]> {
+  const { data } = await hrClient.get<PositionSkill[]>(`/positions/${positionId}/skills`);
+  return data;
+}
+
+export async function addPositionSkill(
+  positionId: string,
+  dto: { skillId: string; minimumProficiency: ProficiencyLevel; requirementLevel?: SkillRequirementLevel },
+): Promise<PositionSkill> {
+  const { data } = await hrClient.post<PositionSkill>(`/positions/${positionId}/skills`, dto);
+  return data;
+}
+
+export async function deletePositionSkill(positionId: string, skillId: string): Promise<void> {
+  await hrClient.delete(`/positions/${positionId}/skills/${skillId}`);
+}
+
+export async function getSkillsCatalog(params?: { search?: string; limit?: number }): Promise<{ data: SkillRef[] }> {
+  const { data } = await hrClient.get<{ data: SkillRef[] }>('/skills', {
+    params: { limit: 200, ...params },
+  });
+  return data;
 }
 
 export async function getEmployeeSkills(employeeId: string): Promise<EmployeeSkill[]> {
   const { data } = await hrClient.get<EmployeeSkill[]>(
     `/employees/${employeeId}/skills`,
   );
+  return data.map((skill) => ({
+    ...skill,
+    proficiencyLevel: skill.proficiencyLevel ?? skill.proficiency ?? "BEGINNER",
+  }));
+}
+
+export interface SkillsGapItem {
+  skill: SkillRef;
+  requirementLevel: SkillRequirementLevel;
+  requiredProficiency: ProficiencyLevel;
+  acquiredProficiency: ProficiencyLevel | null;
+  gapSize: number;
+  status: "MET" | "EXCEEDS" | "PARTIAL" | "MISSING";
+}
+
+export interface SkillsGapResult {
+  employeeId: string;
+  positionId: string;
+  positionTitle: string;
+  summary: {
+    totalRequired: number;
+    met: number;
+    exceeds: number;
+    partial: number;
+    missing: number;
+    byLevel?: Record<string, { total: number; met: number; gaps: number }>;
+  };
+  items: SkillsGapItem[];
+}
+
+export async function getSkillsGap(employeeId: string): Promise<SkillsGapResult | null> {
+  try {
+    const { data } = await hrClient.get<SkillsGapResult>(
+      `/employees/${employeeId}/skills-gap`,
+    );
+    return data;
+  } catch (error: unknown) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "response" in error &&
+      typeof (error as { response?: { status?: unknown } }).response?.status === "number" &&
+      [400, 404].includes((error as { response: { status: number } }).response.status)
+    ) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export interface SkillHistoryEntry {
+  id: string;
+  employeeId: string;
+  skillId: string;
+  previousLevel: string | null;
+  newLevel: string | null;
+  effectiveDate: string;
+  source: string;
+  note: string | null;
+  createdAt: string;
+  skill: SkillRef;
+  assessedBy: { id: string; firstName: string; lastName: string } | null;
+}
+
+export async function getSkillHistory(employeeId: string): Promise<SkillHistoryEntry[]> {
+  const { data } = await hrClient.get<{
+    data: SkillHistoryEntry[];
+    total: number;
+    page: number;
+    limit: number;
+  }>("/skills/history", {
+    params: { employeeId, limit: 200, order: "asc" },
+  });
+  return data.data;
+}
+
+// ── Dashboard Analytics ─────────────────────────────────────────────────────
+
+export interface ChartPoint {
+  label: string;
+  value: number;
+}
+
+export interface SeriesPoint {
+  label: string;
+  [series: string]: string | number;
+}
+
+export interface DashboardAnalytics {
+  employees: {
+    total: number;
+    active: number;
+    onLeave: number;
+    newHiresOnProbation: number;
+    headcountOverTime: ChartPoint[];
+    newHiresTrend: ChartPoint[];
+    newHiresByDepartment: SeriesPoint[];
+  };
+  payroll: {
+    visible: boolean;
+    totalCost: number | null;
+    averageSalary: number | null;
+    costByDepartment: ChartPoint[];
+    costTrendByTeam: SeriesPoint[];
+  };
+  leave: {
+    pendingApprovals: number;
+    daysByDepartment: ChartPoint[];
+    requestsByTypeOverTime: SeriesPoint[];
+  };
+  skills: {
+    averageScore: number | null;
+    skillsTracked: number;
+    topSkill: string | null;
+    radar: ChartPoint[];
+    skillEvolution: ChartPoint[];
+  };
+  promotions: {
+    total: number;
+    byQuarter: ChartPoint[];
+    byDepartment: ChartPoint[];
+    recent: Array<{
+      id: string;
+      employeeName: string;
+      departmentName: string;
+      previousGrossSalary: number;
+      newGrossSalary: number;
+      effectiveDate: string;
+    }>;
+  };
+  engagement: {
+    implemented: false;
+    metrics: [];
+    trend: [];
+    message: string;
+  };
+}
+
+export async function getDashboardAnalytics(params?: {
+  businessUnitId?: string;
+  departmentId?: string;
+  teamId?: string;
+}): Promise<DashboardAnalytics> {
+  const { data } = await hrClient.get<DashboardAnalytics>('/analytics/dashboard', { params });
   return data;
 }
 
@@ -485,17 +750,30 @@ export interface OrgTeam {
   id: string;
   name: string;
   code: string;
+  departmentId: string;
+  businessUnitId: string;
   leadId: string | null;
+  lead: OrgEmployee | null;
   leadVacant: boolean;
   projectFocus: string | null;
   employeeCount: number;
+}
+
+export interface OrgEmployee {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  position: { id: string; title: string } | null;
 }
 
 export interface OrgDepartment {
   id: string;
   name: string;
   code: string;
+  businessUnitId: string;
   headId: string | null;
+  head: OrgEmployee | null;
   teams: OrgTeam[];
 }
 
@@ -512,4 +790,160 @@ export async function getTeamMembers(teamId: string): Promise<EmployeeProfile[]>
     params: { teamId, limit: 50 },
   });
   return data.data;
+}
+
+// Performance Reviews
+
+export interface CreateReviewCyclePayload {
+  name: string;
+  reviewType: ReviewType;
+  periodStart: string;
+  periodEnd: string;
+  selfReviewOpensAt: string;
+  selfReviewClosesAt: string;
+  managerReviewDueAt: string;
+}
+
+export interface InitiateReviewCyclePayload {
+  businessUnitId?: string;
+  departmentId?: string;
+  teamId?: string;
+  reviewerOverrideId?: string;
+  employeeIds?: string[];
+  includeProbationEmployees?: boolean;
+}
+
+export interface SubmitSelfReviewPayload {
+  environmentSatisfaction: SatisfactionLevel;
+  jobSatisfaction: SatisfactionLevel;
+  relationshipSatisfaction: SatisfactionLevel;
+  trainingOpportunitiesTaken: number;
+  workLifeBalance: SatisfactionLevel;
+  selfRating: PerformanceRating;
+  employeeComments?: string;
+}
+
+export interface SubmitManagerReviewPayload {
+  managerRating: PerformanceRating;
+  managerComments?: string;
+}
+
+export interface PerformanceReviewQuery {
+  page?: number;
+  limit?: number;
+  cycleId?: string;
+  employeeId?: string;
+  reviewerId?: string;
+  departmentId?: string;
+  teamId?: string;
+  status?: string;
+  managerRating?: PerformanceRating;
+  periodStart?: string;
+  periodEnd?: string;
+  ratingGap?: boolean;
+  overdue?: boolean;
+}
+
+export async function createReviewCycle(
+  payload: CreateReviewCyclePayload,
+): Promise<PerformanceReviewCycleDto> {
+  const { data } = await hrClient.post<PerformanceReviewCycleDto>('/performance-review-cycles', payload);
+  return data;
+}
+
+export async function getReviewCycles(): Promise<PerformanceReviewCycleDto[]> {
+  const { data } = await hrClient.get<PerformanceReviewCycleDto[]>('/performance-review-cycles');
+  return data;
+}
+
+export async function initiateReviewCycle(
+  cycleId: string,
+  payload: InitiateReviewCyclePayload,
+): Promise<PerformanceReviewCycleInitiationDto> {
+  const { data } = await hrClient.post<PerformanceReviewCycleInitiationDto>(
+    `/performance-review-cycles/${cycleId}/initiate`,
+    payload,
+  );
+  return data;
+}
+
+export async function getReviewCycleSummary(cycleId: string): Promise<PerformanceReviewCycleSummaryDto> {
+  const { data } = await hrClient.get<PerformanceReviewCycleSummaryDto>(
+    `/performance-review-cycles/${cycleId}/summary`,
+  );
+  return data;
+}
+
+export async function closeReviewCycle(cycleId: string): Promise<PerformanceReviewCycleDto> {
+  const { data } = await hrClient.post<PerformanceReviewCycleDto>(
+    `/performance-review-cycles/${cycleId}/close`,
+  );
+  return data;
+}
+
+export async function getPerformanceReviews(
+  params?: PerformanceReviewQuery,
+): Promise<PerformanceReviewListDto> {
+  const { data } = await hrClient.get<PerformanceReviewListDto>('/performance-reviews', { params });
+  return data;
+}
+
+export async function getPerformanceReview(id: string): Promise<PerformanceReviewDto> {
+  const { data } = await hrClient.get<PerformanceReviewDto>(`/performance-reviews/${id}`);
+  return data;
+}
+
+export async function submitSelfReview(
+  id: string,
+  payload: SubmitSelfReviewPayload,
+): Promise<PerformanceReviewDto> {
+  const { data } = await hrClient.post<PerformanceReviewDto>(
+    `/performance-reviews/${id}/self-review`,
+    payload,
+  );
+  return data;
+}
+
+export async function submitManagerReview(
+  id: string,
+  payload: SubmitManagerReviewPayload,
+): Promise<PerformanceReviewDto> {
+  const { data } = await hrClient.post<PerformanceReviewDto>(
+    `/performance-reviews/${id}/manager-review`,
+    payload,
+  );
+  return data;
+}
+
+export async function reopenPerformanceReview(id: string, reason: string): Promise<PerformanceReviewDto> {
+  const { data } = await hrClient.post<PerformanceReviewDto>(`/performance-reviews/${id}/reopen`, { reason });
+  return data;
+}
+
+export async function reassignPerformanceReviewReviewer(
+  id: string,
+  reviewerId: string,
+  reason?: string,
+): Promise<PerformanceReviewDto> {
+  const { data } = await hrClient.post<PerformanceReviewDto>(
+    `/performance-reviews/${id}/reassign-reviewer`,
+    { reviewerId, reason },
+  );
+  return data;
+}
+
+export async function recordPerformanceReviewSalaryFollowUp(
+  id: string,
+  payload: { salaryHistoryId?: string; reason: string },
+): Promise<PerformanceReviewSalaryFollowUpDto> {
+  const { data } = await hrClient.post<PerformanceReviewSalaryFollowUpDto>(
+    `/performance-reviews/${id}/salary-follow-ups`,
+    payload,
+  );
+  return data;
+}
+
+export async function getPerformanceReviewAudit(id: string): Promise<PerformanceReviewAuditDto[]> {
+  const { data } = await hrClient.get<PerformanceReviewAuditDto[]>(`/performance-reviews/${id}/audit`);
+  return data;
 }

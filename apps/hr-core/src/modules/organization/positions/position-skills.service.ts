@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { ProficiencyLevel, SkillRequirementLevel } from '@sentient/shared';
+import { ProficiencyLevel, SkillDomain, SkillRequirementLevel } from '@sentient/shared';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { BulkReplacePositionSkillsDto } from './dto/bulk-replace-position-skills.dto';
 import { PositionSkillQueryDto } from './dto/position-skill-query.dto';
@@ -13,7 +13,7 @@ export interface PositionSkillWithSkill {
   requirementLevel: SkillRequirementLevel;
   createdAt: Date;
   updatedAt: Date;
-  skill: { id: string; name: string; category: string | null };
+  skill: { id: string; name: string; domain: SkillDomain | null; category: string | null };
 }
 
 export const PROFICIENCY_RANK: Record<ProficiencyLevel, number> = {
@@ -23,7 +23,7 @@ export const PROFICIENCY_RANK: Record<ProficiencyLevel, number> = {
   [ProficiencyLevel.EXPERT]: 3,
 };
 
-const SKILL_SELECT = { id: true, name: true, category: true } as const;
+const SKILL_SELECT = { id: true, name: true, domain: true, category: true } as const;
 
 @Injectable()
 export class PositionSkillsService {

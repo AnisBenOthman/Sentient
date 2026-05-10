@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { EVENT_BUS, IEventBus, JwtPayload, ProficiencyLevel, ScopeFilter, SourceLevel, buildScopeFilter } from '@sentient/shared';
+import { EVENT_BUS, IEventBus, JwtPayload, ProficiencyLevel, SkillDomain, ScopeFilter, SourceLevel, buildScopeFilter } from '@sentient/shared';
 import { EmployeeSkill, EmploymentStatus, Prisma, SkillHistory } from '../../../generated/prisma';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmployeeSkillQueryDto } from '../dto/employee-skill-query.dto';
@@ -27,7 +27,7 @@ export interface EmployeeSkillWithEmployee {
   createdAt: Date;
   updatedAt: Date;
   employee: { id: string; firstName: string; lastName: string; departmentId: string | null; teamId: string | null };
-  skill: { id: string; name: string; category: string | null };
+  skill: { id: string; name: string; domain: SkillDomain | null; category: string | null };
 }
 
 export interface PaginatedResult<T> {
@@ -291,7 +291,7 @@ export class EmployeeSkillsService {
       },
       include: {
         skill: {
-          select: { id: true, name: true, category: true },
+          select: { id: true, name: true, domain: true, category: true },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -332,7 +332,7 @@ export class EmployeeSkillsService {
         where,
         include: {
           employee: { select: { id: true, firstName: true, lastName: true, departmentId: true, teamId: true } },
-          skill: { select: { id: true, name: true, category: true } },
+          skill: { select: { id: true, name: true, domain: true, category: true } },
         },
         skip: (page - 1) * limit,
         take: limit,

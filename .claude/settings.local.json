@@ -95,7 +95,22 @@
       "PowerShell(Stop-Process *)",
       "PowerShell(Get-Process)",
       "PowerShell(Get-NetTCPConnection *)",
-      "Bash(npx vite *)"
+      "Bash(npx vite *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Anis\\\\Downloads\\\\Sentient\\\\front-replit\" -Recurse -Force)",
+      "Bash(Select-Object -Property FullName, PSIsContainer)",
+      "Bash(ConvertTo-Json -Depth 10)",
+      "PowerShell($env:PORT = \"5173\"; $env:BASE_PATH = \"/\"; Set-Location \"C:\\\\Users\\\\Anis\\\\Downloads\\\\Sentient\\\\front-replit\"; Start-Process -FilePath \"pnpm\" -ArgumentList \"--filter\", \"@workspace/sentient-hris\", \"run\", \"dev\" -PassThru -WindowStyle Normal | Select-Object Id)",
+      "Bash(MSYS_NO_PATHCONV=1 PORT=5173 BASE_PATH=/ pnpm --filter @workspace/sentient-hris run dev --prefix \"C:\\\\Users\\\\Anis\\\\Downloads\\\\Sentient\\\\front-replit\")",
+      "Bash(MSYS_NO_PATHCONV=1 PORT=5173 BASE_PATH=/ pnpm --filter @workspace/sentient-hris run dev)",
+      "Bash(dir \"C:\\\\Users\\\\Anis\\\\Downloads\\\\Sentient\\\\front-replit\\\\node_modules\\\\.pnpm\")",
+      "Bash(findstr \"tailwindcss\")",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_console_messages",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "Bash(Get-ChildItem -Recurse -Directory -Name)",
+      "Bash(Select-Object -First 30)",
+      "Bash(New-Item -Path \"C:\\\\Users\\\\Anis\\\\Downloads\\\\Sentient\\\\apps\\\\hr-core\\\\prisma\\\\migrations\\\\20260510000000_add_skill_domain\" -ItemType Directory -Force)",
+      "Bash(Out-Null)"
     ]
   }
 }

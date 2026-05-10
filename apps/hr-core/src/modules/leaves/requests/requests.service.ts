@@ -10,7 +10,7 @@ import { randomUUID } from 'crypto';
 import { Decimal } from '../../../generated/prisma/runtime/library';
 import { LeaveRequest, LeaveStatus, Prisma } from '../../../generated/prisma';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { IEventBus, EVENT_BUS, DomainEvent } from '@sentient/shared';
+import { IEventBus, EVENT_BUS, DomainEvent, JwtPayload, PermissionScope } from '@sentient/shared';
 import { CreateLeaveRequestDto } from '../dto/create-leave-request.dto';
 import { LeaveQueryDto } from '../dto/leave-query.dto';
 import { ReviewLeaveRequestDto } from '../dto/review-leave-request.dto';
@@ -188,27 +188,14 @@ export class RequestsService {
     });
   }
 
-  async findPendingQueue(
-    currentEmployeeId: string,
-    roles: string[],
-  ): Promise<LeaveRequestQueueEntry[]> {
-    const isPrivileged = roles.some(r => ['HR_ADMIN', 'EXECUTIVE'].includes(r));
-
+  async findPendingQueue(user: JwtPayload): Promise<LeaveRequestQueueEntry[]> {
     const include = {
       leaveType: { select: { id: true, name: true, color: true } },
       employee: { select: { id: true, firstName: true, lastName: true } },
     } as const;
 
-    if (isPrivileged) {
-      return this.prisma.leaveRequest.findMany({
-        where: { status: LeaveStatus.PENDING },
-        include,
-        orderBy: { createdAt: 'asc' },
-      });
-    }
-
     return this.prisma.leaveRequest.findMany({
-      where: { status: LeaveStatus.PENDING, employee: { managerId: currentEmployeeId } },
+      where: { status: LeaveStatus.PENDING, employee: this.buildEmployeeScopeFilter(user) },
       include,
       orderBy: { createdAt: 'asc' },
     });
@@ -399,7 +386,7 @@ export class RequestsService {
   }
 
   async teamCalendar(
-    managerId: string,
+    user: JwtPayload,
     from: string,
     to: string,
     departmentId?: string,
@@ -414,7 +401,7 @@ export class RequestsService {
         startDate: { lte: toDate },
         endDate: { gte: fromDate },
         employee: {
-          managerId,
+          ...this.buildEmployeeScopeFilter(user),
           ...(departmentId ? { departmentId } : {}),
           ...(teamId ? { teamId } : {}),
         },
@@ -451,5 +438,42 @@ export class RequestsService {
           : {}),
       },
     });
+  }
+
+  private buildEmployeeScopeFilter(user: JwtPayload): Prisma.EmployeeWhereInput {
+    const hasGlobalVisibility = user.roleAssignments.some(
+      (ra) =>
+        ra.scope === PermissionScope.GLOBAL &&
+        ['HR_ADMIN', 'GLOBAL_HR_ADMIN', 'EXECUTIVE', 'SYSTEM_ADMIN'].includes(ra.roleCode),
+    );
+    if (hasGlobalVisibility || user.roles.includes('HR_ADMIN') || user.roles.includes('EXECUTIVE')) {
+      return {};
+    }
+
+    const buAssignment = user.roleAssignments.find((ra) => ra.scope === PermissionScope.BUSINESS_UNIT);
+    const businessUnitId = buAssignment?.scopeEntityId ?? null;
+    if (businessUnitId) {
+      return {
+        OR: [
+          { department: { businessUnitId } },
+          { team: { businessUnitId } },
+        ],
+      };
+    }
+
+    const departmentAssignment = user.roleAssignments.find((ra) => ra.scope === PermissionScope.DEPARTMENT);
+    const departmentId = departmentAssignment?.scopeEntityId ?? null;
+    if (departmentId) return { departmentId };
+
+    if (user.roleAssignments.length === 0 && user.roles.includes('EMPLOYEE') && user.employeeId) {
+      return { id: user.employeeId };
+    }
+
+    const teamAssignment = user.roleAssignments.find((ra) => ra.scope === PermissionScope.TEAM);
+    const teamId = teamAssignment?.scopeEntityId ?? user.teamId;
+    if (teamId) return { teamId };
+
+    if (user.employeeId) return { id: user.employeeId };
+    throw new ForbiddenException('No employee profile linked to this account');
   }
 }

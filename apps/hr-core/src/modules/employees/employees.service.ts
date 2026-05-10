@@ -18,7 +18,7 @@ import {
   SalaryHistory,
 } from '../../generated/prisma';
 import { Decimal } from '../../generated/prisma/runtime/library';
-import { IEventBus, EVENT_BUS, JwtPayload, PermissionScope, ProficiencyLevel, SkillRequirementLevel } from '@sentient/shared';
+import { IEventBus, EVENT_BUS, JwtPayload, PermissionScope, ProficiencyLevel, SkillDomain, SkillRequirementLevel } from '@sentient/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { SkillsGapQueryDto } from './dto/skills-gap-query.dto';
@@ -50,7 +50,7 @@ export interface PaginatedEmployees {
 type GapStatus = 'MET' | 'EXCEEDS' | 'PARTIAL' | 'MISSING';
 
 export interface SkillGapItem {
-  skill: { id: string; name: string; category: string | null };
+  skill: { id: string; name: string; domain: SkillDomain | null; category: string | null };
   requirementLevel: SkillRequirementLevel;
   requiredProficiency: ProficiencyLevel;
   acquiredProficiency: ProficiencyLevel | null;
@@ -286,9 +286,18 @@ export class EmployeesService {
 
     const filters: Prisma.EmployeeWhereInput[] = [scopeFilter, { deletedAt: null }];
 
+    if (query.businessUnitId) {
+      filters.push({
+        OR: [
+          { department: { businessUnitId: query.businessUnitId } },
+          { team: { businessUnitId: query.businessUnitId } },
+        ],
+      });
+    }
     if (query.departmentId) filters.push({ departmentId: query.departmentId });
     if (query.teamId) filters.push({ teamId: query.teamId });
-    if (query.employmentStatus) filters.push({ employmentStatus: query.employmentStatus as EmploymentStatus });
+    const employmentStatus = query.employmentStatus ?? query.status;
+    if (employmentStatus) filters.push({ employmentStatus: employmentStatus as EmploymentStatus });
     if (query.contractType) filters.push({ contractType: query.contractType as ContractType });
     if (query.positionId) filters.push({ positionId: query.positionId });
     if (query.search) {
@@ -439,7 +448,7 @@ export class EmployeesService {
         id: true,
         title: true,
         requiredSkills: {
-          include: { skill: { select: { id: true, name: true, category: true } } },
+          include: { skill: { select: { id: true, name: true, domain: true, category: true } } },
           orderBy: { createdAt: 'asc' as const },
         },
       },
@@ -472,7 +481,7 @@ export class EmployeesService {
       }
 
       return {
-        skill: ps.skill,
+        skill: { ...ps.skill, domain: ps.skill.domain as SkillDomain | null },
         requirementLevel: ps.requirementLevel as SkillRequirementLevel,
         requiredProficiency: ps.minimumProficiency as ProficiencyLevel,
         acquiredProficiency,
@@ -518,7 +527,12 @@ export class EmployeesService {
   // ============================================================
 
   private buildScopeFilter(user: JwtPayload): Prisma.EmployeeWhereInput {
-    if (user.roles.includes('HR_ADMIN') || user.roles.includes('EXECUTIVE')) {
+    const hasGlobalVisibility = user.roleAssignments.some(
+      (ra) =>
+        ra.scope === PermissionScope.GLOBAL &&
+        ['HR_ADMIN', 'GLOBAL_HR_ADMIN', 'EXECUTIVE', 'SYSTEM_ADMIN'].includes(ra.roleCode),
+    );
+    if (hasGlobalVisibility || user.roles.includes('HR_ADMIN') || user.roles.includes('EXECUTIVE')) {
       return {};
     }
     // WHY: BUSINESS_UNIT scope is a per-assignment claim, not a role code.
@@ -537,8 +551,24 @@ export class EmployeesService {
         };
       }
     }
-    if (user.roles.includes('MANAGER') && user.teamId) {
-      return { teamId: user.teamId };
+    const departmentAssignment = user.roleAssignments.find(
+      (ra) => ra.scope === PermissionScope.DEPARTMENT,
+    );
+    const departmentId = departmentAssignment?.scopeEntityId ?? null;
+    if (departmentId) {
+      return { departmentId };
+    }
+
+    if (user.roleAssignments.length === 0 && user.roles.includes('EMPLOYEE') && user.employeeId) {
+      return { id: user.employeeId };
+    }
+
+    const teamAssignment = user.roleAssignments.find(
+      (ra) => ra.scope === PermissionScope.TEAM,
+    );
+    const teamId = teamAssignment?.scopeEntityId ?? user.teamId;
+    if (teamId) {
+      return { teamId };
     }
     // OWN scope — an account with no linked employee has no visibility
     if (!user.employeeId) {

@@ -1,13 +1,32 @@
-import { useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  PolarAngleAxis,
+  PolarGrid,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
+  Badge,
+} from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Table,
@@ -17,57 +36,67 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  getEmployees,
-  getPendingLeaveQueue,
-  approveLeaveRequest,
-  rejectLeaveRequest,
-} from "@/lib/api/hr-core";
+import { DashboardScopeFilter } from "@/components/dashboard-scope-filter";
 import { useAuth } from "@/components/providers/auth-provider";
 import {
-  Users,
-  Clock,
+  approveLeaveRequest,
+  rejectLeaveRequest,
+  getBusinessUnits,
+  getDashboardAnalytics,
+  getDepartments,
+  getEmployees,
+  getPendingLeaveQueue,
+  getTeams,
+  type ChartPoint,
+  type DashboardAnalytics,
+  type SeriesPoint,
+} from "@/lib/api/hr-core";
+import { cn } from "@/lib/utils";
+import type { ScopeLevel } from "@/lib/use-dashboard-scope";
+import {
   CalendarCheck,
   CalendarX,
-  UserCheck,
-  Plane,
+  Clock,
   LayoutDashboard,
-  TrendingUp,
+  LineChart as LineChartIcon,
+  Plane,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Trophy,
+  UserCheck,
+  UserPlus,
+  Users,
+  Wallet,
 } from "lucide-react";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-} from "recharts";
-import { cn } from "@/lib/utils";
-import { useState } from "react";
 
-type Tab = "overview" | "employees" | "leave";
+type Tab = "overview" | "employees" | "leave" | "skills" | "pay" | "promotions" | "engagement";
+
+type ScopeParams = {
+  businessUnitId?: string;
+  departmentId?: string;
+  teamId?: string;
+};
 
 const TABS: { value: Tab; label: string; icon: React.ElementType }[] = [
   { value: "overview", label: "Overview", icon: LayoutDashboard },
   { value: "employees", label: "Employees", icon: Users },
   { value: "leave", label: "Leave Queue", icon: CalendarCheck },
+  { value: "skills", label: "Skills", icon: Sparkles },
+  { value: "pay", label: "Pay", icon: Wallet },
+  { value: "promotions", label: "Promotions", icon: Trophy },
+  { value: "engagement", label: "Engagement", icon: Star },
 ];
 
-const STATUS_COLORS: Record<string, string> = {
-  ACTIVE: "#22c55e",
-  ON_LEAVE: "#f97316",
-  PROBATION: "#eab308",
-  TERMINATED: "#ef4444",
-  RESIGNED: "#94a3b8",
-};
-
-const DEPT_CHART_COLORS = [
-  "#3b82f6", "#ec4899", "#f59e0b", "#10b981", "#8b5cf6",
-  "#6366f1", "#14b8a6", "#f43f5e", "#a855f7", "#0ea5e9",
+const CHART_COLORS = [
+  "#2563eb",
+  "#10b981",
+  "#f59e0b",
+  "#8b5cf6",
+  "#ef4444",
+  "#06b6d4",
+  "#ec4899",
+  "#64748b",
 ];
 
 const tooltipStyle = {
@@ -97,227 +126,267 @@ function StatCard({
           {title}
         </CardTitle>
         <div className={`p-1.5 rounded-md ${color}`}>
-          <Icon className="w-3.5 h-3.5" />
+          <Icon className="h-3.5 w-3.5" />
         </div>
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
           {value}
         </div>
-        <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>
       </CardContent>
     </Card>
   );
 }
 
-function getInitials(firstName: string, lastName: string) {
-  return `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase();
-}
-
-function LeaveStatusBadge({ status }: { status: string }) {
-  const cls: Record<string, string> = {
-    PENDING: "bg-orange-100 text-orange-700 border-orange-200",
-    APPROVED: "bg-green-100 text-green-700 border-green-200",
-    REJECTED: "bg-red-100 text-red-700 border-red-200",
-    CANCELLED: "bg-gray-100 text-gray-600 border-gray-200",
-  };
-  const label: Record<string, string> = {
-    PENDING: "Pending", APPROVED: "Approved", REJECTED: "Rejected", CANCELLED: "Cancelled",
-  };
+function SectionHeader({
+  icon: Icon,
+  title,
+  subtitle,
+  color,
+}: {
+  icon: React.ElementType;
+  title: string;
+  subtitle: string;
+  color: string;
+}) {
   return (
-    <Badge className={cls[status] ?? "bg-gray-100 text-gray-600"} variant="outline">
-      {label[status] ?? status}
-    </Badge>
-  );
-}
-
-// ── Overview Tab ──────────────────────────────────────────────────────────────
-function OverviewTab() {
-  const { data: result } = useQuery({
-    queryKey: ["employees", { limit: 500 }],
-    queryFn: () => getEmployees({ limit: 500 }),
-  });
-
-  const { data: pendingQueue = [] } = useQuery({
-    queryKey: ["pending-leave-queue"],
-    queryFn: getPendingLeaveQueue,
-  });
-
-  const employees = result?.data ?? [];
-  const total = result?.total ?? employees.length;
-
-  const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const e of employees) {
-      counts[e.employmentStatus] = (counts[e.employmentStatus] ?? 0) + 1;
-    }
-    return counts;
-  }, [employees]);
-
-  const deptCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const e of employees) {
-      const name = e.department?.name ?? "Unassigned";
-      counts[name] = (counts[name] ?? 0) + 1;
-    }
-    return Object.entries(counts)
-      .sort(([, a], [, b]) => b - a)
-      .map(([name, value]) => ({ name, value }));
-  }, [employees]);
-
-  const statusPieData = Object.entries(statusCounts).map(([name, value]) => ({
-    name: name.charAt(0) + name.slice(1).toLowerCase().replace(/_/g, " "),
-    value,
-    fill: STATUS_COLORS[name] ?? "#94a3b8",
-  }));
-
-  return (
-    <div className="space-y-6">
-      {/* KPI cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total Employees"
-          value={total}
-          sub="All employment types"
-          icon={Users}
-          color="bg-blue-100 text-blue-600 dark:bg-blue-900/30"
-        />
-        <StatCard
-          title="Active"
-          value={statusCounts["ACTIVE"] ?? 0}
-          sub="Currently working"
-          icon={UserCheck}
-          color="bg-green-100 text-green-600 dark:bg-green-900/30"
-        />
-        <StatCard
-          title="On Leave"
-          value={statusCounts["ON_LEAVE"] ?? 0}
-          sub="Away from office"
-          icon={Plane}
-          color="bg-orange-100 text-orange-600 dark:bg-orange-900/30"
-        />
-        <StatCard
-          title="Pending Approvals"
-          value={pendingQueue.length}
-          sub="Leave requests awaiting review"
-          icon={Clock}
-          color="bg-purple-100 text-purple-600 dark:bg-purple-900/30"
-        />
+    <div className="flex items-center gap-3 border-b border-gray-200 pb-3 pt-1 dark:border-gray-800">
+      <div className={`rounded-lg p-2 ${color}`}>
+        <Icon className="h-5 w-5" />
       </div>
-
-      {/* Charts */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Status breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Employment Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-6">
-              <ResponsiveContainer width={180} height={180}>
-                <PieChart>
-                  <Pie
-                    data={statusPieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
-                    dataKey="value"
-                    strokeWidth={2}
-                  >
-                    {statusPieData.map((entry, i) => (
-                      <Cell key={i} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={tooltipStyle} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="space-y-2 flex-1">
-                {statusPieData.map((entry) => (
-                  <div key={entry.name} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                        style={{ background: entry.fill }}
-                      />
-                      <span className="capitalize text-gray-700 dark:text-gray-300">{entry.name}</span>
-                    </div>
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">{entry.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Dept breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Headcount by Department</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {deptCounts.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No data</p>
-            ) : (
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={deptCounts} layout="vertical" margin={{ left: 0, right: 16 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 11 }} />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    tick={{ fontSize: 11 }}
-                    width={90}
-                  />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Bar dataKey="value" name="Employees" radius={[0, 4, 4, 0]}>
-                    {deptCounts.map((_, i) => (
-                      <Cell key={i} fill={DEPT_CHART_COLORS[i % DEPT_CHART_COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
+      <div>
+        <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{title}</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
       </div>
     </div>
   );
 }
 
-// ── Employees Tab ─────────────────────────────────────────────────────────────
-function EmployeesTab() {
+function getInitials(firstName: string, lastName: string): string {
+  return `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase();
+}
+
+function formatMoney(value: number | null): string {
+  if (value === null) return "Restricted";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function seriesKeys(data: SeriesPoint[]): string[] {
+  const keys = new Set<string>();
+  for (const point of data) {
+    Object.keys(point).forEach((key) => {
+      if (key !== "label") keys.add(key);
+    });
+  }
+  return Array.from(keys).sort((a, b) => a.localeCompare(b));
+}
+
+function EmptyChart({ label = "No data yet" }: { label?: string }) {
+  return (
+    <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+      {label}
+    </div>
+  );
+}
+
+function PointBarChart({
+  data,
+  valueName,
+  height = 240,
+}: {
+  data: ChartPoint[];
+  valueName: string;
+  height?: number;
+}) {
+  if (data.length === 0) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} layout="vertical" margin={{ left: 0, right: 16 }}>
+        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+        <XAxis type="number" tick={{ fontSize: 11 }} />
+        <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={120} />
+        <Tooltip contentStyle={tooltipStyle} />
+        <Bar dataKey="value" name={valueName} radius={[0, 4, 4, 0]}>
+          {data.map((_, index) => (
+            <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function PointLineChart({
+  data,
+  valueName,
+  height = 220,
+}: {
+  data: ChartPoint[];
+  valueName: string;
+  height?: number;
+}) {
+  if (data.length === 0) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+        <Tooltip contentStyle={tooltipStyle} />
+        <Line
+          type="monotone"
+          dataKey="value"
+          name={valueName}
+          stroke="#2563eb"
+          strokeWidth={2.5}
+          dot={{ r: 3 }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+function SeriesBarChart({ data, height = 240 }: { data: SeriesPoint[]; height?: number }) {
+  const keys = seriesKeys(data);
+  if (data.length === 0 || keys.length === 0) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+        <Tooltip contentStyle={tooltipStyle} />
+        <Legend wrapperStyle={{ fontSize: 11 }} />
+        {keys.map((key, index) => (
+          <Bar key={key} dataKey={key} stackId="total" fill={CHART_COLORS[index % CHART_COLORS.length]} />
+        ))}
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function SeriesLineChart({ data, height = 240 }: { data: SeriesPoint[]; height?: number }) {
+  const keys = seriesKeys(data);
+  if (data.length === 0 || keys.length === 0) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+        <Tooltip contentStyle={tooltipStyle} />
+        <Legend wrapperStyle={{ fontSize: 11 }} />
+        {keys.map((key, index) => (
+          <Line
+            key={key}
+            type="monotone"
+            dataKey={key}
+            stroke={CHART_COLORS[index % CHART_COLORS.length]}
+            strokeWidth={2}
+            dot={{ r: 2.5 }}
+          />
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+function ChartCard({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+          {title}
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">{subtitle}</p>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  );
+}
+
+function OverviewTab({ analytics }: { analytics: DashboardAnalytics | undefined }) {
+  if (!analytics) return <EmptyChart label="Loading analytics..." />;
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <StatCard title="Total Employees" value={analytics.employees.total} sub="Visible in current scope" icon={Users} color="bg-blue-100 text-blue-600 dark:bg-blue-900/30" />
+        <StatCard title="Active" value={analytics.employees.active} sub="Currently working" icon={UserCheck} color="bg-green-100 text-green-600 dark:bg-green-900/30" />
+        <StatCard title="On Leave" value={analytics.employees.onLeave} sub="Away from office" icon={Plane} color="bg-orange-100 text-orange-600 dark:bg-orange-900/30" />
+        <StatCard title="New Hires" value={analytics.employees.newHiresOnProbation} sub="Hired in last 6 months" icon={UserPlus} color="bg-teal-100 text-teal-600 dark:bg-teal-900/30" />
+        <StatCard title="Pending Approvals" value={analytics.leave.pendingApprovals} sub="Leave requests awaiting review" icon={Clock} color="bg-purple-100 text-purple-600 dark:bg-purple-900/30" />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ChartCard title="Headcount over time" subtitle="Last 12 months">
+          <PointLineChart data={analytics.employees.headcountOverTime} valueName="Headcount" />
+        </ChartCard>
+        <ChartCard title="Leave requests by type" subtitle="Last 12 months">
+          <SeriesLineChart data={analytics.leave.requestsByTypeOverTime} />
+        </ChartCard>
+      </div>
+    </div>
+  );
+}
+
+function EmployeesTab({
+  analytics,
+  scopeParams,
+}: {
+  analytics: DashboardAnalytics | undefined;
+  scopeParams: ScopeParams;
+}) {
   const { data: result, isLoading } = useQuery({
-    queryKey: ["employees", { limit: 500 }],
-    queryFn: () => getEmployees({ limit: 500 }),
+    queryKey: ["employees", { limit: 500, ...scopeParams }],
+    queryFn: () => getEmployees({ limit: 500, ...scopeParams }),
   });
 
   const employees = result?.data ?? [];
-
   const deptGroups = useMemo(() => {
-    const m = new Map<string, typeof employees>();
-    for (const e of employees) {
-      const key = e.department?.name ?? "Unassigned";
-      if (!m.has(key)) m.set(key, []);
-      m.get(key)!.push(e);
+    const groups = new Map<string, typeof employees>();
+    for (const employee of employees) {
+      const key = employee.department?.name ?? "Unassigned";
+      groups.set(key, [...(groups.get(key) ?? []), employee]);
     }
-    return Array.from(m.entries()).sort(([a], [b]) => a.localeCompare(b));
+    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [employees]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3 pt-1 border-b border-gray-200 dark:border-gray-800 pb-3">
-        <div className="p-2 rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/30">
-          <TrendingUp className="w-5 h-5" />
-        </div>
-        <div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Workforce Overview</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Grouped by department</p>
-        </div>
+    <div className="space-y-6">
+      <SectionHeader icon={Users} title="Employees" subtitle="Headcount and hiring movement from HR Core" color="bg-blue-100 text-blue-600 dark:bg-blue-900/30" />
+      <div className="grid gap-4 md:grid-cols-3">
+        <StatCard title="Total Employees" value={analytics?.employees.total ?? 0} sub="Visible in current scope" icon={Users} color="bg-blue-100 text-blue-600" />
+        <StatCard title="Active" value={analytics?.employees.active ?? 0} sub="Currently working" icon={UserCheck} color="bg-green-100 text-green-600" />
+        <StatCard title="New Hires (Probation)" value={analytics?.employees.newHiresOnProbation ?? 0} sub="Hired in last 6 months" icon={UserPlus} color="bg-teal-100 text-teal-600" />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ChartCard title="Headcount over time" subtitle="Employees hired by month-end">
+          <PointLineChart data={analytics?.employees.headcountOverTime ?? []} valueName="Headcount" />
+        </ChartCard>
+        <ChartCard title="New hire trend" subtitle="Monthly new hires globally (last 12 months)">
+          <PointLineChart data={analytics?.employees.newHiresTrend ?? []} valueName="New Hires" />
+        </ChartCard>
+      </div>
+      <div className="grid gap-6 lg:grid-cols-1">
+        <ChartCard title="New hires by department" subtitle="Monthly new hires per department (last 12 months)">
+          <SeriesBarChart data={analytics?.employees.newHiresByDepartment ?? []} height={280} />
+        </ChartCard>
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground text-center py-12">Loading…</p>
+        <p className="py-12 text-center text-sm text-muted-foreground">Loading...</p>
       ) : (
         <div className="rounded-md border bg-card">
           <Table>
@@ -329,60 +398,46 @@ function EmployeesTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {deptGroups.flatMap(([deptName, emps]) => [
-                <TableRow
-                  key={`group-${deptName}`}
-                  className="bg-muted/40 hover:bg-muted/50"
-                >
-                  <TableCell colSpan={3} className="py-2 px-4">
+              {deptGroups.flatMap(([deptName, groupEmployees]) => [
+                <TableRow key={`group-${deptName}`} className="bg-muted/40 hover:bg-muted/50">
+                  <TableCell colSpan={3} className="px-4 py-2">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm">{deptName}</span>
-                      <Badge variant="secondary" className="text-xs">{emps.length}</Badge>
+                      <span className="text-sm font-semibold">{deptName}</span>
+                      <Badge variant="secondary" className="text-xs">{groupEmployees.length}</Badge>
                     </div>
                   </TableCell>
                 </TableRow>,
-                ...emps.map((emp) => (
-                  <TableRow key={emp.id}>
+                ...groupEmployees.map((employee) => (
+                  <TableRow key={employee.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
-                          <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                            {getInitials(emp.firstName, emp.lastName)}
+                          <AvatarFallback className="bg-primary/10 text-xs text-primary">
+                            {getInitials(employee.firstName, employee.lastName)}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="text-sm font-medium">{emp.firstName} {emp.lastName}</p>
-                          <p className="text-xs text-muted-foreground">{emp.email}</p>
+                          <p className="text-sm font-medium">{employee.firstName} {employee.lastName}</p>
+                          <p className="text-xs text-muted-foreground">{employee.email}</p>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm">{emp.position?.title ?? "—"}</TableCell>
+                    <TableCell className="text-sm">{employee.position?.title ?? "-"}</TableCell>
                     <TableCell>
-                      <span
-                        className={cn(
-                          "text-xs font-medium px-2 py-0.5 rounded-full capitalize",
-                          emp.employmentStatus === "ACTIVE"
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                            : emp.employmentStatus === "ON_LEAVE"
+                      <span className={cn(
+                        "rounded-full px-2 py-0.5 text-xs font-medium capitalize",
+                        employee.employmentStatus === "ACTIVE"
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                          : employee.employmentStatus === "ON_LEAVE"
                             ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
-                            : emp.employmentStatus === "PROBATION"
-                            ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
                             : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-                        )}
-                      >
-                        {emp.employmentStatus.toLowerCase().replace(/_/g, " ")}
+                      )}>
+                        {employee.employmentStatus.toLowerCase().replace(/_/g, " ")}
                       </span>
                     </TableCell>
                   </TableRow>
                 )),
               ])}
-              {employees.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground text-sm">
-                    No employees found.
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </div>
@@ -391,10 +446,8 @@ function EmployeesTab() {
   );
 }
 
-// ── Leave Queue Tab ───────────────────────────────────────────────────────────
-function LeaveQueueTab() {
+function LeaveQueueTab({ analytics }: { analytics: DashboardAnalytics | undefined }) {
   const queryClient = useQueryClient();
-
   const { data: queue = [], isLoading } = useQuery({
     queryKey: ["pending-leave-queue"],
     queryFn: getPendingLeaveQueue,
@@ -402,35 +455,38 @@ function LeaveQueueTab() {
 
   const approveMutation = useMutation({
     mutationFn: (id: string) => approveLeaveRequest(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["pending-leave-queue"] }),
+    onSuccess: () => queryClient.invalidateQueries(),
   });
 
   const rejectMutation = useMutation({
     mutationFn: (id: string) => rejectLeaveRequest(id, "Declined by manager"),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["pending-leave-queue"] }),
+    onSuccess: () => queryClient.invalidateQueries(),
   });
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3 pt-1 border-b border-gray-200 dark:border-gray-800 pb-3">
-        <div className="p-2 rounded-lg bg-orange-100 text-orange-600 dark:bg-orange-900/30">
-          <CalendarCheck className="w-5 h-5" />
-        </div>
-        <div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Pending Leave Requests</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {queue.length} request{queue.length !== 1 ? "s" : ""} awaiting your review
-          </p>
-        </div>
+    <div className="space-y-6">
+      <SectionHeader icon={CalendarCheck} title="Leave" subtitle="Approval workload and leave demand from HR Core" color="bg-orange-100 text-orange-600 dark:bg-orange-900/30" />
+      <div className="grid gap-4 md:grid-cols-3">
+        <StatCard title="Pending Approvals" value={analytics?.leave.pendingApprovals ?? 0} sub="Visible in current scope" icon={Clock} color="bg-purple-100 text-purple-600" />
+        <StatCard title="Leave Days" value={(analytics?.leave.daysByDepartment ?? []).reduce((sum, item) => sum + item.value, 0)} sub="Requested days in chart window" icon={Plane} color="bg-orange-100 text-orange-600" />
+        <StatCard title="Leave Types" value={seriesKeys(analytics?.leave.requestsByTypeOverTime ?? []).length} sub="Represented in trend" icon={CalendarCheck} color="bg-blue-100 text-blue-600" />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ChartCard title="Leave days per department" subtitle="Total requested days">
+          <PointBarChart data={analytics?.leave.daysByDepartment ?? []} valueName="Days" />
+        </ChartCard>
+        <ChartCard title="Leave requests by type over time" subtitle="Monthly request count">
+          <SeriesLineChart data={analytics?.leave.requestsByTypeOverTime ?? []} />
+        </ChartCard>
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground text-center py-12">Loading…</p>
+        <p className="py-12 text-center text-sm text-muted-foreground">Loading...</p>
       ) : queue.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            <CalendarX className="w-8 h-8 mx-auto mb-3 text-muted-foreground/50" />
-            No pending leave requests. You're all caught up!
+            <CalendarX className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+            No pending leave requests. You're all caught up.
           </CardContent>
         </Card>
       ) : (
@@ -442,59 +498,22 @@ function LeaveQueueTab() {
                 <TableHead>Type</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Days</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {queue.map((req) => (
-                <TableRow key={req.id} data-testid={`row-leave-${req.id}`}>
-                  <TableCell>
-                    {req.employee ? (
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-7 w-7">
-                          <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
-                            {getInitials(req.employee.firstName, req.employee.lastName)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm font-medium">
-                          {req.employee.firstName} {req.employee.lastName}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">{req.employeeId}</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{req.leaveType?.name ?? req.leaveTypeId}</Badge>
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {req.startDate} → {req.endDate}
-                  </TableCell>
-                  <TableCell className="text-sm">{req.totalDays}</TableCell>
-                  <TableCell>
-                    <LeaveStatusBadge status={req.status} />
-                  </TableCell>
+              {queue.map((request) => (
+                <TableRow key={request.id} data-testid={`row-leave-${request.id}`}>
+                  <TableCell>{request.employee ? `${request.employee.firstName} ${request.employee.lastName}` : request.employeeId}</TableCell>
+                  <TableCell><Badge variant="outline">{request.leaveType?.name ?? request.leaveTypeId}</Badge></TableCell>
+                  <TableCell className="text-sm">{request.startDate} to {request.endDate}</TableCell>
+                  <TableCell className="text-sm">{request.totalDays}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-green-600 border-green-200 hover:bg-green-50 h-7 px-2 text-xs"
-                        onClick={() => approveMutation.mutate(req.id)}
-                        disabled={approveMutation.isPending || rejectMutation.isPending}
-                        data-testid={`button-approve-${req.id}`}
-                      >
+                      <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-green-600" onClick={() => approveMutation.mutate(request.id)} disabled={approveMutation.isPending || rejectMutation.isPending}>
                         Approve
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-red-600 border-red-200 hover:bg-red-50 h-7 px-2 text-xs"
-                        onClick={() => rejectMutation.mutate(req.id)}
-                        disabled={approveMutation.isPending || rejectMutation.isPending}
-                        data-testid={`button-reject-${req.id}`}
-                      >
+                      <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-red-600" onClick={() => rejectMutation.mutate(request.id)} disabled={approveMutation.isPending || rejectMutation.isPending}>
                         Reject
                       </Button>
                     </div>
@@ -509,52 +528,273 @@ function LeaveQueueTab() {
   );
 }
 
-// ── Page ───────────────────────────────────────────────────────────────────────
+function SkillsTab({ analytics }: { analytics: DashboardAnalytics | undefined }) {
+  const radarData = analytics?.skills.radar ?? [];
+  return (
+    <div className="space-y-6">
+      <SectionHeader icon={Sparkles} title="Skills" subtitle="Current skill coverage and proficiency evolution" color="bg-violet-100 text-violet-600 dark:bg-violet-900/30" />
+      <div className="grid gap-4 md:grid-cols-3">
+        <StatCard title="Avg Skill Score" value={analytics?.skills.averageScore ?? "-"} sub="Out of 4 proficiency levels" icon={Sparkles} color="bg-violet-100 text-violet-600" />
+        <StatCard title="Skills Tracked" value={analytics?.skills.skillsTracked ?? 0} sub="Unique skills in scope" icon={ShieldCheck} color="bg-blue-100 text-blue-600" />
+        <StatCard title="Top Skill" value={analytics?.skills.topSkill ?? "-"} sub="Highest average proficiency" icon={Star} color="bg-amber-100 text-amber-600" />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ChartCard title="Radar skills chart" subtitle="Average proficiency by skill">
+          {radarData.length === 0 ? (
+            <EmptyChart />
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <RadarChart data={radarData} margin={{ top: 10, right: 40, bottom: 10, left: 40 }}>
+                <PolarGrid />
+                <PolarAngleAxis dataKey="label" tick={{ fontSize: 11 }} />
+                <Radar dataKey="value" name="Average score" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.25} />
+                <Tooltip contentStyle={tooltipStyle} />
+              </RadarChart>
+            </ResponsiveContainer>
+          )}
+        </ChartCard>
+        <ChartCard title="Skill evolution" subtitle="Quarterly average score from skill history">
+          <PointLineChart data={analytics?.skills.skillEvolution ?? []} valueName="Avg score" />
+        </ChartCard>
+      </div>
+    </div>
+  );
+}
+
+function PayTab({ analytics }: { analytics: DashboardAnalytics | undefined }) {
+  return (
+    <div className="space-y-6">
+      <SectionHeader icon={Wallet} title="Payroll" subtitle="Compensation analytics from employee salaries and salary history" color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30" />
+      <div className="grid gap-4 md:grid-cols-3">
+        <StatCard title="Total Payroll Cost" value={formatMoney(analytics?.payroll.totalCost ?? null)} sub="Current gross salary total" icon={Wallet} color="bg-emerald-100 text-emerald-600" />
+        <StatCard title="Average Salary" value={formatMoney(analytics?.payroll.averageSalary ?? null)} sub="Visible to HR/Admin roles" icon={LineChartIcon} color="bg-blue-100 text-blue-600" />
+        <StatCard title="Payroll Access" value={analytics?.payroll.visible ? "Visible" : "Restricted"} sub="Based on role permissions" icon={ShieldCheck} color="bg-violet-100 text-violet-600" />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ChartCard title="Wages per department" subtitle="Current gross salary total">
+          <PointBarChart data={analytics?.payroll.costByDepartment ?? []} valueName="Gross salary" />
+        </ChartCard>
+        <ChartCard title="Payroll cost trends" subtitle="Quarterly salary changes by team">
+          <SeriesLineChart data={analytics?.payroll.costTrendByTeam ?? []} />
+        </ChartCard>
+      </div>
+    </div>
+  );
+}
+
+function PromotionsTab({ analytics }: { analytics: DashboardAnalytics | undefined }) {
+  return (
+    <div className="space-y-6">
+      <SectionHeader icon={Trophy} title="Promotions" subtitle="Promotion events derived from salary history" color="bg-amber-100 text-amber-600 dark:bg-amber-900/30" />
+      <div className="grid gap-4 md:grid-cols-3">
+        <StatCard title="Promotions" value={analytics?.promotions.total ?? 0} sub="Promotion salary changes" icon={Trophy} color="bg-amber-100 text-amber-600" />
+        <StatCard title="Departments" value={analytics?.promotions.byDepartment.length ?? 0} sub="With promotion activity" icon={Users} color="bg-blue-100 text-blue-600" />
+        <StatCard title="Recent Records" value={analytics?.promotions.recent.length ?? 0} sub="Latest promotion events" icon={Clock} color="bg-violet-100 text-violet-600" />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ChartCard title="Promotions by quarter" subtitle="Count of promotion salary changes over time">
+          <PointLineChart data={analytics?.promotions.byQuarter ?? []} valueName="Promotions" />
+        </ChartCard>
+        <ChartCard title="Promotions by department" subtitle="Promotion count by department">
+          <PointBarChart data={analytics?.promotions.byDepartment ?? []} valueName="Promotions" />
+        </ChartCard>
+      </div>
+      <Card>
+        <CardHeader><CardTitle className="text-base">Recent Promotions</CardTitle></CardHeader>
+        <CardContent>
+          {(analytics?.promotions.recent.length ?? 0) === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">No promotion records in the current window.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Employee</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead>Effective Date</TableHead>
+                  <TableHead className="text-right">Raise</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {analytics?.promotions.recent.map((promotion) => (
+                  <TableRow key={promotion.id}>
+                    <TableCell>{promotion.employeeName}</TableCell>
+                    <TableCell>{promotion.departmentName}</TableCell>
+                    <TableCell>{new Date(promotion.effectiveDate).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-right">
+                      {formatMoney(promotion.newGrossSalary - promotion.previousGrossSalary)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function EngagementTab({ analytics }: { analytics: DashboardAnalytics | undefined }) {
+  return (
+    <div className="space-y-6">
+      <SectionHeader icon={Star} title="Engagement" subtitle="Reserved for backend engagement analytics" color="bg-pink-100 text-pink-600 dark:bg-pink-900/30" />
+      <Card>
+        <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          {analytics?.engagement.message ?? "Engagement analytics are waiting for backend implementation."}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>("overview");
+  const [scopeLevel, setScopeLevel] = useState<ScopeLevel>("global");
+  const [scopeUnitId, setScopeUnitId] = useState<string | null>(null);
 
-  const isManager = user?.roles.some((r) => ["MANAGER", "HR_ADMIN", "EXECUTIVE"].includes(r)) ?? false;
+  const isManager = user?.roles.some((role) => ["MANAGER", "HR_ADMIN", "EXECUTIVE"].includes(role)) ?? false;
+  const canUseGlobalScope =
+    user?.roleAssignments.some((assignment) => assignment.scope === "GLOBAL") ??
+    user?.roles.some((role) => ["HR_ADMIN", "GLOBAL_HR_ADMIN", "EXECUTIVE"].includes(role)) ??
+    false;
+  const businessUnitAssignment = user?.roleAssignments.find((assignment) => assignment.scope === "BUSINESS_UNIT");
 
-  const visibleTabs = TABS.filter((t) => t.value !== "leave" || isManager);
+  const { data: businessUnits = [] } = useQuery({
+    queryKey: ["business-units", "dashboard-scope"],
+    queryFn: getBusinessUnits,
+    enabled: Boolean(user),
+  });
+  const { data: departments = [] } = useQuery({
+    queryKey: ["departments", "dashboard-scope"],
+    queryFn: getDepartments,
+    enabled: Boolean(user),
+  });
+  const { data: teams = [] } = useQuery({
+    queryKey: ["teams", "dashboard-scope"],
+    queryFn: getTeams,
+    enabled: Boolean(user),
+  });
+
+  const forcedScope = useMemo(() => {
+    const teamAssignment = user?.roleAssignments.find((assignment) => assignment.scope === "TEAM");
+    if (teamAssignment?.scopeEntityId) return { level: "team" as const, unitId: teamAssignment.scopeEntityId };
+    const departmentAssignment = user?.roleAssignments.find((assignment) => assignment.scope === "DEPARTMENT");
+    if (departmentAssignment?.scopeEntityId) return { level: "dept" as const, unitId: departmentAssignment.scopeEntityId };
+    if (user?.roles.includes("EMPLOYEE") && !isManager && user.teamId) {
+      return { level: "team" as const, unitId: user.teamId };
+    }
+    return null;
+  }, [isManager, user]);
+
+  const effectiveLevel = forcedScope?.level ?? (businessUnitAssignment && scopeLevel === "global" ? "bu" : scopeLevel);
+  const effectiveUnitId = forcedScope?.unitId ?? (businessUnitAssignment && scopeLevel === "global" ? businessUnitAssignment.scopeEntityId : scopeUnitId);
+
+  const unitOptions = useMemo(() => {
+    if (effectiveLevel === "global") return [];
+    if (effectiveLevel === "bu") {
+      return businessUnits
+        .filter((businessUnit) => !businessUnitAssignment?.scopeEntityId || businessUnit.id === businessUnitAssignment.scopeEntityId)
+        .map((businessUnit) => ({ value: businessUnit.id, label: businessUnit.name }));
+    }
+    if (effectiveLevel === "dept") {
+      const allowedBuId = user?.roleAssignments.find((assignment) => assignment.scope === "BUSINESS_UNIT")?.scopeEntityId;
+      return departments
+        .filter((department) => !allowedBuId || department.businessUnitId === allowedBuId)
+        .map((department) => ({
+          value: department.id,
+          label: `${department.name} - ${department.businessUnit?.name ?? "Business unit"}`,
+        }));
+    }
+    const allowedDepartmentId = forcedScope?.level === "dept" ? forcedScope.unitId : null;
+    return teams
+      .filter((team) => !allowedDepartmentId || team.departmentId === allowedDepartmentId)
+      .map((team) => ({
+        value: team.id,
+        label: `${team.name} - ${team.department?.name ?? "Department"}`,
+      }));
+  }, [businessUnitAssignment, businessUnits, departments, effectiveLevel, forcedScope, teams, user?.roleAssignments]);
+
+  const scopeParams = useMemo<ScopeParams>(() => {
+    if (effectiveLevel === "bu" && effectiveUnitId) return { businessUnitId: effectiveUnitId };
+    if (effectiveLevel === "dept" && effectiveUnitId) return { departmentId: effectiveUnitId };
+    if (effectiveLevel === "team" && effectiveUnitId) return { teamId: effectiveUnitId };
+    return {};
+  }, [effectiveLevel, effectiveUnitId]);
+
+  const { data: analytics, isLoading: analyticsLoading } = useQuery({
+    queryKey: ["dashboard-analytics", scopeParams],
+    queryFn: () => getDashboardAnalytics(scopeParams),
+    enabled: Boolean(user),
+  });
+
+  const visibleTabs = TABS.filter((item) => item.value !== "leave" || isManager);
+
+  function handleScopeChange(nextLevel: ScopeLevel, nextUnitId?: string | null): void {
+    setScopeLevel(nextLevel);
+    if (nextLevel === "global") {
+      setScopeUnitId(null);
+      return;
+    }
+    if (nextUnitId !== undefined) {
+      setScopeUnitId(nextUnitId);
+      return;
+    }
+    const firstOption =
+      nextLevel === "bu"
+        ? businessUnits.find((businessUnit) => !businessUnitAssignment?.scopeEntityId || businessUnit.id === businessUnitAssignment.scopeEntityId)?.id
+        : nextLevel === "dept"
+          ? departments.find((department) => !businessUnitAssignment?.scopeEntityId || department.businessUnitId === businessUnitAssignment.scopeEntityId)?.id
+          : teams[0]?.id;
+    setScopeUnitId(firstOption ?? null);
+  }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1
-          className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100"
-          data-testid="heading-dashboard"
-        >
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100" data-testid="heading-dashboard">
           Dashboard
         </h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          {user ? `Welcome back, ${user.employeeId ? "Employee" : "Admin"}` : "Organisation overview"}
+        <p className="mt-1 text-sm text-muted-foreground">
+          {analyticsLoading ? "Loading live analytics..." : "Live HR Core analytics"}
         </p>
       </div>
 
-      {/* Tab bar */}
-      <div className="flex gap-1 border-b border-gray-200 dark:border-gray-800">
+      {(canUseGlobalScope || businessUnitAssignment || forcedScope) && (
+        <DashboardScopeFilter
+          level={effectiveLevel}
+          unitId={effectiveUnitId}
+          unitOptions={unitOptions}
+          onChange={forcedScope ? () => undefined : handleScopeChange}
+        />
+      )}
+
+      <div className="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800">
         {visibleTabs.map(({ value, label, icon: Icon }) => (
           <button
             key={value}
             onClick={() => setTab(value)}
             data-testid={`tab-${value}`}
             className={cn(
-              "flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+              "flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition-colors -mb-px",
               tab === value
                 ? "border-blue-600 text-blue-700 dark:text-blue-400"
                 : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200",
             )}
           >
-            <Icon className="w-3.5 h-3.5" />
+            <Icon className="h-3.5 w-3.5" />
             {label}
           </button>
         ))}
       </div>
 
-      {tab === "overview" && <OverviewTab />}
-      {tab === "employees" && <EmployeesTab />}
-      {tab === "leave" && isManager && <LeaveQueueTab />}
+      {tab === "overview" && <OverviewTab analytics={analytics} />}
+      {tab === "employees" && <EmployeesTab analytics={analytics} scopeParams={scopeParams} />}
+      {tab === "leave" && isManager && <LeaveQueueTab analytics={analytics} />}
+      {tab === "skills" && <SkillsTab analytics={analytics} />}
+      {tab === "pay" && <PayTab analytics={analytics} />}
+      {tab === "promotions" && <PromotionsTab analytics={analytics} />}
+      {tab === "engagement" && <EngagementTab analytics={analytics} />}
     </div>
   );
 }

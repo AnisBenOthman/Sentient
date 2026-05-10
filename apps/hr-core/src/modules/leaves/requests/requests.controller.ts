@@ -76,7 +76,7 @@ export class RequestsController {
     @Query('teamId') teamId: string | undefined,
     @CurrentUser() user: JwtPayload,
   ): Promise<TeamCalendarEntry[]> {
-    return this.requestsService.teamCalendar(requireEmployeeId(user), from, to, departmentId, teamId);
+    return this.requestsService.teamCalendar(user, from, to, departmentId, teamId);
   }
 
   @Get('pending-queue')
@@ -86,7 +86,8 @@ export class RequestsController {
   async findPendingQueue(
     @CurrentUser() user: JwtPayload,
   ): Promise<LeaveRequestQueueEntry[]> {
-    return this.requestsService.findPendingQueue(requireEmployeeId(user), user.roles);
+    requireEmployeeId(user);
+    return this.requestsService.findPendingQueue(user);
   }
 
   @Get(':id')
