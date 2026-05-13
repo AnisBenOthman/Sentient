@@ -165,7 +165,7 @@ export default function PerformanceReviews() {
   const cyclesQuery = useQuery({
     queryKey: ["performance-review-cycles"],
     queryFn: getReviewCycles,
-    enabled: isManager,
+    enabled: isHr,
   });
 
   const reviewsQuery = useQuery({

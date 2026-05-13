@@ -34,7 +34,7 @@ export class BusinessUnitsService {
     query: BusinessUnitQueryDto,
     roles: string[],
   ): Promise<CursorPage<BusinessUnit>> {
-    const isAdmin = roles.includes('HR_ADMIN');
+    const isAdmin = roles.includes('HR_ADMIN') || roles.includes('GLOBAL_HR_ADMIN');
 
     const where: Prisma.BusinessUnitWhereInput = {
       // WHY: Non-admin callers always receive active business units —

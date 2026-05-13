@@ -69,7 +69,7 @@ function AppRoutes() {
       </Route>
       <Route path="/dashboard">
         <ProtectedRoute>
-          <RoleGatedRoute allowed={["hr_admin", "dept_manager"]}>
+          <RoleGatedRoute allowed={["hr_admin", "dept_manager", "team_lead"]}>
             <Layout>
               <Dashboard />
             </Layout>
@@ -85,9 +85,11 @@ function AppRoutes() {
       </Route>
       <Route path="/employees/:id">
         <ProtectedRoute>
-          <Layout>
-            <EmployeeProfileRoute />
-          </Layout>
+          <RoleGatedRoute allowed={["hr_admin", "dept_manager", "team_lead"]}>
+            <Layout>
+              <EmployeeProfileRoute />
+            </Layout>
+          </RoleGatedRoute>
         </ProtectedRoute>
       </Route>
       <Route path="/leaves">
@@ -122,7 +124,7 @@ function AppRoutes() {
       </Route>
       <Route path="/simulation">
         <ProtectedRoute>
-          <RoleGatedRoute allowed={["hr_admin"]}>
+          <RoleGatedRoute allowed={["hr_admin", "dept_manager", "team_lead"]}>
             <Layout>
               <Simulation />
             </Layout>
@@ -131,7 +133,7 @@ function AppRoutes() {
       </Route>
       <Route path="/performance-reviews">
         <ProtectedRoute>
-          <RoleGatedRoute allowed={["hr_admin", "dept_manager"]}>
+          <RoleGatedRoute allowed={["hr_admin", "dept_manager", "team_lead", "employee"]}>
             <Layout>
               <PerformanceReviews />
             </Layout>

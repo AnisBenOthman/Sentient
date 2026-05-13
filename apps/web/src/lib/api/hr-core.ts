@@ -735,10 +735,20 @@ export interface DashboardAnalytics {
     total: number;
     active: number;
     onLeave: number;
+    probation: number;
+    terminal: number;
     newHiresOnProbation: number;
+    averageAge: number | null;
+    averageTenureYears: number | null;
+    fullTimeRatio: number | null;
+    attritionRate: number | null;
     headcountOverTime: ChartPoint[];
     newHiresTrend: ChartPoint[];
     newHiresByDepartment: SeriesPoint[];
+    statusBreakdown: ChartPoint[];
+    contractMix: ChartPoint[];
+    ageBands: ChartPoint[];
+    tenureBands: ChartPoint[];
   };
   payroll: {
     visible: boolean;
@@ -857,6 +867,26 @@ export async function getPromotionRequestsDashboard(params?: {
   status?: PromotionRequestStatus;
 }): Promise<PromotionRequestsDashboard> {
   const { data } = await hrClient.get<PromotionRequestsDashboard>('/promotion-requests/dashboard', { params });
+  return data;
+}
+
+export async function approvePromotionRequest(
+  id: string,
+  reviewNote?: string,
+): Promise<PromotionRequest> {
+  const { data } = await hrClient.patch<PromotionRequest>(`/promotion-requests/${id}/approve`, {
+    reviewNote: reviewNote ?? '',
+  });
+  return data;
+}
+
+export async function rejectPromotionRequest(
+  id: string,
+  reviewNote: string,
+): Promise<PromotionRequest> {
+  const { data } = await hrClient.patch<PromotionRequest>(`/promotion-requests/${id}/reject`, {
+    reviewNote,
+  });
   return data;
 }
 

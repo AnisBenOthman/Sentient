@@ -480,8 +480,40 @@ async function seedIam(): Promise<Map<string, string>> {
     ...Object.values(PositionLevel).map((k, i)    => ({ enumName: "PositionLevel",    key: k, rank: i + 1, label: k.replace(/_/g, " ") })),
     ...Object.values(ProficiencyLevel).map((k, i)  => ({ enumName: "ProficiencyLevel", key: k, rank: i + 1, label: k.charAt(0) + k.slice(1).toLowerCase() })),
     ...Object.values(EmploymentStatus).map((k, i)  => ({ enumName: "EmploymentStatus", key: k, rank: i + 1, label: k.replace(/_/g, " ") })),
-    ...Object.values(PerformanceRating).map((k, i) => ({ enumName: "PerformanceRating",key: k, rank: i + 1, label: k.replace(/_/g, " ") })),
     ...Object.values(SkillDomain).map((k, i)       => ({ enumName: "SkillDomain",      key: k, rank: i + 1, label: k.replace(/_/g, " ") })),
+    { enumName: "SatisfactionLevel", key: SatisfactionLevel.VERY_DISSATISFIED, rank: 1, label: "Very dissatisfied" },
+    { enumName: "SatisfactionLevel", key: SatisfactionLevel.DISSATISFIED, rank: 2, label: "Dissatisfied" },
+    { enumName: "SatisfactionLevel", key: SatisfactionLevel.NEUTRAL, rank: 3, label: "Neutral" },
+    { enumName: "SatisfactionLevel", key: SatisfactionLevel.SATISFIED, rank: 4, label: "Satisfied" },
+    { enumName: "SatisfactionLevel", key: SatisfactionLevel.VERY_SATISFIED, rank: 5, label: "Very satisfied" },
+    { enumName: "PerformanceRating", key: PerformanceRating.UNACCEPTABLE, rank: 1, label: "Unacceptable" },
+    { enumName: "PerformanceRating", key: PerformanceRating.NEEDS_IMPROVEMENT, rank: 2, label: "Needs improvement" },
+    { enumName: "PerformanceRating", key: PerformanceRating.MEETS_EXPECTATIONS, rank: 3, label: "Meets expectations" },
+    { enumName: "PerformanceRating", key: PerformanceRating.EXCEEDS_EXPECTATIONS, rank: 4, label: "Exceeds expectations" },
+    { enumName: "PerformanceRating", key: PerformanceRating.ABOVE_AND_BEYOND, rank: 5, label: "Above and beyond" },
+    { enumName: "ReviewStatus", key: ReviewStatus.PENDING, rank: 1, label: "Pending" },
+    { enumName: "ReviewStatus", key: ReviewStatus.IN_PROGRESS, rank: 2, label: "In progress" },
+    { enumName: "ReviewStatus", key: ReviewStatus.SUBMITTED, rank: 3, label: "Submitted" },
+    { enumName: "ReviewStatus", key: ReviewStatus.COMPLETED, rank: 4, label: "Completed" },
+    { enumName: "ReviewStatus", key: ReviewStatus.REOPENED, rank: 5, label: "Reopened" },
+    { enumName: "ReviewStatus", key: ReviewStatus.CLOSED, rank: 6, label: "Closed" },
+    { enumName: "ReviewStatus", key: ReviewStatus.CANCELLED, rank: 7, label: "Cancelled" },
+    { enumName: "ReviewType", key: ReviewType.ANNUAL, rank: 1, label: "Annual" },
+    { enumName: "ReviewType", key: ReviewType.MID_YEAR, rank: 2, label: "Mid-year" },
+    { enumName: "ReviewType", key: ReviewType.PROBATION, rank: 3, label: "Probation" },
+    { enumName: "ReviewCycleStatus", key: ReviewCycleStatus.DRAFT, rank: 1, label: "Draft" },
+    { enumName: "ReviewCycleStatus", key: ReviewCycleStatus.ACTIVE, rank: 2, label: "Active" },
+    { enumName: "ReviewCycleStatus", key: ReviewCycleStatus.CLOSED, rank: 3, label: "Closed" },
+    { enumName: "ReviewCycleStatus", key: ReviewCycleStatus.CANCELLED, rank: 4, label: "Cancelled" },
+    { enumName: "PerformanceReviewAuditAction", key: PerformanceReviewAuditAction.CYCLE_CREATED, rank: 1, label: "Cycle created" },
+    { enumName: "PerformanceReviewAuditAction", key: PerformanceReviewAuditAction.ASSIGNED, rank: 2, label: "Assigned" },
+    { enumName: "PerformanceReviewAuditAction", key: PerformanceReviewAuditAction.SELF_SUBMITTED, rank: 3, label: "Self submitted" },
+    { enumName: "PerformanceReviewAuditAction", key: PerformanceReviewAuditAction.MANAGER_COMPLETED, rank: 4, label: "Manager completed" },
+    { enumName: "PerformanceReviewAuditAction", key: PerformanceReviewAuditAction.REVIEWER_REASSIGNED, rank: 5, label: "Reviewer reassigned" },
+    { enumName: "PerformanceReviewAuditAction", key: PerformanceReviewAuditAction.REOPENED, rank: 6, label: "Reopened" },
+    { enumName: "PerformanceReviewAuditAction", key: PerformanceReviewAuditAction.CLOSED, rank: 7, label: "Closed" },
+    { enumName: "PerformanceReviewAuditAction", key: PerformanceReviewAuditAction.CANCELLED, rank: 8, label: "Cancelled" },
+    { enumName: "PerformanceReviewAuditAction", key: PerformanceReviewAuditAction.SALARY_FOLLOW_UP_RECORDED, rank: 9, label: "Salary follow-up recorded" },
   ];
   await prisma.enumMeta.createMany({ data: metaRows, skipDuplicates: true });
 
@@ -919,13 +951,16 @@ async function seedSalaryHistory(employees: BulkEmployee[]): Promise<Map<string,
     const numRaises     = Math.min(Math.max(1, yearsEmployed), 3);
     const ids: string[] = [];
     let salary = emp.grossSalary;
+    let netSalary = resolveNetSalary(salary, emp.globalIdx);
 
     for (let r = 0; r < numRaises; r++) {
       const raiseYear = emp.hireYear + r + 1;
       if (raiseYear > 2026) break;
       const pct    = 3 + (emp.globalIdx % 7); // 3–9%
       const prev   = salary;
+      const prevNet = netSalary;
       salary       = Math.round(salary * (1 + pct / 100));
+      netSalary    = resolveNetSalary(salary, emp.globalIdx);
       const reason = r % 2 === 1 ? SalaryChangeReason.PROMOTION : SalaryChangeReason.ANNUAL_REVIEW;
 
       const sh = await prisma.salaryHistory.create({
@@ -933,7 +968,10 @@ async function seedSalaryHistory(employees: BulkEmployee[]): Promise<Map<string,
           employeeId:         emp.id,
           previousGrossSalary: prev,
           newGrossSalary:      salary,
+          previousNetSalary:   prevNet,
+          newNetSalary:        netSalary,
           grossRaisePercentage: pct,
+          netRaisePercentage:   pct,
           effectiveDate:       new Date(raiseYear, 0, 1),
           reason,
           changedById: "seed-script",
@@ -942,7 +980,14 @@ async function seedSalaryHistory(employees: BulkEmployee[]): Promise<Map<string,
       ids.push(sh.id);
     }
     // Update employee's current salary to the latest
-    await prisma.employee.update({ where: { id: emp.id }, data: { grossSalary: salary } });
+    await prisma.employee.update({
+      where: { id: emp.id },
+      data: {
+        grossSalary: salary,
+        netSalary,
+      },
+    });
+    emp.grossSalary = salary;
     empSalaryIds.set(emp.id, ids);
   }
   return empSalaryIds;

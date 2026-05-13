@@ -30,12 +30,12 @@ interface LayoutProps {
 
 const ALL_MAIN_NAV = [
   { title: "Home",                href: "/home",                icon: Home,            tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "Dashboard",           href: "/dashboard",           icon: LayoutDashboard, tiers: ["hr_admin", "dept_manager"]                                        as RoleTier[] },
+  { title: "Dashboard",           href: "/dashboard",           icon: LayoutDashboard, tiers: ["hr_admin", "dept_manager", "team_lead"]                as RoleTier[] },
   { title: "Employees",           href: "/employees",           icon: Users,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "Leaves",              href: "/leaves",              icon: CalendarDays,    tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "Org Chart",           href: "/org-chart",           icon: GitFork,         tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "Performance Reviews", href: "/performance-reviews", icon: ClipboardCheck,  tiers: ["hr_admin", "dept_manager"]                                        as RoleTier[] },
-  { title: "Simulation",          href: "/simulation",          icon: Sparkles,        tiers: ["hr_admin"]                                                        as RoleTier[] },
+  { title: "Performance Reviews", href: "/performance-reviews", icon: ClipboardCheck,  tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
+  { title: "Simulation",          href: "/simulation",          icon: Sparkles,        tiers: ["hr_admin", "dept_manager", "team_lead"]              as RoleTier[] },
 ];
 
 const ALL_ADMIN_NAV = [

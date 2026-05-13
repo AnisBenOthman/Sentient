@@ -49,8 +49,10 @@ import {
 } from "@/components/dashboard-scope-filter";
 import { useAuth } from "@/components/providers/auth-provider";
 import {
+  approvePromotionRequest,
   approveLeaveRequest,
   rejectLeaveRequest,
+  rejectPromotionRequest,
   getBusinessUnits,
   getDashboardAnalytics,
   getDepartments,
@@ -67,7 +69,11 @@ import { cn } from "@/lib/utils";
 import {
   CalendarCheck,
   CalendarX,
+  Briefcase,
+  Cake,
+  CheckCircle2,
   Clock,
+  Hourglass,
   LayoutDashboard,
   LineChart as LineChartIcon,
   Plane,
@@ -77,9 +83,12 @@ import {
   Trophy,
   UserCheck,
   UserPlus,
+  UserX,
   Users,
   Wallet,
+  XCircle,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 type Tab = "overview" | "employees" | "leave" | "skills" | "pay" | "promotions" | "engagement";
 
@@ -199,6 +208,16 @@ function formatMoney(value: number | null): string {
 
 function formatPercent(value: number): string {
   return `${value > 0 ? "+" : ""}${value.toFixed(1)}%`;
+}
+
+function formatMetric(value: number | null, suffix = ""): string {
+  if (value === null) return "-";
+  return `${value.toFixed(1)}${suffix}`;
+}
+
+function formatRatio(value: number | null): string {
+  if (value === null) return "-";
+  return `${value.toFixed(0)}%`;
 }
 
 function seriesKeys(data: SeriesPoint[]): string[] {
@@ -351,7 +370,13 @@ function OverviewTab({ analytics }: { analytics: DashboardAnalytics | undefined 
         <StatCard title="Total Employees" value={analytics.employees.total} sub="Visible in current scope" icon={Users} color="bg-blue-100 text-blue-600 dark:bg-blue-900/30" />
         <StatCard title="Active" value={analytics.employees.active} sub="Currently working" icon={UserCheck} color="bg-green-100 text-green-600 dark:bg-green-900/30" />
         <StatCard title="On Leave" value={analytics.employees.onLeave} sub="Away from office" icon={Plane} color="bg-orange-100 text-orange-600 dark:bg-orange-900/30" />
+        <StatCard title="Probation" value={analytics.employees.probation} sub="Current probation cases" icon={Hourglass} color="bg-amber-100 text-amber-600 dark:bg-amber-900/30" />
+        <StatCard title="Exits" value={analytics.employees.terminal} sub="Terminated or resigned" icon={UserX} color="bg-red-100 text-red-600 dark:bg-red-900/30" />
         <StatCard title="New Hires" value={analytics.employees.newHiresOnProbation} sub="Hired in last 6 months" icon={UserPlus} color="bg-teal-100 text-teal-600 dark:bg-teal-900/30" />
+        <StatCard title="Avg Age" value={formatMetric(analytics.employees.averageAge)} sub="Current workforce" icon={Cake} color="bg-pink-100 text-pink-600 dark:bg-pink-900/30" />
+        <StatCard title="Avg Tenure" value={formatMetric(analytics.employees.averageTenureYears, " yrs")} sub="Current workforce" icon={Briefcase} color="bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30" />
+        <StatCard title="Full-Time" value={formatRatio(analytics.employees.fullTimeRatio)} sub="Current workforce mix" icon={ShieldCheck} color="bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30" />
+        <StatCard title="Exit Rate" value={formatRatio(analytics.employees.attritionRate)} sub="Exits in visible people" icon={LineChartIcon} color="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" />
         <StatCard title="Pending Approvals" value={analytics.leave.pendingApprovals} sub="Leave requests awaiting review" icon={Clock} color="bg-purple-100 text-purple-600 dark:bg-purple-900/30" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
@@ -360,6 +385,12 @@ function OverviewTab({ analytics }: { analytics: DashboardAnalytics | undefined 
         </ChartCard>
         <ChartCard title="Leave requests by type" subtitle="Last 12 months">
           <SeriesLineChart data={analytics.leave.requestsByTypeOverTime} />
+        </ChartCard>
+        <ChartCard title="Age distribution" subtitle="Current workforce by age band">
+          <PointBarChart data={analytics.employees.ageBands} valueName="Employees" />
+        </ChartCard>
+        <ChartCard title="Tenure distribution" subtitle="Current workforce by service length">
+          <PointBarChart data={analytics.employees.tenureBands} valueName="Employees" />
         </ChartCard>
       </div>
     </div>
@@ -391,10 +422,15 @@ function EmployeesTab({
   return (
     <div className="space-y-6">
       <SectionHeader icon={Users} title="Employees" subtitle="Headcount and hiring movement from HR Core" color="bg-blue-100 text-blue-600 dark:bg-blue-900/30" />
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Total Employees" value={analytics?.employees.total ?? 0} sub="Visible in current scope" icon={Users} color="bg-blue-100 text-blue-600" />
         <StatCard title="Active" value={analytics?.employees.active ?? 0} sub="Currently working" icon={UserCheck} color="bg-green-100 text-green-600" />
+        <StatCard title="Probation" value={analytics?.employees.probation ?? 0} sub="Early-tenure monitoring" icon={Hourglass} color="bg-amber-100 text-amber-600" />
         <StatCard title="New Hires (Probation)" value={analytics?.employees.newHiresOnProbation ?? 0} sub="Hired in last 6 months" icon={UserPlus} color="bg-teal-100 text-teal-600" />
+        <StatCard title="Avg Age" value={formatMetric(analytics?.employees.averageAge ?? null)} sub="Current workforce" icon={Cake} color="bg-pink-100 text-pink-600" />
+        <StatCard title="Avg Tenure" value={formatMetric(analytics?.employees.averageTenureYears ?? null, " yrs")} sub="Current workforce" icon={Briefcase} color="bg-indigo-100 text-indigo-600" />
+        <StatCard title="Full-Time Ratio" value={formatRatio(analytics?.employees.fullTimeRatio ?? null)} sub="Current workforce" icon={ShieldCheck} color="bg-cyan-100 text-cyan-600" />
+        <StatCard title="Exits" value={analytics?.employees.terminal ?? 0} sub="Terminated or resigned" icon={UserX} color="bg-red-100 text-red-600" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <ChartCard title="Headcount over time" subtitle="Employees hired by month-end">
@@ -402,6 +438,18 @@ function EmployeesTab({
         </ChartCard>
         <ChartCard title="New hire trend" subtitle="Monthly new hires globally (last 12 months)">
           <PointLineChart data={analytics?.employees.newHiresTrend ?? []} valueName="New Hires" />
+        </ChartCard>
+        <ChartCard title="Status breakdown" subtitle="All visible people by employment status">
+          <PointBarChart data={analytics?.employees.statusBreakdown ?? []} valueName="Employees" />
+        </ChartCard>
+        <ChartCard title="Contract mix" subtitle="Current workforce by contract type">
+          <PointBarChart data={analytics?.employees.contractMix ?? []} valueName="Employees" />
+        </ChartCard>
+        <ChartCard title="Age bands" subtitle="Current workforce distribution">
+          <PointBarChart data={analytics?.employees.ageBands ?? []} valueName="Employees" />
+        </ChartCard>
+        <ChartCard title="Tenure bands" subtitle="Current workforce service length">
+          <PointBarChart data={analytics?.employees.tenureBands ?? []} valueName="Employees" />
         </ChartCard>
       </div>
       <div className="grid gap-6 lg:grid-cols-1">
@@ -612,15 +660,60 @@ function PromotionsTab({
   isLoading,
   year,
   onYearChange,
+  canReview,
 }: {
   dashboard: PromotionRequestsDashboard | undefined;
   isLoading: boolean;
   year: number;
   onYearChange: (year: number) => void;
+  canReview: boolean;
 }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from({ length: 6 }, (_, index) => currentYear - index);
   const requests = dashboard?.requests ?? [];
+  const reviewDisabled = isLoading;
+
+  const approvePromotionMutation = useMutation({
+    mutationFn: (id: string) => approvePromotionRequest(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["promotion-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["promotion-requests-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-analytics"] });
+      toast({ title: "Promotion request validated" });
+    },
+    onError: () => {
+      toast({
+        title: "Could not validate request",
+        description: "Please refresh and try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const rejectPromotionMutation = useMutation({
+    mutationFn: ({ id, reviewNote }: { id: string; reviewNote: string }) =>
+      rejectPromotionRequest(id, reviewNote),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["promotion-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["promotion-requests-dashboard"] });
+      toast({ title: "Promotion request refused" });
+    },
+    onError: () => {
+      toast({
+        title: "Could not refuse request",
+        description: "Please refresh and try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  function handleReject(id: string): void {
+    const reviewNote = window.prompt("Reason for refusal");
+    if (!reviewNote?.trim()) return;
+    rejectPromotionMutation.mutate({ id, reviewNote: reviewNote.trim() });
+  }
 
   return (
     <div className="space-y-6">
@@ -668,6 +761,7 @@ function PromotionsTab({
                     <TableHead className="text-right">Salary Lift</TableHead>
                     <TableHead className="text-right">Lift %</TableHead>
                     <TableHead className="text-right">Budget Impact</TableHead>
+                    {canReview && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -702,6 +796,38 @@ function PromotionsTab({
                         <div>{formatMoney(request.salaryDelta)}</div>
                         <div className="text-xs text-muted-foreground">{formatPercent(request.budgetImpactPercentage)}</div>
                       </TableCell>
+                      {canReview && (
+                        <TableCell className="text-right">
+                          {request.status === "PENDING" ? (
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-2 text-xs text-emerald-700"
+                                onClick={() => approvePromotionMutation.mutate(request.id)}
+                                disabled={reviewDisabled || approvePromotionMutation.isPending || rejectPromotionMutation.isPending}
+                                data-testid={`button-validate-promotion-${request.id}`}
+                              >
+                                <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                                Validate
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-2 text-xs text-red-700"
+                                onClick={() => handleReject(request.id)}
+                                disabled={reviewDisabled || approvePromotionMutation.isPending || rejectPromotionMutation.isPending}
+                                data-testid={`button-refuse-promotion-${request.id}`}
+                              >
+                                <XCircle className="mr-1 h-3.5 w-3.5" />
+                                Refuse
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Reviewed</span>
+                          )}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -737,12 +863,17 @@ export default function Dashboard() {
   });
   const [promotionYear, setPromotionYear] = useState<number>(() => new Date().getFullYear());
 
-  const isManager = user?.roles.some((role) => ["MANAGER", "HR_ADMIN", "GLOBAL_HR_ADMIN", "EXECUTIVE"].includes(role)) ?? false;
+  const roles = user?.roles ?? [];
+  const roleAssignments = user?.roleAssignments ?? [];
+  const hasManagerRole = roles.includes("MANAGER");
+  const hasPrivilegedDashboard = roles.some((role) => ["HR_ADMIN", "GLOBAL_HR_ADMIN", "EXECUTIVE"].includes(role));
+  const canReviewPromotions = roles.some((role) => ["HR_ADMIN", "GLOBAL_HR_ADMIN"].includes(role));
+  const isManager = hasManagerRole || hasPrivilegedDashboard;
   const canUseGlobalScope = Boolean(
-    user?.roleAssignments.some((assignment) => assignment.scope === "GLOBAL") ||
-    user?.roles.some((role) => ["HR_ADMIN", "GLOBAL_HR_ADMIN", "EXECUTIVE"].includes(role)),
+    hasPrivilegedDashboard ||
+    roleAssignments.some((assignment) => assignment.scope === "GLOBAL" && assignment.roleCode !== "MANAGER"),
   );
-  const businessUnitAssignment = user?.roleAssignments.find((assignment) => assignment.scope === "BUSINESS_UNIT");
+  const businessUnitAssignment = roleAssignments.find((assignment) => assignment.scope === "BUSINESS_UNIT");
 
   const { data: businessUnits = [] } = useQuery({
     queryKey: ["business-units", "dashboard-scope"],
@@ -770,15 +901,19 @@ export default function Dashboard() {
   );
 
   const forcedScope = useMemo(() => {
-    const teamAssignment = user?.roleAssignments.find((assignment) => assignment.scope === "TEAM");
-    if (teamAssignment?.scopeEntityId) return { level: "team" as const, unitId: teamAssignment.scopeEntityId };
-    const departmentAssignment = user?.roleAssignments.find((assignment) => assignment.scope === "DEPARTMENT");
+    if (!hasManagerRole || hasPrivilegedDashboard) return null;
+
+    const departmentAssignment = roleAssignments.find((assignment) => assignment.scope === "DEPARTMENT");
     if (departmentAssignment?.scopeEntityId) return { level: "dept" as const, unitId: departmentAssignment.scopeEntityId };
-    if (user?.roles.includes("EMPLOYEE") && !isManager && user.teamId) {
+
+    const teamAssignment = roleAssignments.find((assignment) => assignment.scope === "TEAM");
+    if (teamAssignment?.scopeEntityId) return { level: "team" as const, unitId: teamAssignment.scopeEntityId };
+
+    if (user?.teamId) {
       return { level: "team" as const, unitId: user.teamId };
     }
     return null;
-  }, [isManager, user]);
+  }, [hasManagerRole, hasPrivilegedDashboard, roleAssignments, user?.teamId]);
 
   const allowedBusinessUnits = useMemo(
     () => businessUnits.filter((businessUnit) => !businessUnitAssignment?.scopeEntityId || businessUnit.id === businessUnitAssignment.scopeEntityId),
@@ -915,6 +1050,7 @@ export default function Dashboard() {
           isLoading={promotionDashboardLoading}
           year={promotionYear}
           onYearChange={setPromotionYear}
+          canReview={canReviewPromotions}
         />
       )}
       {tab === "engagement" && <EngagementTab analytics={analytics} />}

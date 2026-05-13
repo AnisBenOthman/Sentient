@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
+import { getRoleTier } from "@/lib/auth";
 import { getPositions, type PositionWithCount } from "@/lib/positions-api";
 import {
   createPromotionRequest,
@@ -80,11 +81,19 @@ type SimulationEmployee = {
   name: string;
   role: string;
   department: string;
+  departmentId: string | null;
   team: string | null;
   teamId: string | null;
   managerId: string | null;
   grossSalary: number;
   positionLevel: string | null;
+  employmentStatus: string;
+};
+
+type SimulationScopeParams = {
+  businessUnitId?: string;
+  departmentId?: string;
+  teamId?: string;
 };
 
 function toSimulationEmployee(employee: EmployeeProfile): SimulationEmployee {
@@ -93,12 +102,39 @@ function toSimulationEmployee(employee: EmployeeProfile): SimulationEmployee {
     name: `${employee.firstName} ${employee.lastName}`,
     role: employee.position?.title ?? "Unassigned role",
     department: employee.department?.name ?? "Unassigned",
+    departmentId: employee.departmentId ?? employee.department?.id ?? null,
     team: employee.team?.name ?? null,
     teamId: employee.teamId ?? null,
     managerId: employee.managerId ?? null,
     grossSalary: employee.grossSalary ?? 0,
     positionLevel: employee.position?.title ?? null,
+    employmentStatus: employee.employmentStatus,
   };
+}
+
+function getSimulationScopeParams(user: ReturnType<typeof useAuth>["user"]): SimulationScopeParams {
+  if (!user) return {};
+
+  const roleTier = getRoleTier(user);
+  if (roleTier === "hr_admin") return {};
+
+  const departmentAssignment = user.roleAssignments?.find(
+    (assignment) => assignment.roleCode === "MANAGER" && assignment.scope === "DEPARTMENT",
+  );
+  if (roleTier === "dept_manager") {
+    const departmentId = departmentAssignment?.scopeEntityId ?? user.departmentId;
+    return departmentId ? { departmentId } : {};
+  }
+
+  const teamAssignment = user.roleAssignments?.find(
+    (assignment) => assignment.roleCode === "MANAGER" && assignment.scope === "TEAM",
+  );
+  const teamId = teamAssignment?.scopeEntityId ?? user.teamId;
+  return teamId ? { teamId } : {};
+}
+
+function isCurrentEmployee(employee: SimulationEmployee): boolean {
+  return !["TERMINATED", "RESIGNED"].includes(employee.employmentStatus);
 }
 
 function getEmployeeSalary(e: SimulationEmployee): number {
@@ -801,26 +837,37 @@ export default function Simulation() {
   const queryClient = useQueryClient();
   const [positions, setPositions] = useState<PositionWithCount[]>([]);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const roleTier = user ? getRoleTier(user) : "employee";
+  const isHrSimulation = roleTier === "hr_admin";
+  const simulationScopeParams = useMemo(() => getSimulationScopeParams(user), [user]);
+  const hasSimulationScope = isHrSimulation || Boolean(simulationScopeParams.departmentId || simulationScopeParams.teamId);
+  const simulationScopeLabel = isHrSimulation
+    ? "All employees are available for HR simulation."
+    : "Only employees in your managed teams are available for simulation.";
 
   const { data: employeesResult } = useQuery({
-    queryKey: ["simulation-employees"],
-    queryFn: () => getEmployees({ limit: 500 }),
-    enabled: Boolean(user),
+    queryKey: ["simulation-employees", simulationScopeParams],
+    queryFn: () => getEmployees({ limit: 500, ...simulationScopeParams }),
+    enabled: Boolean(user && hasSimulationScope),
   });
   const allEmployees = useMemo(
     () => (employeesResult?.data ?? []).map(toSimulationEmployee),
     [employeesResult]
   );
   const promotionCandidates = useMemo(() => {
-    if (user?.roles.some((role) => ["HR_ADMIN", "EXECUTIVE"].includes(role))) {
-      return allEmployees.filter((employee) => employee.id !== user.employeeId);
+    if (isHrSimulation) {
+      return allEmployees.filter(
+        (employee) => employee.id !== user?.employeeId && isCurrentEmployee(employee),
+      );
     }
-    return allEmployees.filter((employee) => employee.managerId === user?.employeeId);
-  }, [allEmployees, user]);
+    return allEmployees.filter(
+      (employee) => employee.id !== user?.employeeId && isCurrentEmployee(employee),
+    );
+  }, [allEmployees, isHrSimulation, user?.employeeId]);
   const { data: requests = [], isLoading: requestsLoading } = useQuery({
-    queryKey: ["promotion-requests", "simulation"],
-    queryFn: () => getPromotionRequests(),
-    enabled: Boolean(user),
+    queryKey: ["promotion-requests", "simulation", simulationScopeParams],
+    queryFn: () => getPromotionRequests(simulationScopeParams),
+    enabled: Boolean(user && hasSimulationScope),
   });
   const createPromotionMutation = useMutation({
     mutationFn: createPromotionRequest,
@@ -850,10 +897,14 @@ export default function Simulation() {
             Model the financial and organizational impact of a promotion before
             submitting the request.
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {simulationScopeLabel}
+          </p>
         </div>
         <Button
           className="gap-2"
           onClick={() => setWizardOpen(true)}
+          disabled={!hasSimulationScope}
           data-testid="button-new-promotion"
         >
           <Plus className="w-4 h-4" />

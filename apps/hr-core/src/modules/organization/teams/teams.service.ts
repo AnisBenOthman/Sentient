@@ -75,7 +75,9 @@ export class TeamsService {
   ): Promise<CursorPage<Team>> {
     const isManager = user.roles.includes('MANAGER');
     const isAdminOrExec =
-      user.roles.includes('HR_ADMIN') || user.roles.includes('EXECUTIVE');
+      user.roles.includes('HR_ADMIN') ||
+      user.roles.includes('GLOBAL_HR_ADMIN') ||
+      user.roles.includes('EXECUTIVE');
 
     let where: Prisma.TeamWhereInput;
 
@@ -83,10 +85,21 @@ export class TeamsService {
       // WHY: MANAGER scope = only the team they lead. If teamId is absent
       // (not yet assigned), return empty list rather than 403 — the lack of
       // assignment is a data state, not a security violation.
-      if (!user.teamId) {
-        return { data: [], nextCursor: null, total: 0 };
+      const departmentAssignment = user.roleAssignments.find(
+        (assignment) => assignment.scope === 'DEPARTMENT',
+      );
+      if (departmentAssignment?.scopeEntityId) {
+        where = { departmentId: departmentAssignment.scopeEntityId, isActive: true };
+      } else {
+        const teamAssignment = user.roleAssignments.find(
+          (assignment) => assignment.scope === 'TEAM',
+        );
+        const teamId = teamAssignment?.scopeEntityId ?? user.teamId;
+        if (!teamId) {
+          return { data: [], nextCursor: null, total: 0 };
+        }
+        where = { id: teamId, isActive: true };
       }
-      where = { id: user.teamId };
     } else {
       where = {
         isActive: isAdminOrExec ? (query.isActive ?? true) : true,
@@ -115,7 +128,9 @@ export class TeamsService {
   async findById(id: string, user: JwtPayload): Promise<TeamWithVacancy> {
     const isManager = user.roles.includes('MANAGER');
     const isAdminOrExec =
-      user.roles.includes('HR_ADMIN') || user.roles.includes('EXECUTIVE');
+      user.roles.includes('HR_ADMIN') ||
+      user.roles.includes('GLOBAL_HR_ADMIN') ||
+      user.roles.includes('EXECUTIVE');
 
     // WHY: Return ForbiddenException (not NotFoundException) when a MANAGER
     // requests a team they do not lead — do not reveal whether the team exists.

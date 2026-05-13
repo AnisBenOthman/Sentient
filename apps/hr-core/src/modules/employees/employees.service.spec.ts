@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Decimal } from '../../generated/prisma/runtime/library';
-import { EVENT_BUS, JwtPayload, EmploymentStatus, ContractType } from '@sentient/shared';
+import { EVENT_BUS, JwtPayload, EmploymentStatus, ContractType, PermissionScope } from '@sentient/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeStatusDto } from './dto/update-employee-status.dto';
@@ -99,26 +99,27 @@ describe('EmployeesService', () => {
       mockPrisma.employee.count.mockResolvedValue(0);
     });
 
-    it('HR_ADMIN gets empty scope filter (all employees)', async () => {
+    it('HR_ADMIN browses the same directory list', async () => {
       await service.findAll({}, adminUser);
       const [call] = mockPrisma.employee.findMany.mock.calls;
       const where = (call as any[])[0].where as { AND: unknown[] };
-      // scopeFilter for HR_ADMIN is {} — AND should contain an empty object
-      expect(where.AND).toContainEqual({});
+      expect(where.AND).toEqual([{ deletedAt: null }]);
     });
 
-    it('EMPLOYEE scope filter restricts to own employeeId', async () => {
+    it('EMPLOYEE can browse the directory list', async () => {
       await service.findAll({}, employeeUser);
       const [call] = mockPrisma.employee.findMany.mock.calls;
       const where = (call as any[])[0].where as { AND: unknown[] };
-      expect(where.AND).toContainEqual({ id: employeeUser.employeeId });
+      expect(where.AND).toContainEqual({ deletedAt: null });
+      expect(where.AND).not.toContainEqual({ id: employeeUser.employeeId });
     });
 
-    it('MANAGER scope filter restricts to teamId', async () => {
+    it('MANAGER can browse the directory list', async () => {
       await service.findAll({}, managerUser);
       const [call] = mockPrisma.employee.findMany.mock.calls;
       const where = (call as any[])[0].where as { AND: unknown[] };
-      expect(where.AND).toContainEqual({ teamId: managerUser.teamId });
+      expect(where.AND).toContainEqual({ deletedAt: null });
+      expect(where.AND).not.toContainEqual({ teamId: managerUser.teamId });
     });
   });
 
@@ -129,6 +130,40 @@ describe('EmployeesService', () => {
       mockPrisma.employee.findFirst.mockResolvedValue(baseEmployee);
       const result = await service.findById('emp-001', adminUser);
       expect(result.id).toBe('emp-001');
+    });
+
+    it('allows department managers to view employees in their department', async () => {
+      mockPrisma.employee.findFirst.mockResolvedValue(baseEmployee);
+      const departmentManager: JwtPayload = {
+        ...managerUser,
+        roleAssignments: [
+          { roleCode: 'MANAGER', scope: PermissionScope.DEPARTMENT, scopeEntityId: 'dept-1' },
+        ],
+      };
+
+      const result = await service.findById('emp-001', departmentManager);
+
+      expect(result.id).toBe('emp-001');
+      const [call] = mockPrisma.employee.findFirst.mock.calls;
+      const where = (call as any[])[0].where as { AND: unknown[] };
+      expect(where.AND).toContainEqual({ departmentId: 'dept-1' });
+    });
+
+    it('allows team leads to view employees in their team', async () => {
+      mockPrisma.employee.findFirst.mockResolvedValue(baseEmployee);
+      const teamLead: JwtPayload = {
+        ...managerUser,
+        roleAssignments: [
+          { roleCode: 'MANAGER', scope: PermissionScope.TEAM, scopeEntityId: 'team-1' },
+        ],
+      };
+
+      const result = await service.findById('emp-001', teamLead);
+
+      expect(result.id).toBe('emp-001');
+      const [call] = mockPrisma.employee.findFirst.mock.calls;
+      const where = (call as any[])[0].where as { AND: unknown[] };
+      expect(where.AND).toContainEqual({ teamId: 'team-1' });
     });
 
     it('throws ForbiddenException when employee exists but is out of scope', async () => {

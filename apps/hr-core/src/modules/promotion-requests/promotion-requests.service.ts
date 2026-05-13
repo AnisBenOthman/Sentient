@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { DomainEvent, EVENT_BUS, IEventBus, JwtPayload, PermissionScope } from '@sentient/shared';
-import { Prisma, PromotionRequestStatus } from '../../generated/prisma';
+import { Prisma, PromotionRequestStatus, SalaryChangeReason } from '../../generated/prisma';
 import { Decimal } from '../../generated/prisma/runtime/library';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePromotionRequestDto } from './dto/create-promotion-request.dto';
@@ -278,19 +278,6 @@ export class PromotionRequestsService {
       return {};
     }
 
-    const businessUnitAssignment = user.roleAssignments.find(
-      (assignment) => assignment.scope === PermissionScope.BUSINESS_UNIT,
-    );
-    const businessUnitId = businessUnitAssignment?.scopeEntityId ?? user.businessUnitId;
-    if (businessUnitId) {
-      return {
-        OR: [
-          { department: { businessUnitId } },
-          { team: { businessUnitId } },
-        ],
-      };
-    }
-
     const departmentAssignment = user.roleAssignments.find(
       (assignment) => assignment.scope === PermissionScope.DEPARTMENT,
     );
@@ -303,6 +290,19 @@ export class PromotionRequestsService {
     );
     const teamId = teamAssignment?.scopeEntityId ?? user.teamId;
     if (teamId) return { teamId };
+
+    const businessUnitAssignment = user.roleAssignments.find(
+      (assignment) => assignment.scope === PermissionScope.BUSINESS_UNIT,
+    );
+    const businessUnitId = businessUnitAssignment?.scopeEntityId ?? user.businessUnitId;
+    if (businessUnitId) {
+      return {
+        OR: [
+          { department: { businessUnitId } },
+          { team: { businessUnitId } },
+        ],
+      };
+    }
 
     if (user.employeeId) return { id: user.employeeId };
     throw new ForbiddenException('No employee profile linked to this account');
@@ -357,11 +357,64 @@ export class PromotionRequestsService {
     const reviewedById = this.requireEmployeeId(user);
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      const request = await tx.promotionRequest.findUnique({ where: { id } });
+      const request = await tx.promotionRequest.findUnique({
+        where: { id },
+        include: {
+          employee: { select: { grossSalary: true, netSalary: true } },
+        },
+      });
       if (!request) throw new NotFoundException(`PromotionRequest ${id} not found`);
       if (request.status !== PromotionRequestStatus.PENDING) {
         throw new ConflictException('RequestAlreadyDecided');
       }
+
+      if (status === PromotionRequestStatus.APPROVED) {
+        const previousGrossSalary = request.employee.grossSalary ?? request.currentGrossSalary;
+        const previousNetSalary = request.employee.netSalary;
+        const newNetSalary = previousNetSalary
+          ? this.deriveNetSalary(previousGrossSalary, previousNetSalary, request.newGrossSalary)
+          : null;
+
+        if (!request.newGrossSalary.equals(previousGrossSalary)) {
+          await tx.salaryHistory.create({
+            data: {
+              employeeId: request.employeeId,
+              previousGrossSalary,
+              newGrossSalary: request.newGrossSalary,
+              previousNetSalary,
+              newNetSalary,
+              grossRaisePercentage: !previousGrossSalary.isZero()
+                ? request.newGrossSalary
+                    .minus(previousGrossSalary)
+                    .div(previousGrossSalary)
+                    .times(100)
+                    .toDecimalPlaces(2)
+                : null,
+              netRaisePercentage:
+                previousNetSalary && newNetSalary && !previousNetSalary.isZero()
+                  ? newNetSalary
+                      .minus(previousNetSalary)
+                      .div(previousNetSalary)
+                      .times(100)
+                      .toDecimalPlaces(2)
+                  : null,
+              effectiveDate: new Date(),
+              reason: SalaryChangeReason.PROMOTION,
+              reasonComment: dto.reviewNote?.trim() || `Approved promotion to ${request.newRole}`,
+              changedById: user.sub,
+            },
+          });
+        }
+
+        await tx.employee.update({
+          where: { id: request.employeeId },
+          data: {
+            grossSalary: request.newGrossSalary,
+            netSalary: newNetSalary,
+          },
+        });
+      }
+
       return tx.promotionRequest.update({
         where: { id },
         data: {
@@ -395,6 +448,18 @@ export class PromotionRequestsService {
 
   private decimalToNumber(value: Decimal | number | string): number {
     return Number(value);
+  }
+
+  private deriveNetSalary(
+    previousGrossSalary: Decimal,
+    previousNetSalary: Decimal,
+    newGrossSalary: Decimal,
+  ): Decimal {
+    if (previousGrossSalary.isZero()) return previousNetSalary;
+    return previousNetSalary
+      .div(previousGrossSalary)
+      .times(newGrossSalary)
+      .toDecimalPlaces(2);
   }
 
   private roundMoney(value: number): number {

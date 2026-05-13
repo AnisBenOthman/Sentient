@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { ChannelType, JwtPayload, PermissionScope } from '@sentient/shared';
 import { Decimal } from '../../generated/prisma/runtime/library';
-import { PromotionRequestStatus } from '../../generated/prisma';
+import { PromotionRequestStatus, SalaryChangeReason } from '../../generated/prisma';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PromotionRequestsService } from './promotion-requests.service';
 
@@ -19,6 +19,16 @@ const scopedUser: JwtPayload = {
   sessionId: 'session-1',
   iat: 1,
   exp: 2,
+};
+
+const hrUser: JwtPayload = {
+  ...scopedUser,
+  sub: 'hr-user-1',
+  employeeId: 'hr-1',
+  roles: ['HR_ADMIN'],
+  roleAssignments: [
+    { roleCode: 'HR_ADMIN', scope: PermissionScope.GLOBAL, scopeEntityId: null },
+  ],
 };
 
 function makeRequest(overrides: Partial<{
@@ -62,16 +72,30 @@ function makeRequest(overrides: Partial<{
 
 describe('PromotionRequestsService', () => {
   let prisma: {
-    employee: { findFirst: jest.Mock };
-    promotionRequest: { create: jest.Mock; findMany: jest.Mock };
+    $transaction: jest.Mock;
+    employee: { findFirst: jest.Mock; update: jest.Mock };
+    salaryHistory: { create: jest.Mock };
+    promotionRequest: {
+      create: jest.Mock;
+      findMany: jest.Mock;
+      findUnique: jest.Mock;
+      update: jest.Mock;
+    };
   };
   let eventBus: { emit: jest.Mock; subscribe: jest.Mock };
   let service: PromotionRequestsService;
 
   beforeEach(() => {
     prisma = {
-      employee: { findFirst: jest.fn() },
-      promotionRequest: { create: jest.fn(), findMany: jest.fn() },
+      $transaction: jest.fn((callback: (tx: typeof prisma) => unknown) => callback(prisma)),
+      employee: { findFirst: jest.fn(), update: jest.fn() },
+      salaryHistory: { create: jest.fn() },
+      promotionRequest: {
+        create: jest.fn(),
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        update: jest.fn(),
+      },
     };
     eventBus = { emit: jest.fn().mockResolvedValue(undefined), subscribe: jest.fn() };
     service = new PromotionRequestsService(
@@ -156,5 +180,50 @@ describe('PromotionRequestsService', () => {
         where: expect.objectContaining({ AND: expect.any(Array) }),
       }),
     );
+  });
+
+  it('approves a pending request and applies the salary change with history', async () => {
+    prisma.promotionRequest.findUnique.mockResolvedValue({
+      ...makeRequest(),
+      employee: {
+        grossSalary: new Decimal(100000),
+        netSalary: new Decimal(74000),
+      },
+    });
+    prisma.promotionRequest.update.mockResolvedValue(
+      makeRequest({ status: PromotionRequestStatus.APPROVED }),
+    );
+
+    const result = await service.approve(
+      'request-1',
+      { reviewNote: 'Validated for expanded scope' },
+      hrUser,
+    );
+
+    expect(prisma.salaryHistory.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          employeeId: 'emp-1',
+          previousGrossSalary: new Decimal(100000),
+          newGrossSalary: new Decimal(115000),
+          previousNetSalary: new Decimal(74000),
+          newNetSalary: new Decimal(85100),
+          grossRaisePercentage: new Decimal(15),
+          netRaisePercentage: new Decimal(15),
+          reason: SalaryChangeReason.PROMOTION,
+          changedById: 'hr-user-1',
+        }),
+      }),
+    );
+    expect(prisma.employee.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'emp-1' },
+        data: {
+          grossSalary: new Decimal(115000),
+          netSalary: new Decimal(85100),
+        },
+      }),
+    );
+    expect(result.status).toBe(PromotionRequestStatus.APPROVED);
   });
 });

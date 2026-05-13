@@ -23,7 +23,9 @@ import {
 } from "@/components/ui/select";
 import { Search, UserPlus, ChevronDown, ChevronRight, X } from "lucide-react";
 import { AddEmployeeWizard } from "@/components/add-employee-wizard";
+import { useAuth } from "@/components/providers/auth-provider";
 import { getEmployees, getBusinessUnits, getDepartments, getTeams } from "@/lib/api/hr-core";
+import { canViewEmployeeDetails, getRoleTier } from "@/lib/auth";
 
 const ALL_VALUE = "all";
 
@@ -77,6 +79,7 @@ function getInitials(firstName: string, lastName: string) {
 }
 
 export default function Employees() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [businessUnitFilter, setBusinessUnitFilter] = useState(ALL_VALUE);
@@ -125,6 +128,8 @@ export default function Employees() {
   });
 
   const employees = result?.data ?? [];
+  const canManageEmployees = user ? getRoleTier(user) === "hr_admin" : false;
+  const showDetailsColumn = user ? getRoleTier(user) !== "employee" : false;
 
   const departmentById = useMemo(
     () => new Map(departments.map((department) => [department.id, department])),
@@ -228,6 +233,10 @@ export default function Employees() {
     setTeamFilter(ALL_VALUE);
   }
 
+  function canOpenEmployeeDetails(emp: (typeof employees)[number]): boolean {
+    return user ? canViewEmployeeDetails(user, emp, { departments, teams }) : false;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -242,14 +251,16 @@ export default function Employees() {
             Manage and view all team members
           </p>
         </div>
-        <Button
-          onClick={() => setWizardOpen(true)}
-          className="gap-2"
-          data-testid="button-add-employee"
-        >
-          <UserPlus className="w-4 h-4" />
-          Add Employee
-        </Button>
+        {canManageEmployees && (
+          <Button
+            onClick={() => setWizardOpen(true)}
+            className="gap-2"
+            data-testid="button-add-employee"
+          >
+            <UserPlus className="w-4 h-4" />
+            Add Employee
+          </Button>
+        )}
       </div>
 
       <div className="rounded-lg border bg-card p-3">
@@ -376,19 +387,19 @@ export default function Employees() {
               <TableHead>Business Unit</TableHead>
               <TableHead>Department</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              {showDetailsColumn && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={showDetailsColumn ? 6 : 5} className="text-center py-8 text-muted-foreground">
                   Loading…
                 </TableCell>
               </TableRow>
             ) : groupedEmployees.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={showDetailsColumn ? 6 : 5} className="text-center py-8 text-muted-foreground">
                   No employees found matching your search.
                 </TableCell>
               </TableRow>
@@ -402,7 +413,7 @@ export default function Employees() {
                     onClick={() => toggleGroup(key)}
                     data-testid={`group-header-${key || "unassigned"}`}
                   >
-                    <TableCell colSpan={6} className="py-2 px-4">
+                    <TableCell colSpan={showDetailsColumn ? 6 : 5} className="py-2 px-4">
                       <div className="flex flex-wrap items-center gap-2">
                         {isCollapsed ? (
                           <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -426,6 +437,7 @@ export default function Employees() {
                   ...(!isCollapsed
                     ? group.employees.map((emp) => {
                         const businessUnitName = getBusinessUnitNameForDepartment(emp.department?.id) ?? "Unassigned";
+                        const canOpenDetails = canOpenEmployeeDetails(emp);
                         return (
                         <TableRow key={emp.id} data-testid={`row-employee-${emp.id}`}>
                           <TableCell className="font-medium">
@@ -460,17 +472,21 @@ export default function Employees() {
                             </div>
                           </TableCell>
                           <TableCell>{getStatusBadge(emp.employmentStatus)}</TableCell>
-                          <TableCell className="text-right">
-                            <Link href={`/employees/${emp.id}`}>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                data-testid={`button-view-employee-${emp.id}`}
-                              >
-                                View
-                              </Button>
-                            </Link>
-                          </TableCell>
+                          {showDetailsColumn && (
+                            <TableCell className="text-right">
+                              {canOpenDetails && (
+                                <Link href={`/employees/${emp.id}`}>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    data-testid={`button-view-employee-${emp.id}`}
+                                  >
+                                    View
+                                  </Button>
+                                </Link>
+                              )}
+                            </TableCell>
+                          )}
                         </TableRow>
                         );
                       })
@@ -489,14 +505,16 @@ export default function Employees() {
         </p>
       )}
 
-      <AddEmployeeWizard
-        open={wizardOpen}
-        onOpenChange={setWizardOpen}
-        allEmployees={employees.map((e) => ({ id: e.id, name: `${e.firstName} ${e.lastName}` }))}
-        onEmployeeAdded={() => {
-          queryClient.invalidateQueries({ queryKey: ["employees"] });
-        }}
-      />
+      {canManageEmployees && (
+        <AddEmployeeWizard
+          open={wizardOpen}
+          onOpenChange={setWizardOpen}
+          allEmployees={employees.map((e) => ({ id: e.id, name: `${e.firstName} ${e.lastName}` }))}
+          onEmployeeAdded={() => {
+            queryClient.invalidateQueries({ queryKey: ["employees"] });
+          }}
+        />
+      )}
     </div>
   );
 }

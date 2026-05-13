@@ -11,7 +11,7 @@ export class OrgChartController {
   constructor(private readonly orgChartService: OrgChartService) {}
 
   @Get()
-  @Roles('HR_ADMIN', 'EXECUTIVE', 'SYSTEM')
+  @Roles('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'GLOBAL_HR_ADMIN', 'EXECUTIVE', 'SYSTEM_ADMIN', 'SYSTEM')
   @ApiOperation({ summary: 'Get full organizational hierarchy' })
   @ApiResponse({ status: 200, description: 'Org chart hierarchy' })
   getOrgChart() {

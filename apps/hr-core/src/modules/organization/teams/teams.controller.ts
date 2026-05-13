@@ -33,7 +33,7 @@ export class TeamsController {
   }
 
   @Get()
-  @Roles('HR_ADMIN', 'EXECUTIVE', 'MANAGER')
+  @Roles('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'GLOBAL_HR_ADMIN', 'EXECUTIVE')
   @ApiOperation({ summary: 'List teams' })
   findAll(@Query() query: TeamQueryDto, @CurrentUser() user: JwtPayload) {
     return this.teamsService.findAll(query, user);
