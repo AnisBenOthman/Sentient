@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { Layout } from "@/components/layout";
+import { NotificationsProvider } from "@/components/notifications/notifications-provider";
 import Welcome from "@/pages/welcome";
 import Home from "@/pages/home";
 import SignIn from "@/pages/signin";
@@ -157,8 +158,10 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
-          <AppRoutes />
-          <Toaster />
+          <NotificationsProvider>
+            <AppRoutes />
+            <Toaster />
+          </NotificationsProvider>
         </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>

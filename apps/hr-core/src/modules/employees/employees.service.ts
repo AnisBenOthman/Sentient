@@ -33,8 +33,18 @@ import { EmployeeQueryDto } from './dto/employee-query.dto';
 // ============================================================
 
 export type EmployeeProfile = Employee & {
-  department: { id: string; name: string } | null;
-  team: { id: string; name: string } | null;
+  department: {
+    id: string;
+    name: string;
+    businessUnitId: string;
+    businessUnit: { id: string; name: string } | null;
+  } | null;
+  team: {
+    id: string;
+    name: string;
+    businessUnitId: string;
+    businessUnit: { id: string; name: string } | null;
+  } | null;
   position: { id: string; title: string } | null;
   manager: { id: string; firstName: string; lastName: string } | null;
   salaryHistory?: SalaryHistory[];
@@ -617,8 +627,22 @@ export class EmployeesService {
 
   private defaultInclude() {
     return {
-      department: { select: { id: true, name: true } },
-      team: { select: { id: true, name: true } },
+      department: {
+        select: {
+          id: true,
+          name: true,
+          businessUnitId: true,
+          businessUnit: { select: { id: true, name: true } },
+        },
+      },
+      team: {
+        select: {
+          id: true,
+          name: true,
+          businessUnitId: true,
+          businessUnit: { select: { id: true, name: true } },
+        },
+      },
       position: { select: { id: true, title: true } },
       manager: { select: { id: true, firstName: true, lastName: true } },
     } as const;

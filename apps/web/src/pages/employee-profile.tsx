@@ -152,9 +152,15 @@ const DOMAIN_LABELS: Record<string, string> = {
 };
 
 const REQUIREMENT_COLORS: Record<string, string> = {
-  MANDATORY: "text-red-700 bg-red-50 dark:bg-red-900/20",
-  EXPECTED: "text-amber-700 bg-amber-50 dark:bg-amber-900/20",
-  NICE_TO_HAVE: "text-blue-700 bg-blue-50 dark:bg-blue-900/20",
+  MANDATORY: "border-red-200 text-red-700 bg-red-50 dark:bg-red-900/20",
+  EXPECTED: "border-amber-200 text-amber-700 bg-amber-50 dark:bg-amber-900/20",
+  NICE_TO_HAVE: "border-blue-200 text-blue-700 bg-blue-50 dark:bg-blue-900/20",
+};
+
+const REQUIREMENT_LABELS: Record<string, string> = {
+  MANDATORY: "Mandatory",
+  EXPECTED: "Expected",
+  NICE_TO_HAVE: "Nice to Have",
 };
 
 const PROFICIENCY_COLORS: Record<string, string> = {
@@ -172,6 +178,9 @@ const GAP_COLORS: Record<SkillsGapItem["status"], string> = {
   PARTIAL: "#f59e0b",
   MISSING: "#dc2626",
 };
+
+const GAP_RADAR_REQUIRED_COLOR = "#e11d48";
+const GAP_RADAR_ACQUIRED_COLOR = "#059669";
 
 type DraftProfile = {
   firstName: string;
@@ -470,6 +479,22 @@ export default function EmployeeProfile() {
   const employee = emp;
   const currentDraft = draft ?? buildDraft(employee);
   const name = fullName(employee);
+  const profileDepartment = employee.department?.id
+    ? departments.find((department) => department.id === employee.department?.id)
+    : undefined;
+  const profileBusinessUnitName =
+    employee.team?.businessUnit?.name ??
+    employee.department?.businessUnit?.name ??
+    profileDepartment?.businessUnit?.name ??
+    "Unassigned";
+  const draftDepartment = currentDraft.departmentId !== NONE
+    ? departments.find((department) => department.id === currentDraft.departmentId)
+    : undefined;
+  const draftBusinessUnitName = draftDepartment?.businessUnit?.name ?? "Unassigned";
+  const profileOrgPath = [
+    profileBusinessUnitName !== "Unassigned" ? profileBusinessUnitName : undefined,
+    employee.department?.name,
+  ].filter(Boolean).join(" / ");
   const salaryChartData = salaryHistory.map((entry) => ({
     date: entry.effectiveDate.slice(0, 10),
     gross: entry.grossAfter,
@@ -522,7 +547,7 @@ export default function EmployeeProfile() {
               <StatusBadge status={emp.employmentStatus} />
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Building className="h-4 w-4" />
-                {emp.department?.name ?? "Unassigned"}
+                {profileOrgPath || "Unassigned"}
               </div>
               {emp.team && (
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -610,13 +635,18 @@ export default function EmployeeProfile() {
                           </SelectContent>
                         </Select>
                       </EditField>
+                      <EditField icon={Building} label="Business Unit">
+                        <Input value={draftBusinessUnitName} disabled />
+                      </EditField>
                       <EditField icon={Building} label="Department">
                         <Select value={currentDraft.departmentId} onValueChange={(value) => patchDraft({ departmentId: value })}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value={NONE}>Unassigned</SelectItem>
                             {departments.map((department) => (
-                              <SelectItem key={department.id} value={department.id}>{department.name}</SelectItem>
+                              <SelectItem key={department.id} value={department.id}>
+                                {department.businessUnit?.name ? `${department.businessUnit.name} / ${department.name}` : department.name}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -650,6 +680,7 @@ export default function EmployeeProfile() {
                       <InfoRow icon={UserCheck} label="Full Name" value={name} testId="text-name" />
                       <InfoRow icon={Briefcase} label="Job Title" value={emp.position?.title} testId="text-role" />
                       <InfoRow icon={Award} label="Contract Type" value={CONTRACT_LABELS[emp.contractType] ?? emp.contractType} />
+                      <InfoRow icon={Building} label="Business Unit" value={profileBusinessUnitName} />
                       <InfoRow icon={Building} label="Department" value={emp.department?.name} />
                       <InfoRow icon={Users} label="Team" value={emp.team?.name} />
                       <InfoRow icon={UserCheck} label="Manager" value={emp.manager ? fullName(emp.manager) : "N/A"} />
@@ -949,22 +980,60 @@ function LeaveHistoryCard({ leaveRequests }: { leaveRequests: LeaveRequestItem[]
 }
 
 function GapRadarCard({ gap }: { gap: SkillsGapResult | null }) {
-  const radarData = useMemo(() => {
+  const domainRadarGroups = useMemo(() => {
     if (!gap || gap.items.length === 0) return [];
-    const byDomain = new Map<string, { required: number[]; acquired: number[] }>();
+    const byDomain = new Map<string, Array<{
+      skill: string;
+      required: number;
+      acquired: number;
+      gapSize: number;
+      status: SkillsGapItem["status"];
+      isPadding: boolean;
+    }>>();
+
     for (const item of gap.items) {
       const domain = item.skill.domain ?? "DOMAIN_EXPERTISE";
-      if (!byDomain.has(domain)) byDomain.set(domain, { required: [], acquired: [] });
+      if (!byDomain.has(domain)) byDomain.set(domain, []);
       const entry = byDomain.get(domain)!;
-      entry.required.push(GAP_RANK[item.requiredProficiency] ?? 0);
-      entry.acquired.push(item.acquiredProficiency != null ? (GAP_RANK[item.acquiredProficiency] ?? 0) : 0);
+      const required = GAP_RANK[item.requiredProficiency] ?? 0;
+      const acquired = item.acquiredProficiency != null ? (GAP_RANK[item.acquiredProficiency] ?? 0) : 0;
+      entry.push({
+        skill: item.skill.name,
+        required,
+        acquired,
+        gapSize: Math.max(required - acquired, 0),
+        status: item.status,
+        isPadding: false,
+      });
     }
-    return Array.from(byDomain.entries()).map(([domain, { required, acquired }]) => ({
-      domain: DOMAIN_LABELS[domain] ?? domain,
-      required: required.reduce((a, b) => a + b, 0) / required.length,
-      acquired: acquired.reduce((a, b) => a + b, 0) / acquired.length,
-      fullMark: 3,
-    }));
+
+    return Array.from(byDomain.entries()).map(([domain, rows]) => {
+      const chartRows = [...rows];
+      while (chartRows.length < 3) {
+        chartRows.push({
+          skill: `Axis ${chartRows.length + 1}`,
+          required: 0,
+          acquired: 0,
+          gapSize: 0,
+          status: "MET",
+          isPadding: true,
+        });
+      }
+
+      const requiredAverage = rows.reduce((sum, row) => sum + row.required, 0) / rows.length;
+      const acquiredAverage = rows.reduce((sum, row) => sum + row.acquired, 0) / rows.length;
+      const gapCount = rows.filter((row) => row.gapSize > 0).length;
+
+      return {
+        domain,
+        label: DOMAIN_LABELS[domain] ?? domain,
+        rows,
+        chartRows,
+        requiredAverage,
+        acquiredAverage,
+        gapCount,
+      };
+    });
   }, [gap]);
 
   return (
@@ -979,43 +1048,108 @@ function GapRadarCard({ gap }: { gap: SkillsGapResult | null }) {
         </div>
       </CardHeader>
       <CardContent>
-        {!gap || radarData.length === 0 ? (
+        {!gap || domainRadarGroups.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
             {!gap
               ? "Assign a position to this employee to see the skills gap radar."
               : "No required skills with domain classification yet."}
           </p>
         ) : (
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={radarData} margin={{ top: 10, right: 50, bottom: 10, left: 50 }}>
-                <PolarGrid />
-                <PolarAngleAxis dataKey="domain" tick={{ fontSize: 12 }} />
-                <PolarRadiusAxis angle={90} domain={[0, 3]} tickCount={4} tick={{ fontSize: 10 }} />
-                <Radar
-                  name="Required"
-                  dataKey="required"
-                  stroke="#dc2626"
-                  fill="#dc2626"
-                  fillOpacity={0.12}
-                  strokeDasharray="4 2"
-                />
-                <Radar
-                  name="Acquired"
-                  dataKey="acquired"
-                  stroke="#6366f1"
-                  fill="#6366f1"
-                  fillOpacity={0.3}
-                />
-                <Legend formatter={(value) => <span className="text-xs">{value}</span>} />
-                <Tooltip
-                  formatter={(value: number, name: string) => [
-                    `${value.toFixed(1)}/3`,
-                    name,
-                  ]}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2">
+              <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: GAP_RADAR_REQUIRED_COLOR }} />
+                Required level
+              </span>
+              <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: GAP_RADAR_ACQUIRED_COLOR }} />
+                Employee level
+              </span>
+              <span className="ml-auto text-xs text-muted-foreground">Scale: Beginner 0 - Expert 3</span>
+            </div>
+            <div className="grid gap-4 xl:grid-cols-2">
+              {domainRadarGroups.map((group) => (
+                <div key={group.domain} className="rounded-xl border bg-white p-4 dark:bg-background">
+                  <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">{group.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {group.rows.length} skill{group.rows.length > 1 ? "s" : ""} measured in this domain
+                      </p>
+                    </div>
+                    <Badge variant={group.gapCount > 0 ? "destructive" : "secondary"}>
+                      {group.gapCount > 0 ? `${group.gapCount} gap${group.gapCount > 1 ? "s" : ""}` : "Covered"}
+                    </Badge>
+                  </div>
+                  <div className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart
+                        data={group.chartRows}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius="66%"
+                        margin={{ top: 18, right: 56, bottom: 10, left: 56 }}
+                      >
+                        <PolarGrid stroke="#d1d5db" />
+                        <PolarAngleAxis
+                          dataKey="skill"
+                          tick={{ fontSize: 11, fill: "#111827" }}
+                          tickFormatter={(value: string, index: number) => group.chartRows[index]?.isPadding ? "" : value}
+                        />
+                        <PolarRadiusAxis
+                          angle={90}
+                          domain={[0, 3]}
+                          tickCount={4}
+                          tick={{ fontSize: 10, fill: "#6b7280" }}
+                          axisLine={false}
+                        />
+                        <Radar
+                          name="Required level"
+                          dataKey="required"
+                          stroke={GAP_RADAR_REQUIRED_COLOR}
+                          fill={GAP_RADAR_REQUIRED_COLOR}
+                          fillOpacity={0.14}
+                          strokeWidth={3}
+                          isAnimationActive={false}
+                        />
+                        <Radar
+                          name="Employee level"
+                          dataKey="acquired"
+                          stroke={GAP_RADAR_ACQUIRED_COLOR}
+                          fill={GAP_RADAR_ACQUIRED_COLOR}
+                          fillOpacity={0.38}
+                          strokeWidth={3}
+                          isAnimationActive={false}
+                        />
+                        <Legend
+                          iconType="circle"
+                          formatter={(value) => <span className="text-xs text-muted-foreground">{value}</span>}
+                        />
+                        <Tooltip
+                          formatter={(value: number, name: string) => [
+                            `${value.toFixed(1)}/3`,
+                            name,
+                          ]}
+                          labelFormatter={(label: string) => label.startsWith("Axis ") ? "" : label}
+                        />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    {group.rows.map((row) => (
+                      <div key={row.skill} className="grid gap-2 rounded-lg bg-muted/30 p-2 sm:grid-cols-[1fr_90px_90px_80px] sm:items-center">
+                        <p className="truncate text-sm font-medium">{row.skill}</p>
+                        <span className="text-xs text-muted-foreground">Req. {row.required}/3</span>
+                        <span className="text-xs text-muted-foreground">Emp. {row.acquired}/3</span>
+                        <Badge variant={row.gapSize > 0 ? "destructive" : "secondary"} className="w-fit">
+                          {row.gapSize > 0 ? `${row.gapSize} gap` : "OK"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </CardContent>
@@ -1086,11 +1220,10 @@ function SkillsGapCard({ gap }: { gap: SkillsGapResult | null }) {
   const byLevel = useMemo(() => {
     if (!gap) return [];
     const levels: SkillsGapItem["requirementLevel"][] = ["MANDATORY", "EXPECTED", "NICE_TO_HAVE"];
-    const levelLabels: Record<string, string> = { MANDATORY: "Mandatory", EXPECTED: "Expected", NICE_TO_HAVE: "Nice to Have" };
     return levels.map((level) => {
       const items = gap.items.filter((i) => i.requirementLevel === level);
       const met = items.filter((i) => i.status === "MET" || i.status === "EXCEEDS").length;
-      return { level, label: levelLabels[level] ?? level, total: items.length, met, gaps: items.length - met };
+      return { level, label: REQUIREMENT_LABELS[level] ?? level, total: items.length, met, gaps: items.length - met, items };
     }).filter((r) => r.total > 0);
   }, [gap]);
 
@@ -1169,23 +1302,50 @@ function SkillsGapCard({ gap }: { gap: SkillsGapResult | null }) {
             {/* By Requirement Level */}
             {activeTab === "level" && (
               <div className="space-y-3">
-                {byLevel.map(({ level, label, total, met, gaps }) => (
-                  <div key={level} className="flex items-center gap-3 rounded-lg border p-3">
-                    <div className={`text-xs font-medium px-2 py-0.5 rounded-full ${REQUIREMENT_COLORS[level] ?? ""}`}>
-                      {label}
+                {byLevel.map(({ level, label, total, met, gaps, items }) => (
+                  <div key={level} className="space-y-3 rounded-lg border p-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className={`rounded-md border px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${REQUIREMENT_COLORS[level] ?? ""}`}>
+                        {label}
+                      </div>
+                      <div className="h-2 min-w-32 flex-1 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            level === "MANDATORY" ? "bg-red-500" : level === "EXPECTED" ? "bg-amber-500" : "bg-blue-500"
+                          }`}
+                          style={{ width: `${total > 0 ? (met / total) * 100 : 0}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">{met}/{total} met</span>
+                      {gaps > 0 && (
+                        <span className="text-xs text-red-600 dark:text-red-400 whitespace-nowrap">{gaps} gap{gaps > 1 ? "s" : ""}</span>
+                      )}
                     </div>
-                    <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${
-                          level === "MANDATORY" ? "bg-red-500" : level === "EXPECTED" ? "bg-amber-500" : "bg-blue-500"
-                        }`}
-                        style={{ width: `${total > 0 ? (met / total) * 100 : 0}%` }}
-                      />
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {items.map((item) => (
+                        <div key={`${level}-${item.skill.id}`} className="rounded-md bg-muted/40 p-2">
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-medium">{item.skill.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {item.skill.domain ? DOMAIN_LABELS[item.skill.domain] ?? item.skill.domain : (item.skill.category ?? "General")}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className="h-fit" style={{ borderColor: GAP_COLORS[item.status], color: GAP_COLORS[item.status] }}>
+                              {item.status}
+                            </Badge>
+                          </div>
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                            <span className="rounded bg-background px-2 py-1 text-muted-foreground">
+                              Required: <b className="text-foreground">{levelLabel(item.requiredProficiency)}</b>
+                            </span>
+                            <span className="rounded bg-background px-2 py-1 text-muted-foreground">
+                              Employee: <b className="text-foreground">{levelLabel(item.acquiredProficiency)}</b>
+                            </span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">{met}/{total} met</span>
-                    {gaps > 0 && (
-                      <span className="text-xs text-red-600 dark:text-red-400 whitespace-nowrap">{gaps} gap{gaps > 1 ? "s" : ""}</span>
-                    )}
                   </div>
                 ))}
               </div>
@@ -1198,10 +1358,14 @@ function SkillsGapCard({ gap }: { gap: SkillsGapResult | null }) {
                   <div key={`${item.skill.id}-${item.requirementLevel}`} className="grid gap-3 rounded-lg border-l-4 bg-muted/30 p-3 md:grid-cols-[1fr_120px_120px_100px]" style={{ borderLeftColor: GAP_COLORS[item.status] }}>
                     <div>
                       <p className="text-sm font-medium">{item.skill.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.skill.domain ? DOMAIN_LABELS[item.skill.domain] ?? item.skill.domain : (item.skill.category ?? "General")}
-                        {" · "}{item.requirementLevel}
-                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {item.skill.domain ? DOMAIN_LABELS[item.skill.domain] ?? item.skill.domain : (item.skill.category ?? "General")}
+                        </span>
+                        <span className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${REQUIREMENT_COLORS[item.requirementLevel] ?? ""}`}>
+                          {REQUIREMENT_LABELS[item.requirementLevel] ?? item.requirementLevel}
+                        </span>
+                      </div>
                     </div>
                     <LevelPill label="Required" level={item.requiredProficiency} />
                     <LevelPill label="Acquired" level={item.acquiredProficiency} />

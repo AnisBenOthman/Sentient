@@ -1,6 +1,4 @@
 import { Module } from '@nestjs/common';
-import { EVENT_BUS } from '@sentient/shared';
-import { InMemoryEventBus } from '../../common/event-bus/in-memory-event-bus';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AccrualService } from './accrual/accrual.service';
 import { BalancesController } from './balances/balances.controller';
@@ -28,7 +26,6 @@ import { RequestsService } from './requests/requests.service';
     LeaveTypesService,
     RequestsService,
     AccrualService,
-    { provide: EVENT_BUS, useClass: InMemoryEventBus },
   ],
   exports: [BalancesService, RequestsService],
 })
