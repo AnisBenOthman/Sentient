@@ -1,5 +1,6 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsEnum,
   IsInt,
   IsOptional,
@@ -85,4 +86,14 @@ export class EmployeeQueryDto {
   @IsOptional()
   @IsString()
   sortOrder?: SortOrder = 'asc';
+
+  @ApiPropertyOptional({
+    description: 'Include compensation fields for HR/admin or manager-scoped simulation queries',
+    type: Boolean,
+    default: false,
+  })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => value === true || value === 'true')
+  @IsBoolean()
+  includeCompensation?: boolean = false;
 }

@@ -673,6 +673,7 @@ function PromotionsTab({
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from({ length: 6 }, (_, index) => currentYear - index);
   const requests = dashboard?.requests ?? [];
+  const pendingReviewRequests = requests.filter((request) => request.status === "PENDING");
   const reviewDisabled = isLoading;
 
   const approvePromotionMutation = useMutation({
@@ -740,6 +741,54 @@ function PromotionsTab({
         <StatCard title="Total Budget Impact" value={formatMoney(dashboard?.totalBudgetImpact ?? 0)} sub="Combined proposed lift" icon={Wallet} color="bg-emerald-100 text-emerald-600" />
         <StatCard title="Pending Requests" value={dashboard?.pendingRequests ?? 0} sub="Awaiting review" icon={Clock} color="bg-violet-100 text-violet-600" />
       </div>
+
+      {canReview && pendingReviewRequests.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Pending HR Decisions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {pendingReviewRequests.map((request) => (
+              <div
+                key={`decision-${request.id}`}
+                className="flex flex-col gap-3 rounded-md border p-3 md:flex-row md:items-center md:justify-between"
+                data-testid={`pending-promotion-decision-${request.id}`}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{request.employeeName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {request.teamName} - {request.currentRole} -&gt; {request.newRole} - {formatMoney(request.salaryDelta)}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-2 text-xs text-emerald-700"
+                    onClick={() => approvePromotionMutation.mutate(request.id)}
+                    disabled={reviewDisabled || approvePromotionMutation.isPending || rejectPromotionMutation.isPending}
+                    data-testid={`button-validate-promotion-card-${request.id}`}
+                  >
+                    <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                    Validate
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-2 text-xs text-red-700"
+                    onClick={() => handleReject(request.id)}
+                    disabled={reviewDisabled || approvePromotionMutation.isPending || rejectPromotionMutation.isPending}
+                    data-testid={`button-refuse-promotion-card-${request.id}`}
+                  >
+                    <XCircle className="mr-1 h-3.5 w-3.5" />
+                    Refuse
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader><CardTitle className="text-base">Promotion Request Details</CardTitle></CardHeader>
@@ -867,7 +916,9 @@ export default function Dashboard() {
   const roleAssignments = user?.roleAssignments ?? [];
   const hasManagerRole = roles.includes("MANAGER");
   const hasPrivilegedDashboard = roles.some((role) => ["HR_ADMIN", "GLOBAL_HR_ADMIN", "EXECUTIVE"].includes(role));
-  const canReviewPromotions = roles.some((role) => ["HR_ADMIN", "GLOBAL_HR_ADMIN"].includes(role));
+  const canReviewPromotions =
+    roles.some((role) => ["HR_ADMIN", "GLOBAL_HR_ADMIN"].includes(role)) ||
+    roleAssignments.some((assignment) => ["HR_ADMIN", "GLOBAL_HR_ADMIN"].includes(assignment.roleCode));
   const isManager = hasManagerRole || hasPrivilegedDashboard;
   const canUseGlobalScope = Boolean(
     hasPrivilegedDashboard ||

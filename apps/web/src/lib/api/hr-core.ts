@@ -94,6 +94,23 @@ export interface PaginatedEmployees {
   limit: number;
 }
 
+type ApiEmployeeProfile = Omit<EmployeeProfile, "grossSalary" | "netSalary"> & {
+  grossSalary: number | string | null;
+  netSalary: number | string | null;
+};
+
+type ApiPaginatedEmployees = Omit<PaginatedEmployees, "data"> & {
+  data: ApiEmployeeProfile[];
+};
+
+function normalizeEmployeeProfile(employee: ApiEmployeeProfile): EmployeeProfile {
+  return {
+    ...employee,
+    grossSalary: toNullableNumber(employee.grossSalary),
+    netSalary: toNullableNumber(employee.netSalary),
+  };
+}
+
 export async function getEmployees(params?: {
   page?: number;
   limit?: number;
@@ -103,16 +120,20 @@ export async function getEmployees(params?: {
   businessUnitId?: string;
   departmentId?: string;
   teamId?: string;
+  includeCompensation?: boolean;
 }): Promise<PaginatedEmployees> {
   const { status, ...rest } = params ?? {};
   const queryParams = status ? { ...rest, employmentStatus: status } : rest;
-  const { data } = await hrClient.get<PaginatedEmployees>('/employees', { params: queryParams });
-  return data;
+  const { data } = await hrClient.get<ApiPaginatedEmployees>('/employees', { params: queryParams });
+  return {
+    ...data,
+    data: data.data.map(normalizeEmployeeProfile),
+  };
 }
 
 export async function getEmployee(id: string): Promise<EmployeeProfile> {
-  const { data } = await hrClient.get<EmployeeProfile>(`/employees/${id}`);
-  return data;
+  const { data } = await hrClient.get<ApiEmployeeProfile>(`/employees/${id}`);
+  return normalizeEmployeeProfile(data);
 }
 
 export type UpdateEmployeeDto = Partial<{
@@ -139,8 +160,8 @@ export async function updateEmployee(
   id: string,
   dto: UpdateEmployeeDto,
 ): Promise<EmployeeProfile> {
-  const { data } = await hrClient.patch<EmployeeProfile>(`/employees/${id}`, dto);
-  return data;
+  const { data } = await hrClient.patch<ApiEmployeeProfile>(`/employees/${id}`, dto);
+  return normalizeEmployeeProfile(data);
 }
 
 export interface CreateEmployeeDto {
@@ -159,8 +180,8 @@ export interface CreateEmployeeDto {
 }
 
 export async function createEmployee(dto: CreateEmployeeDto): Promise<EmployeeProfile> {
-  const { data } = await hrClient.post<EmployeeProfile>('/employees', dto);
-  return data;
+  const { data } = await hrClient.post<ApiEmployeeProfile>('/employees', dto);
+  return normalizeEmployeeProfile(data);
 }
 
 export interface Department {
@@ -932,10 +953,10 @@ export async function getOrgChart(): Promise<OrgDepartment[]> {
 // ── Team Members ──────────────────────────────────────────────────────────
 
 export async function getTeamMembers(teamId: string): Promise<EmployeeProfile[]> {
-  const { data } = await hrClient.get<PaginatedEmployees>('/employees', {
+  const { data } = await hrClient.get<ApiPaginatedEmployees>('/employees', {
     params: { teamId, limit: 50 },
   });
-  return data.data;
+  return data.data.map(normalizeEmployeeProfile);
 }
 
 // Performance Reviews

@@ -121,6 +121,29 @@ describe('EmployeesService', () => {
       expect(where.AND).toContainEqual({ deletedAt: null });
       expect(where.AND).not.toContainEqual({ teamId: managerUser.teamId });
     });
+
+    it('MANAGER can request compensation for their scoped simulation employees', async () => {
+      mockPrisma.employee.findMany.mockResolvedValue([baseEmployee]);
+      mockPrisma.employee.count.mockResolvedValue(1);
+      const teamLead: JwtPayload = {
+        ...managerUser,
+        roleAssignments: [
+          { roleCode: 'MANAGER', scope: PermissionScope.TEAM, scopeEntityId: 'team-1' },
+        ],
+      };
+
+      const result = await service.findAll({ includeCompensation: true }, teamLead);
+
+      expect(result.data[0]?.grossSalary).not.toBeNull();
+      expect(result.data[0]?.netSalary).toBeNull();
+      const [call] = mockPrisma.employee.findMany.mock.calls;
+      const where = (call as any[])[0].where as { AND: unknown[] };
+      expect(where.AND).toContainEqual({ teamId: 'team-1' });
+    });
+
+    it('EMPLOYEE cannot request compensation data from the directory', async () => {
+      await expect(service.findAll({ includeCompensation: true }, employeeUser)).rejects.toThrow(ForbiddenException);
+    });
   });
 
   // ---- findById ----

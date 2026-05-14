@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { DomainEvent, EVENT_BUS, IEventBus, JwtPayload, PermissionScope } from '@sentient/shared';
-import { Prisma, PromotionRequestStatus, SalaryChangeReason } from '../../generated/prisma';
+import { EmploymentStatus, Prisma, PromotionRequestStatus, SalaryChangeReason } from '../../generated/prisma';
 import { Decimal } from '../../generated/prisma/runtime/library';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePromotionRequestDto } from './dto/create-promotion-request.dto';
@@ -84,13 +84,19 @@ export class PromotionRequestsService {
           this.buildUserScopeFilter(user),
         ],
       },
-      select: { id: true },
+      select: { id: true, grossSalary: true, teamId: true, managerId: true },
     });
     if (!employee) throw new NotFoundException(`Employee ${dto.employeeId} not found`);
+    if (!employee.grossSalary || employee.grossSalary.isZero()) {
+      throw new BadRequestException('Employee compensation is required before requesting a promotion');
+    }
 
-    const currentGrossSalary = this.roundMoney(dto.currentGrossSalary);
+    const currentGrossSalary = this.roundMoney(this.decimalToNumber(employee.grossSalary));
     const newGrossSalary = this.roundMoney(dto.newGrossSalary);
-    const currentTeamBudget = this.roundMoney(dto.currentTeamBudget);
+    if (newGrossSalary <= currentGrossSalary) {
+      throw new BadRequestException('Proposed salary must be greater than the current salary');
+    }
+    const currentTeamBudget = await this.getCurrentTeamBudget(employee.teamId, employee.managerId);
     const salaryDelta = this.roundMoney(newGrossSalary - currentGrossSalary);
     const newTeamBudget = this.roundMoney(currentTeamBudget + salaryDelta);
     const salaryDeltaPercentage =
@@ -274,7 +280,13 @@ export class PromotionRequestsService {
           assignment.roleCode,
         ),
     );
-    if (hasGlobalVisibility || user.roles.includes('HR_ADMIN') || user.roles.includes('EXECUTIVE')) {
+    if (
+      hasGlobalVisibility ||
+      user.roles.includes('HR_ADMIN') ||
+      user.roles.includes('GLOBAL_HR_ADMIN') ||
+      user.roles.includes('EXECUTIVE') ||
+      user.roles.includes('SYSTEM_ADMIN')
+    ) {
       return {};
     }
 
@@ -288,18 +300,40 @@ export class PromotionRequestsService {
     const teamAssignment = user.roleAssignments.find(
       (assignment) => assignment.scope === PermissionScope.TEAM,
     );
-    const teamId = teamAssignment?.scopeEntityId ?? user.teamId;
-    if (teamId) return { teamId };
+    if (teamAssignment?.scopeEntityId) return { teamId: teamAssignment.scopeEntityId };
 
     const businessUnitAssignment = user.roleAssignments.find(
       (assignment) => assignment.scope === PermissionScope.BUSINESS_UNIT,
     );
-    const businessUnitId = businessUnitAssignment?.scopeEntityId ?? user.businessUnitId;
+    const businessUnitId = businessUnitAssignment?.scopeEntityId ?? null;
     if (businessUnitId) {
       return {
         OR: [
           { department: { businessUnitId } },
           { team: { businessUnitId } },
+        ],
+      };
+    }
+
+    if (user.roles.includes('MANAGER')) {
+      const managerScopes: Prisma.EmployeeWhereInput[] = [];
+      if (user.employeeId) {
+        managerScopes.push(
+          { department: { is: { headId: user.employeeId } } },
+          { team: { is: { leadId: user.employeeId } } },
+        );
+      }
+      if (user.teamId) managerScopes.push({ teamId: user.teamId });
+      if (managerScopes.length > 0) return { OR: managerScopes };
+    }
+
+    if (user.teamId) return { teamId: user.teamId };
+
+    if (user.businessUnitId) {
+      return {
+        OR: [
+          { department: { businessUnitId: user.businessUnitId } },
+          { team: { businessUnitId: user.businessUnitId } },
         ],
       };
     }
@@ -338,6 +372,27 @@ export class PromotionRequestsService {
     return Array.isArray(value)
       ? value.filter((item): item is string => typeof item === 'string')
       : [];
+  }
+
+  private async getCurrentTeamBudget(
+    teamId: string | null,
+    managerId: string | null,
+  ): Promise<number> {
+    const scope: Prisma.EmployeeWhereInput =
+      teamId
+        ? { teamId }
+        : managerId
+          ? { managerId }
+          : {};
+    const result = await this.prisma.employee.aggregate({
+      where: {
+        ...scope,
+        deletedAt: null,
+        employmentStatus: { notIn: [EmploymentStatus.TERMINATED, EmploymentStatus.RESIGNED] },
+      },
+      _sum: { grossSalary: true },
+    });
+    return this.roundMoney(this.decimalToNumber(result._sum.grossSalary ?? 0));
   }
 
   private requireEmployeeId(user: JwtPayload): string {

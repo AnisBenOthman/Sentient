@@ -31,6 +31,13 @@ const hrUser: JwtPayload = {
   ],
 };
 
+const globalDepartmentHeadUser: JwtPayload = {
+  ...scopedUser,
+  roleAssignments: [
+    { roleCode: 'MANAGER', scope: PermissionScope.GLOBAL, scopeEntityId: null },
+  ],
+};
+
 function makeRequest(overrides: Partial<{
   id: string;
   employeeId: string;
@@ -73,7 +80,7 @@ function makeRequest(overrides: Partial<{
 describe('PromotionRequestsService', () => {
   let prisma: {
     $transaction: jest.Mock;
-    employee: { findFirst: jest.Mock; update: jest.Mock };
+    employee: { findFirst: jest.Mock; update: jest.Mock; aggregate: jest.Mock };
     salaryHistory: { create: jest.Mock };
     promotionRequest: {
       create: jest.Mock;
@@ -88,7 +95,7 @@ describe('PromotionRequestsService', () => {
   beforeEach(() => {
     prisma = {
       $transaction: jest.fn((callback: (tx: typeof prisma) => unknown) => callback(prisma)),
-      employee: { findFirst: jest.fn(), update: jest.fn() },
+      employee: { findFirst: jest.fn(), update: jest.fn(), aggregate: jest.fn() },
       salaryHistory: { create: jest.fn() },
       promotionRequest: {
         create: jest.fn(),
@@ -105,7 +112,13 @@ describe('PromotionRequestsService', () => {
   });
 
   it('creates a request with server-computed salary and budget impact', async () => {
-    prisma.employee.findFirst.mockResolvedValue({ id: 'emp-1' });
+    prisma.employee.findFirst.mockResolvedValue({
+      id: 'emp-1',
+      grossSalary: new Decimal(100000),
+      teamId: 'team-1',
+      managerId: 'manager-1',
+    });
+    prisma.employee.aggregate.mockResolvedValue({ _sum: { grossSalary: new Decimal(400000) } });
     prisma.promotionRequest.create.mockResolvedValue(makeRequest());
 
     const result = await service.create(
@@ -136,10 +149,22 @@ describe('PromotionRequestsService', () => {
     );
     expect(result.salaryDelta).toBe(15000);
     expect(result.budgetImpactPercentage).toBe(3.75);
+    expect(prisma.employee.aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ teamId: 'team-1' }),
+        _sum: { grossSalary: true },
+      }),
+    );
   });
 
   it('requires at least one responsibility', async () => {
-    prisma.employee.findFirst.mockResolvedValue({ id: 'emp-1' });
+    prisma.employee.findFirst.mockResolvedValue({
+      id: 'emp-1',
+      grossSalary: new Decimal(100000),
+      teamId: 'team-1',
+      managerId: 'manager-1',
+    });
+    prisma.employee.aggregate.mockResolvedValue({ _sum: { grossSalary: new Decimal(400000) } });
 
     await expect(
       service.create(
@@ -155,6 +180,46 @@ describe('PromotionRequestsService', () => {
         scopedUser,
       ),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it('allows global manager demo accounts to use department/team leadership scope', async () => {
+    prisma.employee.findFirst.mockResolvedValue({
+      id: 'emp-1',
+      grossSalary: new Decimal(100000),
+      teamId: 'team-2',
+      managerId: 'manager-2',
+    });
+    prisma.employee.aggregate.mockResolvedValue({ _sum: { grossSalary: new Decimal(400000) } });
+    prisma.promotionRequest.create.mockResolvedValue(makeRequest());
+
+    await service.create(
+      {
+        employeeId: 'emp-1',
+        currentRole: 'Engineer',
+        newRole: 'Senior Engineer',
+        currentGrossSalary: 100000,
+        newGrossSalary: 115000,
+        currentTeamBudget: 400000,
+        responsibilities: ['Lead delivery'],
+      },
+      globalDepartmentHeadUser,
+    );
+
+    expect(prisma.employee.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          AND: expect.arrayContaining([
+            expect.objectContaining({
+              OR: expect.arrayContaining([
+                { department: { is: { headId: 'manager-1' } } },
+                { team: { is: { leadId: 'manager-1' } } },
+                { teamId: 'team-1' },
+              ]),
+            }),
+          ]),
+        }),
+      }),
+    );
   });
 
   it('builds dashboard totals from filtered scoped requests', async () => {

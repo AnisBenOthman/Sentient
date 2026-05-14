@@ -296,6 +296,11 @@ export class EmployeesService {
 
   async findAll(query: EmployeeQueryDto, user: JwtPayload): Promise<PaginatedEmployees> {
     const filters: Prisma.EmployeeWhereInput[] = [{ deletedAt: null }];
+    const includeCompensation = query.includeCompensation === true;
+
+    if (includeCompensation) {
+      filters.push(this.buildCompensationAccessFilter(user));
+    }
 
     if (query.businessUnitId) {
       filters.push({
@@ -338,7 +343,9 @@ export class EmployeesService {
     ]);
 
     const data = (employees as EmployeeProfile[]).map((e) =>
-      this.stripSensitiveFields(e, user.roles),
+      includeCompensation
+        ? this.stripDirectoryFieldsForCompensationScope(e, user.roles)
+        : this.stripSensitiveFields(e, user.roles),
     );
 
     return { data, total, page, limit };
@@ -619,6 +626,34 @@ export class EmployeesService {
 
     if (user.employeeId) return { id: user.employeeId };
     throw new ForbiddenException('No employee profile linked to this account');
+  }
+
+  private buildCompensationAccessFilter(user: JwtPayload): Prisma.EmployeeWhereInput {
+    const isPrivileged =
+      user.roles.includes('HR_ADMIN') ||
+      user.roles.includes('GLOBAL_HR_ADMIN') ||
+      user.roles.includes('EXECUTIVE');
+    if (isPrivileged) return {};
+    if (!user.roles.includes('MANAGER')) {
+      throw new ForbiddenException('Compensation data is limited to HR and manager simulation scopes');
+    }
+    return this.buildProfileAccessFilter(user);
+  }
+
+  private stripDirectoryFieldsForCompensationScope(
+    employee: EmployeeProfile,
+    roles: string[],
+  ): EmployeeProfile {
+    const isPrivileged =
+      roles.includes('HR_ADMIN') ||
+      roles.includes('GLOBAL_HR_ADMIN') ||
+      roles.includes('EXECUTIVE');
+    return {
+      ...employee,
+      netSalary: isPrivileged ? employee.netSalary : null,
+      dateOfBirth: isPrivileged ? employee.dateOfBirth : null,
+      salaryHistory: undefined,
+    };
   }
 
   private stripSensitiveFields(employee: EmployeeProfile, roles: string[]): EmployeeProfile {

@@ -12,6 +12,8 @@ import {
   Sparkles,
   Briefcase,
   Users,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,12 +43,15 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { getRoleTier } from "@/lib/auth";
 import { getPositions, type PositionWithCount } from "@/lib/positions-api";
 import {
+  approvePromotionRequest,
   createPromotionRequest,
   getEmployees,
   getPromotionRequests,
+  rejectPromotionRequest,
   type CreatePromotionRequestPayload,
   type EmployeeProfile,
 } from "@/lib/api/hr-core";
+import { useToast } from "@/hooks/use-toast";
 
 const STEP_LABELS = [
   "Select Employee",
@@ -76,6 +81,24 @@ function fmtDate(iso: string): string {
   }
 }
 
+function getApiErrorMessage(error: unknown): string {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    typeof (error as { response?: unknown }).response === "object" &&
+    (error as { response?: unknown }).response !== null
+  ) {
+    const data = (error as { response: { data?: unknown } }).response.data;
+    if (typeof data === "object" && data !== null && "message" in data) {
+      const message = (data as { message?: unknown }).message;
+      if (Array.isArray(message)) return message.filter((item): item is string => typeof item === "string").join(" ");
+      if (typeof message === "string") return message;
+    }
+  }
+  return "Could not submit this promotion request. Please check the employee scope and try again.";
+}
+
 type SimulationEmployee = {
   id: string;
   name: string;
@@ -97,6 +120,7 @@ type SimulationScopeParams = {
 };
 
 function toSimulationEmployee(employee: EmployeeProfile): SimulationEmployee {
+  const grossSalary = Number(employee.grossSalary ?? 0);
   return {
     id: employee.id,
     name: `${employee.firstName} ${employee.lastName}`,
@@ -106,7 +130,7 @@ function toSimulationEmployee(employee: EmployeeProfile): SimulationEmployee {
     team: employee.team?.name ?? null,
     teamId: employee.teamId ?? null,
     managerId: employee.managerId ?? null,
-    grossSalary: employee.grossSalary ?? 0,
+    grossSalary: Number.isFinite(grossSalary) ? grossSalary : 0,
     positionLevel: employee.position?.title ?? null,
     employmentStatus: employee.employmentStatus,
   };
@@ -138,7 +162,7 @@ function isCurrentEmployee(employee: SimulationEmployee): boolean {
 }
 
 function getEmployeeSalary(e: SimulationEmployee): number {
-  return e.grossSalary;
+  return Number.isFinite(e.grossSalary) ? e.grossSalary : 0;
 }
 
 // ── Step indicator ──────────────────────────────────────────────────────────
@@ -384,9 +408,13 @@ function PromotionWizard({
     if (s === 2) {
       if (!newSalaryStr || newSalary <= 0)
         return "Enter the proposed new salary.";
+      if (employee && newSalary <= currentSalary)
+        return "The proposed salary must be greater than the current salary.";
     }
     if (s === 3) {
       if (!effectiveNewRole) return "Select a new role for this promotion.";
+      if (responsibilities.length === 0)
+        return "Add at least one new responsibility for this promotion.";
     }
     return null;
   }
@@ -420,8 +448,8 @@ function PromotionWizard({
         responsibilities,
       });
       onOpenChange(false);
-    } catch {
-      setError("Could not submit this promotion request. Please check the employee scope and try again.");
+    } catch (submitError) {
+      setError(getApiErrorMessage(submitError));
     }
   }
 
@@ -835,10 +863,17 @@ function PromotionWizard({
 export default function Simulation() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [positions, setPositions] = useState<PositionWithCount[]>([]);
   const [wizardOpen, setWizardOpen] = useState(false);
   const roleTier = user ? getRoleTier(user) : "employee";
   const isHrSimulation = roleTier === "hr_admin";
+  const canReviewPromotions = Boolean(
+    user?.roles?.some((role) => ["HR_ADMIN", "GLOBAL_HR_ADMIN"].includes(role)) ||
+      user?.roleAssignments?.some((assignment) =>
+        ["HR_ADMIN", "GLOBAL_HR_ADMIN"].includes(assignment.roleCode),
+      ),
+  );
   const simulationScopeParams = useMemo(() => getSimulationScopeParams(user), [user]);
   const hasSimulationScope = isHrSimulation || Boolean(simulationScopeParams.departmentId || simulationScopeParams.teamId);
   const simulationScopeLabel = isHrSimulation
@@ -847,7 +882,7 @@ export default function Simulation() {
 
   const { data: employeesResult } = useQuery({
     queryKey: ["simulation-employees", simulationScopeParams],
-    queryFn: () => getEmployees({ limit: 500, ...simulationScopeParams }),
+    queryFn: () => getEmployees({ limit: 500, includeCompensation: true, ...simulationScopeParams }),
     enabled: Boolean(user && hasSimulationScope),
   });
   const allEmployees = useMemo(
@@ -876,6 +911,47 @@ export default function Simulation() {
       queryClient.invalidateQueries({ queryKey: ["promotion-requests-dashboard"] });
     },
   });
+  const approvePromotionMutation = useMutation({
+    mutationFn: (id: string) => approvePromotionRequest(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["promotion-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["promotion-requests-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-analytics"] });
+      toast({ title: "Promotion request validated" });
+    },
+    onError: (error) => {
+      toast({
+        title: "Could not validate request",
+        description: getApiErrorMessage(error),
+        variant: "destructive",
+      });
+    },
+  });
+  const rejectPromotionMutation = useMutation({
+    mutationFn: ({ id, reviewNote }: { id: string; reviewNote: string }) =>
+      rejectPromotionRequest(id, reviewNote),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["promotion-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["promotion-requests-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-analytics"] });
+      toast({ title: "Promotion request refused" });
+    },
+    onError: (error) => {
+      toast({
+        title: "Could not refuse request",
+        description: getApiErrorMessage(error),
+        variant: "destructive",
+      });
+    },
+  });
+  const reviewDisabled =
+    requestsLoading || approvePromotionMutation.isPending || rejectPromotionMutation.isPending;
+
+  function handleRejectPromotion(id: string): void {
+    const reviewNote = window.prompt("Reason for refusal");
+    if (!reviewNote?.trim()) return;
+    rejectPromotionMutation.mutate({ id, reviewNote: reviewNote.trim() });
+  }
 
   useEffect(() => {
     getPositions()
@@ -1006,6 +1082,32 @@ export default function Simulation() {
                         </p>
                       </div>
                     </div>
+                    {canReviewPromotions && r.status === "PENDING" && (
+                      <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-border pt-3">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2 text-xs text-emerald-700"
+                          onClick={() => approvePromotionMutation.mutate(r.id)}
+                          disabled={reviewDisabled}
+                          data-testid={`button-validate-simulation-promotion-${r.id}`}
+                        >
+                          <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                          Validate
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2 text-xs text-red-700"
+                          onClick={() => handleRejectPromotion(r.id)}
+                          disabled={reviewDisabled}
+                          data-testid={`button-refuse-simulation-promotion-${r.id}`}
+                        >
+                          <XCircle className="mr-1 h-3.5 w-3.5" />
+                          Refuse
+                        </Button>
+                      </div>
+                    )}
                   </li>
                 );
               })}
