@@ -36,27 +36,44 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { DashboardScopeFilter } from "@/components/dashboard-scope-filter";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DashboardScopeFilter,
+  type DashboardScopeSelection,
+} from "@/components/dashboard-scope-filter";
 import { useAuth } from "@/components/providers/auth-provider";
 import {
+  approvePromotionRequest,
   approveLeaveRequest,
   rejectLeaveRequest,
+  rejectPromotionRequest,
   getBusinessUnits,
   getDashboardAnalytics,
   getDepartments,
   getEmployees,
   getPendingLeaveQueue,
+  getPromotionRequestsDashboard,
   getTeams,
   type ChartPoint,
   type DashboardAnalytics,
+  type PromotionRequestsDashboard,
   type SeriesPoint,
 } from "@/lib/api/hr-core";
 import { cn } from "@/lib/utils";
-import type { ScopeLevel } from "@/lib/use-dashboard-scope";
 import {
   CalendarCheck,
   CalendarX,
+  Briefcase,
+  Cake,
+  CheckCircle2,
   Clock,
+  Hourglass,
   LayoutDashboard,
   LineChart as LineChartIcon,
   Plane,
@@ -66,9 +83,12 @@ import {
   Trophy,
   UserCheck,
   UserPlus,
+  UserX,
   Users,
   Wallet,
+  XCircle,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 type Tab = "overview" | "employees" | "leave" | "skills" | "pay" | "promotions" | "engagement";
 
@@ -87,6 +107,16 @@ const TABS: { value: Tab; label: string; icon: React.ElementType }[] = [
   { value: "promotions", label: "Promotions", icon: Trophy },
   { value: "engagement", label: "Engagement", icon: Star },
 ];
+
+function isDashboardTab(value: string | null): value is Tab {
+  return TABS.some((tab) => tab.value === value);
+}
+
+function initialDashboardTab(): Tab {
+  if (typeof window === "undefined") return "overview";
+  const tab = new URLSearchParams(window.location.search).get("tab");
+  return isDashboardTab(tab) ? tab : "overview";
+}
 
 const CHART_COLORS = [
   "#2563eb",
@@ -174,6 +204,20 @@ function formatMoney(value: number | null): string {
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+function formatPercent(value: number): string {
+  return `${value > 0 ? "+" : ""}${value.toFixed(1)}%`;
+}
+
+function formatMetric(value: number | null, suffix = ""): string {
+  if (value === null) return "-";
+  return `${value.toFixed(1)}${suffix}`;
+}
+
+function formatRatio(value: number | null): string {
+  if (value === null) return "-";
+  return `${value.toFixed(0)}%`;
 }
 
 function seriesKeys(data: SeriesPoint[]): string[] {
@@ -326,7 +370,13 @@ function OverviewTab({ analytics }: { analytics: DashboardAnalytics | undefined 
         <StatCard title="Total Employees" value={analytics.employees.total} sub="Visible in current scope" icon={Users} color="bg-blue-100 text-blue-600 dark:bg-blue-900/30" />
         <StatCard title="Active" value={analytics.employees.active} sub="Currently working" icon={UserCheck} color="bg-green-100 text-green-600 dark:bg-green-900/30" />
         <StatCard title="On Leave" value={analytics.employees.onLeave} sub="Away from office" icon={Plane} color="bg-orange-100 text-orange-600 dark:bg-orange-900/30" />
+        <StatCard title="Probation" value={analytics.employees.probation} sub="Current probation cases" icon={Hourglass} color="bg-amber-100 text-amber-600 dark:bg-amber-900/30" />
+        <StatCard title="Exits" value={analytics.employees.terminal} sub="Terminated or resigned" icon={UserX} color="bg-red-100 text-red-600 dark:bg-red-900/30" />
         <StatCard title="New Hires" value={analytics.employees.newHiresOnProbation} sub="Hired in last 6 months" icon={UserPlus} color="bg-teal-100 text-teal-600 dark:bg-teal-900/30" />
+        <StatCard title="Avg Age" value={formatMetric(analytics.employees.averageAge)} sub="Current workforce" icon={Cake} color="bg-pink-100 text-pink-600 dark:bg-pink-900/30" />
+        <StatCard title="Avg Tenure" value={formatMetric(analytics.employees.averageTenureYears, " yrs")} sub="Current workforce" icon={Briefcase} color="bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30" />
+        <StatCard title="Full-Time" value={formatRatio(analytics.employees.fullTimeRatio)} sub="Current workforce mix" icon={ShieldCheck} color="bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30" />
+        <StatCard title="Exit Rate" value={formatRatio(analytics.employees.attritionRate)} sub="Exits in visible people" icon={LineChartIcon} color="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" />
         <StatCard title="Pending Approvals" value={analytics.leave.pendingApprovals} sub="Leave requests awaiting review" icon={Clock} color="bg-purple-100 text-purple-600 dark:bg-purple-900/30" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
@@ -335,6 +385,12 @@ function OverviewTab({ analytics }: { analytics: DashboardAnalytics | undefined 
         </ChartCard>
         <ChartCard title="Leave requests by type" subtitle="Last 12 months">
           <SeriesLineChart data={analytics.leave.requestsByTypeOverTime} />
+        </ChartCard>
+        <ChartCard title="Age distribution" subtitle="Current workforce by age band">
+          <PointBarChart data={analytics.employees.ageBands} valueName="Employees" />
+        </ChartCard>
+        <ChartCard title="Tenure distribution" subtitle="Current workforce by service length">
+          <PointBarChart data={analytics.employees.tenureBands} valueName="Employees" />
         </ChartCard>
       </div>
     </div>
@@ -366,10 +422,15 @@ function EmployeesTab({
   return (
     <div className="space-y-6">
       <SectionHeader icon={Users} title="Employees" subtitle="Headcount and hiring movement from HR Core" color="bg-blue-100 text-blue-600 dark:bg-blue-900/30" />
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Total Employees" value={analytics?.employees.total ?? 0} sub="Visible in current scope" icon={Users} color="bg-blue-100 text-blue-600" />
         <StatCard title="Active" value={analytics?.employees.active ?? 0} sub="Currently working" icon={UserCheck} color="bg-green-100 text-green-600" />
+        <StatCard title="Probation" value={analytics?.employees.probation ?? 0} sub="Early-tenure monitoring" icon={Hourglass} color="bg-amber-100 text-amber-600" />
         <StatCard title="New Hires (Probation)" value={analytics?.employees.newHiresOnProbation ?? 0} sub="Hired in last 6 months" icon={UserPlus} color="bg-teal-100 text-teal-600" />
+        <StatCard title="Avg Age" value={formatMetric(analytics?.employees.averageAge ?? null)} sub="Current workforce" icon={Cake} color="bg-pink-100 text-pink-600" />
+        <StatCard title="Avg Tenure" value={formatMetric(analytics?.employees.averageTenureYears ?? null, " yrs")} sub="Current workforce" icon={Briefcase} color="bg-indigo-100 text-indigo-600" />
+        <StatCard title="Full-Time Ratio" value={formatRatio(analytics?.employees.fullTimeRatio ?? null)} sub="Current workforce" icon={ShieldCheck} color="bg-cyan-100 text-cyan-600" />
+        <StatCard title="Exits" value={analytics?.employees.terminal ?? 0} sub="Terminated or resigned" icon={UserX} color="bg-red-100 text-red-600" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <ChartCard title="Headcount over time" subtitle="Employees hired by month-end">
@@ -377,6 +438,18 @@ function EmployeesTab({
         </ChartCard>
         <ChartCard title="New hire trend" subtitle="Monthly new hires globally (last 12 months)">
           <PointLineChart data={analytics?.employees.newHiresTrend ?? []} valueName="New Hires" />
+        </ChartCard>
+        <ChartCard title="Status breakdown" subtitle="All visible people by employment status">
+          <PointBarChart data={analytics?.employees.statusBreakdown ?? []} valueName="Employees" />
+        </ChartCard>
+        <ChartCard title="Contract mix" subtitle="Current workforce by contract type">
+          <PointBarChart data={analytics?.employees.contractMix ?? []} valueName="Employees" />
+        </ChartCard>
+        <ChartCard title="Age bands" subtitle="Current workforce distribution">
+          <PointBarChart data={analytics?.employees.ageBands ?? []} valueName="Employees" />
+        </ChartCard>
+        <ChartCard title="Tenure bands" subtitle="Current workforce service length">
+          <PointBarChart data={analytics?.employees.tenureBands ?? []} valueName="Employees" />
         </ChartCard>
       </div>
       <div className="grid gap-6 lg:grid-cols-1">
@@ -582,51 +655,184 @@ function PayTab({ analytics }: { analytics: DashboardAnalytics | undefined }) {
   );
 }
 
-function PromotionsTab({ analytics }: { analytics: DashboardAnalytics | undefined }) {
+function PromotionsTab({
+  dashboard,
+  isLoading,
+  year,
+  onYearChange,
+  canReview,
+}: {
+  dashboard: PromotionRequestsDashboard | undefined;
+  isLoading: boolean;
+  year: number;
+  onYearChange: (year: number) => void;
+  canReview: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 6 }, (_, index) => currentYear - index);
+  const requests = dashboard?.requests ?? [];
+  const reviewDisabled = isLoading;
+
+  const approvePromotionMutation = useMutation({
+    mutationFn: (id: string) => approvePromotionRequest(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["promotion-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["promotion-requests-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-analytics"] });
+      toast({ title: "Promotion request validated" });
+    },
+    onError: () => {
+      toast({
+        title: "Could not validate request",
+        description: "Please refresh and try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const rejectPromotionMutation = useMutation({
+    mutationFn: ({ id, reviewNote }: { id: string; reviewNote: string }) =>
+      rejectPromotionRequest(id, reviewNote),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["promotion-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["promotion-requests-dashboard"] });
+      toast({ title: "Promotion request refused" });
+    },
+    onError: () => {
+      toast({
+        title: "Could not refuse request",
+        description: "Please refresh and try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  function handleReject(id: string): void {
+    const reviewNote = window.prompt("Reason for refusal");
+    if (!reviewNote?.trim()) return;
+    rejectPromotionMutation.mutate({ id, reviewNote: reviewNote.trim() });
+  }
+
   return (
     <div className="space-y-6">
-      <SectionHeader icon={Trophy} title="Promotions" subtitle="Promotion events derived from salary history" color="bg-amber-100 text-amber-600 dark:bg-amber-900/30" />
-      <div className="grid gap-4 md:grid-cols-3">
-        <StatCard title="Promotions" value={analytics?.promotions.total ?? 0} sub="Promotion salary changes" icon={Trophy} color="bg-amber-100 text-amber-600" />
-        <StatCard title="Departments" value={analytics?.promotions.byDepartment.length ?? 0} sub="With promotion activity" icon={Users} color="bg-blue-100 text-blue-600" />
-        <StatCard title="Recent Records" value={analytics?.promotions.recent.length ?? 0} sub="Latest promotion events" icon={Clock} color="bg-violet-100 text-violet-600" />
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <SectionHeader icon={Trophy} title="Promotions" subtitle="Promotion requests by year and organization scope" color="bg-amber-100 text-amber-600 dark:bg-amber-900/30" />
+        <div className="w-full md:w-44">
+          <p className="mb-1.5 text-xs font-medium text-muted-foreground">Year</p>
+          <Select value={String(year)} onValueChange={(value) => onYearChange(Number(value))}>
+            <SelectTrigger data-testid="select-promotion-year">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {yearOptions.map((option) => (
+                <SelectItem key={option} value={String(option)}>{option}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <ChartCard title="Promotions by quarter" subtitle="Count of promotion salary changes over time">
-          <PointLineChart data={analytics?.promotions.byQuarter ?? []} valueName="Promotions" />
-        </ChartCard>
-        <ChartCard title="Promotions by department" subtitle="Promotion count by department">
-          <PointBarChart data={analytics?.promotions.byDepartment ?? []} valueName="Promotions" />
-        </ChartCard>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard title="Total Requests" value={dashboard?.totalRequests ?? 0} sub={`Submitted in ${year}`} icon={Trophy} color="bg-amber-100 text-amber-600" />
+        <StatCard title="Avg Salary Lift" value={formatMoney(dashboard?.averageSalaryLift ?? 0)} sub="Average proposed increase" icon={LineChartIcon} color="bg-blue-100 text-blue-600" />
+        <StatCard title="Total Budget Impact" value={formatMoney(dashboard?.totalBudgetImpact ?? 0)} sub="Combined proposed lift" icon={Wallet} color="bg-emerald-100 text-emerald-600" />
+        <StatCard title="Pending Requests" value={dashboard?.pendingRequests ?? 0} sub="Awaiting review" icon={Clock} color="bg-violet-100 text-violet-600" />
       </div>
+
       <Card>
-        <CardHeader><CardTitle className="text-base">Recent Promotions</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">Promotion Request Details</CardTitle></CardHeader>
         <CardContent>
-          {(analytics?.promotions.recent.length ?? 0) === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">No promotion records in the current window.</p>
+          {isLoading ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Loading promotion requests...</p>
+          ) : requests.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">No promotion requests match the current filters.</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead>Effective Date</TableHead>
-                  <TableHead className="text-right">Raise</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {analytics?.promotions.recent.map((promotion) => (
-                  <TableRow key={promotion.id}>
-                    <TableCell>{promotion.employeeName}</TableCell>
-                    <TableCell>{promotion.departmentName}</TableCell>
-                    <TableCell>{new Date(promotion.effectiveDate).toLocaleDateString()}</TableCell>
-                    <TableCell className="text-right">
-                      {formatMoney(promotion.newGrossSalary - promotion.previousGrossSalary)}
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Employee</TableHead>
+                    <TableHead>Org</TableHead>
+                    <TableHead>Role Change</TableHead>
+                    <TableHead>Submitted</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Salary Lift</TableHead>
+                    <TableHead className="text-right">Lift %</TableHead>
+                    <TableHead className="text-right">Budget Impact</TableHead>
+                    {canReview && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {requests.map((request) => (
+                    <TableRow key={request.id}>
+                      <TableCell className="font-medium">{request.employeeName}</TableCell>
+                      <TableCell>
+                        <div className="text-sm">{request.departmentName}</div>
+                        <div className="text-xs text-muted-foreground">{request.teamName}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="max-w-[240px] text-sm">
+                          <span>{request.currentRole}</span>
+                          <span className="px-1.5 text-muted-foreground">-&gt;</span>
+                          <span className="font-medium text-blue-700 dark:text-blue-400">{request.newRole}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{new Date(request.submittedAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className={cn(
+                          "capitalize",
+                          request.status === "PENDING" && "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+                          request.status === "APPROVED" && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+                          request.status === "REJECTED" && "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+                        )}>
+                          {request.status.toLowerCase()}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">{formatMoney(request.salaryDelta)}</TableCell>
+                      <TableCell className="text-right">{formatPercent(request.salaryDeltaPercentage)}</TableCell>
+                      <TableCell className="text-right">
+                        <div>{formatMoney(request.salaryDelta)}</div>
+                        <div className="text-xs text-muted-foreground">{formatPercent(request.budgetImpactPercentage)}</div>
+                      </TableCell>
+                      {canReview && (
+                        <TableCell className="text-right">
+                          {request.status === "PENDING" ? (
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-2 text-xs text-emerald-700"
+                                onClick={() => approvePromotionMutation.mutate(request.id)}
+                                disabled={reviewDisabled || approvePromotionMutation.isPending || rejectPromotionMutation.isPending}
+                                data-testid={`button-validate-promotion-${request.id}`}
+                              >
+                                <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                                Validate
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-2 text-xs text-red-700"
+                                onClick={() => handleReject(request.id)}
+                                disabled={reviewDisabled || approvePromotionMutation.isPending || rejectPromotionMutation.isPending}
+                                data-testid={`button-refuse-promotion-${request.id}`}
+                              >
+                                <XCircle className="mr-1 h-3.5 w-3.5" />
+                                Refuse
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Reviewed</span>
+                          )}
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -649,16 +855,25 @@ function EngagementTab({ analytics }: { analytics: DashboardAnalytics | undefine
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<Tab>("overview");
-  const [scopeLevel, setScopeLevel] = useState<ScopeLevel>("global");
-  const [scopeUnitId, setScopeUnitId] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>(initialDashboardTab);
+  const [scopeSelection, setScopeSelection] = useState<DashboardScopeSelection>({
+    businessUnitId: null,
+    departmentId: null,
+    teamId: null,
+  });
+  const [promotionYear, setPromotionYear] = useState<number>(() => new Date().getFullYear());
 
-  const isManager = user?.roles.some((role) => ["MANAGER", "HR_ADMIN", "EXECUTIVE"].includes(role)) ?? false;
-  const canUseGlobalScope =
-    user?.roleAssignments.some((assignment) => assignment.scope === "GLOBAL") ??
-    user?.roles.some((role) => ["HR_ADMIN", "GLOBAL_HR_ADMIN", "EXECUTIVE"].includes(role)) ??
-    false;
-  const businessUnitAssignment = user?.roleAssignments.find((assignment) => assignment.scope === "BUSINESS_UNIT");
+  const roles = user?.roles ?? [];
+  const roleAssignments = user?.roleAssignments ?? [];
+  const hasManagerRole = roles.includes("MANAGER");
+  const hasPrivilegedDashboard = roles.some((role) => ["HR_ADMIN", "GLOBAL_HR_ADMIN", "EXECUTIVE"].includes(role));
+  const canReviewPromotions = roles.some((role) => ["HR_ADMIN", "GLOBAL_HR_ADMIN"].includes(role));
+  const isManager = hasManagerRole || hasPrivilegedDashboard;
+  const canUseGlobalScope = Boolean(
+    hasPrivilegedDashboard ||
+    roleAssignments.some((assignment) => assignment.scope === "GLOBAL" && assignment.roleCode !== "MANAGER"),
+  );
+  const businessUnitAssignment = roleAssignments.find((assignment) => assignment.scope === "BUSINESS_UNIT");
 
   const { data: businessUnits = [] } = useQuery({
     queryKey: ["business-units", "dashboard-scope"],
@@ -676,51 +891,71 @@ export default function Dashboard() {
     enabled: Boolean(user),
   });
 
+  const departmentById = useMemo(
+    () => new Map(departments.map((department) => [department.id, department])),
+    [departments],
+  );
+  const teamById = useMemo(
+    () => new Map(teams.map((team) => [team.id, team])),
+    [teams],
+  );
+
   const forcedScope = useMemo(() => {
-    const teamAssignment = user?.roleAssignments.find((assignment) => assignment.scope === "TEAM");
-    if (teamAssignment?.scopeEntityId) return { level: "team" as const, unitId: teamAssignment.scopeEntityId };
-    const departmentAssignment = user?.roleAssignments.find((assignment) => assignment.scope === "DEPARTMENT");
+    if (!hasManagerRole || hasPrivilegedDashboard) return null;
+
+    const departmentAssignment = roleAssignments.find((assignment) => assignment.scope === "DEPARTMENT");
     if (departmentAssignment?.scopeEntityId) return { level: "dept" as const, unitId: departmentAssignment.scopeEntityId };
-    if (user?.roles.includes("EMPLOYEE") && !isManager && user.teamId) {
+
+    const teamAssignment = roleAssignments.find((assignment) => assignment.scope === "TEAM");
+    if (teamAssignment?.scopeEntityId) return { level: "team" as const, unitId: teamAssignment.scopeEntityId };
+
+    if (user?.teamId) {
       return { level: "team" as const, unitId: user.teamId };
     }
     return null;
-  }, [isManager, user]);
+  }, [hasManagerRole, hasPrivilegedDashboard, roleAssignments, user?.teamId]);
 
-  const effectiveLevel = forcedScope?.level ?? (businessUnitAssignment && scopeLevel === "global" ? "bu" : scopeLevel);
-  const effectiveUnitId = forcedScope?.unitId ?? (businessUnitAssignment && scopeLevel === "global" ? businessUnitAssignment.scopeEntityId : scopeUnitId);
+  const allowedBusinessUnits = useMemo(
+    () => businessUnits.filter((businessUnit) => !businessUnitAssignment?.scopeEntityId || businessUnit.id === businessUnitAssignment.scopeEntityId),
+    [businessUnitAssignment?.scopeEntityId, businessUnits],
+  );
 
-  const unitOptions = useMemo(() => {
-    if (effectiveLevel === "global") return [];
-    if (effectiveLevel === "bu") {
-      return businessUnits
-        .filter((businessUnit) => !businessUnitAssignment?.scopeEntityId || businessUnit.id === businessUnitAssignment.scopeEntityId)
-        .map((businessUnit) => ({ value: businessUnit.id, label: businessUnit.name }));
+  const effectiveScopeSelection = useMemo<DashboardScopeSelection>(() => {
+    if (forcedScope?.level === "team") {
+      const team = teamById.get(forcedScope.unitId);
+      const department = team ? departmentById.get(team.departmentId) : null;
+      return {
+        businessUnitId: department?.businessUnitId ?? null,
+        departmentId: team?.departmentId ?? null,
+        teamId: forcedScope.unitId,
+      };
     }
-    if (effectiveLevel === "dept") {
-      const allowedBuId = user?.roleAssignments.find((assignment) => assignment.scope === "BUSINESS_UNIT")?.scopeEntityId;
-      return departments
-        .filter((department) => !allowedBuId || department.businessUnitId === allowedBuId)
-        .map((department) => ({
-          value: department.id,
-          label: `${department.name} - ${department.businessUnit?.name ?? "Business unit"}`,
-        }));
+
+    if (forcedScope?.level === "dept") {
+      const department = departmentById.get(forcedScope.unitId);
+      return {
+        businessUnitId: department?.businessUnitId ?? null,
+        departmentId: forcedScope.unitId,
+        teamId: null,
+      };
     }
-    const allowedDepartmentId = forcedScope?.level === "dept" ? forcedScope.unitId : null;
-    return teams
-      .filter((team) => !allowedDepartmentId || team.departmentId === allowedDepartmentId)
-      .map((team) => ({
-        value: team.id,
-        label: `${team.name} - ${team.department?.name ?? "Department"}`,
-      }));
-  }, [businessUnitAssignment, businessUnits, departments, effectiveLevel, forcedScope, teams, user?.roleAssignments]);
+
+    const pinnedBusinessUnitId = businessUnitAssignment?.scopeEntityId ?? null;
+    const businessUnitId = pinnedBusinessUnitId ?? scopeSelection.businessUnitId;
+    const department = scopeSelection.departmentId ? departmentById.get(scopeSelection.departmentId) : null;
+    const departmentId = department?.businessUnitId === businessUnitId ? department.id : null;
+    const team = scopeSelection.teamId ? teamById.get(scopeSelection.teamId) : null;
+    const teamId = team && team.departmentId === departmentId ? team.id : null;
+
+    return { businessUnitId, departmentId, teamId };
+  }, [businessUnitAssignment?.scopeEntityId, departmentById, forcedScope, scopeSelection, teamById]);
 
   const scopeParams = useMemo<ScopeParams>(() => {
-    if (effectiveLevel === "bu" && effectiveUnitId) return { businessUnitId: effectiveUnitId };
-    if (effectiveLevel === "dept" && effectiveUnitId) return { departmentId: effectiveUnitId };
-    if (effectiveLevel === "team" && effectiveUnitId) return { teamId: effectiveUnitId };
+    if (effectiveScopeSelection.teamId) return { teamId: effectiveScopeSelection.teamId };
+    if (effectiveScopeSelection.departmentId) return { departmentId: effectiveScopeSelection.departmentId };
+    if (effectiveScopeSelection.businessUnitId) return { businessUnitId: effectiveScopeSelection.businessUnitId };
     return {};
-  }, [effectiveLevel, effectiveUnitId]);
+  }, [effectiveScopeSelection]);
 
   const { data: analytics, isLoading: analyticsLoading } = useQuery({
     queryKey: ["dashboard-analytics", scopeParams],
@@ -728,25 +963,38 @@ export default function Dashboard() {
     enabled: Boolean(user),
   });
 
+  const promotionDashboardParams = useMemo(
+    () => ({ ...scopeParams, year: promotionYear }),
+    [promotionYear, scopeParams],
+  );
+
+  const { data: promotionDashboard, isLoading: promotionDashboardLoading } = useQuery({
+    queryKey: ["promotion-requests-dashboard", promotionDashboardParams],
+    queryFn: () => getPromotionRequestsDashboard(promotionDashboardParams),
+    enabled: Boolean(user),
+  });
+
   const visibleTabs = TABS.filter((item) => item.value !== "leave" || isManager);
 
-  function handleScopeChange(nextLevel: ScopeLevel, nextUnitId?: string | null): void {
-    setScopeLevel(nextLevel);
-    if (nextLevel === "global") {
-      setScopeUnitId(null);
-      return;
+  function handleScopeChange(nextSelection: DashboardScopeSelection): void {
+    setScopeSelection({
+      businessUnitId: businessUnitAssignment?.scopeEntityId ?? nextSelection.businessUnitId,
+      departmentId: nextSelection.departmentId,
+      teamId: nextSelection.teamId,
+    });
+  }
+
+  function selectTab(nextTab: Tab): void {
+    setTab(nextTab);
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (nextTab === "overview") {
+      url.searchParams.delete("tab");
+      url.searchParams.delete("requestId");
+    } else {
+      url.searchParams.set("tab", nextTab);
     }
-    if (nextUnitId !== undefined) {
-      setScopeUnitId(nextUnitId);
-      return;
-    }
-    const firstOption =
-      nextLevel === "bu"
-        ? businessUnits.find((businessUnit) => !businessUnitAssignment?.scopeEntityId || businessUnit.id === businessUnitAssignment.scopeEntityId)?.id
-        : nextLevel === "dept"
-          ? departments.find((department) => !businessUnitAssignment?.scopeEntityId || department.businessUnitId === businessUnitAssignment.scopeEntityId)?.id
-          : teams[0]?.id;
-    setScopeUnitId(firstOption ?? null);
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
   }
 
   return (
@@ -762,9 +1010,12 @@ export default function Dashboard() {
 
       {(canUseGlobalScope || businessUnitAssignment || forcedScope) && (
         <DashboardScopeFilter
-          level={effectiveLevel}
-          unitId={effectiveUnitId}
-          unitOptions={unitOptions}
+          businessUnits={allowedBusinessUnits}
+          departments={departments}
+          teams={teams}
+          value={effectiveScopeSelection}
+          canUseGlobal={canUseGlobalScope && !businessUnitAssignment && !forcedScope}
+          disabled={Boolean(forcedScope)}
           onChange={forcedScope ? () => undefined : handleScopeChange}
         />
       )}
@@ -773,7 +1024,7 @@ export default function Dashboard() {
         {visibleTabs.map(({ value, label, icon: Icon }) => (
           <button
             key={value}
-            onClick={() => setTab(value)}
+            onClick={() => selectTab(value)}
             data-testid={`tab-${value}`}
             className={cn(
               "flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition-colors -mb-px",
@@ -793,7 +1044,15 @@ export default function Dashboard() {
       {tab === "leave" && isManager && <LeaveQueueTab analytics={analytics} />}
       {tab === "skills" && <SkillsTab analytics={analytics} />}
       {tab === "pay" && <PayTab analytics={analytics} />}
-      {tab === "promotions" && <PromotionsTab analytics={analytics} />}
+      {tab === "promotions" && (
+        <PromotionsTab
+          dashboard={promotionDashboard}
+          isLoading={promotionDashboardLoading}
+          year={promotionYear}
+          onYearChange={setPromotionYear}
+          canReview={canReviewPromotions}
+        />
+      )}
       {tab === "engagement" && <EngagementTab analytics={analytics} />}
     </div>
   );

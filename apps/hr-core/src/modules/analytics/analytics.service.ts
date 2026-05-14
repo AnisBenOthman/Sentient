@@ -25,10 +25,20 @@ export interface DashboardAnalytics {
     total: number;
     active: number;
     onLeave: number;
+    probation: number;
+    terminal: number;
     newHiresOnProbation: number;
+    averageAge: number | null;
+    averageTenureYears: number | null;
+    fullTimeRatio: number | null;
+    attritionRate: number | null;
     headcountOverTime: ChartPoint[];
     newHiresTrend: ChartPoint[];
     newHiresByDepartment: SeriesPoint[];
+    statusBreakdown: ChartPoint[];
+    contractMix: ChartPoint[];
+    ageBands: ChartPoint[];
+    tenureBands: ChartPoint[];
   };
   payroll: {
     visible: boolean;
@@ -122,6 +132,20 @@ const PROFICIENCY_SCORE: Record<ProficiencyLevel, number> = {
   [ProficiencyLevel.ADVANCED]: 3,
   [ProficiencyLevel.EXPERT]: 4,
 };
+const AGE_BANDS = [
+  { label: '<25', min: 0, max: 24 },
+  { label: '25-34', min: 25, max: 34 },
+  { label: '35-44', min: 35, max: 44 },
+  { label: '45-54', min: 45, max: 54 },
+  { label: '55+', min: 55, max: Number.POSITIVE_INFINITY },
+];
+const TENURE_BANDS = [
+  { label: '<1 year', min: 0, max: 0.99 },
+  { label: '1-2 years', min: 1, max: 2.99 },
+  { label: '3-5 years', min: 3, max: 5.99 },
+  { label: '6-10 years', min: 6, max: 10.99 },
+  { label: '10+ years', min: 11, max: Number.POSITIVE_INFINITY },
+];
 
 @Injectable()
 export class AnalyticsService {
@@ -132,6 +156,10 @@ export class AnalyticsService {
     user: JwtPayload,
   ): Promise<DashboardAnalytics> {
     const employeeWhere = this.buildScopedEmployeeWhere(query, user);
+    const currentEmployeeWhere = this.andEmployeeWhere(
+      employeeWhere,
+      this.buildCurrentWorkforceFilter(),
+    );
     const dateWindow = this.buildMonthWindow(MONTH_COUNT);
     const quarterWindow = this.buildQuarterWindow(QUARTER_COUNT);
 
@@ -152,7 +180,7 @@ export class AnalyticsService {
       }),
       this.prisma.salaryHistory.findMany({
         where: {
-          employee: employeeWhere,
+          employee: currentEmployeeWhere,
           effectiveDate: { lte: quarterWindow[quarterWindow.length - 1]?.end },
         },
         include: {
@@ -169,7 +197,7 @@ export class AnalyticsService {
       }),
       this.prisma.leaveRequest.findMany({
         where: {
-          employee: employeeWhere,
+          employee: currentEmployeeWhere,
           startDate: { gte: dateWindow[0]?.start },
         },
         include: {
@@ -183,19 +211,19 @@ export class AnalyticsService {
         },
       }),
       this.prisma.employeeSkill.findMany({
-        where: { deletedAt: null, employee: employeeWhere },
+        where: { deletedAt: null, employee: currentEmployeeWhere },
         include: { skill: { select: { name: true } } },
       }),
       this.prisma.skillHistory.findMany({
         where: {
-          employee: employeeWhere,
+          employee: currentEmployeeWhere,
           effectiveDate: { gte: quarterWindow[0]?.start },
         },
         include: { skill: { select: { name: true } } },
         orderBy: { effectiveDate: 'asc' },
       }),
       this.prisma.leaveRequest.count({
-        where: { status: 'PENDING', employee: employeeWhere },
+        where: { status: 'PENDING', employee: currentEmployeeWhere },
       }),
     ]);
 
@@ -218,21 +246,36 @@ export class AnalyticsService {
     employees: EmployeeRow[],
     months: Array<{ label: string; start: Date; end: Date }>,
   ): DashboardAnalytics['employees'] {
-    const activeEmployees = employees.filter(
+    const currentEmployees = employees.filter(
       (employee) => !TERMINAL_STATUSES.has(employee.employmentStatus),
     );
-
     const now = new Date();
+    const ages = currentEmployees
+      .map((employee) => this.yearsBetween(employee.dateOfBirth, now))
+      .filter((value): value is number => value !== null);
+    const tenures = currentEmployees
+      .map((employee) => this.yearsBetween(employee.hireDate, now))
+      .filter((value): value is number => value !== null);
+    const terminalCount = employees.filter((employee) => TERMINAL_STATUSES.has(employee.employmentStatus)).length;
+    const fullTimeCount = currentEmployees.filter((employee) => employee.contractType === 'FULL_TIME').length;
     const sixMonthsAgo = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 6, now.getUTCDate()));
 
     return {
-      total: activeEmployees.length,
-      active: activeEmployees.filter((employee) => employee.employmentStatus === EmploymentStatus.ACTIVE).length,
-      onLeave: activeEmployees.filter((employee) => employee.employmentStatus === EmploymentStatus.ON_LEAVE).length,
-      newHiresOnProbation: activeEmployees.filter((employee) => employee.hireDate >= sixMonthsAgo).length,
+      total: employees.length,
+      active: employees.filter((employee) => employee.employmentStatus === EmploymentStatus.ACTIVE).length,
+      onLeave: employees.filter((employee) => employee.employmentStatus === EmploymentStatus.ON_LEAVE).length,
+      probation: employees.filter((employee) => employee.employmentStatus === EmploymentStatus.PROBATION).length,
+      terminal: terminalCount,
+      newHiresOnProbation: currentEmployees.filter((employee) => employee.hireDate >= sixMonthsAgo).length,
+      averageAge: this.average(ages),
+      averageTenureYears: this.average(tenures),
+      fullTimeRatio:
+        currentEmployees.length > 0 ? this.round((fullTimeCount / currentEmployees.length) * 100) : null,
+      attritionRate:
+        employees.length > 0 ? this.round((terminalCount / employees.length) * 100) : null,
       headcountOverTime: months.map((month) => ({
         label: month.label,
-        value: activeEmployees.filter((employee) => employee.hireDate <= month.end).length,
+        value: employees.filter((employee) => employee.hireDate <= month.end).length,
       })),
       newHiresTrend: months.map((month) => ({
         label: month.label,
@@ -247,6 +290,14 @@ export class AnalyticsService {
         (employee) => employee.department?.name ?? 'Unassigned',
         () => 1,
       ),
+      statusBreakdown: this.sortPoints(
+        this.sumBy(employees, (employee) => this.formatEnumLabel(employee.employmentStatus), () => 1),
+      ),
+      contractMix: this.sortPoints(
+        this.sumBy(currentEmployees, (employee) => this.formatEnumLabel(employee.contractType), () => 1),
+      ),
+      ageBands: this.buildBandDistribution(ages, AGE_BANDS),
+      tenureBands: this.buildBandDistribution(tenures, TENURE_BANDS),
     };
   }
 
@@ -256,7 +307,10 @@ export class AnalyticsService {
     quarters: Array<{ label: string; start: Date; end: Date }>,
     user: JwtPayload,
   ): DashboardAnalytics['payroll'] {
-    const visible = user.roles.includes('HR_ADMIN') || user.roles.includes('EXECUTIVE');
+    const visible =
+      user.roles.includes('HR_ADMIN') ||
+      user.roles.includes('GLOBAL_HR_ADMIN') ||
+      user.roles.includes('EXECUTIVE');
     if (!visible) {
       return {
         visible: false,
@@ -267,7 +321,11 @@ export class AnalyticsService {
       };
     }
 
-    const visibleEmployees = employees.filter((employee) => employee.grossSalary !== null);
+    const visibleEmployees = employees.filter(
+      (employee) =>
+        !TERMINAL_STATUSES.has(employee.employmentStatus) &&
+        employee.grossSalary !== null,
+    );
     const totalCost = visibleEmployees.reduce(
       (sum, employee) => sum + this.decimalToNumber(employee.grossSalary),
       0,
@@ -491,6 +549,17 @@ export class AnalyticsService {
       return {};
     }
 
+    const departmentAssignment = user.roleAssignments.find(
+      (assignment) => assignment.scope === PermissionScope.DEPARTMENT,
+    );
+    if (departmentAssignment?.scopeEntityId) return { departmentId: departmentAssignment.scopeEntityId };
+
+    const teamAssignment = user.roleAssignments.find(
+      (assignment) => assignment.scope === PermissionScope.TEAM,
+    );
+    const teamId = teamAssignment?.scopeEntityId ?? user.teamId;
+    if (teamId) return { teamId };
+
     const businessUnitAssignment = user.roleAssignments.find(
       (assignment) => assignment.scope === PermissionScope.BUSINESS_UNIT,
     );
@@ -504,19 +573,19 @@ export class AnalyticsService {
       };
     }
 
-    const departmentAssignment = user.roleAssignments.find(
-      (assignment) => assignment.scope === PermissionScope.DEPARTMENT,
-    );
-    if (departmentAssignment?.scopeEntityId) return { departmentId: departmentAssignment.scopeEntityId };
-
-    const teamAssignment = user.roleAssignments.find(
-      (assignment) => assignment.scope === PermissionScope.TEAM,
-    );
-    const teamId = teamAssignment?.scopeEntityId ?? user.teamId;
-    if (teamId) return { teamId };
-
     if (user.employeeId) return { id: user.employeeId };
     throw new ForbiddenException('No employee profile linked to this account');
+  }
+
+  private buildCurrentWorkforceFilter(): Prisma.EmployeeWhereInput {
+    return { employmentStatus: { notIn: Array.from(TERMINAL_STATUSES) } };
+  }
+
+  private andEmployeeWhere(
+    left: Prisma.EmployeeWhereInput,
+    right: Prisma.EmployeeWhereInput,
+  ): Prisma.EmployeeWhereInput {
+    return { AND: [left, right] };
   }
 
   private buildMonthWindow(count: number): Array<{ label: string; start: Date; end: Date }> {
@@ -587,6 +656,36 @@ export class AnalyticsService {
     if (value === null) return 0;
     if (value instanceof Decimal) return value.toNumber();
     return Number(value);
+  }
+
+  private yearsBetween(start: Date | null, end: Date): number | null {
+    if (!start) return null;
+    const elapsed = end.getTime() - start.getTime();
+    if (elapsed < 0) return null;
+    return this.round(elapsed / (365.25 * 24 * 60 * 60 * 1000));
+  }
+
+  private average(values: number[]): number | null {
+    if (values.length === 0) return null;
+    return this.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+  }
+
+  private buildBandDistribution(
+    values: number[],
+    bands: Array<{ label: string; min: number; max: number }>,
+  ): ChartPoint[] {
+    return bands.map((band) => ({
+      label: band.label,
+      value: values.filter((value) => value >= band.min && value <= band.max).length,
+    }));
+  }
+
+  private formatEnumLabel(value: string): string {
+    return value
+      .toLowerCase()
+      .split('_')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
   }
 
   private round(value: number): number {

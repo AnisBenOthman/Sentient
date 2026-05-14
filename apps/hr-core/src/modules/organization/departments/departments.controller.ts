@@ -32,7 +32,7 @@ export class DepartmentsController {
   }
 
   @Get()
-  @Roles('HR_ADMIN', 'EXECUTIVE')
+  @Roles('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'GLOBAL_HR_ADMIN', 'EXECUTIVE')
   @ApiOperation({ summary: 'List departments' })
   findAll(@Query() query: DepartmentQueryDto, @CurrentUser() user: JwtPayload) {
     return this.departmentsService.findAll(query, user.roles);

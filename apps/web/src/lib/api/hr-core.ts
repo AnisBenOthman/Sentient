@@ -11,6 +11,12 @@ import type {
   ReviewType,
   SatisfactionLevel,
 } from '@sentient/shared';
+import { PromotionRequestStatus } from '@sentient/shared';
+import type {
+  NotificationCategory,
+  NotificationEventType,
+  NotificationStatus,
+} from '@sentient/shared';
 
 // ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -64,8 +70,18 @@ export interface EmployeeProfile {
   teamId?: string | null;
   managerId?: string | null;
   deletedAt: string | null;
-  department: { id: string; name: string } | null;
-  team: { id: string; name: string } | null;
+  department: {
+    id: string;
+    name: string;
+    businessUnitId?: string;
+    businessUnit?: { id: string; name: string } | null;
+  } | null;
+  team: {
+    id: string;
+    name: string;
+    businessUnitId?: string;
+    businessUnit?: { id: string; name: string } | null;
+  } | null;
   position: { id: string; title: string } | null;
   manager: { id: string; firstName: string; lastName: string } | null;
   salaryHistory?: SalaryHistoryEntry[];
@@ -567,18 +583,42 @@ export interface PositionSkill {
   skill: SkillRef;
   minimumProficiency: ProficiencyLevel;
   requirementLevel: SkillRequirementLevel;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export async function getPositionSkills(positionId: string): Promise<PositionSkill[]> {
-  const { data } = await hrClient.get<PositionSkill[]>(`/positions/${positionId}/skills`);
+export interface PositionSkillPayload {
+  skillId: string;
+  minimumProficiency: ProficiencyLevel;
+  requirementLevel?: SkillRequirementLevel;
+}
+
+export interface PositionSkillQuery {
+  minProficiency?: ProficiencyLevel;
+  requirementLevel?: SkillRequirementLevel;
+}
+
+export async function getPositionSkills(
+  positionId: string,
+  params?: PositionSkillQuery,
+): Promise<PositionSkill[]> {
+  const { data } = await hrClient.get<PositionSkill[]>(`/positions/${positionId}/skills`, { params });
   return data;
 }
 
 export async function addPositionSkill(
   positionId: string,
-  dto: { skillId: string; minimumProficiency: ProficiencyLevel; requirementLevel?: SkillRequirementLevel },
+  dto: PositionSkillPayload,
 ): Promise<PositionSkill> {
   const { data } = await hrClient.post<PositionSkill>(`/positions/${positionId}/skills`, dto);
+  return data;
+}
+
+export async function replacePositionSkills(
+  positionId: string,
+  skills: PositionSkillPayload[],
+): Promise<PositionSkill[]> {
+  const { data } = await hrClient.put<PositionSkill[]>(`/positions/${positionId}/skills`, { skills });
   return data;
 }
 
@@ -586,7 +626,12 @@ export async function deletePositionSkill(positionId: string, skillId: string): 
   await hrClient.delete(`/positions/${positionId}/skills/${skillId}`);
 }
 
-export async function getSkillsCatalog(params?: { search?: string; limit?: number }): Promise<{ data: SkillRef[] }> {
+export async function getSkillsCatalog(params?: {
+  search?: string;
+  domain?: SkillDomain;
+  category?: string;
+  limit?: number;
+}): Promise<{ data: SkillRef[] }> {
   const { data } = await hrClient.get<{ data: SkillRef[] }>('/skills', {
     params: { limit: 200, ...params },
   });
@@ -690,10 +735,20 @@ export interface DashboardAnalytics {
     total: number;
     active: number;
     onLeave: number;
+    probation: number;
+    terminal: number;
     newHiresOnProbation: number;
+    averageAge: number | null;
+    averageTenureYears: number | null;
+    fullTimeRatio: number | null;
+    attritionRate: number | null;
     headcountOverTime: ChartPoint[];
     newHiresTrend: ChartPoint[];
     newHiresByDepartment: SeriesPoint[];
+    statusBreakdown: ChartPoint[];
+    contractMix: ChartPoint[];
+    ageBands: ChartPoint[];
+    tenureBands: ChartPoint[];
   };
   payroll: {
     visible: boolean;
@@ -741,6 +796,97 @@ export async function getDashboardAnalytics(params?: {
   teamId?: string;
 }): Promise<DashboardAnalytics> {
   const { data } = await hrClient.get<DashboardAnalytics>('/analytics/dashboard', { params });
+  return data;
+}
+
+export interface PromotionRequest {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  departmentId: string | null;
+  departmentName: string;
+  teamId: string | null;
+  teamName: string;
+  requestedById: string;
+  requestedByName: string;
+  currentRole: string;
+  newRole: string;
+  currentGrossSalary: number;
+  newGrossSalary: number;
+  salaryDelta: number;
+  salaryDeltaPercentage: number;
+  currentTeamBudget: number;
+  newTeamBudget: number;
+  budgetImpactPercentage: number;
+  responsibilities: string[];
+  status: PromotionRequestStatus;
+  submittedAt: string;
+}
+
+export interface CreatePromotionRequestPayload {
+  employeeId: string;
+  currentRole: string;
+  newRole: string;
+  currentGrossSalary: number;
+  newGrossSalary: number;
+  currentTeamBudget: number;
+  responsibilities: string[];
+}
+
+export interface PromotionRequestsDashboard {
+  totalRequests: number;
+  averageSalaryLift: number;
+  totalBudgetImpact: number;
+  pendingRequests: number;
+  requests: PromotionRequest[];
+}
+
+export async function createPromotionRequest(
+  payload: CreatePromotionRequestPayload,
+): Promise<PromotionRequest> {
+  const { data } = await hrClient.post<PromotionRequest>('/promotion-requests', payload);
+  return data;
+}
+
+export async function getPromotionRequests(params?: {
+  year?: number;
+  businessUnitId?: string;
+  departmentId?: string;
+  teamId?: string;
+  status?: PromotionRequestStatus;
+}): Promise<PromotionRequest[]> {
+  const { data } = await hrClient.get<PromotionRequest[]>('/promotion-requests', { params });
+  return data;
+}
+
+export async function getPromotionRequestsDashboard(params?: {
+  year?: number;
+  businessUnitId?: string;
+  departmentId?: string;
+  teamId?: string;
+  status?: PromotionRequestStatus;
+}): Promise<PromotionRequestsDashboard> {
+  const { data } = await hrClient.get<PromotionRequestsDashboard>('/promotion-requests/dashboard', { params });
+  return data;
+}
+
+export async function approvePromotionRequest(
+  id: string,
+  reviewNote?: string,
+): Promise<PromotionRequest> {
+  const { data } = await hrClient.patch<PromotionRequest>(`/promotion-requests/${id}/approve`, {
+    reviewNote: reviewNote ?? '',
+  });
+  return data;
+}
+
+export async function rejectPromotionRequest(
+  id: string,
+  reviewNote: string,
+): Promise<PromotionRequest> {
+  const { data } = await hrClient.patch<PromotionRequest>(`/promotion-requests/${id}/reject`, {
+    reviewNote,
+  });
   return data;
 }
 
@@ -946,4 +1092,66 @@ export async function recordPerformanceReviewSalaryFollowUp(
 export async function getPerformanceReviewAudit(id: string): Promise<PerformanceReviewAuditDto[]> {
   const { data } = await hrClient.get<PerformanceReviewAuditDto[]>(`/performance-reviews/${id}/audit`);
   return data;
+}
+
+// Notifications
+
+export interface NotificationResponse {
+  id: string;
+  recipientUserId: string;
+  category: NotificationCategory;
+  eventType: NotificationEventType;
+  title: string;
+  body: string;
+  payload: Record<string, unknown>;
+  referenceType: string | null;
+  referenceId: string | null;
+  status: NotificationStatus;
+  createdAt: string;
+  readAt: string | null;
+}
+
+export interface NotificationListResponse {
+  items: NotificationResponse[];
+  nextCursor?: string;
+  unreadCount: number;
+}
+
+export interface NotificationListParams {
+  status?: NotificationStatus;
+  category?: NotificationCategory;
+  referenceType?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export async function listNotifications(
+  params?: NotificationListParams,
+): Promise<NotificationListResponse> {
+  const { data } = await hrClient.get<NotificationListResponse>('/notifications', { params });
+  return data;
+}
+
+export async function getUnreadCount(): Promise<{ unreadCount: number }> {
+  const { data } = await hrClient.get<{ unreadCount: number }>('/notifications/unread-count');
+  return data;
+}
+
+export async function markAsRead(id: string): Promise<NotificationResponse> {
+  const { data } = await hrClient.patch<NotificationResponse>(`/notifications/${id}/read`);
+  return data;
+}
+
+export async function markAllAsRead(
+  category?: NotificationCategory,
+): Promise<{ updatedCount: number }> {
+  const { data } = await hrClient.patch<{ updatedCount: number }>(
+    '/notifications/mark-all-read',
+    category ? { category } : {},
+  );
+  return data;
+}
+
+export async function dismissNotification(id: string): Promise<void> {
+  await hrClient.delete(`/notifications/${id}`);
 }

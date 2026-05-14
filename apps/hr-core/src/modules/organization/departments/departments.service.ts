@@ -70,7 +70,7 @@ export class DepartmentsService {
     query: DepartmentQueryDto,
     roles: string[],
   ): Promise<CursorPage<Department>> {
-    const isAdmin = roles.includes('HR_ADMIN');
+    const isAdmin = roles.includes('HR_ADMIN') || roles.includes('GLOBAL_HR_ADMIN');
 
     const where: Prisma.DepartmentWhereInput = {
       // WHY: Non-admin callers always receive active departments regardless of

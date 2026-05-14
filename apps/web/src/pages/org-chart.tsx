@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { getOrgChart, getEmployees, type OrgDepartment, type EmployeeProfile } from "@/lib/api/hr-core";
+import { useAuth } from "@/components/providers/auth-provider";
+import { canViewEmployeeDetails } from "@/lib/auth";
 
 const DEPT_COLORS: Record<string, string> = {
   Engineering: "border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30",
@@ -47,11 +49,13 @@ function EmployeeCard({
   highlighted,
   dimmed,
   isLead,
+  canOpenDetails,
 }: {
   emp: EmployeeProfile;
   highlighted?: boolean;
   dimmed?: boolean;
   isLead?: boolean;
+  canOpenDetails: boolean;
 }) {
   const [, navigate] = useLocation();
   const initials = getInitials(emp.firstName, emp.lastName);
@@ -59,22 +63,26 @@ function EmployeeCard({
   return (
     <div
       className={[
-        "relative bg-white dark:bg-gray-800 border rounded-xl p-3 w-40 shadow-sm hover:shadow-md transition-all cursor-pointer",
+        "relative bg-white dark:bg-gray-800 border rounded-xl p-3 w-40 shadow-sm transition-all",
+        canOpenDetails ? "hover:shadow-md cursor-pointer" : "",
         highlighted
           ? "border-2 border-yellow-400 dark:border-yellow-400 ring-2 ring-yellow-300/60 scale-105"
           : "border-gray-200 dark:border-gray-700",
         dimmed ? "opacity-30" : "",
       ].join(" ")}
-      onClick={() => navigate(`/employees/${emp.id}`)}
+      onClick={() => {
+        if (canOpenDetails) navigate(`/employees/${emp.id}`);
+      }}
       onKeyDown={(e) => {
+        if (!canOpenDetails) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           navigate(`/employees/${emp.id}`);
         }
       }}
-      tabIndex={0}
-      role="button"
-      aria-label={`View profile for ${emp.firstName} ${emp.lastName}`}
+      tabIndex={canOpenDetails ? 0 : undefined}
+      role={canOpenDetails ? "button" : undefined}
+      aria-label={canOpenDetails ? `View profile for ${emp.firstName} ${emp.lastName}` : undefined}
       data-testid={`employee-card-${emp.id}`}
     >
       {isLead && (
@@ -118,6 +126,7 @@ function VerticalConnector() {
 }
 
 export default function OrgChart() {
+  const { user } = useAuth();
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
 
   const { data: orgDepts = [], isLoading: loadingOrg } = useQuery({
@@ -171,6 +180,15 @@ export default function OrgChart() {
   const totalEmployees = allEmployees.length;
   const totalDepartments = orgDepts.length;
   const totalTeams = orgDepts.reduce((sum, d) => sum + d.teams.length, 0);
+
+  function canOpenEmployeeDetails(emp: EmployeeProfile): boolean {
+    return user
+      ? canViewEmployeeDetails(user, emp, {
+          departments: orgDepts,
+          teams: orgDepts.flatMap((department) => department.teams),
+        })
+      : false;
+  }
 
   if (isLoading) {
     return (
@@ -283,7 +301,7 @@ export default function OrgChart() {
                     <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
                       Department Head
                     </p>
-                    <EmployeeCard emp={deptHead} isLead />
+                    <EmployeeCard emp={deptHead} isLead canOpenDetails={canOpenEmployeeDetails(deptHead)} />
                     <VerticalConnector />
                   </div>
                 )}
@@ -311,7 +329,7 @@ export default function OrgChart() {
                           {/* Team lead */}
                           {lead && (
                             <>
-                              <EmployeeCard emp={lead} isLead />
+                              <EmployeeCard emp={lead} isLead canOpenDetails={canOpenEmployeeDetails(lead)} />
                               {members.length > 0 && <VerticalConnector />}
                             </>
                           )}
@@ -320,7 +338,7 @@ export default function OrgChart() {
                           {members.length > 0 && (
                             <div className="flex flex-wrap gap-2 justify-center">
                               {members.map((emp) => (
-                                <EmployeeCard key={emp.id} emp={emp} />
+                                <EmployeeCard key={emp.id} emp={emp} canOpenDetails={canOpenEmployeeDetails(emp)} />
                               ))}
                             </div>
                           )}
@@ -344,7 +362,7 @@ export default function OrgChart() {
                       {deptEmps
                         .filter((e) => e.id !== dept.headId)
                         .map((emp) => (
-                          <EmployeeCard key={emp.id} emp={emp} />
+                          <EmployeeCard key={emp.id} emp={emp} canOpenDetails={canOpenEmployeeDetails(emp)} />
                         ))}
                     </div>
                   )

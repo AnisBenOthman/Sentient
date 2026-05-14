@@ -1,19 +1,31 @@
 import path from "node:path";
-import { randomBytes } from "node:crypto";
 import { config as loadEnv } from "dotenv";
 import * as argon2 from "argon2";
 import { faker } from "@faker-js/faker";
 import { PrismaPg } from "@prisma/adapter-pg";
 import {
   AccrualFrequency,
+  ContractType,
+  EducationLevel,
+  EmploymentStatus,
+  KeyPositionRisk,
   LeaveStatus,
-  Prisma,
+  MaritalStatus,
+  PerformanceRating,
+  PerformanceReviewAuditAction,
   PermissionAction,
   PermissionScope,
   PositionLevel,
+  Prisma,
   PrismaClient,
   ProficiencyLevel,
+  ReviewCycleStatus,
+  ReviewStatus,
+  ReviewType,
   SalaryChangeReason,
+  SatisfactionLevel,
+  SkillDomain,
+  SkillRequirementLevel,
   SourceLevel,
   UserStatus,
 } from "../src/generated/prisma";
@@ -23,621 +35,48 @@ loadEnv({ path: path.join(__dirname, "..", ".env") });
 const adapter = new PrismaPg({ connectionString: process.env["HR_CORE_DATABASE_URL"] });
 const prisma = new PrismaClient({ adapter });
 
-async function main(): Promise<void> {
-  await seedIam();
+faker.seed(42);
 
-  // BusinessUnit must exist before departments (FK constraint).
-  const bu = await prisma.businessUnit.upsert({
-    where:  { name: "Sentient HQ" },
-    update: {},
-    create: { name: "Sentient HQ", address: "Algiers, Algeria" },
-  });
+// ============================================================
+// CONSTANTS
+// ============================================================
 
-  // Departments — unique per (name, businessUnitId).
-  await prisma.department.createMany({
-    data: [
-      { name: "Engineering",    code: "ENG", description: "Engineering department", businessUnitId: bu.id },
-      { name: "Human Resources", code: "HR",  description: "People operations",      businessUnitId: bu.id },
-      { name: "Product",        code: "PRD", description: "Product management",      businessUnitId: bu.id },
-    ],
-    skipDuplicates: true,
-  });
+const DEMO_PASSWORD = "Sentient@2026!";
 
-  await prisma.position.createMany({
-    data: [
-      { title: "Software Engineer - Junior",   level: PositionLevel.JUNIOR    },
-      { title: "Software Engineer - Senior I", level: PositionLevel.SENIOR_1  },
-      { title: "HR Generalist",                level: PositionLevel.CONFIRMED },
-      { title: "Product Manager",              level: PositionLevel.CONFIRMED },
-      { title: "DevOps Engineer",              level: PositionLevel.MEDIUM    },
-    ],
-    skipDuplicates: true,
-  });
+const BU_CONFIGS = [
+  { name: "Sentient HQ",     code: "HQ",  address: "Algiers, Algeria", salaryTiers: { jr: 18000,  mid: 28000,  sr: 42000,  ex: 58000  } },
+  { name: "Sentient France", code: "FR",  address: "Paris, France",    salaryTiers: { jr: 48000,  mid: 62000,  sr: 80000,  ex: 100000 } },
+  { name: "Sentient UAE",    code: "UAE", address: "Dubai, UAE",       salaryTiers: { jr: 52000,  mid: 68000,  sr: 85000,  ex: 110000 } },
+  { name: "Sentient UK",     code: "UK",  address: "London, UK",       salaryTiers: { jr: 55000,  mid: 70000,  sr: 90000,  ex: 118000 } },
+] as const;
 
-  const departments = await prisma.department.findMany({
-    where:  { code: { in: ["ENG", "HR", "PRD"] }, businessUnitId: bu.id },
-    select: { id: true, code: true, businessUnitId: true },
-  });
-
-  const byCode = new Map(departments.map((d) => [d.code, d.id]));
-
-  await prisma.team.createMany({
-    data: [
-      { name: "Backend",              code: "ENG-BE", departmentId: byCode.get("ENG") ?? "", businessUnitId: bu.id },
-      { name: "Frontend",             code: "ENG-FE", departmentId: byCode.get("ENG") ?? "", businessUnitId: bu.id },
-      { name: "Talent Acquisition",   code: "HR-TA",  departmentId: byCode.get("HR")  ?? "", businessUnitId: bu.id },
-      { name: "Learning & Development", code: "HR-LD", departmentId: byCode.get("HR") ?? "", businessUnitId: bu.id },
-      { name: "Product Strategy",     code: "PRD-PS", departmentId: byCode.get("PRD") ?? "", businessUnitId: bu.id },
-      { name: "Product Design",       code: "PRD-DS", departmentId: byCode.get("PRD") ?? "", businessUnitId: bu.id },
-    ].filter((t) => Boolean(t.departmentId)),
-    skipDuplicates: true,
-  });
-
-  // Skill catalog — upsert by name so the seed is safe to re-run.
-  const catalogSkills = [
-    { name: "React",         category: "Frontend"    },
-    { name: "TypeScript",    category: "Programming" },
-    { name: "PostgreSQL",    category: "Database"    },
-    { name: "Docker",        category: "DevOps"      },
-    { name: "Kubernetes",    category: "DevOps"      },
-    { name: "English",       category: "Language"    },
-    { name: "French",        category: "Language"    },
-    { name: "Arabic",        category: "Language"    },
-    { name: "Communication", category: "Soft Skills" },
-    { name: "Leadership",    category: "Soft Skills" },
-  ];
-
-  for (const skill of catalogSkills) {
-    await prisma.skill.upsert({
-      where:  { name: skill.name },
-      update: {},
-      create: skill,
-    });
-  }
-
-  // ================================================================
-  // Leave Types — one catalog per BusinessUnit, idempotent upsert
-  // ================================================================
-  const allBUs = await prisma.businessUnit.findMany({ where: { isActive: true } });
-  for (const businessUnit of allBUs) {
-    const leaveTypeSeed = [
-      { name: "Annual Leave",     defaultDaysPerYear: 24, accrualFrequency: AccrualFrequency.MONTHLY, maxCarryoverDays: 5,  requiresApproval: true,  color: "#4CAF50" },
-      { name: "Sick Leave",       defaultDaysPerYear: 12, accrualFrequency: AccrualFrequency.MONTHLY, maxCarryoverDays: 0,  requiresApproval: true,  color: "#F44336" },
-      { name: "Maternity Leave",  defaultDaysPerYear: 98, accrualFrequency: AccrualFrequency.YEARLY,  maxCarryoverDays: 0,  requiresApproval: true,  color: "#E91E63" },
-      { name: "Paternity Leave",  defaultDaysPerYear: 3,  accrualFrequency: AccrualFrequency.YEARLY,  maxCarryoverDays: 0,  requiresApproval: true,  color: "#2196F3" },
-      { name: "Unpaid Leave",     defaultDaysPerYear: 0,  accrualFrequency: AccrualFrequency.YEARLY,  maxCarryoverDays: 0,  requiresApproval: true,  color: "#9E9E9E" },
-    ];
-    for (const lt of leaveTypeSeed) {
-      await prisma.leaveType.upsert({
-        where: { name_businessUnitId: { name: lt.name, businessUnitId: businessUnit.id } },
-        update: {},
-        create: { ...lt, businessUnitId: businessUnit.id },
-      });
-    }
-
-    // ================================================================
-    // Holidays — 2026 Algerian public holidays per BusinessUnit
-    // ================================================================
-    const holidays2026 = [
-      { name: "New Year's Day",              date: "2026-01-01", isRecurring: false, year: 2026 },
-      { name: "Yennayer (Amazigh New Year)", date: "2026-01-12", isRecurring: false, year: 2026 },
-      { name: "Labour Day",                  date: "2026-05-01", isRecurring: false, year: 2026 },
-      { name: "Independence Day",            date: "2026-07-05", isRecurring: false, year: 2026 },
-      { name: "Revolution Day",              date: "2026-11-01", isRecurring: false, year: 2026 },
-      { name: "Eid al-Fitr (approx.)",       date: "2026-03-20", isRecurring: false, year: 2026 },
-      { name: "Eid al-Adha (approx.)",       date: "2026-05-27", isRecurring: false, year: 2026 },
-      { name: "Mawlid al-Nabi (approx.)",    date: "2026-09-15", isRecurring: false, year: 2026 },
-    ];
-    for (const h of holidays2026) {
-      await prisma.holiday.upsert({
-        where: { date_businessUnitId_year: { date: new Date(h.date + "T00:00:00.000Z"), businessUnitId: businessUnit.id, year: h.year } },
-        update: {},
-        create: {
-          businessUnitId: businessUnit.id,
-          name: h.name,
-          date: new Date(h.date + "T00:00:00.000Z"),
-          isRecurring: h.isRecurring,
-          year: h.year,
-        },
-      });
-    }
-  }
-
-  // EnumMeta for ordered dropdowns and numeric comparison.
-  await prisma.enumMeta.createMany({
-    data: [
-      { enumName: "PositionLevel", key: "JUNIOR",        rank: 0, label: "Junior"        },
-      { enumName: "PositionLevel", key: "MEDIUM",        rank: 1, label: "Medium"        },
-      { enumName: "PositionLevel", key: "CONFIRMED",     rank: 2, label: "Confirmed"     },
-      { enumName: "PositionLevel", key: "SENIOR_1",      rank: 3, label: "Senior I"      },
-      { enumName: "PositionLevel", key: "SENIOR_2",      rank: 4, label: "Senior II"     },
-      { enumName: "PositionLevel", key: "EXPERT",        rank: 5, label: "Expert"        },
-      { enumName: "EducationLevel", key: "BELOW_COLLEGE", rank: 1, label: "Below College" },
-      { enumName: "EducationLevel", key: "COLLEGE",       rank: 2, label: "College"       },
-      { enumName: "EducationLevel", key: "BACHELOR",      rank: 3, label: "Bachelor"      },
-      { enumName: "EducationLevel", key: "MASTER",        rank: 4, label: "Master"        },
-      { enumName: "EducationLevel", key: "DOCTOR",        rank: 5, label: "Doctor"        },
-      { enumName: "MaritalStatus",  key: "SINGLE",        rank: 0, label: "Single"        },
-      { enumName: "MaritalStatus",  key: "MARRIED",       rank: 1, label: "Married"       },
-      { enumName: "MaritalStatus",  key: "DIVORCED",      rank: 2, label: "Divorced"      },
-      { enumName: "MaritalStatus",  key: "WIDOWED",       rank: 3, label: "Widowed"       },
-      { enumName: "SalaryChangeReason", key: "PROMOTION",     rank: 0, label: "Promotion"     },
-      { enumName: "SalaryChangeReason", key: "ANNUAL_REVIEW", rank: 1, label: "Annual Review" },
-      { enumName: "SalaryChangeReason", key: "NEW_FUNCTION",  rank: 2, label: "New Function"  },
-      { enumName: "SalaryChangeReason", key: "OTHER",         rank: 3, label: "Other"          },
-    ],
-    skipDuplicates: true,
-  });
-
-  await seedDemoUsers();
-  await seedDemoEmployees();
-  await seedGlobalOrg();
-}
-
-async function seedIam(): Promise<void> {
-  // ── Permissions ────────────────────────────────────────────────────────────
-  const permDefs: { resource: string; action: PermissionAction; scope: PermissionScope }[] = [
-    // Employee
-    { resource: "employee", action: PermissionAction.READ,   scope: PermissionScope.OWN           },
-    { resource: "employee", action: PermissionAction.READ,   scope: PermissionScope.TEAM          },
-    { resource: "employee", action: PermissionAction.READ,   scope: PermissionScope.DEPARTMENT    },
-    { resource: "employee", action: PermissionAction.READ,   scope: PermissionScope.BUSINESS_UNIT },
-    { resource: "employee", action: PermissionAction.READ,   scope: PermissionScope.GLOBAL        },
-    { resource: "employee", action: PermissionAction.CREATE, scope: PermissionScope.BUSINESS_UNIT },
-    { resource: "employee", action: PermissionAction.CREATE, scope: PermissionScope.GLOBAL        },
-    { resource: "employee", action: PermissionAction.UPDATE, scope: PermissionScope.OWN           },
-    { resource: "employee", action: PermissionAction.UPDATE, scope: PermissionScope.BUSINESS_UNIT },
-    { resource: "employee", action: PermissionAction.UPDATE, scope: PermissionScope.GLOBAL        },
-    { resource: "employee", action: PermissionAction.DELETE, scope: PermissionScope.BUSINESS_UNIT },
-    // Leave Request
-    { resource: "leave_request", action: PermissionAction.CREATE, scope: PermissionScope.OWN           },
-    { resource: "leave_request", action: PermissionAction.READ,   scope: PermissionScope.OWN           },
-    { resource: "leave_request", action: PermissionAction.READ,   scope: PermissionScope.TEAM          },
-    { resource: "leave_request", action: PermissionAction.READ,   scope: PermissionScope.BUSINESS_UNIT },
-    { resource: "leave_request", action: PermissionAction.READ,   scope: PermissionScope.GLOBAL        },
-    { resource: "leave_request", action: PermissionAction.DELETE, scope: PermissionScope.OWN           },
-    { resource: "leave_request", action: PermissionAction.APPROVE,scope: PermissionScope.TEAM          },
-    { resource: "leave_request", action: PermissionAction.APPROVE,scope: PermissionScope.BUSINESS_UNIT },
-    { resource: "leave_request", action: PermissionAction.APPROVE,scope: PermissionScope.GLOBAL        },
-    // Leave Balance
-    { resource: "leave_balance", action: PermissionAction.READ,   scope: PermissionScope.OWN           },
-    { resource: "leave_balance", action: PermissionAction.READ,   scope: PermissionScope.TEAM          },
-    { resource: "leave_balance", action: PermissionAction.READ,   scope: PermissionScope.BUSINESS_UNIT },
-    { resource: "leave_balance", action: PermissionAction.UPDATE, scope: PermissionScope.BUSINESS_UNIT },
-    // Skill
-    { resource: "skill", action: PermissionAction.READ,   scope: PermissionScope.OWN           },
-    { resource: "skill", action: PermissionAction.CREATE, scope: PermissionScope.OWN           },
-    { resource: "skill", action: PermissionAction.UPDATE, scope: PermissionScope.OWN           },
-    { resource: "skill", action: PermissionAction.READ,   scope: PermissionScope.TEAM          },
-    { resource: "skill", action: PermissionAction.READ,   scope: PermissionScope.BUSINESS_UNIT },
-    // User management
-    { resource: "user", action: PermissionAction.CREATE, scope: PermissionScope.BUSINESS_UNIT },
-    { resource: "user", action: PermissionAction.CREATE, scope: PermissionScope.GLOBAL        },
-    { resource: "user", action: PermissionAction.READ,   scope: PermissionScope.BUSINESS_UNIT },
-    { resource: "user", action: PermissionAction.READ,   scope: PermissionScope.GLOBAL        },
-    { resource: "user", action: PermissionAction.UPDATE, scope: PermissionScope.BUSINESS_UNIT },
-    { resource: "user", action: PermissionAction.UPDATE, scope: PermissionScope.GLOBAL        },
-    { resource: "user", action: PermissionAction.DELETE, scope: PermissionScope.GLOBAL        },
-    // Role catalog
-    { resource: "role", action: PermissionAction.CREATE, scope: PermissionScope.GLOBAL },
-    { resource: "role", action: PermissionAction.READ,   scope: PermissionScope.GLOBAL },
-    { resource: "role", action: PermissionAction.UPDATE, scope: PermissionScope.GLOBAL },
-    { resource: "role", action: PermissionAction.DELETE, scope: PermissionScope.GLOBAL },
-    // Audit
-    { resource: "audit_log", action: PermissionAction.READ, scope: PermissionScope.GLOBAL },
-    // Salary
-    { resource: "salary_history", action: PermissionAction.READ, scope: PermissionScope.BUSINESS_UNIT },
-    { resource: "salary_history", action: PermissionAction.READ, scope: PermissionScope.GLOBAL        },
-  ];
-
-  for (const p of permDefs) {
-    await prisma.permission.upsert({
-      where: { resource_action_scope: p },
-      update: {},
-      create: p,
-    });
-  }
-
-  const allPerms = await prisma.permission.findMany();
-  const perm = (res: string, act: PermissionAction, scp: PermissionScope) =>
-    allPerms.find((p) => p.resource === res && p.action === act && p.scope === scp);
-
-  // ── Roles ──────────────────────────────────────────────────────────────────
-  const roleDefs = [
-    { code: "EMPLOYEE",       name: "Employee",          isSystem: true, isEditable: true  },
-    { code: "MANAGER",        name: "Manager",           isSystem: true, isEditable: true  },
-    { code: "HR_ADMIN",       name: "HR Administrator",  isSystem: true, isEditable: true  },
-    { code: "EXECUTIVE",      name: "Executive",         isSystem: true, isEditable: true  },
-    { code: "GLOBAL_HR_ADMIN",name: "Global HR Admin",   isSystem: true, isEditable: true  },
-    { code: "SYSTEM_ADMIN",   name: "System Admin",      isSystem: true, isEditable: false },
-    { code: "SYSTEM",         name: "System",            isSystem: true, isEditable: false },
-  ];
-
-  for (const r of roleDefs) {
-    await prisma.role.upsert({
-      where:  { code: r.code },
-      update: { name: r.name, isEditable: r.isEditable },
-      create: r,
-    });
-  }
-
-  const roles = await prisma.role.findMany();
-  const role = (code: string) => roles.find((r) => r.code === code)!;
-
-  // ── Role → Permissions mapping ─────────────────────────────────────────────
-  const rolePermMap: { roleCode: string; perms: (typeof allPerms[number] | undefined)[] }[] = [
-    {
-      roleCode: "EMPLOYEE",
-      perms: [
-        perm("employee", PermissionAction.READ, PermissionScope.OWN),
-        perm("leave_request", PermissionAction.CREATE, PermissionScope.OWN),
-        perm("leave_request", PermissionAction.READ, PermissionScope.OWN),
-        perm("leave_request", PermissionAction.DELETE, PermissionScope.OWN),
-        perm("leave_balance", PermissionAction.READ, PermissionScope.OWN),
-        perm("skill", PermissionAction.READ, PermissionScope.OWN),
-        perm("skill", PermissionAction.CREATE, PermissionScope.OWN),
-        perm("skill", PermissionAction.UPDATE, PermissionScope.OWN),
-      ],
-    },
-    {
-      roleCode: "MANAGER",
-      perms: [
-        perm("employee", PermissionAction.READ, PermissionScope.TEAM),
-        perm("leave_request", PermissionAction.READ, PermissionScope.TEAM),
-        perm("leave_request", PermissionAction.APPROVE, PermissionScope.TEAM),
-        perm("leave_balance", PermissionAction.READ, PermissionScope.TEAM),
-        perm("skill", PermissionAction.READ, PermissionScope.TEAM),
-      ],
-    },
-    {
-      roleCode: "HR_ADMIN",
-      perms: [
-        perm("employee", PermissionAction.READ, PermissionScope.BUSINESS_UNIT),
-        perm("employee", PermissionAction.CREATE, PermissionScope.BUSINESS_UNIT),
-        perm("employee", PermissionAction.UPDATE, PermissionScope.BUSINESS_UNIT),
-        perm("employee", PermissionAction.DELETE, PermissionScope.BUSINESS_UNIT),
-        perm("leave_request", PermissionAction.READ, PermissionScope.BUSINESS_UNIT),
-        perm("leave_request", PermissionAction.APPROVE, PermissionScope.BUSINESS_UNIT),
-        perm("leave_balance", PermissionAction.READ, PermissionScope.BUSINESS_UNIT),
-        perm("leave_balance", PermissionAction.UPDATE, PermissionScope.BUSINESS_UNIT),
-        perm("user", PermissionAction.CREATE, PermissionScope.BUSINESS_UNIT),
-        perm("user", PermissionAction.READ, PermissionScope.BUSINESS_UNIT),
-        perm("user", PermissionAction.UPDATE, PermissionScope.BUSINESS_UNIT),
-        perm("audit_log", PermissionAction.READ, PermissionScope.GLOBAL),
-        perm("salary_history", PermissionAction.READ, PermissionScope.BUSINESS_UNIT),
-        perm("skill", PermissionAction.READ, PermissionScope.GLOBAL),
-        perm("skill", PermissionAction.CREATE, PermissionScope.GLOBAL),
-        perm("skill", PermissionAction.UPDATE, PermissionScope.GLOBAL),
-        perm("skill", PermissionAction.DELETE, PermissionScope.GLOBAL),
-        perm("employee_skill", PermissionAction.READ, PermissionScope.BUSINESS_UNIT),
-        perm("employee_skill", PermissionAction.CREATE, PermissionScope.BUSINESS_UNIT),
-        perm("employee_skill", PermissionAction.UPDATE, PermissionScope.BUSINESS_UNIT),
-        perm("employee_skill", PermissionAction.DELETE, PermissionScope.BUSINESS_UNIT),
-      ],
-    },
-    {
-      roleCode: "EXECUTIVE",
-      perms: [
-        perm("employee", PermissionAction.READ, PermissionScope.BUSINESS_UNIT),
-        perm("leave_request", PermissionAction.READ, PermissionScope.BUSINESS_UNIT),
-        perm("leave_balance", PermissionAction.READ, PermissionScope.BUSINESS_UNIT),
-        perm("salary_history", PermissionAction.READ, PermissionScope.BUSINESS_UNIT),
-        perm("role", PermissionAction.READ, PermissionScope.GLOBAL),
-      ],
-    },
-    {
-      roleCode: "GLOBAL_HR_ADMIN",
-      perms: [
-        perm("role", PermissionAction.CREATE, PermissionScope.GLOBAL),
-        perm("role", PermissionAction.READ, PermissionScope.GLOBAL),
-        perm("role", PermissionAction.UPDATE, PermissionScope.GLOBAL),
-        perm("role", PermissionAction.DELETE, PermissionScope.GLOBAL),
-        perm("user", PermissionAction.CREATE, PermissionScope.GLOBAL),
-        perm("user", PermissionAction.READ, PermissionScope.GLOBAL),
-        perm("user", PermissionAction.UPDATE, PermissionScope.GLOBAL),
-        perm("user", PermissionAction.DELETE, PermissionScope.GLOBAL),
-        perm("employee", PermissionAction.READ, PermissionScope.GLOBAL),
-        perm("audit_log", PermissionAction.READ, PermissionScope.GLOBAL),
-        perm("salary_history", PermissionAction.READ, PermissionScope.GLOBAL),
-      ],
-    },
-    {
-      roleCode: "SYSTEM_ADMIN",
-      perms: [
-        perm("employee", PermissionAction.READ, PermissionScope.GLOBAL),
-        perm("employee", PermissionAction.CREATE, PermissionScope.GLOBAL),
-        perm("employee", PermissionAction.UPDATE, PermissionScope.GLOBAL),
-        perm("user", PermissionAction.CREATE, PermissionScope.GLOBAL),
-        perm("user", PermissionAction.READ, PermissionScope.GLOBAL),
-        perm("user", PermissionAction.UPDATE, PermissionScope.GLOBAL),
-        perm("user", PermissionAction.DELETE, PermissionScope.GLOBAL),
-        perm("role", PermissionAction.READ, PermissionScope.GLOBAL),
-        perm("audit_log", PermissionAction.READ, PermissionScope.GLOBAL),
-      ],
-    },
-    {
-      roleCode: "SYSTEM",
-      perms: [
-        perm("leave_request", PermissionAction.READ, PermissionScope.GLOBAL),
-        perm("leave_balance", PermissionAction.READ, PermissionScope.GLOBAL),
-        perm("employee", PermissionAction.READ, PermissionScope.GLOBAL),
-      ],
-    },
-  ];
-
-  for (const { roleCode, perms } of rolePermMap) {
-    const r = role(roleCode);
-    for (const p of perms) {
-      if (!p) continue;
-      await prisma.rolePermission.upsert({
-        where: { roleId_permissionId: { roleId: r.id, permissionId: p.id } },
-        update: {},
-        create: { roleId: r.id, permissionId: p.id },
-      });
-    }
-  }
-
-  // ── SYSTEM_ADMIN bootstrap user ────────────────────────────────────────────
-  const adminEmail = "admin@sentient.dev";
-  const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
-
-  if (!existingAdmin) {
-    const adminPassword = randomBytes(16).toString("hex");
-    const passwordHash = await argon2.hash(adminPassword, {
-      type: argon2.argon2id,
-      memoryCost: 65536,
-      timeCost: 3,
-      parallelism: 1,
-    });
-
-    const adminUser = await prisma.user.create({
-      data: {
-        email: adminEmail,
-        passwordHash,
-        passwordHistory: [passwordHash],
-        status: UserStatus.ACTIVE,
-        mustChangePassword: true,
-      },
-    });
-
-    const sysAdminRole = role("SYSTEM_ADMIN");
-    await prisma.userRole.create({
-      data: {
-        userId: adminUser.id,
-        roleId: sysAdminRole.id,
-        scope: PermissionScope.GLOBAL,
-      },
-    });
-
-    // Print once — save it immediately
-    console.log("\n╔══════════════════════════════════════════════╗");
-    console.log("║  SYSTEM_ADMIN Bootstrap Credentials          ║");
-    console.log("║  Email:    admin@sentient.dev                ║");
-    console.log(`║  Password: ${adminPassword}  ║`);
-    console.log("║  SAVE THIS — shown only once                 ║");
-    console.log("╚══════════════════════════════════════════════╝\n");
-  }
-}
-
-async function seedDemoUsers(): Promise<void> {
-  const DEMO_PASSWORD = "Sentient@2026!";
-  const passwordHash = await argon2.hash(DEMO_PASSWORD, {
-    type: argon2.argon2id,
-    memoryCost: 65536,
-    timeCost: 3,
-    parallelism: 1,
-  });
-
-  const engDept    = await prisma.department.findFirstOrThrow({ where: { code: "ENG" },   select: { id: true } });
-  const backendTeam = await prisma.team.findFirstOrThrow(      { where: { code: "ENG-BE" }, select: { id: true } });
-
-  const demos = [
-    { email: "hradmin@sentient.dev",  roleCode: "HR_ADMIN", scope: PermissionScope.GLOBAL,     scopeEntityId: null             },
-    { email: "manager@sentient.dev",  roleCode: "MANAGER",  scope: PermissionScope.DEPARTMENT, scopeEntityId: engDept.id       },
-    { email: "employee@sentient.dev", roleCode: "EMPLOYEE", scope: PermissionScope.OWN,        scopeEntityId: null             },
-    { email: "teamlead@sentient.dev", roleCode: "MANAGER",  scope: PermissionScope.TEAM,       scopeEntityId: backendTeam.id   },
-  ] as const;
-
-  for (const { email, roleCode, scope, scopeEntityId } of demos) {
-    const roleRow = await prisma.role.findUnique({ where: { code: roleCode } });
-    if (!roleRow) continue;
-
-    const existing = await prisma.user.findUnique({ where: { email } });
-    const user = existing ?? await prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-        passwordHistory: [passwordHash],
-        status: UserStatus.ACTIVE,
-        mustChangePassword: false,
-      },
-    });
-
-    // Always correct active UserRole scope so re-runs fix previously wrong rows.
-    const { count } = await prisma.userRole.updateMany({
-      where: { userId: user.id, roleId: roleRow.id, revokedAt: null },
-      data: { scope, scopeEntityId },
-    });
-    if (count === 0) {
-      await prisma.userRole.create({
-        data: { userId: user.id, roleId: roleRow.id, scope, scopeEntityId },
-      });
-    }
-  }
-
-  console.log("\n╔══════════════════════════════════════════════════╗");
-  console.log("║  Demo Accounts (password: Sentient@2026!)        ║");
-  console.log("║  hradmin@sentient.dev   → HR_ADMIN  (GLOBAL)    ║");
-  console.log("║  manager@sentient.dev   → MANAGER   (DEPARTMENT)║");
-  console.log("║  teamlead@sentient.dev  → MANAGER   (TEAM)      ║");
-  console.log("║  employee@sentient.dev  → EMPLOYEE  (OWN)       ║");
-  console.log("╚══════════════════════════════════════════════════╝\n");
-}
-
-async function seedDemoEmployees(): Promise<void> {
-  const bu = await prisma.businessUnit.findFirstOrThrow({ where: { name: "Sentient HQ" } });
-
-  const depts = await prisma.department.findMany({
-    where: { businessUnitId: bu.id },
-    select: { id: true, code: true },
-  });
-  const deptByCode = new Map(depts.map((d) => [d.code, d.id]));
-
-  const teams = await prisma.team.findMany({
-    where: { businessUnitId: bu.id },
-    select: { id: true, code: true },
-  });
-  const teamByCode = new Map(teams.map((t) => [t.code, t.id]));
-
-  const positions = await prisma.position.findMany({ select: { id: true, title: true } });
-  const posById = new Map(positions.map((p) => [p.title, p.id]));
-
-  const leaveTypes = await prisma.leaveType.findMany({
-    where: { businessUnitId: bu.id },
-    select: { id: true, name: true, defaultDaysPerYear: true },
-  });
-
-  const YEAR = 2026;
-
-  // ── Manager demo employee ──────────────────────────────────────────────
-  const managerUser = await prisma.user.findUnique({ where: { email: "manager@sentient.dev" } });
-  if (managerUser && !managerUser.employeeId) {
-    const managerEmp = await prisma.employee.upsert({
-      where: { email: "manager@sentient.dev" },
-      update: {},
-      create: {
-        employeeCode: "EMP-MGR-001",
-        firstName: "Alex",
-        lastName: "Manager",
-        email: "manager@sentient.dev",
-        hireDate: new Date("2023-01-10"),
-        grossSalary: 95000,
-        netSalary: 72000,
-        departmentId: deptByCode.get("ENG") ?? null,
-        teamId: teamByCode.get("ENG-BE") ?? null,
-        positionId: posById.get("Software Engineer - Senior I") ?? null,
-      },
-    });
-    await prisma.user.update({ where: { id: managerUser.id }, data: { employeeId: managerEmp.id } });
-    await seedBalances(managerEmp.id, leaveTypes, YEAR);
-  }
-
-  // ── HR Admin demo employee ─────────────────────────────────────────────
-  const hrAdminUser = await prisma.user.findUnique({ where: { email: "hradmin@sentient.dev" } });
-  if (hrAdminUser && !hrAdminUser.employeeId) {
-    const hrAdminEmp = await prisma.employee.upsert({
-      where: { email: "hradmin@sentient.dev" },
-      update: {},
-      create: {
-        employeeCode: "EMP-HR-001",
-        firstName: "Sarah",
-        lastName: "HRAdmin",
-        email: "hradmin@sentient.dev",
-        hireDate: new Date("2022-06-01"),
-        grossSalary: 85000,
-        netSalary: 65000,
-        departmentId: deptByCode.get("HR") ?? null,
-        teamId: teamByCode.get("HR-TA") ?? null,
-        positionId: posById.get("HR Generalist") ?? null,
-      },
-    });
-    await prisma.user.update({ where: { id: hrAdminUser.id }, data: { employeeId: hrAdminEmp.id } });
-    await seedBalances(hrAdminEmp.id, leaveTypes, YEAR);
-  }
-
-  // ── Employee demo employee (reports to manager) ───────────────────────
-  const employeeUser = await prisma.user.findUnique({ where: { email: "employee@sentient.dev" } });
-  if (employeeUser && !employeeUser.employeeId) {
-    const managerEmpRef = await prisma.employee.findUnique({ where: { email: "manager@sentient.dev" } });
-    const empEmp = await prisma.employee.upsert({
-      where: { email: "employee@sentient.dev" },
-      update: {},
-      create: {
-        employeeCode: "EMP-ENG-001",
-        firstName: "Jordan",
-        lastName: "Employee",
-        email: "employee@sentient.dev",
-        hireDate: new Date("2024-03-01"),
-        grossSalary: 65000,
-        netSalary: 50000,
-        departmentId: deptByCode.get("ENG") ?? null,
-        teamId: teamByCode.get("ENG-BE") ?? null,
-        positionId: posById.get("Software Engineer - Junior") ?? null,
-        managerId: managerEmpRef?.id ?? null,
-      },
-    });
-    await prisma.user.update({ where: { id: employeeUser.id }, data: { employeeId: empEmp.id } });
-    await seedBalances(empEmp.id, leaveTypes, YEAR);
-  }
-
-  // ── Team Lead demo employee ────────────────────────────────────────────
-  const teamleadUser = await prisma.user.findUnique({ where: { email: "teamlead@sentient.dev" } });
-  if (teamleadUser) {
-    const managerEmpRef = await prisma.employee.findUnique({ where: { email: "manager@sentient.dev" } });
-    const teamleadEmp = await prisma.employee.upsert({
-      where: { email: "teamlead@sentient.dev" },
-      update: {},
-      create: {
-        employeeCode: "EMP-TL-001",
-        firstName: "Taylor",
-        lastName: "TeamLead",
-        email: "teamlead@sentient.dev",
-        hireDate: new Date("2022-09-01"),
-        grossSalary: 88000,
-        netSalary: 67000,
-        departmentId: deptByCode.get("ENG") ?? null,
-        teamId: teamByCode.get("ENG-BE") ?? null,
-        positionId: posById.get("Software Engineer - Senior I") ?? null,
-        managerId: managerEmpRef?.id ?? null,
-      },
-    });
-    if (!teamleadUser.employeeId) {
-      await prisma.user.update({ where: { id: teamleadUser.id }, data: { employeeId: teamleadEmp.id } });
-      await seedBalances(teamleadEmp.id, leaveTypes, YEAR);
-    }
-
-    // Always set Backend team leadId (safe on re-runs).
-    const backendTeamRow = await prisma.team.findFirst({ where: { code: "ENG-BE" } });
-    if (backendTeamRow) {
-      await prisma.team.update({ where: { id: backendTeamRow.id }, data: { leadId: teamleadEmp.id } });
-    }
-  }
-}
-
-async function seedBalances(
-  employeeId: string,
-  leaveTypes: { id: string; name: string; defaultDaysPerYear: Prisma.Decimal }[],
-  year: number,
-): Promise<void> {
-  for (const lt of leaveTypes) {
-    await prisma.leaveBalance.upsert({
-      where: { employeeId_leaveTypeId_year: { employeeId, leaveTypeId: lt.id, year } },
-      update: {},
-      create: {
-        employeeId,
-        leaveTypeId: lt.id,
-        year,
-        totalDays: lt.defaultDaysPerYear,
-        usedDays: 0,
-        pendingDays: 0,
-      },
-    });
-  }
-}
-
-// ================================================================
-// GLOBAL ORG SEED — 4 BUs × 30 employees, 3 years of history
-// ================================================================
-
-type SalaryTier = { junior: number; mid: number; senior: number; expert: number };
-interface BuMeta { code: string; tier: SalaryTier }
-
-const BU_META: Record<string, BuMeta> = {
-  "Sentient HQ":     { code: "HQ",  tier: { junior: 18_000, mid: 28_000, senior: 42_000, expert: 58_000  } },
-  "Sentient France": { code: "FR",  tier: { junior: 48_000, mid: 62_000, senior: 80_000, expert: 100_000 } },
-  "Sentient UAE":    { code: "UAE", tier: { junior: 52_000, mid: 68_000, senior: 85_000, expert: 110_000 } },
-  "Sentient UK":     { code: "UK",  tier: { junior: 55_000, mid: 70_000, senior: 90_000, expert: 118_000 } },
+const BU_HEADCOUNTS: Record<string, number> = {
+  "Sentient HQ":     70,
+  "Sentient France": 50,
+  "Sentient UAE":    45,
+  "Sentient UK":     35,
 };
+
+const DEPT_DEFS = [
+  { code: "ENG", name: "Engineering",     description: "Software engineering department" },
+  { code: "HR",  name: "Human Resources", description: "People operations & talent" },
+  { code: "PRD", name: "Product",         description: "Product management & design" },
+  { code: "FIN", name: "Finance",         description: "Finance & accounting" },
+  { code: "SAL", name: "Sales",           description: "Revenue & growth" },
+] as const;
+
+const TEAM_DEFS = [
+  { code: "ENG-BE",   name: "Backend",               deptCode: "ENG" },
+  { code: "ENG-FE",   name: "Frontend",               deptCode: "ENG" },
+  { code: "HR-TA",    name: "Talent Acquisition",     deptCode: "HR"  },
+  { code: "HR-LD",    name: "Learning & Development", deptCode: "HR"  },
+  { code: "PRD-PS",   name: "Product Strategy",       deptCode: "PRD" },
+  { code: "PRD-DS",   name: "Product Design",         deptCode: "PRD" },
+  { code: "FIN-CTRL", name: "Financial Control",      deptCode: "FIN" },
+  { code: "FIN-FPA",  name: "FP&A",                   deptCode: "FIN" },
+  { code: "SAL-ENT",  name: "Enterprise Sales",       deptCode: "SAL" },
+  { code: "SAL-SMB",  name: "SMB & Accounts",         deptCode: "SAL" },
+] as const;
 
 interface EmpSlot {
   deptCode: string;
@@ -647,651 +86,1309 @@ interface EmpSlot {
   hireYear: number;
 }
 
+// 70-slot template — sliced per BU headcount
+// Total: 12+10+5+5+6+5+8+7+6+6 = 70
 const EMP_SLOTS: EmpSlot[] = [
-  // Backend (9)
-  { deptCode: "ENG", teamCode: "ENG-BE", positionTitle: "Engineering Manager",           isLead: true,  hireYear: 2020 },
-  { deptCode: "ENG", teamCode: "ENG-BE", positionTitle: "Software Engineer - Senior I",  isLead: false, hireYear: 2021 },
-  { deptCode: "ENG", teamCode: "ENG-BE", positionTitle: "Software Engineer - Senior I",  isLead: false, hireYear: 2021 },
-  { deptCode: "ENG", teamCode: "ENG-BE", positionTitle: "Software Engineer - Confirmed", isLead: false, hireYear: 2022 },
-  { deptCode: "ENG", teamCode: "ENG-BE", positionTitle: "Software Engineer - Confirmed", isLead: false, hireYear: 2022 },
-  { deptCode: "ENG", teamCode: "ENG-BE", positionTitle: "Software Engineer - Medium",    isLead: false, hireYear: 2023 },
-  { deptCode: "ENG", teamCode: "ENG-BE", positionTitle: "Software Engineer - Medium",    isLead: false, hireYear: 2023 },
-  { deptCode: "ENG", teamCode: "ENG-BE", positionTitle: "Software Engineer - Junior",    isLead: false, hireYear: 2024 },
-  { deptCode: "ENG", teamCode: "ENG-BE", positionTitle: "QA Engineer",                   isLead: false, hireYear: 2024 },
-  // Frontend (9)
-  { deptCode: "ENG", teamCode: "ENG-FE", positionTitle: "Technical Lead",                isLead: true,  hireYear: 2020 },
-  { deptCode: "ENG", teamCode: "ENG-FE", positionTitle: "Frontend Engineer - Senior I",  isLead: false, hireYear: 2021 },
-  { deptCode: "ENG", teamCode: "ENG-FE", positionTitle: "Frontend Engineer - Senior I",  isLead: false, hireYear: 2021 },
-  { deptCode: "ENG", teamCode: "ENG-FE", positionTitle: "Software Engineer - Confirmed", isLead: false, hireYear: 2022 },
-  { deptCode: "ENG", teamCode: "ENG-FE", positionTitle: "Software Engineer - Medium",    isLead: false, hireYear: 2022 },
-  { deptCode: "ENG", teamCode: "ENG-FE", positionTitle: "Software Engineer - Medium",    isLead: false, hireYear: 2023 },
-  { deptCode: "ENG", teamCode: "ENG-FE", positionTitle: "Frontend Engineer - Junior",    isLead: false, hireYear: 2023 },
-  { deptCode: "ENG", teamCode: "ENG-FE", positionTitle: "Frontend Engineer - Junior",    isLead: false, hireYear: 2024 },
-  { deptCode: "ENG", teamCode: "ENG-FE", positionTitle: "Data Engineer",                 isLead: false, hireYear: 2024 },
-  // HR – Talent Acquisition (3)
-  { deptCode: "HR",  teamCode: "HR-TA",  positionTitle: "HR Business Partner",           isLead: true,  hireYear: 2020 },
-  { deptCode: "HR",  teamCode: "HR-TA",  positionTitle: "HR Generalist",                 isLead: false, hireYear: 2022 },
-  { deptCode: "HR",  teamCode: "HR-TA",  positionTitle: "HR Generalist",                 isLead: false, hireYear: 2023 },
-  // HR – Learning & Development (3)
-  { deptCode: "HR",  teamCode: "HR-LD",  positionTitle: "HR Business Partner",           isLead: true,  hireYear: 2021 },
-  { deptCode: "HR",  teamCode: "HR-LD",  positionTitle: "HR Generalist",                 isLead: false, hireYear: 2022 },
-  { deptCode: "HR",  teamCode: "HR-LD",  positionTitle: "HR Generalist",                 isLead: false, hireYear: 2023 },
-  // Product Strategy (3)
-  { deptCode: "PRD", teamCode: "PRD-PS", positionTitle: "Product Manager",               isLead: true,  hireYear: 2020 },
-  { deptCode: "PRD", teamCode: "PRD-PS", positionTitle: "Product Owner",                 isLead: false, hireYear: 2021 },
-  { deptCode: "PRD", teamCode: "PRD-PS", positionTitle: "Product Owner",                 isLead: false, hireYear: 2022 },
-  // Product Design (3)
-  { deptCode: "PRD", teamCode: "PRD-DS", positionTitle: "Product Manager",               isLead: true,  hireYear: 2021 },
-  { deptCode: "PRD", teamCode: "PRD-DS", positionTitle: "Product Owner",                 isLead: false, hireYear: 2022 },
-  { deptCode: "PRD", teamCode: "PRD-DS", positionTitle: "Product Owner",                 isLead: false, hireYear: 2023 },
+  // ENG-BE (12)
+  { deptCode: "ENG", teamCode: "ENG-BE",   positionTitle: "Engineering Manager",           isLead: true,  hireYear: 2020 },
+  { deptCode: "ENG", teamCode: "ENG-BE",   positionTitle: "Software Engineer - Senior I",  isLead: false, hireYear: 2021 },
+  { deptCode: "ENG", teamCode: "ENG-BE",   positionTitle: "Software Engineer - Senior I",  isLead: false, hireYear: 2021 },
+  { deptCode: "ENG", teamCode: "ENG-BE",   positionTitle: "Software Engineer - Confirmed", isLead: false, hireYear: 2022 },
+  { deptCode: "ENG", teamCode: "ENG-BE",   positionTitle: "Software Engineer - Confirmed", isLead: false, hireYear: 2022 },
+  { deptCode: "ENG", teamCode: "ENG-BE",   positionTitle: "Software Engineer - Medium",    isLead: false, hireYear: 2023 },
+  { deptCode: "ENG", teamCode: "ENG-BE",   positionTitle: "Software Engineer - Medium",    isLead: false, hireYear: 2023 },
+  { deptCode: "ENG", teamCode: "ENG-BE",   positionTitle: "Software Engineer - Junior",    isLead: false, hireYear: 2024 },
+  { deptCode: "ENG", teamCode: "ENG-BE",   positionTitle: "Software Engineer - Junior",    isLead: false, hireYear: 2024 },
+  { deptCode: "ENG", teamCode: "ENG-BE",   positionTitle: "Software Engineer - Junior",    isLead: false, hireYear: 2024 },
+  { deptCode: "ENG", teamCode: "ENG-BE",   positionTitle: "QA Engineer",                   isLead: false, hireYear: 2024 },
+  { deptCode: "ENG", teamCode: "ENG-BE",   positionTitle: "DevOps Engineer",               isLead: false, hireYear: 2023 },
+  // ENG-FE (10)
+  { deptCode: "ENG", teamCode: "ENG-FE",   positionTitle: "Technical Lead",                isLead: true,  hireYear: 2020 },
+  { deptCode: "ENG", teamCode: "ENG-FE",   positionTitle: "Frontend Engineer - Senior I",  isLead: false, hireYear: 2021 },
+  { deptCode: "ENG", teamCode: "ENG-FE",   positionTitle: "Frontend Engineer - Senior I",  isLead: false, hireYear: 2021 },
+  { deptCode: "ENG", teamCode: "ENG-FE",   positionTitle: "Frontend Engineer - Confirmed", isLead: false, hireYear: 2022 },
+  { deptCode: "ENG", teamCode: "ENG-FE",   positionTitle: "Frontend Engineer - Confirmed", isLead: false, hireYear: 2022 },
+  { deptCode: "ENG", teamCode: "ENG-FE",   positionTitle: "Frontend Engineer - Medium",    isLead: false, hireYear: 2023 },
+  { deptCode: "ENG", teamCode: "ENG-FE",   positionTitle: "Frontend Engineer - Medium",    isLead: false, hireYear: 2023 },
+  { deptCode: "ENG", teamCode: "ENG-FE",   positionTitle: "Frontend Engineer - Junior",    isLead: false, hireYear: 2024 },
+  { deptCode: "ENG", teamCode: "ENG-FE",   positionTitle: "Frontend Engineer - Junior",    isLead: false, hireYear: 2024 },
+  { deptCode: "ENG", teamCode: "ENG-FE",   positionTitle: "UX Designer",                   isLead: false, hireYear: 2024 },
+  // HR-TA (5)
+  { deptCode: "HR",  teamCode: "HR-TA",    positionTitle: "HR Business Partner",           isLead: true,  hireYear: 2020 },
+  { deptCode: "HR",  teamCode: "HR-TA",    positionTitle: "HR Generalist",                 isLead: false, hireYear: 2022 },
+  { deptCode: "HR",  teamCode: "HR-TA",    positionTitle: "HR Generalist",                 isLead: false, hireYear: 2023 },
+  { deptCode: "HR",  teamCode: "HR-TA",    positionTitle: "Recruiter",                     isLead: false, hireYear: 2023 },
+  { deptCode: "HR",  teamCode: "HR-TA",    positionTitle: "Recruiter",                     isLead: false, hireYear: 2024 },
+  // HR-LD (5)
+  { deptCode: "HR",  teamCode: "HR-LD",    positionTitle: "HR Business Partner",           isLead: true,  hireYear: 2021 },
+  { deptCode: "HR",  teamCode: "HR-LD",    positionTitle: "HR Generalist",                 isLead: false, hireYear: 2022 },
+  { deptCode: "HR",  teamCode: "HR-LD",    positionTitle: "HR Generalist",                 isLead: false, hireYear: 2023 },
+  { deptCode: "HR",  teamCode: "HR-LD",    positionTitle: "L&D Specialist",                isLead: false, hireYear: 2023 },
+  { deptCode: "HR",  teamCode: "HR-LD",    positionTitle: "L&D Specialist",                isLead: false, hireYear: 2024 },
+  // PRD-PS (6)
+  { deptCode: "PRD", teamCode: "PRD-PS",   positionTitle: "Product Manager",               isLead: true,  hireYear: 2020 },
+  { deptCode: "PRD", teamCode: "PRD-PS",   positionTitle: "Product Owner",                 isLead: false, hireYear: 2021 },
+  { deptCode: "PRD", teamCode: "PRD-PS",   positionTitle: "Product Owner",                 isLead: false, hireYear: 2022 },
+  { deptCode: "PRD", teamCode: "PRD-PS",   positionTitle: "Product Owner",                 isLead: false, hireYear: 2023 },
+  { deptCode: "PRD", teamCode: "PRD-PS",   positionTitle: "Business Analyst",              isLead: false, hireYear: 2023 },
+  { deptCode: "PRD", teamCode: "PRD-PS",   positionTitle: "Business Analyst",              isLead: false, hireYear: 2024 },
+  // PRD-DS (5)
+  { deptCode: "PRD", teamCode: "PRD-DS",   positionTitle: "Product Manager",               isLead: true,  hireYear: 2021 },
+  { deptCode: "PRD", teamCode: "PRD-DS",   positionTitle: "UX Lead",                       isLead: false, hireYear: 2022 },
+  { deptCode: "PRD", teamCode: "PRD-DS",   positionTitle: "UX Designer",                   isLead: false, hireYear: 2023 },
+  { deptCode: "PRD", teamCode: "PRD-DS",   positionTitle: "UX Designer",                   isLead: false, hireYear: 2024 },
+  { deptCode: "PRD", teamCode: "PRD-DS",   positionTitle: "Product Owner",                 isLead: false, hireYear: 2022 },
+  // FIN-CTRL (8)
+  { deptCode: "FIN", teamCode: "FIN-CTRL", positionTitle: "Finance Manager",               isLead: true,  hireYear: 2020 },
+  { deptCode: "FIN", teamCode: "FIN-CTRL", positionTitle: "Financial Controller",          isLead: false, hireYear: 2021 },
+  { deptCode: "FIN", teamCode: "FIN-CTRL", positionTitle: "Financial Controller",          isLead: false, hireYear: 2022 },
+  { deptCode: "FIN", teamCode: "FIN-CTRL", positionTitle: "Accountant",                    isLead: false, hireYear: 2022 },
+  { deptCode: "FIN", teamCode: "FIN-CTRL", positionTitle: "Accountant",                    isLead: false, hireYear: 2023 },
+  { deptCode: "FIN", teamCode: "FIN-CTRL", positionTitle: "Junior Accountant",             isLead: false, hireYear: 2023 },
+  { deptCode: "FIN", teamCode: "FIN-CTRL", positionTitle: "Junior Accountant",             isLead: false, hireYear: 2024 },
+  { deptCode: "FIN", teamCode: "FIN-CTRL", positionTitle: "Tax Specialist",                isLead: false, hireYear: 2022 },
+  // FIN-FPA (7)
+  { deptCode: "FIN", teamCode: "FIN-FPA",  positionTitle: "FP&A Manager",                  isLead: true,  hireYear: 2020 },
+  { deptCode: "FIN", teamCode: "FIN-FPA",  positionTitle: "Financial Analyst",             isLead: false, hireYear: 2021 },
+  { deptCode: "FIN", teamCode: "FIN-FPA",  positionTitle: "Financial Analyst",             isLead: false, hireYear: 2022 },
+  { deptCode: "FIN", teamCode: "FIN-FPA",  positionTitle: "Senior Financial Analyst",      isLead: false, hireYear: 2022 },
+  { deptCode: "FIN", teamCode: "FIN-FPA",  positionTitle: "Senior Financial Analyst",      isLead: false, hireYear: 2023 },
+  { deptCode: "FIN", teamCode: "FIN-FPA",  positionTitle: "Junior Analyst",                isLead: false, hireYear: 2023 },
+  { deptCode: "FIN", teamCode: "FIN-FPA",  positionTitle: "Junior Analyst",                isLead: false, hireYear: 2024 },
+  // SAL-ENT (6)
+  { deptCode: "SAL", teamCode: "SAL-ENT",  positionTitle: "Sales Manager",                 isLead: true,  hireYear: 2020 },
+  { deptCode: "SAL", teamCode: "SAL-ENT",  positionTitle: "Senior AE",                     isLead: false, hireYear: 2021 },
+  { deptCode: "SAL", teamCode: "SAL-ENT",  positionTitle: "Senior AE",                     isLead: false, hireYear: 2022 },
+  { deptCode: "SAL", teamCode: "SAL-ENT",  positionTitle: "Enterprise AE",                 isLead: false, hireYear: 2022 },
+  { deptCode: "SAL", teamCode: "SAL-ENT",  positionTitle: "Enterprise AE",                 isLead: false, hireYear: 2023 },
+  { deptCode: "SAL", teamCode: "SAL-ENT",  positionTitle: "Sales Engineer",                isLead: false, hireYear: 2023 },
+  // SAL-SMB (6)
+  { deptCode: "SAL", teamCode: "SAL-SMB",  positionTitle: "Sales Manager",                 isLead: true,  hireYear: 2021 },
+  { deptCode: "SAL", teamCode: "SAL-SMB",  positionTitle: "Account Manager",               isLead: false, hireYear: 2022 },
+  { deptCode: "SAL", teamCode: "SAL-SMB",  positionTitle: "Account Manager",               isLead: false, hireYear: 2023 },
+  { deptCode: "SAL", teamCode: "SAL-SMB",  positionTitle: "Sales Development Rep",         isLead: false, hireYear: 2023 },
+  { deptCode: "SAL", teamCode: "SAL-SMB",  positionTitle: "Sales Development Rep",         isLead: false, hireYear: 2024 },
+  { deptCode: "SAL", teamCode: "SAL-SMB",  positionTitle: "Sales Coordinator",             isLead: false, hireYear: 2024 },
+];
+
+const SKILLS_CATALOG: Array<{ name: string; domain: SkillDomain }> = [
+  { name: "TypeScript",         domain: SkillDomain.TECHNICAL },
+  { name: "React",              domain: SkillDomain.TECHNICAL },
+  { name: "Vue.js",             domain: SkillDomain.TECHNICAL },
+  { name: "Angular",            domain: SkillDomain.TECHNICAL },
+  { name: "CSS/Tailwind",       domain: SkillDomain.TECHNICAL },
+  { name: "Node.js",            domain: SkillDomain.TECHNICAL },
+  { name: "NestJS",             domain: SkillDomain.TECHNICAL },
+  { name: "Python",             domain: SkillDomain.TECHNICAL },
+  { name: "Java",               domain: SkillDomain.TECHNICAL },
+  { name: "Go",                 domain: SkillDomain.TECHNICAL },
+  { name: "GraphQL",            domain: SkillDomain.TECHNICAL },
+  { name: "AWS",                domain: SkillDomain.TECHNICAL },
+  { name: "Azure",              domain: SkillDomain.TECHNICAL },
+  { name: "GCP",                domain: SkillDomain.TECHNICAL },
+  { name: "Terraform",          domain: SkillDomain.TECHNICAL },
+  { name: "Linux",              domain: SkillDomain.TECHNICAL },
+  { name: "CI/CD",              domain: SkillDomain.TECHNICAL },
+  { name: "Git",                domain: SkillDomain.TECHNICAL },
+  { name: "Redis",              domain: SkillDomain.TECHNICAL },
+  { name: "MongoDB",            domain: SkillDomain.TECHNICAL },
+  { name: "Elasticsearch",      domain: SkillDomain.TECHNICAL },
+  { name: "Kafka",              domain: SkillDomain.TECHNICAL },
+  { name: "Docker",             domain: SkillDomain.TECHNICAL },
+  { name: "Kubernetes",         domain: SkillDomain.TECHNICAL },
+  { name: "PostgreSQL",         domain: SkillDomain.TECHNICAL },
+  { name: "Figma",              domain: SkillDomain.TECHNICAL },
+  { name: "UX Research",        domain: SkillDomain.TECHNICAL },
+  { name: "Adobe XD",           domain: SkillDomain.TECHNICAL },
+  { name: "Data Analysis",      domain: SkillDomain.TECHNICAL },
+  { name: "Leadership",         domain: SkillDomain.LEADERSHIP },
+  { name: "Mentoring",          domain: SkillDomain.LEADERSHIP },
+  { name: "Communication",      domain: SkillDomain.SOFT_SKILLS },
+  { name: "Agile/Scrum",        domain: SkillDomain.SOFT_SKILLS },
+  { name: "Project Management", domain: SkillDomain.SOFT_SKILLS },
+  { name: "Negotiation",        domain: SkillDomain.SOFT_SKILLS },
+  { name: "English",            domain: SkillDomain.DOMAIN_EXPERTISE },
+  { name: "French",             domain: SkillDomain.DOMAIN_EXPERTISE },
+  { name: "Arabic",             domain: SkillDomain.DOMAIN_EXPERTISE },
+  { name: "Spanish",            domain: SkillDomain.DOMAIN_EXPERTISE },
+  { name: "German",             domain: SkillDomain.DOMAIN_EXPERTISE },
+  { name: "Chinese",            domain: SkillDomain.DOMAIN_EXPERTISE },
+  { name: "Financial Analysis", domain: SkillDomain.DOMAIN_EXPERTISE },
+  { name: "IFRS Accounting",    domain: SkillDomain.DOMAIN_EXPERTISE },
+  { name: "Tax Law",            domain: SkillDomain.DOMAIN_EXPERTISE },
+  { name: "FP&A",               domain: SkillDomain.DOMAIN_EXPERTISE },
+  { name: "Budget Planning",    domain: SkillDomain.DOMAIN_EXPERTISE },
+  { name: "SAP/ERP",            domain: SkillDomain.DOMAIN_EXPERTISE },
+  { name: "CRM/Salesforce",     domain: SkillDomain.DOMAIN_EXPERTISE },
+  { name: "Recruitment",        domain: SkillDomain.DOMAIN_EXPERTISE },
+  { name: "L&D Design",         domain: SkillDomain.DOMAIN_EXPERTISE },
 ];
 
 const TEAM_SKILLS: Record<string, string[]> = {
-  "ENG-BE": ["TypeScript", "Node.js", "NestJS", "PostgreSQL", "Docker", "Git", "Redis", "AWS", "CI/CD", "Python", "Go", "Kafka", "GraphQL"],
-  "ENG-FE": ["TypeScript", "React", "Vue.js", "Angular", "CSS / Tailwind", "Git", "Docker", "Figma", "AWS"],
-  "HR-TA":  ["Communication", "Leadership", "Mentoring", "Negotiation", "English", "French", "Project Management"],
-  "HR-LD":  ["Communication", "Leadership", "Mentoring", "English", "French", "Agile / Scrum", "Project Management"],
-  "PRD-PS": ["Project Management", "Agile / Scrum", "Data Analysis", "Communication", "Leadership", "English", "Figma"],
-  "PRD-DS": ["Figma", "UX Research", "Adobe XD", "Communication", "Agile / Scrum", "English", "CSS / Tailwind"],
+  "ENG-BE":   ["TypeScript", "Node.js", "NestJS", "PostgreSQL", "Docker", "Git", "Redis", "AWS", "CI/CD", "Python", "Go", "Kafka", "GraphQL"],
+  "ENG-FE":   ["TypeScript", "React", "Vue.js", "CSS/Tailwind", "Git", "Docker", "Figma", "AWS", "Angular"],
+  "HR-TA":    ["Communication", "Leadership", "Mentoring", "Negotiation", "English", "French", "Project Management", "Recruitment"],
+  "HR-LD":    ["Communication", "Leadership", "Mentoring", "English", "French", "Agile/Scrum", "Project Management", "L&D Design"],
+  "PRD-PS":   ["Project Management", "Agile/Scrum", "Data Analysis", "Communication", "Leadership", "English", "Figma"],
+  "PRD-DS":   ["Figma", "UX Research", "Adobe XD", "Communication", "Agile/Scrum", "English", "CSS/Tailwind"],
+  "FIN-CTRL": ["Financial Analysis", "IFRS Accounting", "SAP/ERP", "Tax Law", "Budget Planning", "Communication", "English"],
+  "FIN-FPA":  ["Financial Analysis", "FP&A", "Data Analysis", "Budget Planning", "SAP/ERP", "Communication", "English"],
+  "SAL-ENT":  ["CRM/Salesforce", "Negotiation", "Communication", "English", "Project Management"],
+  "SAL-SMB":  ["CRM/Salesforce", "Negotiation", "Communication", "English"],
 };
 
-interface BulkEmployee {
-  id:           string;
-  departmentId: string | null;
-  teamId:       string | null;
-  hireDate:     Date;
-  grossSalary:  number;
-  buId:         string;
-  teamCode:     string;
-}
+const FIRST_NAMES = [
+  "Maya","Ethan","Aisha","Liam","Nora","Mateo","Zoe","Owen","Amara","Noah",
+  "Leah","Julian","Iris","Caleb","Priya","Felix","Sofia","Miles","Hana","Elias",
+  "Naomi","Theo","Lina","Adrian","Mila","Jonah","Talia","Isaac","Rina","Gabriel",
+  "Layla","Simon","Elena","Rafael","Chloe","Dylan","Miriam","Aaron","Avery","Leo",
+  "Selena","Nathan","Kiara","Oscar","Grace","Daniel","Imani","Victor","Clara","Samuel",
+];
+const LAST_NAMES = [
+  "Bennett","Okafor","Chen","Haddad","Singh","Morgan","Alvarez","Peterson","Nakamura","Reed",
+  "Mensah","Khan","Brooks","Silva","Morrison","Ibrahim","Foster","Vargas","Nguyen","Coleman",
+  "Rahman","Price","Dubois","Bishop","Park","Hughes","Costa","Santos","Wallace","Fletcher",
+  "Mehta","Carter","Jensen","Adebayo","Stone","Farouk","Cooper","Sullivan","Rossi","Hart",
+  "Kimani","Patel","Hayes","Mendoza","Wright","Bakker","Diallo","Quinn","Meyer","Powell",
+  "Salazar","Ndiaye","Turner",
+];
 
-interface FakerData { firstName: string; lastName: string; phone: string; dateOfBirth: Date }
+// ============================================================
+// HELPERS
+// ============================================================
 
-function buildHireDate(year: number, idx: number): Date {
-  return new Date(year, (idx * 2) % 12, (idx * 7) % 25 + 1);
-}
-
-function levelToSalary(level: PositionLevel | null | undefined, tier: SalaryTier): number {
-  switch (level) {
-    case PositionLevel.JUNIOR:    return tier.junior;
-    case PositionLevel.MEDIUM:    return tier.mid;
-    case PositionLevel.CONFIRMED: return tier.mid;
-    case PositionLevel.SENIOR_1:  return tier.senior;
-    case PositionLevel.SENIOR_2:  return tier.senior;
-    case PositionLevel.EXPERT:    return tier.expert;
-    default:                      return tier.mid;
-  }
+function buildHireDate(year: number, slotIdx: number): Date {
+  return new Date(year, (slotIdx * 2) % 12, (slotIdx * 7) % 25 + 1);
 }
 
 function applyJitter(base: number, idx: number): number {
-  const pct = (idx % 11) - 5; // -5 to +5 %
-  return Math.round(base * (1 + pct / 100));
+  const pct = ((idx % 10) - 5) * 0.01; // ±5%
+  return Math.round(base * (1 + pct));
 }
 
-async function seedGlobalOrg(): Promise<void> {
-  faker.seed(42);
-
-  await seedExtendedPositions();
-  await seedExtendedSkills();
-
-  const subsidiaries = await seedGlobalBusinessUnits();
-  const hqBu         = await prisma.businessUnit.findFirstOrThrow({ where: { name: "Sentient HQ" } });
-  const allBUs       = [hqBu, ...subsidiaries];
-
-  for (const bu of allBUs) {
-    await seedBuStructure(bu);
-  }
-
-  // Pre-generate all faker personal data up front so order is deterministic
-  const allFakerData: FakerData[] = Array.from({ length: allBUs.length * EMP_SLOTS.length }, () => ({
-    firstName:   faker.person.firstName(),
-    lastName:    faker.person.lastName(),
-    phone:       faker.phone.number({ style: "international" }),
-    dateOfBirth: faker.date.birthdate({ min: 24, max: 55, mode: "age" }),
-  }));
-
-  const allEmployees: BulkEmployee[] = [];
-  for (let buIdx = 0; buIdx < allBUs.length; buIdx++) {
-    const bu   = allBUs[buIdx]!;
-    const data = allFakerData.slice(buIdx * EMP_SLOTS.length, (buIdx + 1) * EMP_SLOTS.length);
-    const emps = await seedBulkEmployeesForBu(bu, data);
-    allEmployees.push(...emps);
-  }
-
-  await seedAllHistory(allEmployees);
-  console.log(`\n✅  Global org seeded: ${allEmployees.length} bulk employees across ${allBUs.length} BUs.`);
+function resolveStatus(slot: EmpSlot, globalIdx: number): EmploymentStatus {
+  // leads are always active — they're department/team heads
+  if (slot.isLead) return EmploymentStatus.ACTIVE;
+  if (globalIdx % 13 === 7) return EmploymentStatus.TERMINATED;
+  if (globalIdx % 17 === 3) return EmploymentStatus.RESIGNED;
+  if (globalIdx % 33 === 5) return EmploymentStatus.ON_LEAVE;
+  if (slot.hireYear >= 2024 && globalIdx % 11 === 4) return EmploymentStatus.PROBATION;
+  return EmploymentStatus.ACTIVE;
 }
 
-async function seedGlobalBusinessUnits(): Promise<{ id: string; name: string }[]> {
-  const defs = [
-    { name: "Sentient France", address: "Paris, France"  },
-    { name: "Sentient UAE",    address: "Dubai, UAE"     },
-    { name: "Sentient UK",     address: "London, UK"     },
+function resolveContractType(slot: EmpSlot, globalIdx: number): ContractType {
+  const junior = slot.positionTitle.includes("Junior") ||
+                 slot.positionTitle.includes("Coordinator") ||
+                 slot.positionTitle.includes("Development Rep");
+  if (junior) {
+    const r = globalIdx % 3;
+    if (r === 0) return ContractType.FIXED_TERM;
+    if (r === 1) return ContractType.INTERN;
+  }
+  return ContractType.FULL_TIME;
+}
+
+function resolveMaritalStatus(idx: number): MaritalStatus {
+  const statuses = [
+    MaritalStatus.SINGLE,
+    MaritalStatus.MARRIED,
+    MaritalStatus.MARRIED,
+    MaritalStatus.SINGLE,
+    MaritalStatus.DIVORCED,
+    MaritalStatus.MARRIED,
+    MaritalStatus.SINGLE,
+    MaritalStatus.WIDOWED,
+  ];
+  return statuses[idx % statuses.length]!;
+}
+
+function resolveEducationLevel(posTitle: string): EducationLevel {
+  const senior = posTitle.includes("Manager") || posTitle.includes("Lead") || posTitle.includes("Partner") || posTitle.includes("Controller") || posTitle.includes("Senior");
+  if (senior) return EducationLevel.MASTER;
+  return EducationLevel.BACHELOR;
+}
+
+function resolveEducationField(deptCode: string): string {
+  const map: Record<string, string> = {
+    ENG: "Computer Science",
+    HR:  "Human Resources Management",
+    PRD: "Business / UX",
+    FIN: "Finance",
+    SAL: "Business Administration",
+  };
+  return map[deptCode] ?? "Business Administration";
+}
+
+function resolveBaseSalary(posTitle: string, buCode: string): number {
+  const bc = BU_CONFIGS.find(b => b.code === buCode)!;
+  const t  = bc.salaryTiers;
+  const title = posTitle.toLowerCase();
+  if (title.includes("junior") || title.includes("coordinator") || title.includes("development rep")) return t.jr;
+  if (title.includes("manager") || title.includes("lead") || title.includes("controller") || title.includes("partner") || title.includes("senior") || title.includes("fpa manager") || title.includes("fp&a manager")) return t.sr;
+  return t.mid;
+}
+
+function getEmployeeName(idx: number): { firstName: string; lastName: string } {
+  return {
+    firstName: FIRST_NAMES[idx % FIRST_NAMES.length]!,
+    lastName: LAST_NAMES[(idx * 7) % LAST_NAMES.length]!,
+  };
+}
+
+function buildDateOfBirth(idx: number): Date {
+  const birthDate = new Date(1970, 0, 15);
+  birthDate.setDate(birthDate.getDate() + ((idx * 211) % 10220));
+  return birthDate;
+}
+
+function resolveNetSalary(grossSalary: number, idx: number): number {
+  const retentionRate = 0.72 + ((idx % 8) * 0.01);
+  return Math.round(grossSalary * retentionRate * 100) / 100;
+}
+
+function subDays(d: Date, days: number): Date {
+  const r = new Date(d);
+  r.setDate(r.getDate() - days);
+  return r;
+}
+
+// ============================================================
+// PHASE 0 — RESET
+// ============================================================
+
+async function resetDatabase(): Promise<void> {
+  console.log("  → Truncating all hr_core tables...");
+  await prisma.$executeRawUnsafe(`
+    TRUNCATE TABLE
+      hr_core.performance_review_salary_followups,
+      hr_core.performance_review_audits,
+      hr_core.performance_reviews,
+      hr_core.performance_review_cycles,
+      hr_core.skill_history,
+      hr_core.employee_skills,
+      hr_core.position_skills,
+      hr_core.leave_requests,
+      hr_core.leave_balance_adjustments,
+      hr_core.leave_balances,
+      hr_core.leave_accrual_runs,
+      hr_core.salary_history,
+      hr_core.user_roles,
+      hr_core.role_permissions,
+      hr_core.sessions,
+      hr_core.password_reset_tokens,
+      hr_core.invite_tokens,
+      hr_core.security_events,
+      hr_core.users,
+      hr_core.employees,
+      hr_core.roles,
+      hr_core.permissions,
+      hr_core.teams,
+      hr_core.departments,
+      hr_core.positions,
+      hr_core.skills,
+      hr_core.leave_types,
+      hr_core.holidays,
+      hr_core.business_units,
+      hr_core.enum_meta
+    RESTART IDENTITY CASCADE
+  `);
+}
+
+// ============================================================
+// PHASE 1 — IAM
+// ============================================================
+
+async function seedIam(): Promise<Map<string, string>> {
+  console.log("  → Seeding IAM (roles, permissions, enum meta)...");
+
+  const RESOURCES = [
+    "employee","leave_request","leave_balance","leave_type","skill",
+    "salary_history","performance_review","department","team","position","holiday","user","role",
+  ];
+  const ACTIONS = [PermissionAction.CREATE, PermissionAction.READ, PermissionAction.UPDATE, PermissionAction.DELETE, PermissionAction.APPROVE];
+  const SCOPES  = [PermissionScope.OWN, PermissionScope.TEAM, PermissionScope.DEPARTMENT, PermissionScope.BUSINESS_UNIT, PermissionScope.GLOBAL];
+
+  const permRows: Prisma.PermissionCreateManyInput[] = [];
+  for (const resource of RESOURCES) {
+    for (const action of ACTIONS) {
+      for (const scope of SCOPES) {
+        permRows.push({ resource, action, scope });
+      }
+    }
+  }
+  await prisma.permission.createMany({ data: permRows, skipDuplicates: true });
+  const allPerms = await prisma.permission.findMany();
+
+  function permsFor(resource: string, actions: PermissionAction[], scope: PermissionScope) {
+    return allPerms
+      .filter(p => p.resource === resource && actions.includes(p.action) && p.scope === scope)
+      .map(p => p.id);
+  }
+
+  const roleDefs = [
+    {
+      code: "SYSTEM_ADMIN", name: "System Administrator", isSystem: true, isEditable: false,
+      permIds: allPerms.map(p => p.id),
+    },
+    {
+      code: "HR_ADMIN", name: "HR Administrator", isSystem: true, isEditable: false,
+      permIds: allPerms.filter(p => p.scope === PermissionScope.GLOBAL).map(p => p.id),
+    },
+    {
+      code: "MANAGER", name: "Manager", isSystem: true, isEditable: false,
+      permIds: [
+        ...permsFor("employee",           [PermissionAction.READ, PermissionAction.UPDATE],              PermissionScope.TEAM),
+        ...permsFor("leave_request",      [PermissionAction.READ, PermissionAction.APPROVE],             PermissionScope.TEAM),
+        ...permsFor("performance_review", [PermissionAction.CREATE, PermissionAction.READ, PermissionAction.UPDATE], PermissionScope.TEAM),
+        ...permsFor("leave_balance",      [PermissionAction.READ],                                       PermissionScope.TEAM),
+        ...permsFor("skill",              [PermissionAction.READ, PermissionAction.UPDATE],              PermissionScope.TEAM),
+      ],
+    },
+    {
+      code: "EMPLOYEE", name: "Employee", isSystem: true, isEditable: false,
+      permIds: [
+        ...permsFor("employee",           [PermissionAction.READ, PermissionAction.UPDATE],              PermissionScope.OWN),
+        ...permsFor("leave_request",      [PermissionAction.CREATE, PermissionAction.READ],              PermissionScope.OWN),
+        ...permsFor("leave_balance",      [PermissionAction.READ],                                       PermissionScope.OWN),
+        ...permsFor("skill",              [PermissionAction.READ],                                        PermissionScope.OWN),
+        ...permsFor("performance_review", [PermissionAction.READ],                                        PermissionScope.OWN),
+      ],
+    },
+    {
+      code: "EXECUTIVE", name: "Executive", isSystem: true, isEditable: false,
+      permIds: allPerms.filter(p => p.action === PermissionAction.READ && p.scope === PermissionScope.GLOBAL).map(p => p.id),
+    },
   ];
 
-  const results: { id: string; name: string }[] = [];
-  for (const def of defs) {
-    const bu = await prisma.businessUnit.upsert({ where: { name: def.name }, update: {}, create: def });
-    results.push(bu);
-
-    const leaveDefs = [
-      { name: "Annual Leave",    defaultDaysPerYear: 25, accrualFrequency: AccrualFrequency.MONTHLY, maxCarryoverDays: 5, requiresApproval: true, color: "#4CAF50" },
-      { name: "Sick Leave",      defaultDaysPerYear: 15, accrualFrequency: AccrualFrequency.MONTHLY, maxCarryoverDays: 0, requiresApproval: true, color: "#F44336" },
-      { name: "Maternity Leave", defaultDaysPerYear: 98, accrualFrequency: AccrualFrequency.YEARLY,  maxCarryoverDays: 0, requiresApproval: true, color: "#E91E63" },
-      { name: "Paternity Leave", defaultDaysPerYear: 5,  accrualFrequency: AccrualFrequency.YEARLY,  maxCarryoverDays: 0, requiresApproval: true, color: "#2196F3" },
-      { name: "Unpaid Leave",    defaultDaysPerYear: 0,  accrualFrequency: AccrualFrequency.YEARLY,  maxCarryoverDays: 0, requiresApproval: true, color: "#9E9E9E" },
-    ] as const;
-    for (const lt of leaveDefs) {
-      await prisma.leaveType.upsert({
-        where:  { name_businessUnitId: { name: lt.name, businessUnitId: bu.id } },
-        update: {},
-        create: { ...lt, businessUnitId: bu.id },
-      });
-    }
-
-    const holidays = [
-      { name: "New Year's Day", date: "2026-01-01", year: 2026 },
-      { name: "Labour Day",     date: "2026-05-01", year: 2026 },
-      { name: "Christmas Day",  date: "2026-12-25", year: 2026 },
-      { name: "Boxing Day",     date: "2026-12-26", year: 2026 },
-    ];
-    for (const h of holidays) {
-      await prisma.holiday.upsert({
-        where:  { date_businessUnitId_year: { date: new Date(`${h.date}T00:00:00.000Z`), businessUnitId: bu.id, year: h.year } },
-        update: {},
-        create: { businessUnitId: bu.id, name: h.name, date: new Date(`${h.date}T00:00:00.000Z`), isRecurring: false, year: h.year },
-      });
-    }
+  const roleMap = new Map<string, string>();
+  for (const rd of roleDefs) {
+    const role = await prisma.role.upsert({
+      where:  { code: rd.code },
+      update: {},
+      create: { code: rd.code, name: rd.name, isSystem: rd.isSystem, isEditable: rd.isEditable },
+    });
+    roleMap.set(rd.code, role.id);
+    const unique = [...new Set(rd.permIds)];
+    await prisma.rolePermission.createMany({
+      data: unique.map(permId => ({ roleId: role.id, permissionId: permId })),
+      skipDuplicates: true,
+    });
   }
-  return results;
-}
 
-async function seedBuStructure(bu: { id: string; name: string }): Promise<void> {
-  await prisma.department.createMany({
-    data: [
-      { name: "Engineering",     code: "ENG", businessUnitId: bu.id, description: "Engineering department" },
-      { name: "Human Resources", code: "HR",  businessUnitId: bu.id, description: "People operations"      },
-      { name: "Product",         code: "PRD", businessUnitId: bu.id, description: "Product management"     },
-    ],
-    skipDuplicates: true,
-  });
-
-  const depts   = await prisma.department.findMany({ where: { businessUnitId: bu.id, code: { in: ["ENG", "HR", "PRD"] } }, select: { id: true, code: true } });
-  const byCode  = new Map(depts.map((d) => [d.code, d.id]));
-
-  await prisma.team.createMany({
-    data: [
-      { name: "Backend",                code: "ENG-BE", departmentId: byCode.get("ENG") ?? "", businessUnitId: bu.id },
-      { name: "Frontend",               code: "ENG-FE", departmentId: byCode.get("ENG") ?? "", businessUnitId: bu.id },
-      { name: "Talent Acquisition",     code: "HR-TA",  departmentId: byCode.get("HR")  ?? "", businessUnitId: bu.id },
-      { name: "Learning & Development", code: "HR-LD",  departmentId: byCode.get("HR")  ?? "", businessUnitId: bu.id },
-      { name: "Product Strategy",       code: "PRD-PS", departmentId: byCode.get("PRD") ?? "", businessUnitId: bu.id },
-      { name: "Product Design",         code: "PRD-DS", departmentId: byCode.get("PRD") ?? "", businessUnitId: bu.id },
-    ].filter((t) => Boolean(t.departmentId)),
-    skipDuplicates: true,
-  });
-}
-
-async function seedExtendedPositions(): Promise<void> {
-  await prisma.position.createMany({
-    data: [
-      { title: "Software Engineer - Medium",    level: PositionLevel.MEDIUM    },
-      { title: "Software Engineer - Confirmed", level: PositionLevel.CONFIRMED },
-      { title: "Software Engineer - Senior II", level: PositionLevel.SENIOR_2  },
-      { title: "Software Engineer - Expert",    level: PositionLevel.EXPERT    },
-      { title: "Frontend Engineer - Junior",    level: PositionLevel.JUNIOR    },
-      { title: "Frontend Engineer - Senior I",  level: PositionLevel.SENIOR_1  },
-      { title: "Engineering Manager",           level: PositionLevel.SENIOR_2  },
-      { title: "Data Engineer",                 level: PositionLevel.MEDIUM    },
-      { title: "QA Engineer",                   level: PositionLevel.MEDIUM    },
-      { title: "HR Business Partner",           level: PositionLevel.SENIOR_1  },
-      { title: "HR Director",                   level: PositionLevel.EXPERT    },
-      { title: "Product Owner",                 level: PositionLevel.SENIOR_1  },
-      { title: "Technical Lead",                level: PositionLevel.SENIOR_2  },
-    ],
-    skipDuplicates: true,
-  });
-}
-
-async function seedExtendedSkills(): Promise<void> {
-  const skills = [
-    { name: "Vue.js",             category: "Frontend"    },
-    { name: "Angular",            category: "Frontend"    },
-    { name: "CSS / Tailwind",     category: "Frontend"    },
-    { name: "Node.js",            category: "Backend"     },
-    { name: "NestJS",             category: "Backend"     },
-    { name: "Python",             category: "Backend"     },
-    { name: "Java",               category: "Backend"     },
-    { name: "Go",                 category: "Backend"     },
-    { name: "GraphQL",            category: "Backend"     },
-    { name: "AWS",                category: "Cloud"       },
-    { name: "Azure",              category: "Cloud"       },
-    { name: "GCP",                category: "Cloud"       },
-    { name: "Terraform",          category: "DevOps"      },
-    { name: "Linux",              category: "DevOps"      },
-    { name: "CI/CD",              category: "DevOps"      },
-    { name: "Git",                category: "DevOps"      },
-    { name: "Redis",              category: "Database"    },
-    { name: "MongoDB",            category: "Database"    },
-    { name: "Elasticsearch",      category: "Database"    },
-    { name: "Kafka",              category: "Messaging"   },
-    { name: "Data Analysis",      category: "Analytics"   },
-    { name: "Figma",              category: "Design"      },
-    { name: "UX Research",        category: "Design"      },
-    { name: "Adobe XD",           category: "Design"      },
-    { name: "Project Management", category: "Soft Skills" },
-    { name: "Agile / Scrum",      category: "Soft Skills" },
-    { name: "Mentoring",          category: "Soft Skills" },
-    { name: "Negotiation",        category: "Soft Skills" },
-    { name: "Spanish",            category: "Language"    },
-    { name: "German",             category: "Language"    },
-    { name: "Chinese",            category: "Language"    },
+  // Enum meta
+  const metaRows: Prisma.EnumMetaCreateManyInput[] = [
+    ...Object.values(PositionLevel).map((k, i)    => ({ enumName: "PositionLevel",    key: k, rank: i + 1, label: k.replace(/_/g, " ") })),
+    ...Object.values(ProficiencyLevel).map((k, i)  => ({ enumName: "ProficiencyLevel", key: k, rank: i + 1, label: k.charAt(0) + k.slice(1).toLowerCase() })),
+    ...Object.values(EmploymentStatus).map((k, i)  => ({ enumName: "EmploymentStatus", key: k, rank: i + 1, label: k.replace(/_/g, " ") })),
+    ...Object.values(SkillDomain).map((k, i)       => ({ enumName: "SkillDomain",      key: k, rank: i + 1, label: k.replace(/_/g, " ") })),
+    { enumName: "SatisfactionLevel", key: SatisfactionLevel.VERY_DISSATISFIED, rank: 1, label: "Very dissatisfied" },
+    { enumName: "SatisfactionLevel", key: SatisfactionLevel.DISSATISFIED, rank: 2, label: "Dissatisfied" },
+    { enumName: "SatisfactionLevel", key: SatisfactionLevel.NEUTRAL, rank: 3, label: "Neutral" },
+    { enumName: "SatisfactionLevel", key: SatisfactionLevel.SATISFIED, rank: 4, label: "Satisfied" },
+    { enumName: "SatisfactionLevel", key: SatisfactionLevel.VERY_SATISFIED, rank: 5, label: "Very satisfied" },
+    { enumName: "PerformanceRating", key: PerformanceRating.UNACCEPTABLE, rank: 1, label: "Unacceptable" },
+    { enumName: "PerformanceRating", key: PerformanceRating.NEEDS_IMPROVEMENT, rank: 2, label: "Needs improvement" },
+    { enumName: "PerformanceRating", key: PerformanceRating.MEETS_EXPECTATIONS, rank: 3, label: "Meets expectations" },
+    { enumName: "PerformanceRating", key: PerformanceRating.EXCEEDS_EXPECTATIONS, rank: 4, label: "Exceeds expectations" },
+    { enumName: "PerformanceRating", key: PerformanceRating.ABOVE_AND_BEYOND, rank: 5, label: "Above and beyond" },
+    { enumName: "ReviewStatus", key: ReviewStatus.PENDING, rank: 1, label: "Pending" },
+    { enumName: "ReviewStatus", key: ReviewStatus.IN_PROGRESS, rank: 2, label: "In progress" },
+    { enumName: "ReviewStatus", key: ReviewStatus.SUBMITTED, rank: 3, label: "Submitted" },
+    { enumName: "ReviewStatus", key: ReviewStatus.COMPLETED, rank: 4, label: "Completed" },
+    { enumName: "ReviewStatus", key: ReviewStatus.REOPENED, rank: 5, label: "Reopened" },
+    { enumName: "ReviewStatus", key: ReviewStatus.CLOSED, rank: 6, label: "Closed" },
+    { enumName: "ReviewStatus", key: ReviewStatus.CANCELLED, rank: 7, label: "Cancelled" },
+    { enumName: "ReviewType", key: ReviewType.ANNUAL, rank: 1, label: "Annual" },
+    { enumName: "ReviewType", key: ReviewType.MID_YEAR, rank: 2, label: "Mid-year" },
+    { enumName: "ReviewType", key: ReviewType.PROBATION, rank: 3, label: "Probation" },
+    { enumName: "ReviewCycleStatus", key: ReviewCycleStatus.DRAFT, rank: 1, label: "Draft" },
+    { enumName: "ReviewCycleStatus", key: ReviewCycleStatus.ACTIVE, rank: 2, label: "Active" },
+    { enumName: "ReviewCycleStatus", key: ReviewCycleStatus.CLOSED, rank: 3, label: "Closed" },
+    { enumName: "ReviewCycleStatus", key: ReviewCycleStatus.CANCELLED, rank: 4, label: "Cancelled" },
+    { enumName: "PerformanceReviewAuditAction", key: PerformanceReviewAuditAction.CYCLE_CREATED, rank: 1, label: "Cycle created" },
+    { enumName: "PerformanceReviewAuditAction", key: PerformanceReviewAuditAction.ASSIGNED, rank: 2, label: "Assigned" },
+    { enumName: "PerformanceReviewAuditAction", key: PerformanceReviewAuditAction.SELF_SUBMITTED, rank: 3, label: "Self submitted" },
+    { enumName: "PerformanceReviewAuditAction", key: PerformanceReviewAuditAction.MANAGER_COMPLETED, rank: 4, label: "Manager completed" },
+    { enumName: "PerformanceReviewAuditAction", key: PerformanceReviewAuditAction.REVIEWER_REASSIGNED, rank: 5, label: "Reviewer reassigned" },
+    { enumName: "PerformanceReviewAuditAction", key: PerformanceReviewAuditAction.REOPENED, rank: 6, label: "Reopened" },
+    { enumName: "PerformanceReviewAuditAction", key: PerformanceReviewAuditAction.CLOSED, rank: 7, label: "Closed" },
+    { enumName: "PerformanceReviewAuditAction", key: PerformanceReviewAuditAction.CANCELLED, rank: 8, label: "Cancelled" },
+    { enumName: "PerformanceReviewAuditAction", key: PerformanceReviewAuditAction.SALARY_FOLLOW_UP_RECORDED, rank: 9, label: "Salary follow-up recorded" },
   ];
-  for (const s of skills) {
-    await prisma.skill.upsert({ where: { name: s.name }, update: {}, create: s });
-  }
+  await prisma.enumMeta.createMany({ data: metaRows, skipDuplicates: true });
+
+  return roleMap;
 }
 
-async function seedBulkEmployeesForBu(
-  bu: { id: string; name: string },
-  fakerData: FakerData[],
-): Promise<BulkEmployee[]> {
-  const meta    = BU_META[bu.name] ?? { code: "BU", tier: { junior: 30_000, mid: 45_000, senior: 60_000, expert: 80_000 } };
-  const { code: buCode, tier } = meta;
+// ============================================================
+// PHASE 1 — FOUNDATION
+// ============================================================
 
-  const depts      = await prisma.department.findMany({ where: { businessUnitId: bu.id, code: { in: ["ENG", "HR", "PRD"] } }, select: { id: true, code: true } });
-  const deptByCode = new Map(depts.map((d) => [d.code, d.id]));
-  const teams      = await prisma.team.findMany({ where: { businessUnitId: bu.id }, select: { id: true, code: true } });
-  const teamByCode = new Map(teams.map((t) => [t.code, t.id]));
-  const positions  = await prisma.position.findMany({ select: { id: true, title: true, level: true } });
-  const posMap     = new Map(positions.map((p) => [p.title, p]));
-  const leaveTypes = await prisma.leaveType.findMany({ where: { businessUnitId: bu.id }, select: { id: true, name: true, defaultDaysPerYear: true } });
+interface FoundationMaps {
+  buMap:        Map<string, string>; // buName  → id
+  deptMap:      Map<string, string>; // "buCode-deptCode" → id
+  teamMap:      Map<string, string>; // "buCode-teamCode" → id
+  posMap:       Map<string, string>; // positionTitle → id
+  skillMap:     Map<string, string>; // skillName → id
+  leaveTypeMap: Map<string, Map<string, string>>; // buId → ltName → id
+}
 
-  const teamLeadIds = new Map<string, string>();
+async function seedFoundation(): Promise<FoundationMaps> {
+  console.log("  → Seeding foundation (BUs, depts, teams, positions, skills, leave types)...");
 
-  // Pass 1: create leads
-  for (let i = 0; i < EMP_SLOTS.length; i++) {
-    const slot = EMP_SLOTS[i]!;
-    if (!slot.isLead) continue;
-    const fd    = fakerData[i]!;
-    const email = `emp.${buCode.toLowerCase()}.${String(i).padStart(3, "0")}@sentient.dev`;
-    const pos   = posMap.get(slot.positionTitle);
-    const gross = applyJitter(levelToSalary(pos?.level, tier), i);
-
-    const emp = await prisma.employee.upsert({
-      where:  { email },
-      update: {},
-      create: {
-        employeeCode:     `${buCode}-${String(i).padStart(3, "0")}`,
-        firstName:        fd.firstName,
-        lastName:         fd.lastName,
-        email,
-        phone:            fd.phone,
-        dateOfBirth:      fd.dateOfBirth,
-        hireDate:         buildHireDate(slot.hireYear, i),
-        grossSalary:      gross,
-        netSalary:        Math.round(gross * 0.76),
-        departmentId:     deptByCode.get(slot.deptCode) ?? null,
-        teamId:           teamByCode.get(slot.teamCode) ?? null,
-        positionId:       pos?.id ?? null,
-        employmentStatus: "ACTIVE",
-        contractType:     "FULL_TIME",
-      },
+  // -- Business Units --
+  const buMap = new Map<string, string>();
+  for (const bc of BU_CONFIGS) {
+    const bu = await prisma.businessUnit.upsert({
+      where:  { name: bc.name },
+      update: { address: bc.address },
+      create: { name: bc.name, address: bc.address },
     });
-
-    teamLeadIds.set(slot.teamCode, emp.id);
-
-    const years = ([2023, 2024, 2025, 2026] as const).filter((y) => y >= slot.hireYear);
-    for (const year of years) {
-      await seedBalances(emp.id, leaveTypes, year);
-    }
+    buMap.set(bc.name, bu.id);
   }
 
-  // Set team leadId for non-HQ subsidiaries
-  if (bu.name !== "Sentient HQ") {
-    for (const [teamCode, leadId] of teamLeadIds) {
-      const team = await prisma.team.findFirst({ where: { code: teamCode, businessUnitId: bu.id } });
-      if (team) await prisma.team.update({ where: { id: team.id }, data: { leadId } });
-    }
-  }
-
-  // Pass 2: create ICs
-  for (let i = 0; i < EMP_SLOTS.length; i++) {
-    const slot = EMP_SLOTS[i]!;
-    if (slot.isLead) continue;
-    const fd    = fakerData[i]!;
-    const email = `emp.${buCode.toLowerCase()}.${String(i).padStart(3, "0")}@sentient.dev`;
-    const pos   = posMap.get(slot.positionTitle);
-    const gross = applyJitter(levelToSalary(pos?.level, tier), i);
-
-    const emp = await prisma.employee.upsert({
-      where:  { email },
-      update: {},
-      create: {
-        employeeCode:     `${buCode}-${String(i).padStart(3, "0")}`,
-        firstName:        fd.firstName,
-        lastName:         fd.lastName,
-        email,
-        phone:            fd.phone,
-        dateOfBirth:      fd.dateOfBirth,
-        hireDate:         buildHireDate(slot.hireYear, i),
-        grossSalary:      gross,
-        netSalary:        Math.round(gross * 0.76),
-        departmentId:     deptByCode.get(slot.deptCode) ?? null,
-        teamId:           teamByCode.get(slot.teamCode) ?? null,
-        positionId:       pos?.id ?? null,
-        managerId:        teamLeadIds.get(slot.teamCode) ?? null,
-        employmentStatus: "ACTIVE",
-        contractType:     "FULL_TIME",
-      },
-    });
-
-    const years = ([2023, 2024, 2025, 2026] as const).filter((y) => y >= slot.hireYear);
-    for (const year of years) {
-      await seedBalances(emp.id, leaveTypes, year);
-    }
-  }
-
-  const emails    = EMP_SLOTS.map((_, i) => `emp.${buCode.toLowerCase()}.${String(i).padStart(3, "0")}@sentient.dev`);
-  const employees = await prisma.employee.findMany({
-    where:  { email: { in: emails } },
-    select: { id: true, departmentId: true, teamId: true, hireDate: true, grossSalary: true },
-  });
-
-  return employees.map((e, idx) => ({
-    id:           e.id,
-    departmentId: e.departmentId,
-    teamId:       e.teamId,
-    hireDate:     e.hireDate,
-    grossSalary:  Number(e.grossSalary ?? 0),
-    buId:         bu.id,
-    teamCode:     EMP_SLOTS[idx % EMP_SLOTS.length]?.teamCode ?? "ENG-BE",
-  }));
-}
-
-// ── History orchestrator ──────────────────────────────────────────
-
-async function seedAllHistory(employees: BulkEmployee[]): Promise<void> {
-  // Use a fixed placeholder for changedById — it's a String with no FK
-  const changedById = "seed-script";
-
-  await seedSalaryHistory(employees, changedById);
-  await seedSkillEvolution(employees);
-  await seedLeaveHistory(employees);
-}
-
-// ── Salary history ────────────────────────────────────────────────
-
-async function seedSalaryHistory(employees: BulkEmployee[], changedById: string): Promise<void> {
-  const NOW = new Date("2026-05-07T00:00:00.000Z");
-
-  for (let i = 0; i < employees.length; i++) {
-    const emp = employees[i]!;
-
-    const existing = await prisma.salaryHistory.count({ where: { employeeId: emp.id } });
-    if (existing > 0) continue;
-
-    const yearsExp   = 2026 - emp.hireDate.getFullYear();
-    let currentGross = emp.grossSalary;
-    let currentNet   = Math.round(currentGross * 0.76);
-
-    const raises: { effectiveDate: Date; previousGross: number; newGross: number; previousNet: number; newNet: number; reason: SalaryChangeReason }[] = [];
-
-    for (let yr = 1; yr <= Math.min(yearsExp, 3); yr++) {
-      const effDate = new Date(emp.hireDate);
-      effDate.setFullYear(effDate.getFullYear() + yr);
-      if (effDate >= NOW) break;
-
-      const isPromotion = yr >= 2 && i % 3 === 0;
-      const raiseMin    = isPromotion ? 10 : 5;
-      const raiseMax    = isPromotion ? 15 : 8;
-      const raisePct    = raiseMin + ((i + yr) % (raiseMax - raiseMin + 1));
-      const newGross    = Math.round(currentGross * (1 + raisePct / 100));
-      const newNet      = Math.round(newGross * 0.76);
-
-      raises.push({
-        effectiveDate: effDate,
-        previousGross: currentGross,
-        newGross,
-        previousNet:   currentNet,
-        newNet,
-        reason: isPromotion ? SalaryChangeReason.PROMOTION : SalaryChangeReason.ANNUAL_REVIEW,
+  // -- Departments (one set per BU) --
+  const deptMap = new Map<string, string>();
+  for (const bc of BU_CONFIGS) {
+    const buId = buMap.get(bc.name)!;
+    for (const dd of DEPT_DEFS) {
+      const deptCode = `${bc.code}-${dd.code}`;
+      const dept = await prisma.department.upsert({
+        where: { code_businessUnitId: { code: deptCode, businessUnitId: buId } },
+        update: {},
+        create: { name: dd.name, code: deptCode, description: dd.description, businessUnitId: buId },
       });
-      currentGross = newGross;
-      currentNet   = newNet;
+      deptMap.set(deptCode, dept.id);
     }
+  }
 
-    for (const r of raises) {
-      const grossRaisePct = ((r.newGross - r.previousGross) / r.previousGross) * 100;
-      await prisma.salaryHistory.create({
-        data: {
-          employeeId:           emp.id,
-          previousGrossSalary:  r.previousGross,
-          newGrossSalary:       r.newGross,
-          previousNetSalary:    r.previousNet,
-          newNetSalary:         r.newNet,
-          grossRaisePercentage: Math.round(grossRaisePct * 100) / 100,
-          effectiveDate:        r.effectiveDate,
-          reason:               r.reason,
-          changedById,
+  // -- Teams (one set per BU) --
+  const teamMap = new Map<string, string>();
+  for (const bc of BU_CONFIGS) {
+    const buId = buMap.get(bc.name)!;
+    for (const td of TEAM_DEFS) {
+      const teamCode = `${bc.code}-${td.code}`;
+      const deptKey  = `${bc.code}-${td.deptCode}`;
+      const deptId   = deptMap.get(deptKey)!;
+      const team = await prisma.team.upsert({
+        where: { code_businessUnitId: { code: teamCode, businessUnitId: buId } },
+        update: {},
+        create: { name: td.name, code: teamCode, departmentId: deptId, businessUnitId: buId },
+      });
+      teamMap.set(teamCode, team.id);
+    }
+  }
+
+  // -- Positions --
+  const positionDefs = [
+    { title: "Engineering Manager",           level: PositionLevel.SENIOR_2,  isKey: true,  risk: KeyPositionRisk.HIGH   },
+    { title: "Technical Lead",                level: PositionLevel.SENIOR_2,  isKey: true,  risk: KeyPositionRisk.HIGH   },
+    { title: "Software Engineer - Senior I",  level: PositionLevel.SENIOR_1,  isKey: false, risk: null },
+    { title: "Software Engineer - Confirmed", level: PositionLevel.CONFIRMED, isKey: false, risk: null },
+    { title: "Software Engineer - Medium",    level: PositionLevel.MEDIUM,    isKey: false, risk: null },
+    { title: "Software Engineer - Junior",    level: PositionLevel.JUNIOR,    isKey: false, risk: null },
+    { title: "Frontend Engineer - Senior I",  level: PositionLevel.SENIOR_1,  isKey: false, risk: null },
+    { title: "Frontend Engineer - Confirmed", level: PositionLevel.CONFIRMED, isKey: false, risk: null },
+    { title: "Frontend Engineer - Medium",    level: PositionLevel.MEDIUM,    isKey: false, risk: null },
+    { title: "Frontend Engineer - Junior",    level: PositionLevel.JUNIOR,    isKey: false, risk: null },
+    { title: "QA Engineer",                   level: PositionLevel.MEDIUM,    isKey: false, risk: null },
+    { title: "DevOps Engineer",               level: PositionLevel.CONFIRMED, isKey: false, risk: null },
+    { title: "HR Business Partner",           level: PositionLevel.SENIOR_1,  isKey: true,  risk: KeyPositionRisk.MEDIUM },
+    { title: "HR Generalist",                 level: PositionLevel.CONFIRMED, isKey: false, risk: null },
+    { title: "Recruiter",                     level: PositionLevel.MEDIUM,    isKey: false, risk: null },
+    { title: "L&D Specialist",                level: PositionLevel.MEDIUM,    isKey: false, risk: null },
+    { title: "Product Manager",               level: PositionLevel.SENIOR_1,  isKey: true,  risk: KeyPositionRisk.MEDIUM },
+    { title: "Product Owner",                 level: PositionLevel.CONFIRMED, isKey: false, risk: null },
+    { title: "UX Lead",                       level: PositionLevel.SENIOR_1,  isKey: false, risk: null },
+    { title: "UX Designer",                   level: PositionLevel.MEDIUM,    isKey: false, risk: null },
+    { title: "Business Analyst",              level: PositionLevel.MEDIUM,    isKey: false, risk: null },
+    { title: "Finance Manager",               level: PositionLevel.SENIOR_2,  isKey: true,  risk: KeyPositionRisk.HIGH   },
+    { title: "FP&A Manager",                  level: PositionLevel.SENIOR_1,  isKey: true,  risk: KeyPositionRisk.MEDIUM },
+    { title: "Financial Controller",          level: PositionLevel.SENIOR_1,  isKey: false, risk: null },
+    { title: "Senior Financial Analyst",      level: PositionLevel.CONFIRMED, isKey: false, risk: null },
+    { title: "Accountant",                    level: PositionLevel.MEDIUM,    isKey: false, risk: null },
+    { title: "Junior Accountant",             level: PositionLevel.JUNIOR,    isKey: false, risk: null },
+    { title: "Tax Specialist",                level: PositionLevel.CONFIRMED, isKey: false, risk: null },
+    { title: "Financial Analyst",             level: PositionLevel.MEDIUM,    isKey: false, risk: null },
+    { title: "Junior Analyst",                level: PositionLevel.JUNIOR,    isKey: false, risk: null },
+    { title: "Sales Manager",                 level: PositionLevel.SENIOR_1,  isKey: true,  risk: KeyPositionRisk.MEDIUM },
+    { title: "Enterprise AE",                 level: PositionLevel.CONFIRMED, isKey: false, risk: null },
+    { title: "Senior AE",                     level: PositionLevel.SENIOR_1,  isKey: false, risk: null },
+    { title: "Sales Development Rep",         level: PositionLevel.JUNIOR,    isKey: false, risk: null },
+    { title: "Account Manager",               level: PositionLevel.CONFIRMED, isKey: false, risk: null },
+    { title: "Sales Coordinator",             level: PositionLevel.JUNIOR,    isKey: false, risk: null },
+    { title: "Sales Engineer",                level: PositionLevel.CONFIRMED, isKey: false, risk: null },
+  ];
+
+  const posMap = new Map<string, string>();
+  for (const pd of positionDefs) {
+    const pos = await prisma.position.upsert({
+      where:  { title: pd.title },
+      update: { level: pd.level, isKeyPosition: pd.isKey, keyPositionRisk: pd.risk },
+      create: { title: pd.title, level: pd.level, isKeyPosition: pd.isKey, keyPositionRisk: pd.risk },
+    });
+    posMap.set(pd.title, pos.id);
+  }
+
+  // -- Skills --
+  const skillMap = new Map<string, string>();
+  for (const sd of SKILLS_CATALOG) {
+    const skill = await prisma.skill.upsert({
+      where:  { name: sd.name },
+      update: { domain: sd.domain },
+      create: { name: sd.name, domain: sd.domain },
+    });
+    skillMap.set(sd.name, skill.id);
+  }
+
+  // -- Leave Types + Holidays per BU --
+  const leaveTypeMap = new Map<string, Map<string, string>>();
+  const ltDefs = [
+    { name: "Annual Leave",    days: 22, freq: AccrualFrequency.MONTHLY, carryover: 5,  approval: true,  color: "#4CAF50" },
+    { name: "Sick Leave",      days: 10, freq: AccrualFrequency.YEARLY,  carryover: 0,  approval: false, color: "#F44336" },
+    { name: "Maternity Leave", days: 98, freq: AccrualFrequency.YEARLY,  carryover: 0,  approval: true,  color: "#E91E63" },
+    { name: "Paternity Leave", days: 5,  freq: AccrualFrequency.YEARLY,  carryover: 0,  approval: true,  color: "#2196F3" },
+    { name: "Unpaid Leave",    days: 30, freq: AccrualFrequency.YEARLY,  carryover: 0,  approval: true,  color: "#9E9E9E" },
+  ];
+
+  for (const bc of BU_CONFIGS) {
+    const buId = buMap.get(bc.name)!;
+    const buLtMap = new Map<string, string>();
+    for (const ltd of ltDefs) {
+      const lt = await prisma.leaveType.upsert({
+        where:  { name_businessUnitId: { name: ltd.name, businessUnitId: buId } },
+        update: {},
+        create: {
+          name: ltd.name, businessUnitId: buId,
+          defaultDaysPerYear: ltd.days, accrualFrequency: ltd.freq,
+          maxCarryoverDays: ltd.carryover, requiresApproval: ltd.approval, color: ltd.color,
         },
       });
+      buLtMap.set(ltd.name, lt.id);
     }
+    leaveTypeMap.set(buId, buLtMap);
 
-    if (raises.length > 0) {
-      await prisma.employee.update({
-        where: { id: emp.id },
-        data:  { grossSalary: currentGross, netSalary: currentNet },
+    // Holidays
+    const hDefs = bc.code === "HQ"
+      ? [
+          { name: "New Year's Day",   m: 1,  d: 1  },
+          { name: "Labour Day",       m: 5,  d: 1  },
+          { name: "Independence Day", m: 7,  d: 5  },
+          { name: "Revolution Day",   m: 11, d: 1  },
+        ]
+      : [
+          { name: "New Year's Day",   m: 1,  d: 1  },
+          { name: "Labour Day",       m: 5,  d: 1  },
+          { name: "Christmas Day",    m: 12, d: 25 },
+          { name: "National Holiday", m: 12, d: 26 },
+        ];
+
+    for (const year of [2024, 2025, 2026]) {
+      for (const h of hDefs) {
+        const date = new Date(year, h.m - 1, h.d);
+        await prisma.holiday.upsert({
+          where:  { date_businessUnitId_year: { date, businessUnitId: buId, year } },
+          update: {},
+          create: { name: h.name, date, businessUnitId: buId, year, isRecurring: true },
+        });
+      }
+    }
+  }
+
+  return { buMap, deptMap, teamMap, posMap, skillMap, leaveTypeMap };
+}
+
+// ============================================================
+// PHASE 2 — POSITION SKILLS
+// ============================================================
+
+async function seedPositionSkills(posMap: Map<string, string>, skillMap: Map<string, string>): Promise<void> {
+  console.log("  → Seeding position skills (radar chart requirements)...");
+
+  const reqs: Array<{ pos: string; skill: string; req: SkillRequirementLevel; min: ProficiencyLevel }> = [
+    { pos: "Engineering Manager",           skill: "Leadership",         req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.ADVANCED },
+    { pos: "Engineering Manager",           skill: "Communication",      req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.ADVANCED },
+    { pos: "Engineering Manager",           skill: "Agile/Scrum",        req: SkillRequirementLevel.EXPECTED,     min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "Engineering Manager",           skill: "TypeScript",         req: SkillRequirementLevel.NICE_TO_HAVE, min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "Technical Lead",                skill: "Leadership",         req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.ADVANCED },
+    { pos: "Technical Lead",                skill: "TypeScript",         req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.EXPERT },
+    { pos: "Technical Lead",                skill: "Communication",      req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.ADVANCED },
+    { pos: "Software Engineer - Senior I",  skill: "TypeScript",         req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.ADVANCED },
+    { pos: "Software Engineer - Senior I",  skill: "Git",                req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.ADVANCED },
+    { pos: "Software Engineer - Senior I",  skill: "PostgreSQL",         req: SkillRequirementLevel.EXPECTED,     min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "Software Engineer - Senior I",  skill: "Communication",      req: SkillRequirementLevel.EXPECTED,     min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "Software Engineer - Confirmed", skill: "TypeScript",         req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "Software Engineer - Confirmed", skill: "Git",                req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "Software Engineer - Junior",    skill: "TypeScript",         req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.BEGINNER },
+    { pos: "Software Engineer - Junior",    skill: "Git",                req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.BEGINNER },
+    { pos: "Frontend Engineer - Senior I",  skill: "React",              req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.ADVANCED },
+    { pos: "Frontend Engineer - Senior I",  skill: "TypeScript",         req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.ADVANCED },
+    { pos: "Frontend Engineer - Senior I",  skill: "CSS/Tailwind",       req: SkillRequirementLevel.EXPECTED,     min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "HR Business Partner",           skill: "Leadership",         req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "HR Business Partner",           skill: "Communication",      req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.ADVANCED },
+    { pos: "HR Business Partner",           skill: "Negotiation",        req: SkillRequirementLevel.EXPECTED,     min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "HR Generalist",                 skill: "Communication",      req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "HR Generalist",                 skill: "Project Management", req: SkillRequirementLevel.NICE_TO_HAVE, min: ProficiencyLevel.BEGINNER },
+    { pos: "Product Manager",               skill: "Agile/Scrum",        req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.ADVANCED },
+    { pos: "Product Manager",               skill: "Communication",      req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.ADVANCED },
+    { pos: "Product Manager",               skill: "Figma",              req: SkillRequirementLevel.EXPECTED,     min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "Product Manager",               skill: "Data Analysis",      req: SkillRequirementLevel.EXPECTED,     min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "Product Owner",                 skill: "Agile/Scrum",        req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "Product Owner",                 skill: "Communication",      req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "Finance Manager",               skill: "Financial Analysis", req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.EXPERT },
+    { pos: "Finance Manager",               skill: "Leadership",         req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.ADVANCED },
+    { pos: "Finance Manager",               skill: "Budget Planning",    req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.ADVANCED },
+    { pos: "Finance Manager",               skill: "IFRS Accounting",    req: SkillRequirementLevel.EXPECTED,     min: ProficiencyLevel.ADVANCED },
+    { pos: "FP&A Manager",                  skill: "Financial Analysis", req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.EXPERT },
+    { pos: "FP&A Manager",                  skill: "FP&A",               req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.EXPERT },
+    { pos: "FP&A Manager",                  skill: "Leadership",         req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.ADVANCED },
+    { pos: "Financial Controller",          skill: "Financial Analysis", req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.ADVANCED },
+    { pos: "Financial Controller",          skill: "IFRS Accounting",    req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "Accountant",                    skill: "Financial Analysis", req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "Accountant",                    skill: "SAP/ERP",            req: SkillRequirementLevel.EXPECTED,     min: ProficiencyLevel.BEGINNER },
+    { pos: "Sales Manager",                 skill: "CRM/Salesforce",     req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.ADVANCED },
+    { pos: "Sales Manager",                 skill: "Leadership",         req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "Sales Manager",                 skill: "Negotiation",        req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.ADVANCED },
+    { pos: "Enterprise AE",                 skill: "CRM/Salesforce",     req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "Enterprise AE",                 skill: "Negotiation",        req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "UX Designer",                   skill: "Figma",              req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "UX Designer",                   skill: "UX Research",        req: SkillRequirementLevel.EXPECTED,     min: ProficiencyLevel.INTERMEDIATE },
+    { pos: "UX Lead",                       skill: "Figma",              req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.ADVANCED },
+    { pos: "UX Lead",                       skill: "UX Research",        req: SkillRequirementLevel.MANDATORY,    min: ProficiencyLevel.ADVANCED },
+    { pos: "UX Lead",                       skill: "Leadership",         req: SkillRequirementLevel.EXPECTED,     min: ProficiencyLevel.INTERMEDIATE },
+  ];
+
+  for (const r of reqs) {
+    const posId   = posMap.get(r.pos);
+    const skillId = skillMap.get(r.skill);
+    if (!posId || !skillId) continue;
+    await prisma.positionSkill.upsert({
+      where:  { positionId_skillId: { positionId: posId, skillId } },
+      update: { minimumProficiency: r.min, requirementLevel: r.req },
+      create: { positionId: posId, skillId, minimumProficiency: r.min, requirementLevel: r.req },
+    });
+  }
+}
+
+// ============================================================
+// PHASE 3 — EMPLOYEES
+// ============================================================
+
+interface BulkEmployee {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  hireDate: Date;
+  hireYear: number;
+  employmentStatus: EmploymentStatus;
+  positionTitle: string;
+  positionId: string | undefined;
+  deptCode: string;
+  teamCode: string;
+  departmentId: string;
+  teamId: string;
+  managerId: string | null;
+  grossSalary: number;
+  buId: string;
+  buName: string;
+  buCode: string;
+  isLead: boolean;
+  globalIdx: number;
+}
+
+async function seedBulkEmployees(f: FoundationMaps): Promise<BulkEmployee[]> {
+  console.log("  → Seeding 200 employees...");
+
+  const allEmployees: BulkEmployee[] = [];
+  let globalIdx = 0;
+
+  for (const bc of BU_CONFIGS) {
+    const buId    = f.buMap.get(bc.name)!;
+    const headcount = BU_HEADCOUNTS[bc.name]!;
+    const slots   = EMP_SLOTS.slice(0, headcount);
+
+    // Process leads first so non-leads can reference their managerId
+    const leads    = slots.filter(s => s.isLead);
+    const nonLeads = slots.filter(s => !s.isLead);
+    const ordered  = [...leads, ...nonLeads];
+
+    const buLeads = new Map<string, string>(); // teamCode (without buCode prefix) → empId
+
+    let slotIdx = 0;
+    for (const slot of ordered) {
+      const teamCode = `${bc.code}-${slot.teamCode}`;
+      const deptKey  = `${bc.code}-${slot.deptCode}`;
+      const deptId   = f.deptMap.get(deptKey)!;
+      const teamId   = f.teamMap.get(teamCode)!;
+      const posId    = f.posMap.get(slot.positionTitle);
+      const status   = resolveStatus(slot, globalIdx);
+      const hireDate = buildHireDate(slot.hireYear, slotIdx);
+      const base     = applyJitter(resolveBaseSalary(slot.positionTitle, bc.code), globalIdx);
+
+      const { firstName, lastName } = getEmployeeName(globalIdx);
+      const email     = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@sentient.dev`;
+      const empCode   = `EMP-${String(globalIdx + 1).padStart(4, "0")}`;
+      const managerId = slot.isLead ? null : (buLeads.get(slot.teamCode) ?? null);
+
+      const emp = await prisma.employee.create({
+        data: {
+          employeeCode: empCode,
+          firstName,
+          lastName,
+          email,
+          phone: `+1-202-555-${String(globalIdx + 100).padStart(4, "0")}`,
+          dateOfBirth: buildDateOfBirth(globalIdx),
+          hireDate,
+          employmentStatus: status,
+          contractType: resolveContractType(slot, globalIdx),
+          grossSalary: base,
+          netSalary: resolveNetSalary(base, globalIdx),
+          maritalStatus: resolveMaritalStatus(globalIdx),
+          educationLevel: resolveEducationLevel(slot.positionTitle),
+          educationField: resolveEducationField(slot.deptCode),
+          positionId:    posId ?? null,
+          departmentId:  deptId,
+          teamId,
+          managerId,
+        },
+      });
+
+      if (slot.isLead) {
+        buLeads.set(slot.teamCode, emp.id);
+        // Set team leadId
+        await prisma.team.update({ where: { id: teamId }, data: { leadId: emp.id } });
+      }
+
+      allEmployees.push({
+        id: emp.id,
+        firstName, lastName, email, hireDate,
+        hireYear: slot.hireYear,
+        employmentStatus: status,
+        positionTitle: slot.positionTitle,
+        positionId: posId,
+        deptCode: slot.deptCode,
+        teamCode: slot.teamCode,
+        departmentId: deptId,
+        teamId,
+        managerId,
+        grossSalary: base,
+        buId, buName: bc.name, buCode: bc.code,
+        isLead: slot.isLead,
+        globalIdx,
+      });
+
+      globalIdx++;
+      slotIdx++;
+    }
+  }
+
+  // Set department headIds — first lead per dept per BU
+  for (const bc of BU_CONFIGS) {
+    for (const dd of DEPT_DEFS) {
+      const deptKey = `${bc.code}-${dd.code}`;
+      const deptId  = f.deptMap.get(deptKey)!;
+      const head    = allEmployees.find(e => e.buCode === bc.code && e.deptCode === dd.code && e.isLead);
+      if (head) {
+        await prisma.department.update({ where: { id: deptId }, data: { headId: head.id } });
+      }
+    }
+  }
+
+  console.log(`     Created ${allEmployees.length} employees`);
+  return allEmployees;
+}
+
+async function seedDemoUsers(employees: BulkEmployee[], roleMap: Map<string, string>): Promise<void> {
+  console.log("  → Seeding demo users...");
+
+  // Pick specific employees from HQ for demo accounts
+  const hrAdminEmp  = employees.find(e => e.buCode === "HQ" && e.teamCode === "HR-TA"    && e.isLead)!;
+  const managerEmp  = employees.find(e => e.buCode === "HQ" && e.teamCode === "ENG-BE"   && e.isLead)!;
+  const teamLeadEmp = employees.find(e => e.buCode === "HQ" && e.teamCode === "ENG-FE"   && e.isLead)!;
+  const empEmp      = employees.find(e => e.buCode === "HQ" && !e.isLead && e.employmentStatus === EmploymentStatus.ACTIVE)!;
+
+  const demos = [
+    { email: "hradmin@sentient.dev",  empId: hrAdminEmp?.id,  roles: ["HR_ADMIN", "EMPLOYEE"] },
+    { email: "manager@sentient.dev",  empId: managerEmp?.id,  roles: ["MANAGER",  "EMPLOYEE"] },
+    { email: "teamlead@sentient.dev", empId: teamLeadEmp?.id, roles: ["MANAGER",  "EMPLOYEE"] },
+    { email: "employee@sentient.dev", empId: empEmp?.id,      roles: ["EMPLOYEE"]             },
+  ];
+
+  const pwHash = await argon2.hash(DEMO_PASSWORD, { type: argon2.argon2id });
+
+  for (const d of demos) {
+    if (!d.empId) continue;
+    const user = await prisma.user.upsert({
+      where:  { email: d.email },
+      update: {},
+      create: { email: d.email, passwordHash: pwHash, status: UserStatus.ACTIVE, employeeId: d.empId },
+    });
+    for (const code of d.roles) {
+      const roleId = roleMap.get(code);
+      if (!roleId) continue;
+      await prisma.userRole.createMany({
+        data: [{ userId: user.id, roleId, scope: PermissionScope.GLOBAL }],
+        skipDuplicates: true,
       });
     }
   }
 }
 
-// ── Skill evolution ───────────────────────────────────────────────
+// ============================================================
+// PHASE 4 — HISTORY
+// ============================================================
 
-interface SkillStep { level: ProficiencyLevel; offsetMonths: number; source: SourceLevel }
+async function seedSalaryHistory(employees: BulkEmployee[]): Promise<Map<string, string[]>> {
+  console.log("  → Seeding salary history (3-year raises)...");
+  const empSalaryIds = new Map<string, string[]>();
 
-function buildSkillProgression(yearsExp: number, empIdx: number): SkillStep[] {
-  const steps: SkillStep[] = [
-    { level: ProficiencyLevel.BEGINNER,     offsetMonths: 1,  source: SourceLevel.RECRUITMENT },
-  ];
-  if (yearsExp >= 1) {
-    steps.push({ level: ProficiencyLevel.INTERMEDIATE, offsetMonths: 12, source: SourceLevel.TRAINING });
-  }
-  if (yearsExp >= 2) {
-    steps.push({
-      level:        ProficiencyLevel.ADVANCED,
-      offsetMonths: 24,
-      source:       empIdx % 3 === 0 ? SourceLevel.CERTIFICATION : SourceLevel.MANAGER,
+  for (const emp of employees) {
+    // Terminated/resigned employees get no forward-looking raises
+    if (emp.employmentStatus === EmploymentStatus.TERMINATED || emp.employmentStatus === EmploymentStatus.RESIGNED) continue;
+
+    const yearsEmployed = 2026 - emp.hireYear;
+    const numRaises     = Math.min(Math.max(1, yearsEmployed), 3);
+    const ids: string[] = [];
+    let salary = emp.grossSalary;
+    let netSalary = resolveNetSalary(salary, emp.globalIdx);
+
+    for (let r = 0; r < numRaises; r++) {
+      const raiseYear = emp.hireYear + r + 1;
+      if (raiseYear > 2026) break;
+      const pct    = 3 + (emp.globalIdx % 7); // 3–9%
+      const prev   = salary;
+      const prevNet = netSalary;
+      salary       = Math.round(salary * (1 + pct / 100));
+      netSalary    = resolveNetSalary(salary, emp.globalIdx);
+      const reason = r % 2 === 1 ? SalaryChangeReason.PROMOTION : SalaryChangeReason.ANNUAL_REVIEW;
+
+      const sh = await prisma.salaryHistory.create({
+        data: {
+          employeeId:         emp.id,
+          previousGrossSalary: prev,
+          newGrossSalary:      salary,
+          previousNetSalary:   prevNet,
+          newNetSalary:        netSalary,
+          grossRaisePercentage: pct,
+          netRaisePercentage:   pct,
+          effectiveDate:       new Date(raiseYear, 0, 1),
+          reason,
+          changedById: "seed-script",
+        },
+      });
+      ids.push(sh.id);
+    }
+    // Update employee's current salary to the latest
+    await prisma.employee.update({
+      where: { id: emp.id },
+      data: {
+        grossSalary: salary,
+        netSalary,
+      },
     });
+    emp.grossSalary = salary;
+    empSalaryIds.set(emp.id, ids);
   }
-  if (yearsExp >= 4 && empIdx % 4 === 0) {
-    steps.push({ level: ProficiencyLevel.EXPERT, offsetMonths: 48, source: SourceLevel.CERTIFICATION });
-  }
-  return steps;
+  return empSalaryIds;
 }
 
-async function seedSkillEvolution(employees: BulkEmployee[]): Promise<void> {
-  const allSkills = await prisma.skill.findMany({ select: { id: true, name: true } });
-  const skillMap  = new Map(allSkills.map((s) => [s.name, s.id]));
-  const NOW       = new Date("2026-05-07T00:00:00.000Z");
+async function seedSkillEvolution(employees: BulkEmployee[], skillMap: Map<string, string>): Promise<void> {
+  console.log("  → Seeding skill evolution...");
+  const LEVELS: ProficiencyLevel[] = [
+    ProficiencyLevel.BEGINNER,
+    ProficiencyLevel.INTERMEDIATE,
+    ProficiencyLevel.ADVANCED,
+    ProficiencyLevel.EXPERT,
+  ];
 
-  for (let i = 0; i < employees.length; i++) {
-    const emp = employees[i]!;
+  for (const emp of employees) {
+    const pool = TEAM_SKILLS[emp.teamCode] ?? [];
+    if (pool.length === 0) continue;
 
-    const alreadyHasSkills = await prisma.employeeSkill.count({ where: { employeeId: emp.id } });
-    if (alreadyHasSkills > 0) continue;
+    const numSkills = 3 + (emp.globalIdx % 4); // 3–6
+    const chosen    = pool.slice(0, Math.min(numSkills, pool.length));
+    const yearsExp  = 2026 - emp.hireYear;
 
-    const pool      = TEAM_SKILLS[emp.teamCode] ?? [];
-    const numSkills = 4 + (i % 3);
-    const picked    = pool.slice(0, Math.min(numSkills, pool.length));
-    const yearsExp  = 2026 - emp.hireDate.getFullYear();
-
-    for (const skillName of picked) {
-      const skillId = skillMap.get(skillName);
+    for (let si = 0; si < chosen.length; si++) {
+      const skillName = chosen[si]!;
+      const skillId   = skillMap.get(skillName);
       if (!skillId) continue;
 
-      const steps = buildSkillProgression(yearsExp, i);
-      let prev: ProficiencyLevel | null = null;
+      const startIdx   = Math.min(Math.max(0, yearsExp - 2), 2);
+      const currentIdx = Math.min(startIdx + 1 + (si % 2), 3);
+      const current    = LEVELS[currentIdx]!;
 
-      for (const step of steps) {
-        const effDate = new Date(emp.hireDate);
-        effDate.setMonth(effDate.getMonth() + step.offsetMonths);
-        if (effDate >= NOW) break;
+      await prisma.employeeSkill.create({
+        data: {
+          employeeId:   emp.id,
+          skillId,
+          proficiency:  current,
+          acquiredDate: new Date(emp.hireYear, si % 12, 1),
+        },
+      });
 
+      // Progression history
+      if (startIdx > 0) {
         await prisma.skillHistory.create({
           data: {
             employeeId:    emp.id,
             skillId,
-            previousLevel: prev,
-            newLevel:      step.level,
-            effectiveDate: effDate,
-            source:        step.source,
+            previousLevel: LEVELS[startIdx - 1]!,
+            newLevel:      LEVELS[startIdx]!,
+            effectiveDate: new Date(emp.hireYear + 1, (si * 2) % 12, 1),
+            source:        SourceLevel.TRAINING,
           },
         });
-        prev = step.level;
       }
-
-      if (prev !== null) {
-        await prisma.employeeSkill.create({
-          data: { employeeId: emp.id, skillId, proficiency: prev, acquiredDate: emp.hireDate },
+      if (currentIdx > startIdx) {
+        await prisma.skillHistory.create({
+          data: {
+            employeeId:    emp.id,
+            skillId,
+            previousLevel: LEVELS[startIdx]!,
+            newLevel:      current,
+            effectiveDate: new Date(emp.hireYear + 2, (si * 3) % 12, 1),
+            source:        SourceLevel.PEER_REVIEW,
+          },
         });
       }
     }
   }
 }
 
-// ── Leave history ─────────────────────────────────────────────────
+async function seedLeaveHistory(employees: BulkEmployee[], leaveTypeMap: Map<string, Map<string, string>>): Promise<void> {
+  console.log("  → Seeding leave history (balances + requests)...");
 
-async function seedLeaveHistory(employees: BulkEmployee[]): Promise<void> {
-  // Build a reviewer: use first HR-TA lead employee found (has APPROVED power)
-  const reviewer = await prisma.employee.findFirst({
-    where: { email: { startsWith: "emp." }, team: { code: "HR-TA" } },
-    select: { id: true },
-  });
-  const reviewerId = reviewer?.id ?? null;
+  for (const emp of employees) {
+    const buLtMap = leaveTypeMap.get(emp.buId);
+    if (!buLtMap) continue;
 
-  // Build buId → leaveTypes map
-  const allLeaveTypes = await prisma.leaveType.findMany({ select: { id: true, name: true, businessUnitId: true } });
-  const ltByBu        = new Map<string, typeof allLeaveTypes>();
-  for (const lt of allLeaveTypes) {
-    if (!ltByBu.has(lt.businessUnitId)) ltByBu.set(lt.businessUnitId, []);
-    ltByBu.get(lt.businessUnitId)!.push(lt);
-  }
+    const annualLtId = buLtMap.get("Annual Leave");
+    const sickLtId   = buLtMap.get("Sick Leave");
+    if (!annualLtId || !sickLtId) continue;
 
-  for (let i = 0; i < employees.length; i++) {
-    const emp = employees[i]!;
+    const startYear = Math.max(emp.hireYear, 2023);
+    const endYear   = (emp.employmentStatus === EmploymentStatus.TERMINATED || emp.employmentStatus === EmploymentStatus.RESIGNED)
+      ? 2025 : 2026;
 
-    const existing = await prisma.leaveRequest.count({ where: { employeeId: emp.id } });
-    if (existing > 0) continue;
+    for (const year of [2023, 2024, 2025, 2026]) {
+      if (year < startYear || year > endYear) continue;
 
-    const leaveTypes  = ltByBu.get(emp.buId) ?? [];
-    const annualLt    = leaveTypes.find((lt) => lt.name === "Annual Leave");
-    const sickLt      = leaveTypes.find((lt) => lt.name === "Sick Leave");
-    if (!annualLt || !sickLt) continue;
+      // Annual leave balance
+      const usedDays  = 5 + (emp.globalIdx % 12); // 5–16 days used
+      await prisma.leaveBalance.upsert({
+        where:  { employeeId_leaveTypeId_year: { employeeId: emp.id, leaveTypeId: annualLtId, year } },
+        update: {},
+        create: { employeeId: emp.id, leaveTypeId: annualLtId, year, totalDays: 22, usedDays, pendingDays: 0 },
+      });
 
-    const hireYear    = emp.hireDate.getFullYear();
-    const usedDays    = new Map<string, number>(); // `${ltId}-${year}` => days
-
-    const track = (ltId: string, year: number, days: number): void => {
-      const key = `${ltId}-${year}`;
-      usedDays.set(key, (usedDays.get(key) ?? 0) + days);
-    };
-
-    type RequestSpec = {
-      leaveTypeId: string;
-      startDate: Date;
-      endDate: Date;
-      totalDays: number;
-      status: LeaveStatus;
-      year: number;
-      reviewedAt?: Date;
-    };
-
-    const requests: RequestSpec[] = [];
-    const variant = i % 4;
-
-    // 2024 requests
-    if (hireYear <= 2024) {
-      const julyStart = new Date(2024, 6, 14 + (i % 5));
-      const julyEnd   = new Date(2024, 6, 18 + (i % 5));
-      requests.push({ leaveTypeId: annualLt.id, startDate: julyStart, endDate: julyEnd, totalDays: 5, status: LeaveStatus.APPROVED, year: 2024, reviewedAt: new Date(2024, 5, 20) });
-
-      const febStart  = new Date(2024, 1, 5 + (i % 3));
-      const febEnd    = new Date(2024, 1, 6 + (i % 3));
-      requests.push({ leaveTypeId: sickLt.id, startDate: febStart, endDate: febEnd, totalDays: 2, status: LeaveStatus.APPROVED, year: 2024, reviewedAt: new Date(2024, 1, 7) });
-
-      if (variant < 2) {
-        const marStart = new Date(2024, 2, 10 + (i % 5));
-        const marEnd   = new Date(2024, 2, 12 + (i % 5));
-        requests.push({ leaveTypeId: annualLt.id, startDate: marStart, endDate: marEnd, totalDays: 3, status: LeaveStatus.REJECTED, year: 2024, reviewedAt: new Date(2024, 2, 5) });
-      }
+      // Sick leave balance
+      const sickUsed = emp.globalIdx % 4; // 0–3 days
+      await prisma.leaveBalance.upsert({
+        where:  { employeeId_leaveTypeId_year: { employeeId: emp.id, leaveTypeId: sickLtId, year } },
+        update: {},
+        create: { employeeId: emp.id, leaveTypeId: sickLtId, year, totalDays: 10, usedDays: sickUsed, pendingDays: 0 },
+      });
     }
 
-    // 2025 requests
-    if (hireYear <= 2025) {
-      const julStart2 = new Date(2025, 6, 7 + (i % 5));
-      const julEnd2   = new Date(2025, 6, 11 + (i % 5));
-      requests.push({ leaveTypeId: annualLt.id, startDate: julStart2, endDate: julEnd2, totalDays: 5, status: LeaveStatus.APPROVED, year: 2025, reviewedAt: new Date(2025, 5, 25) });
+    // Leave requests for past years — APPROVED
+    if (emp.employmentStatus === EmploymentStatus.TERMINATED || emp.employmentStatus === EmploymentStatus.RESIGNED) continue;
 
-      const novStart  = new Date(2025, 10, 3 + (i % 3));
-      const novEnd    = new Date(2025, 10, 4 + (i % 3));
-      requests.push({ leaveTypeId: sickLt.id, startDate: novStart, endDate: novEnd, totalDays: 2, status: LeaveStatus.APPROVED, year: 2025, reviewedAt: new Date(2025, 10, 5) });
+    for (const year of [2024, 2025]) {
+      if (year < emp.hireYear) continue;
+      const startDay  = 10 + (emp.globalIdx % 15);
+      const startDate = new Date(year, (emp.globalIdx * 3) % 10, startDay);
+      const endDate   = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 4);
 
-      if (variant === 0) {
-        const decStart  = new Date(2025, 11, 22 + (i % 3));
-        const decEnd    = new Date(2025, 11, 24 + (i % 3));
-        requests.push({ leaveTypeId: annualLt.id, startDate: decStart, endDate: decEnd, totalDays: 3, status: LeaveStatus.CANCELLED, year: 2025 });
-      }
-    }
-
-    // 2026 requests
-    {
-      const status    = variant < 2 ? LeaveStatus.APPROVED : LeaveStatus.PENDING;
-      const julStart3 = new Date(2026, 6, 20 + (i % 5));
-      const julEnd3   = new Date(2026, 6, 24 + (i % 5));
-      const req: RequestSpec = { leaveTypeId: annualLt.id, startDate: julStart3, endDate: julEnd3, totalDays: 5, status, year: 2026 };
-      if (status === LeaveStatus.APPROVED) req.reviewedAt = new Date(2026, 4, 15);
-      requests.push(req);
-    }
-
-    for (const req of requests) {
       await prisma.leaveRequest.create({
         data: {
+          employeeId:  emp.id,
+          leaveTypeId: annualLtId,
+          startDate,
+          endDate,
+          totalDays:   5,
+          reason:      "Annual vacation",
+          status:      LeaveStatus.APPROVED,
+          reviewedAt:  new Date(startDate.getTime() - 7 * 24 * 60 * 60 * 1000),
+          reviewedById: emp.managerId ?? emp.id,
+        },
+      });
+    }
+  }
+}
+
+// ============================================================
+// PHASE 5 — PERFORMANCE REVIEWS
+// ============================================================
+
+async function seedPerformanceReviews(
+  employees: BulkEmployee[],
+  empSalaryIds: Map<string, string[]>,
+  hrCreatorId: string,
+): Promise<void> {
+  console.log("  → Seeding performance review cycles (5 cycles)...");
+
+  const CYCLE_DEFS = [
+    {
+      name: "Mid-Year Review 2024",   type: ReviewType.MID_YEAR, status: ReviewCycleStatus.CLOSED,
+      periodStart: new Date("2024-01-01"), periodEnd: new Date("2024-06-30"),
+      selfOpen: new Date("2024-06-15T00:00:00.000Z"), selfClose: new Date("2024-06-30T23:59:59.000Z"),
+      mgrDue:  new Date("2024-07-15T23:59:59.000Z"),
+    },
+    {
+      name: "Annual Review 2024",     type: ReviewType.ANNUAL,   status: ReviewCycleStatus.CLOSED,
+      periodStart: new Date("2024-01-01"), periodEnd: new Date("2024-12-31"),
+      selfOpen: new Date("2024-12-01T00:00:00.000Z"), selfClose: new Date("2024-12-15T23:59:59.000Z"),
+      mgrDue:  new Date("2024-12-31T23:59:59.000Z"),
+    },
+    {
+      name: "Mid-Year Review 2025",   type: ReviewType.MID_YEAR, status: ReviewCycleStatus.CLOSED,
+      periodStart: new Date("2025-01-01"), periodEnd: new Date("2025-06-30"),
+      selfOpen: new Date("2025-06-15T00:00:00.000Z"), selfClose: new Date("2025-06-30T23:59:59.000Z"),
+      mgrDue:  new Date("2025-07-15T23:59:59.000Z"),
+    },
+    {
+      name: "Annual Review 2025",     type: ReviewType.ANNUAL,   status: ReviewCycleStatus.CLOSED,
+      periodStart: new Date("2025-01-01"), periodEnd: new Date("2025-12-31"),
+      selfOpen: new Date("2025-12-01T00:00:00.000Z"), selfClose: new Date("2025-12-15T23:59:59.000Z"),
+      mgrDue:  new Date("2025-12-31T23:59:59.000Z"),
+    },
+    {
+      name: "Annual Review 2026",     type: ReviewType.ANNUAL,   status: ReviewCycleStatus.ACTIVE,
+      periodStart: new Date("2026-01-01"), periodEnd: new Date("2026-12-31"),
+      selfOpen: new Date("2026-05-01T00:00:00.000Z"), selfClose: new Date("2026-05-15T23:59:59.000Z"),
+      mgrDue:  new Date("2026-05-31T23:59:59.000Z"),
+    },
+  ] as const;
+
+  const RATINGS: PerformanceRating[] = [
+    PerformanceRating.NEEDS_IMPROVEMENT,
+    PerformanceRating.MEETS_EXPECTATIONS,
+    PerformanceRating.MEETS_EXPECTATIONS,
+    PerformanceRating.EXCEEDS_EXPECTATIONS,
+    PerformanceRating.ABOVE_AND_BEYOND,
+  ];
+
+  const SATS: SatisfactionLevel[] = [
+    SatisfactionLevel.DISSATISFIED,
+    SatisfactionLevel.NEUTRAL,
+    SatisfactionLevel.SATISFIED,
+    SatisfactionLevel.SATISFIED,
+    SatisfactionLevel.VERY_SATISFIED,
+  ];
+
+  const isHighRating = (r: PerformanceRating) =>
+    r === PerformanceRating.EXCEEDS_EXPECTATIONS || r === PerformanceRating.ABOVE_AND_BEYOND;
+
+  for (let ci = 0; ci < CYCLE_DEFS.length; ci++) {
+    const cd = CYCLE_DEFS[ci]!;
+    const isClosed = cd.status === ReviewCycleStatus.CLOSED;
+
+    const cycle = await prisma.performanceReviewCycle.upsert({
+      where: {
+        reviewType_periodStart_periodEnd_name: {
+          reviewType: cd.type,
+          periodStart: cd.periodStart,
+          periodEnd:   cd.periodEnd,
+          name:        cd.name,
+        },
+      },
+      update: {},
+      create: {
+        name:               cd.name,
+        reviewType:         cd.type,
+        periodStart:        cd.periodStart,
+        periodEnd:          cd.periodEnd,
+        selfReviewOpensAt:  cd.selfOpen,
+        selfReviewClosesAt: cd.selfClose,
+        managerReviewDueAt: cd.mgrDue,
+        status:             cd.status,
+        createdById:        hrCreatorId,
+        closedAt:           isClosed ? cd.mgrDue : null,
+      },
+    });
+
+    // Eligible employees: hired before periodStart + not terminated/resigned
+    const eligible = employees.filter(
+      e =>
+        e.hireDate < cd.periodStart &&
+        e.employmentStatus !== EmploymentStatus.TERMINATED &&
+        e.employmentStatus !== EmploymentStatus.RESIGNED,
+    );
+
+    console.log(`     Cycle "${cd.name}": ${eligible.length} eligible employees`);
+
+    for (let ei = 0; ei < eligible.length; ei++) {
+      const emp = eligible[ei]!;
+
+      const reviewerId    = emp.managerId ?? hrCreatorId;
+      const selfRating    = RATINGS[(ei + ci) % 5]!;
+      const managerRating = RATINGS[(ei + ci + 1) % 5]!;
+      const reviewDate    = isClosed ? cd.selfClose : cd.selfOpen;
+      const dueDate       = cd.mgrDue;
+
+      // Determine review status
+      let reviewStatus: ReviewStatus;
+      let submittedAt: Date | null   = null;
+      let completedAt: Date | null   = null;
+
+      if (isClosed) {
+        reviewStatus = ReviewStatus.COMPLETED;
+        submittedAt  = subDays(cd.selfClose, 2);
+        completedAt  = subDays(cd.mgrDue, 1);
+      } else {
+        // active cycle — 60% submitted, 40% pending
+        if (ei % 5 < 3) {
+          reviewStatus = ReviewStatus.SUBMITTED;
+          submittedAt  = subDays(cd.selfClose, 2);
+        } else {
+          reviewStatus = ReviewStatus.PENDING;
+        }
+      }
+
+      const review = await prisma.performanceReview.upsert({
+        where:  { employeeId_cycleId: { employeeId: emp.id, cycleId: cycle.id } },
+        update: {},
+        create: {
+          cycleId:      cycle.id,
           employeeId:   emp.id,
-          leaveTypeId:  req.leaveTypeId,
-          startDate:    req.startDate,
-          endDate:      req.endDate,
-          totalDays:    req.totalDays,
-          status:       req.status,
-          reviewedById: req.status !== LeaveStatus.PENDING && req.status !== LeaveStatus.CANCELLED ? reviewerId : null,
-          reviewedAt:   req.reviewedAt ?? null,
+          reviewerId,
+          reviewDate,
+          dueDate,
+          status:       reviewStatus,
+          businessUnitId:   emp.buId,
+          businessUnitName: emp.buName,
+          departmentId:     emp.departmentId,
+          teamId:           emp.teamId,
+          positionId:       emp.positionId ?? null,
+          positionTitle:    emp.positionTitle,
+          // Self-review fields (completed + submitted)
+          selfRating:   reviewStatus !== ReviewStatus.PENDING ? selfRating : null,
+          managerRating: reviewStatus === ReviewStatus.COMPLETED ? managerRating : null,
+          environmentSatisfaction:  reviewStatus !== ReviewStatus.PENDING ? SATS[(ei + 0) % 5]! : null,
+          jobSatisfaction:          reviewStatus !== ReviewStatus.PENDING ? SATS[(ei + 1) % 5]! : null,
+          relationshipSatisfaction: reviewStatus !== ReviewStatus.PENDING ? SATS[(ei + 2) % 5]! : null,
+          workLifeBalance:          reviewStatus !== ReviewStatus.PENDING ? SATS[(ei + 3) % 5]! : null,
+          trainingOpportunitiesTaken: reviewStatus !== ReviewStatus.PENDING ? (ei % 4) + 1 : null,
+          submittedAt,
+          submittedById: submittedAt ? emp.id : null,
+          completedAt,
+          completedById: completedAt ? reviewerId : null,
+          employeeComments: reviewStatus !== ReviewStatus.PENDING
+            ? "Good progress this period, focused on delivery and collaboration."
+            : null,
+          managerComments: reviewStatus === ReviewStatus.COMPLETED
+            ? "Strong contribution to team goals. Continues to grow in their role."
+            : null,
         },
       });
 
-      if (req.status === LeaveStatus.APPROVED) {
-        track(req.leaveTypeId, req.year, req.totalDays);
-      }
-    }
+      // Audit trail
+      const audits: Prisma.PerformanceReviewAuditCreateManyInput[] = [];
 
-    // Update leave balance usedDays
-    for (const [key, days] of usedDays) {
-      const dash  = key.lastIndexOf("-");
-      const ltId  = key.slice(0, dash);
-      const year  = parseInt(key.slice(dash + 1), 10);
-      await prisma.leaveBalance.updateMany({
-        where: { employeeId: emp.id, leaveTypeId: ltId, year },
-        data:  { usedDays: days },
+      // ASSIGNED — always
+      audits.push({
+        reviewId:  review.id,
+        action:    PerformanceReviewAuditAction.ASSIGNED,
+        actorId:   hrCreatorId,
+        fromStatus: null,
+        toStatus:  ReviewStatus.PENDING,
+        createdAt: subDays(cd.selfOpen, 7),
       });
+
+      if (reviewStatus === ReviewStatus.SUBMITTED || reviewStatus === ReviewStatus.COMPLETED) {
+        audits.push({
+          reviewId:   review.id,
+          action:     PerformanceReviewAuditAction.SELF_SUBMITTED,
+          actorId:    emp.id,
+          fromStatus: ReviewStatus.PENDING,
+          toStatus:   ReviewStatus.SUBMITTED,
+          createdAt:  submittedAt!,
+        });
+      }
+
+      if (reviewStatus === ReviewStatus.COMPLETED) {
+        audits.push({
+          reviewId:   review.id,
+          action:     PerformanceReviewAuditAction.MANAGER_COMPLETED,
+          actorId:    reviewerId,
+          fromStatus: ReviewStatus.SUBMITTED,
+          toStatus:   ReviewStatus.COMPLETED,
+          createdAt:  completedAt!,
+        });
+      }
+
+      await prisma.performanceReviewAudit.createMany({ data: audits });
+
+      // Salary follow-ups: 20% of COMPLETED reviews with high manager rating
+      if (reviewStatus === ReviewStatus.COMPLETED && ei % 5 === 0 && isHighRating(managerRating)) {
+        const salaryIds = empSalaryIds.get(emp.id) ?? [];
+        const salaryHistoryId = salaryIds[0] ?? null;
+        if (salaryHistoryId) {
+          await prisma.performanceReviewSalaryFollowUp.create({
+            data: {
+              reviewId:       review.id,
+              salaryHistoryId,
+              reason:         "Salary adjustment following exceptional performance review outcome.",
+              createdById:    hrCreatorId,
+            },
+          });
+        }
+      }
     }
   }
 }
 
+// ============================================================
+// MAIN
+// ============================================================
+
+async function main(): Promise<void> {
+  console.log("\n🌱 Sentient HR Core — Full Seed (200 employees, 3-year history)\n");
+
+  console.log("Phase 0: Resetting database...");
+  await resetDatabase();
+
+  console.log("Phase 1a: Seeding IAM...");
+  const roleMap = await seedIam();
+
+  console.log("Phase 1b: Seeding foundation...");
+  const foundation = await seedFoundation();
+
+  console.log("Phase 2: Seeding position skills...");
+  await seedPositionSkills(foundation.posMap, foundation.skillMap);
+
+  console.log("Phase 3: Seeding employees...");
+  const employees = await seedBulkEmployees(foundation);
+
+  console.log("Phase 3b: Seeding demo users...");
+  await seedDemoUsers(employees, roleMap);
+
+  console.log("Phase 4a: Seeding salary history...");
+  const empSalaryIds = await seedSalaryHistory(employees);
+
+  console.log("Phase 4b: Seeding skill evolution...");
+  await seedSkillEvolution(employees, foundation.skillMap);
+
+  console.log("Phase 4c: Seeding leave history...");
+  await seedLeaveHistory(employees, foundation.leaveTypeMap);
+
+  console.log("Phase 5: Seeding performance reviews...");
+  // Find the HR-TA lead in HQ as the cycle creator
+  const hrCreator = employees.find(e => e.buCode === "HQ" && e.teamCode === "HR-TA" && e.isLead)!;
+  await seedPerformanceReviews(employees, empSalaryIds, hrCreator.id);
+
+  console.log("\n✅ Seed complete!\n");
+  console.log("Demo accounts (password: Sentient@2026!):");
+  console.log("  hradmin@sentient.dev  → HR_ADMIN");
+  console.log("  manager@sentient.dev  → MANAGER");
+  console.log("  teamlead@sentient.dev → MANAGER");
+  console.log("  employee@sentient.dev → EMPLOYEE");
+  console.log("");
+}
+
 main()
-  .catch((error: unknown) => {
-    console.error(error);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+  .catch(e => { console.error(e); process.exit(1); })
+  .finally(() => prisma.$disconnect());

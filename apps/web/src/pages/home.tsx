@@ -9,11 +9,12 @@ import {
   CheckCircle2,
   UserCheck,
   Briefcase,
+  Sparkles,
   ArrowRight,
 } from "lucide-react";
 import { getEmployees, getEmployee, getMyLeaveRequests } from "@/lib/api/hr-core";
 import { useAuth } from "@/components/providers/auth-provider";
-import { roleLabel } from "@/lib/auth";
+import { getRoleTier, roleLabel, type RoleTier } from "@/lib/auth";
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -31,15 +32,17 @@ const quickLinks = [
     color: "bg-blue-50 dark:bg-blue-950/40 border-blue-100 dark:border-blue-900/60",
     iconColor: "text-blue-600 dark:text-blue-400",
     iconBg: "bg-blue-100 dark:bg-blue-900/50",
+    tiers: ["hr_admin", "dept_manager", "team_lead"] as RoleTier[],
   },
   {
     title: "Employees",
-    description: "Browse profiles, roles, and contact information",
+    description: "Browse the employee directory and org context",
     href: "/employees",
     icon: Users,
     color: "bg-violet-50 dark:bg-violet-950/40 border-violet-100 dark:border-violet-900/60",
     iconColor: "text-violet-600 dark:text-violet-400",
     iconBg: "bg-violet-100 dark:bg-violet-900/50",
+    tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[],
   },
   {
     title: "Leave Requests",
@@ -49,6 +52,7 @@ const quickLinks = [
     color: "bg-amber-50 dark:bg-amber-950/40 border-amber-100 dark:border-amber-900/60",
     iconColor: "text-amber-600 dark:text-amber-400",
     iconBg: "bg-amber-100 dark:bg-amber-900/50",
+    tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[],
   },
   {
     title: "Org Chart",
@@ -58,6 +62,27 @@ const quickLinks = [
     color: "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-emerald-900/60",
     iconColor: "text-emerald-600 dark:text-emerald-400",
     iconBg: "bg-emerald-100 dark:bg-emerald-900/50",
+    tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[],
+  },
+  {
+    title: "Performance Reviews",
+    description: "Submit and track performance review work",
+    href: "/performance-reviews",
+    icon: ClipboardList,
+    color: "bg-sky-50 dark:bg-sky-950/40 border-sky-100 dark:border-sky-900/60",
+    iconColor: "text-sky-600 dark:text-sky-400",
+    iconBg: "bg-sky-100 dark:bg-sky-900/50",
+    tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[],
+  },
+  {
+    title: "Simulation",
+    description: "Model promotion budget impact in your scope",
+    href: "/simulation",
+    icon: Sparkles,
+    color: "bg-fuchsia-50 dark:bg-fuchsia-950/40 border-fuchsia-100 dark:border-fuchsia-900/60",
+    iconColor: "text-fuchsia-600 dark:text-fuchsia-400",
+    iconBg: "bg-fuchsia-100 dark:bg-fuchsia-900/50",
+    tiers: ["hr_admin", "dept_manager", "team_lead"] as RoleTier[],
   },
 ];
 
@@ -98,7 +123,9 @@ export default function Home() {
 
   const firstName = profile?.firstName ?? "…";
   const userRole = user ? roleLabel(user.roles) : "";
+  const roleTier = user ? getRoleTier(user) : "employee";
   const department = profile?.department?.name ?? "";
+  const visibleQuickLinks = quickLinks.filter((link) => link.tiers.includes(roleTier));
 
   const stats = [
     {
@@ -183,7 +210,7 @@ export default function Home() {
           Quick Access
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="home-quick-links">
-          {quickLinks.map((link) => (
+          {visibleQuickLinks.map((link) => (
             <Link key={link.href} href={link.href}>
               <div
                 className={`border rounded-xl p-4 flex items-start gap-3 hover:shadow-sm transition-all cursor-pointer group ${link.color}`}

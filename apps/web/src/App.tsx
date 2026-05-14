@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { Layout } from "@/components/layout";
+import { NotificationsProvider } from "@/components/notifications/notifications-provider";
 import Welcome from "@/pages/welcome";
 import Home from "@/pages/home";
 import SignIn from "@/pages/signin";
@@ -68,7 +69,7 @@ function AppRoutes() {
       </Route>
       <Route path="/dashboard">
         <ProtectedRoute>
-          <RoleGatedRoute allowed={["hr_admin", "dept_manager"]}>
+          <RoleGatedRoute allowed={["hr_admin", "dept_manager", "team_lead"]}>
             <Layout>
               <Dashboard />
             </Layout>
@@ -84,9 +85,11 @@ function AppRoutes() {
       </Route>
       <Route path="/employees/:id">
         <ProtectedRoute>
-          <Layout>
-            <EmployeeProfileRoute />
-          </Layout>
+          <RoleGatedRoute allowed={["hr_admin", "dept_manager", "team_lead"]}>
+            <Layout>
+              <EmployeeProfileRoute />
+            </Layout>
+          </RoleGatedRoute>
         </ProtectedRoute>
       </Route>
       <Route path="/leaves">
@@ -121,7 +124,7 @@ function AppRoutes() {
       </Route>
       <Route path="/simulation">
         <ProtectedRoute>
-          <RoleGatedRoute allowed={["hr_admin"]}>
+          <RoleGatedRoute allowed={["hr_admin", "dept_manager", "team_lead"]}>
             <Layout>
               <Simulation />
             </Layout>
@@ -130,7 +133,7 @@ function AppRoutes() {
       </Route>
       <Route path="/performance-reviews">
         <ProtectedRoute>
-          <RoleGatedRoute allowed={["hr_admin", "dept_manager"]}>
+          <RoleGatedRoute allowed={["hr_admin", "dept_manager", "team_lead", "employee"]}>
             <Layout>
               <PerformanceReviews />
             </Layout>
@@ -157,8 +160,10 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
-          <AppRoutes />
-          <Toaster />
+          <NotificationsProvider>
+            <AppRoutes />
+            <Toaster />
+          </NotificationsProvider>
         </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>

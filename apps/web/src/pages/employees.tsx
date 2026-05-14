@@ -21,9 +21,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, UserPlus, ChevronDown, ChevronRight } from "lucide-react";
+import { Search, UserPlus, ChevronDown, ChevronRight, X } from "lucide-react";
 import { AddEmployeeWizard } from "@/components/add-employee-wizard";
-import { getEmployees, getDepartments } from "@/lib/api/hr-core";
+import { useAuth } from "@/components/providers/auth-provider";
+import { getEmployees, getBusinessUnits, getDepartments, getTeams } from "@/lib/api/hr-core";
+import { canViewEmployeeDetails, getRoleTier } from "@/lib/auth";
+
+const ALL_VALUE = "all";
+
+const EMPLOYMENT_STATUS_OPTIONS = [
+  { value: "ACTIVE", label: "Active" },
+  { value: "ON_LEAVE", label: "On Leave" },
+  { value: "PROBATION", label: "Probation" },
+  { value: "TERMINATED", label: "Terminated" },
+  { value: "RESIGNED", label: "Resigned" },
+] as const;
 
 function getStatusBadge(status: string) {
   switch (status.toUpperCase()) {
@@ -67,21 +79,42 @@ function getInitials(firstName: string, lastName: string) {
 }
 
 export default function Employees() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
-  const [deptFilter, setDeptFilter] = useState("all");
+  const [businessUnitFilter, setBusinessUnitFilter] = useState(ALL_VALUE);
+  const [deptFilter, setDeptFilter] = useState(ALL_VALUE);
+  const [teamFilter, setTeamFilter] = useState(ALL_VALUE);
+  const [statusFilter, setStatusFilter] = useState(ALL_VALUE);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [wizardOpen, setWizardOpen] = useState(false);
 
+  const employeeQueryParams = useMemo(() => {
+    const scopeParams = teamFilter !== ALL_VALUE
+      ? { teamId: teamFilter }
+      : deptFilter !== ALL_VALUE
+        ? { departmentId: deptFilter }
+        : businessUnitFilter !== ALL_VALUE
+          ? { businessUnitId: businessUnitFilter }
+          : {};
+
+    return {
+      search: searchTerm || undefined,
+      employmentStatus: statusFilter !== ALL_VALUE ? statusFilter : undefined,
+      limit: 200,
+      ...scopeParams,
+    };
+  }, [businessUnitFilter, deptFilter, searchTerm, statusFilter, teamFilter]);
+
   const { data: result, isLoading } = useQuery({
-    queryKey: ["employees", { search: searchTerm, departmentId: deptFilter === "all" ? undefined : deptFilter }],
-    queryFn: () =>
-      getEmployees({
-        search: searchTerm || undefined,
-        departmentId: deptFilter !== "all" ? deptFilter : undefined,
-        limit: 200,
-      }),
+    queryKey: ["employees", employeeQueryParams],
+    queryFn: () => getEmployees(employeeQueryParams),
     placeholderData: (prev) => prev,
+  });
+
+  const { data: businessUnits = [] } = useQuery({
+    queryKey: ["business-units"],
+    queryFn: getBusinessUnits,
   });
 
   const { data: departments = [] } = useQuery({
@@ -89,20 +122,86 @@ export default function Employees() {
     queryFn: getDepartments,
   });
 
+  const { data: teams = [] } = useQuery({
+    queryKey: ["teams"],
+    queryFn: getTeams,
+  });
+
   const employees = result?.data ?? [];
+  const canManageEmployees = user ? getRoleTier(user) === "hr_admin" : false;
+  const showDetailsColumn = user ? getRoleTier(user) !== "employee" : false;
+
+  const departmentById = useMemo(
+    () => new Map(departments.map((department) => [department.id, department])),
+    [departments],
+  );
+
+  const businessUnitById = useMemo(
+    () => new Map(businessUnits.map((businessUnit) => [businessUnit.id, businessUnit])),
+    [businessUnits],
+  );
+
+  const filteredDepartments = useMemo(
+    () =>
+      businessUnitFilter === ALL_VALUE
+        ? []
+        : departments
+            .filter((department) => department.businessUnitId === businessUnitFilter)
+            .sort((a, b) => a.name.localeCompare(b.name)),
+    [businessUnitFilter, departments],
+  );
+
+  const filteredTeams = useMemo(
+    () =>
+      deptFilter === ALL_VALUE
+        ? []
+        : teams
+            .filter((team) => team.departmentId === deptFilter)
+            .sort((a, b) => a.name.localeCompare(b.name)),
+    [deptFilter, teams],
+  );
+
+  const activeBusinessUnit = businessUnits.find((businessUnit) => businessUnit.id === businessUnitFilter);
+  const activeDepartment = departments.find((department) => department.id === deptFilter);
+  const activeTeam = teams.find((team) => team.id === teamFilter);
+  const activeStatusLabel = EMPLOYMENT_STATUS_OPTIONS.find((status) => status.value === statusFilter)?.label;
+  const hasActiveFilters =
+    businessUnitFilter !== ALL_VALUE ||
+    deptFilter !== ALL_VALUE ||
+    teamFilter !== ALL_VALUE ||
+    statusFilter !== ALL_VALUE ||
+    searchTerm.length > 0;
+  const viewingSummary = [
+    activeBusinessUnit?.name,
+    activeDepartment?.name,
+    activeTeam?.name,
+    activeStatusLabel,
+  ].filter(Boolean).join(" / ");
+
+  function getBusinessUnitNameForDepartment(departmentId: string | undefined): string | null {
+    if (!departmentId) return null;
+    const department = departmentById.get(departmentId);
+    return (
+      department?.businessUnit?.name ??
+      (department?.businessUnitId ? businessUnitById.get(department.businessUnitId)?.name : undefined) ??
+      activeBusinessUnit?.name ??
+      null
+    );
+  }
 
   const groupedEmployees = useMemo(() => {
-    const groups = new Map<string, { label: string; employees: typeof employees }>();
+    const groups = new Map<string, { label: string; businessUnitName: string | null; employees: typeof employees }>();
     for (const emp of employees) {
       const key = emp.department?.id ?? "";
-      const label = emp.department?.name ?? "Unassigned";
-      if (!groups.has(key)) groups.set(key, { label, employees: [] });
+      const label = emp.department?.name ?? "Unassigned department";
+      const businessUnitName = getBusinessUnitNameForDepartment(emp.department?.id);
+      if (!groups.has(key)) groups.set(key, { label, businessUnitName, employees: [] });
       groups.get(key)!.employees.push(emp);
     }
     return Array.from(groups.entries()).sort(([, a], [, b]) =>
-      a.label.localeCompare(b.label),
+      `${a.businessUnitName ?? ""} ${a.label}`.localeCompare(`${b.businessUnitName ?? ""} ${b.label}`),
     );
-  }, [employees]);
+  }, [activeBusinessUnit?.name, businessUnitById, departmentById, employees]);
 
   const totalShown = employees.length;
 
@@ -113,6 +212,29 @@ export default function Employees() {
       else next.add(key);
       return next;
     });
+  }
+
+  function clearFilters() {
+    setSearchTerm("");
+    setBusinessUnitFilter(ALL_VALUE);
+    setDeptFilter(ALL_VALUE);
+    setTeamFilter(ALL_VALUE);
+    setStatusFilter(ALL_VALUE);
+  }
+
+  function handleBusinessUnitChange(businessUnitId: string) {
+    setBusinessUnitFilter(businessUnitId);
+    setDeptFilter(ALL_VALUE);
+    setTeamFilter(ALL_VALUE);
+  }
+
+  function handleDepartmentChange(departmentId: string) {
+    setDeptFilter(departmentId);
+    setTeamFilter(ALL_VALUE);
+  }
+
+  function canOpenEmployeeDetails(emp: (typeof employees)[number]): boolean {
+    return user ? canViewEmployeeDetails(user, emp, { departments, teams }) : false;
   }
 
   return (
@@ -129,17 +251,20 @@ export default function Employees() {
             Manage and view all team members
           </p>
         </div>
-        <Button
-          onClick={() => setWizardOpen(true)}
-          className="gap-2"
-          data-testid="button-add-employee"
-        >
-          <UserPlus className="w-4 h-4" />
-          Add Employee
-        </Button>
+        {canManageEmployees && (
+          <Button
+            onClick={() => setWizardOpen(true)}
+            className="gap-2"
+            data-testid="button-add-employee"
+          >
+            <UserPlus className="w-4 h-4" />
+            Add Employee
+          </Button>
+        )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="rounded-lg border bg-card p-3">
+        <div className="flex flex-wrap items-end gap-3">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -151,27 +276,106 @@ export default function Employees() {
           />
         </div>
 
-        <div className="flex items-center gap-2" data-testid="dept-filter-container">
-          <Label className="text-sm text-muted-foreground whitespace-nowrap">
+          <div className="grid gap-1.5" data-testid="bu-filter-container">
+            <Label className="text-xs text-muted-foreground">Business Unit</Label>
+            <Select value={businessUnitFilter} onValueChange={handleBusinessUnitChange}>
+              <SelectTrigger className="w-[190px]" data-testid="select-bu-filter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VALUE}>All business units</SelectItem>
+                {businessUnits
+                  .slice()
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((businessUnit) => (
+                    <SelectItem key={businessUnit.id} value={businessUnit.id}>
+                      {businessUnit.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+        <div className="grid gap-1.5" data-testid="dept-filter-container">
+          <Label className="text-xs text-muted-foreground">
             Department
           </Label>
-          <Select value={deptFilter} onValueChange={setDeptFilter}>
-            <SelectTrigger className="w-[200px]" data-testid="select-dept-filter">
-              <SelectValue />
+          <Select
+            value={businessUnitFilter === ALL_VALUE ? undefined : deptFilter}
+            onValueChange={handleDepartmentChange}
+            disabled={businessUnitFilter === ALL_VALUE || filteredDepartments.length === 0}
+          >
+            <SelectTrigger className="w-[190px]" data-testid="select-dept-filter">
+              <SelectValue placeholder={businessUnitFilter === ALL_VALUE ? "Select BU first" : "All departments"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              {departments
-                .slice()
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.name}
+              <SelectItem value={ALL_VALUE}>All departments</SelectItem>
+              {filteredDepartments
+                .map((department) => (
+                  <SelectItem key={department.id} value={department.id}>
+                    {department.name}
                   </SelectItem>
                 ))}
             </SelectContent>
           </Select>
         </div>
+
+          <div className="grid gap-1.5" data-testid="team-filter-container">
+            <Label className="text-xs text-muted-foreground">Team</Label>
+            <Select
+              value={deptFilter === ALL_VALUE ? undefined : teamFilter}
+              onValueChange={setTeamFilter}
+              disabled={deptFilter === ALL_VALUE || filteredTeams.length === 0}
+            >
+              <SelectTrigger className="w-[190px]" data-testid="select-team-filter">
+                <SelectValue placeholder={deptFilter === ALL_VALUE ? "Select department first" : "All teams"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VALUE}>All teams</SelectItem>
+                {filteredTeams.map((team) => (
+                  <SelectItem key={team.id} value={team.id}>
+                    {team.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-1.5" data-testid="status-filter-container">
+            <Label className="text-xs text-muted-foreground">Status</Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[170px]" data-testid="select-status-filter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VALUE}>All statuses</SelectItem>
+                {EMPLOYMENT_STATUS_OPTIONS.map((status) => (
+                  <SelectItem key={status.value} value={status.value}>
+                    {status.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {hasActiveFilters && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1.5"
+              onClick={clearFilters}
+              data-testid="button-clear-employee-filters"
+            >
+              <X className="h-4 w-4" />
+              Clear
+            </Button>
+          )}
+        </div>
+
+        <p className="mt-2 text-xs text-muted-foreground" data-testid="employee-filter-summary">
+          Viewing: <span className="font-medium text-foreground">{viewingSummary || "All employees"}</span>
+        </p>
       </div>
 
       <div className="rounded-md border bg-card">
@@ -180,21 +384,22 @@ export default function Employees() {
             <TableRow>
               <TableHead>Employee</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Business Unit</TableHead>
               <TableHead>Department</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              {showDetailsColumn && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={showDetailsColumn ? 6 : 5} className="text-center py-8 text-muted-foreground">
                   Loading…
                 </TableCell>
               </TableRow>
             ) : groupedEmployees.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={showDetailsColumn ? 6 : 5} className="text-center py-8 text-muted-foreground">
                   No employees found matching your search.
                 </TableCell>
               </TableRow>
@@ -208,8 +413,8 @@ export default function Employees() {
                     onClick={() => toggleGroup(key)}
                     data-testid={`group-header-${key || "unassigned"}`}
                   >
-                    <TableCell colSpan={5} className="py-2 px-4">
-                      <div className="flex items-center gap-2">
+                    <TableCell colSpan={showDetailsColumn ? 6 : 5} className="py-2 px-4">
+                      <div className="flex flex-wrap items-center gap-2">
                         {isCollapsed ? (
                           <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                         ) : (
@@ -218,6 +423,11 @@ export default function Employees() {
                         <span className="font-semibold text-sm text-gray-800 dark:text-gray-200">
                           {group.label}
                         </span>
+                        {group.businessUnitName && (
+                          <span className="rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                            {group.businessUnitName}
+                          </span>
+                        )}
                         <Badge variant="secondary" className="ml-1 text-xs">
                           {group.employees.length}
                         </Badge>
@@ -225,7 +435,10 @@ export default function Employees() {
                     </TableCell>
                   </TableRow>,
                   ...(!isCollapsed
-                    ? group.employees.map((emp) => (
+                    ? group.employees.map((emp) => {
+                        const businessUnitName = getBusinessUnitNameForDepartment(emp.department?.id) ?? "Unassigned";
+                        const canOpenDetails = canOpenEmployeeDetails(emp);
+                        return (
                         <TableRow key={emp.id} data-testid={`row-employee-${emp.id}`}>
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-3">
@@ -245,21 +458,38 @@ export default function Employees() {
                             </div>
                           </TableCell>
                           <TableCell>{emp.position?.title ?? "—"}</TableCell>
-                          <TableCell>{emp.department?.name ?? "—"}</TableCell>
-                          <TableCell>{getStatusBadge(emp.employmentStatus)}</TableCell>
-                          <TableCell className="text-right">
-                            <Link href={`/employees/${emp.id}`}>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                data-testid={`button-view-employee-${emp.id}`}
-                              >
-                                View
-                              </Button>
-                            </Link>
+                          <TableCell>
+                            <span className="text-sm font-medium">{businessUnitName}</span>
                           </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span>{emp.department?.name ?? "—"}</span>
+                              {businessUnitName !== "Unassigned" && (
+                                <span className="text-xs text-muted-foreground">
+                                  {businessUnitName}
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>{getStatusBadge(emp.employmentStatus)}</TableCell>
+                          {showDetailsColumn && (
+                            <TableCell className="text-right">
+                              {canOpenDetails && (
+                                <Link href={`/employees/${emp.id}`}>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    data-testid={`button-view-employee-${emp.id}`}
+                                  >
+                                    View
+                                  </Button>
+                                </Link>
+                              )}
+                            </TableCell>
+                          )}
                         </TableRow>
-                      ))
+                        );
+                      })
                     : []),
                 ];
               })
@@ -275,14 +505,16 @@ export default function Employees() {
         </p>
       )}
 
-      <AddEmployeeWizard
-        open={wizardOpen}
-        onOpenChange={setWizardOpen}
-        allEmployees={employees.map((e) => ({ id: e.id, name: `${e.firstName} ${e.lastName}` }))}
-        onEmployeeAdded={() => {
-          queryClient.invalidateQueries({ queryKey: ["employees"] });
-        }}
-      />
+      {canManageEmployees && (
+        <AddEmployeeWizard
+          open={wizardOpen}
+          onOpenChange={setWizardOpen}
+          allEmployees={employees.map((e) => ({ id: e.id, name: `${e.firstName} ${e.lastName}` }))}
+          onEmployeeAdded={() => {
+            queryClient.invalidateQueries({ queryKey: ["employees"] });
+          }}
+        />
+      )}
     </div>
   );
 }

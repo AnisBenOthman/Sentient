@@ -34,7 +34,7 @@ export class BusinessUnitsController {
   }
 
   @Get()
-  @Roles('HR_ADMIN', 'EXECUTIVE')
+  @Roles('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'GLOBAL_HR_ADMIN', 'EXECUTIVE')
   @ApiOperation({ summary: 'List business units (cursor-based)' })
   findAll(@Query() query: BusinessUnitQueryDto, @CurrentUser() user: JwtPayload) {
     return this.businessUnitsService.findAll(query, user.roles);

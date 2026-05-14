@@ -33,8 +33,18 @@ import { EmployeeQueryDto } from './dto/employee-query.dto';
 // ============================================================
 
 export type EmployeeProfile = Employee & {
-  department: { id: string; name: string } | null;
-  team: { id: string; name: string } | null;
+  department: {
+    id: string;
+    name: string;
+    businessUnitId: string;
+    businessUnit: { id: string; name: string } | null;
+  } | null;
+  team: {
+    id: string;
+    name: string;
+    businessUnitId: string;
+    businessUnit: { id: string; name: string } | null;
+  } | null;
   position: { id: string; title: string } | null;
   manager: { id: string; firstName: string; lastName: string } | null;
   salaryHistory?: SalaryHistory[];
@@ -155,9 +165,12 @@ export class EmployeesService {
   // ============================================================
 
   async findById(id: string, user: JwtPayload): Promise<EmployeeProfile> {
-    const scopeFilter = this.buildScopeFilter(user);
+    const scopeFilter = this.buildProfileAccessFilter(user);
     const where: Prisma.EmployeeWhereInput = { AND: [scopeFilter, { id, deletedAt: null }] };
-    const isPrivileged = user.roles.includes('HR_ADMIN') || user.roles.includes('EXECUTIVE');
+    const isPrivileged =
+      user.roles.includes('HR_ADMIN') ||
+      user.roles.includes('GLOBAL_HR_ADMIN') ||
+      user.roles.includes('EXECUTIVE');
 
     const employee = await this.prisma.employee.findFirst({
       where,
@@ -282,9 +295,7 @@ export class EmployeesService {
   // ============================================================
 
   async findAll(query: EmployeeQueryDto, user: JwtPayload): Promise<PaginatedEmployees> {
-    const scopeFilter = this.buildScopeFilter(user);
-
-    const filters: Prisma.EmployeeWhereInput[] = [scopeFilter, { deletedAt: null }];
+    const filters: Prisma.EmployeeWhereInput[] = [{ deletedAt: null }];
 
     if (query.businessUnitId) {
       filters.push({
@@ -577,8 +588,44 @@ export class EmployeesService {
     return { id: user.employeeId };
   }
 
+  private buildProfileAccessFilter(user: JwtPayload): Prisma.EmployeeWhereInput {
+    const isPrivileged =
+      user.roles.includes('HR_ADMIN') ||
+      user.roles.includes('GLOBAL_HR_ADMIN') ||
+      user.roles.includes('EXECUTIVE');
+    if (isPrivileged) return {};
+
+    if (user.roles.includes('MANAGER')) {
+      const departmentAssignment = user.roleAssignments.find(
+        (assignment) => assignment.roleCode === 'MANAGER' && assignment.scope === PermissionScope.DEPARTMENT,
+      );
+      if (departmentAssignment?.scopeEntityId) return { departmentId: departmentAssignment.scopeEntityId };
+
+      const teamAssignment = user.roleAssignments.find(
+        (assignment) => assignment.roleCode === 'MANAGER' && assignment.scope === PermissionScope.TEAM,
+      );
+      if (teamAssignment?.scopeEntityId) return { teamId: teamAssignment.scopeEntityId };
+
+      const managerScopes: Prisma.EmployeeWhereInput[] = [];
+      if (user.employeeId) {
+        managerScopes.push(
+          { department: { is: { headId: user.employeeId } } },
+          { team: { is: { leadId: user.employeeId } } },
+        );
+      }
+      if (user.teamId) managerScopes.push({ teamId: user.teamId });
+      if (managerScopes.length > 0) return { OR: managerScopes };
+    }
+
+    if (user.employeeId) return { id: user.employeeId };
+    throw new ForbiddenException('No employee profile linked to this account');
+  }
+
   private stripSensitiveFields(employee: EmployeeProfile, roles: string[]): EmployeeProfile {
-    const isPrivileged = roles.includes('HR_ADMIN') || roles.includes('EXECUTIVE');
+    const isPrivileged =
+      roles.includes('HR_ADMIN') ||
+      roles.includes('GLOBAL_HR_ADMIN') ||
+      roles.includes('EXECUTIVE');
     if (!isPrivileged) {
       return {
         ...employee,
@@ -617,8 +664,22 @@ export class EmployeesService {
 
   private defaultInclude() {
     return {
-      department: { select: { id: true, name: true } },
-      team: { select: { id: true, name: true } },
+      department: {
+        select: {
+          id: true,
+          name: true,
+          businessUnitId: true,
+          businessUnit: { select: { id: true, name: true } },
+        },
+      },
+      team: {
+        select: {
+          id: true,
+          name: true,
+          businessUnitId: true,
+          businessUnit: { select: { id: true, name: true } },
+        },
+      },
       position: { select: { id: true, title: true } },
       manager: { select: { id: true, firstName: true, lastName: true } },
     } as const;

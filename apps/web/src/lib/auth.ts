@@ -66,20 +66,97 @@ export function hasRole(roles: string[], check: string[]): boolean {
 
 export type RoleTier = 'hr_admin' | 'dept_manager' | 'team_lead' | 'employee';
 
+export interface EmployeeDetailTarget {
+  id: string;
+  departmentId?: string | null;
+  teamId?: string | null;
+  department?: { id?: string | null } | null;
+  team?: { id?: string | null } | null;
+}
+
+export interface EmployeeDetailScopeContext {
+  departments?: Array<{ id: string; headId?: string | null }>;
+  teams?: Array<{ id: string; leadId?: string | null }>;
+}
+
 export function getRoleTier(payload: JwtPayload): RoleTier {
-  const { roles, roleAssignments } = payload;
-  if (roles.includes('HR_ADMIN') || roles.includes('EXECUTIVE')) return 'hr_admin';
+  const roles = payload.roles ?? [];
+  const roleAssignments = payload.roleAssignments ?? [];
+
+  if (
+    roles.includes('HR_ADMIN') ||
+    roles.includes('GLOBAL_HR_ADMIN') ||
+    roles.includes('EXECUTIVE')
+  ) {
+    return 'hr_admin';
+  }
+
   if (roles.includes('MANAGER')) {
     const hasDept = roleAssignments.some(
       (a) => a.roleCode === 'MANAGER' && a.scope === 'DEPARTMENT',
     );
     if (hasDept) return 'dept_manager';
+
     const hasTeam = roleAssignments.some(
       (a) => a.roleCode === 'MANAGER' && a.scope === 'TEAM',
     );
     if (hasTeam) return 'team_lead';
+
+    if (payload.teamId) return 'team_lead';
+    if (payload.departmentId) return 'dept_manager';
+    return 'dept_manager';
   }
   return 'employee';
+}
+
+export function canViewEmployeeDetails(
+  payload: JwtPayload,
+  target: EmployeeDetailTarget,
+  context: EmployeeDetailScopeContext = {},
+): boolean {
+  const roles = payload.roles ?? [];
+  const roleAssignments = payload.roleAssignments ?? [];
+
+  if (
+    roles.includes('HR_ADMIN') ||
+    roles.includes('GLOBAL_HR_ADMIN') ||
+    roles.includes('EXECUTIVE')
+  ) {
+    return true;
+  }
+
+  if (!roles.includes('MANAGER')) return false;
+
+  const targetDepartmentId = target.departmentId ?? target.department?.id ?? null;
+  const targetTeamId = target.teamId ?? target.team?.id ?? null;
+
+  const departmentAssignment = roleAssignments.find(
+    (assignment) => assignment.roleCode === 'MANAGER' && assignment.scope === 'DEPARTMENT',
+  );
+  if (departmentAssignment?.scopeEntityId) {
+    return targetDepartmentId === departmentAssignment.scopeEntityId;
+  }
+
+  const teamAssignment = roleAssignments.find(
+    (assignment) => assignment.roleCode === 'MANAGER' && assignment.scope === 'TEAM',
+  );
+  if (teamAssignment?.scopeEntityId) {
+    return targetTeamId === teamAssignment.scopeEntityId;
+  }
+
+  if (payload.employeeId) {
+    const headsDepartment = context.departments?.some(
+      (department) => department.id === targetDepartmentId && department.headId === payload.employeeId,
+    );
+    if (headsDepartment) return true;
+
+    const leadsTeam = context.teams?.some(
+      (team) => team.id === targetTeamId && team.leadId === payload.employeeId,
+    );
+    if (leadsTeam) return true;
+  }
+
+  return Boolean(payload.teamId && targetTeamId === payload.teamId);
 }
 
 export function roleTierLabel(tier: RoleTier): string {

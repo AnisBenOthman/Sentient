@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
   X,
@@ -36,19 +37,16 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import {
-  employees as initialEmployees,
-  employeeExtras,
-  currentUser,
-  type Employee,
-} from "@/lib/mock-data";
-import { applyOverrides } from "@/lib/employee-store";
+import { useAuth } from "@/components/providers/auth-provider";
+import { getRoleTier } from "@/lib/auth";
 import { getPositions, type PositionWithCount } from "@/lib/positions-api";
 import {
+  createPromotionRequest,
+  getEmployees,
   getPromotionRequests,
-  savePromotionRequest,
-  type PromotionRequest,
-} from "@/lib/promotion-store";
+  type CreatePromotionRequestPayload,
+  type EmployeeProfile,
+} from "@/lib/api/hr-core";
 
 const STEP_LABELS = [
   "Select Employee",
@@ -78,29 +76,69 @@ function fmtDate(iso: string): string {
   }
 }
 
-function getEmployeeSalary(e: Employee): number {
-  return e.grossSalary ?? e.salary ?? 0;
+type SimulationEmployee = {
+  id: string;
+  name: string;
+  role: string;
+  department: string;
+  departmentId: string | null;
+  team: string | null;
+  teamId: string | null;
+  managerId: string | null;
+  grossSalary: number;
+  positionLevel: string | null;
+  employmentStatus: string;
+};
+
+type SimulationScopeParams = {
+  businessUnitId?: string;
+  departmentId?: string;
+  teamId?: string;
+};
+
+function toSimulationEmployee(employee: EmployeeProfile): SimulationEmployee {
+  return {
+    id: employee.id,
+    name: `${employee.firstName} ${employee.lastName}`,
+    role: employee.position?.title ?? "Unassigned role",
+    department: employee.department?.name ?? "Unassigned",
+    departmentId: employee.departmentId ?? employee.department?.id ?? null,
+    team: employee.team?.name ?? null,
+    teamId: employee.teamId ?? null,
+    managerId: employee.managerId ?? null,
+    grossSalary: employee.grossSalary ?? 0,
+    positionLevel: employee.position?.title ?? null,
+    employmentStatus: employee.employmentStatus,
+  };
 }
 
-function loadAllEmployees(): Employee[] {
-  const withExtras = (initialEmployees as Employee[]).map((emp) => {
-    const extra = employeeExtras[emp.id];
-    if (!extra) return emp;
-    return {
-      ...emp,
-      contractType: extra.contractType,
-      phone: extra.phone,
-      dateOfBirth: extra.dateOfBirth,
-      netSalary: extra.netSalary,
-      maritalStatus: extra.maritalStatus,
-      educationLevel: extra.educationLevel,
-      educationField: extra.educationField,
-      positionLevel: extra.positionLevel,
-      employeeCode: extra.employeeCode,
-      team: extra.team,
-    };
-  });
-  return applyOverrides(withExtras);
+function getSimulationScopeParams(user: ReturnType<typeof useAuth>["user"]): SimulationScopeParams {
+  if (!user) return {};
+
+  const roleTier = getRoleTier(user);
+  if (roleTier === "hr_admin") return {};
+
+  const departmentAssignment = user.roleAssignments?.find(
+    (assignment) => assignment.roleCode === "MANAGER" && assignment.scope === "DEPARTMENT",
+  );
+  if (roleTier === "dept_manager") {
+    const departmentId = departmentAssignment?.scopeEntityId ?? user.departmentId;
+    return departmentId ? { departmentId } : {};
+  }
+
+  const teamAssignment = user.roleAssignments?.find(
+    (assignment) => assignment.roleCode === "MANAGER" && assignment.scope === "TEAM",
+  );
+  const teamId = teamAssignment?.scopeEntityId ?? user.teamId;
+  return teamId ? { teamId } : {};
+}
+
+function isCurrentEmployee(employee: SimulationEmployee): boolean {
+  return !["TERMINATED", "RESIGNED"].includes(employee.employmentStatus);
+}
+
+function getEmployeeSalary(e: SimulationEmployee): number {
+  return e.grossSalary;
 }
 
 // ── Step indicator ──────────────────────────────────────────────────────────
@@ -164,7 +202,7 @@ function EmployeePicker({
   selectedId,
   onSelect,
 }: {
-  employees: Employee[];
+  employees: SimulationEmployee[];
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
@@ -260,17 +298,21 @@ function EmployeePicker({
 interface WizardProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  employees: Employee[];
+  employees: SimulationEmployee[];
+  budgetEmployees: SimulationEmployee[];
   positions: PositionWithCount[];
-  onSubmitted: () => void;
+  isSubmitting: boolean;
+  onSubmit: (payload: CreatePromotionRequestPayload) => Promise<void>;
 }
 
 function PromotionWizard({
   open,
   onOpenChange,
   employees,
+  budgetEmployees,
   positions,
-  onSubmitted,
+  isSubmitting,
+  onSubmit,
 }: WizardProps) {
   const [step, setStep] = useState(1);
   const [employeeId, setEmployeeId] = useState<string | null>(null);
@@ -302,10 +344,13 @@ function PromotionWizard({
   // Team budget = sum of gross salaries for everyone sharing the same manager
   const teamMembers = useMemo(() => {
     if (!employee) return [];
-    return employees.filter(
+    if (employee.teamId) {
+      return budgetEmployees.filter((e) => e.teamId === employee.teamId);
+    }
+    return budgetEmployees.filter(
       (e) => e.managerId === employee.managerId && e.managerId !== null
     );
-  }, [employee, employees]);
+  }, [budgetEmployees, employee]);
 
   const currentTeamBudget = useMemo(
     () => teamMembers.reduce((sum, e) => sum + getEmployeeSalary(e), 0),
@@ -361,28 +406,23 @@ function PromotionWizard({
     setStep((s) => Math.max(1, s - 1));
   }
 
-  function submit() {
+  async function submit() {
     if (!employee) return;
-    const req: PromotionRequest = {
-      id: `pr-${Date.now()}`,
-      employeeId: employee.id,
-      employeeName: employee.name,
-      currentRole: employee.role,
-      newRole: effectiveNewRole,
-      currentSalary,
-      newSalary,
-      salaryDelta,
-      salaryDeltaPct,
-      currentTeamBudget,
-      newTeamBudget,
-      budgetImpactPct,
-      responsibilities,
-      submittedAt: new Date().toISOString(),
-      status: "Pending",
-    };
-    savePromotionRequest(req);
-    onSubmitted();
-    onOpenChange(false);
+    setError(null);
+    try {
+      await onSubmit({
+        employeeId: employee.id,
+        currentRole: employee.role,
+        newRole: effectiveNewRole,
+        currentTeamBudget,
+        currentGrossSalary: currentSalary,
+        newGrossSalary: newSalary,
+        responsibilities,
+      });
+      onOpenChange(false);
+    } catch {
+      setError("Could not submit this promotion request. Please check the employee scope and try again.");
+    }
   }
 
   const deltaPositive = salaryDelta >= 0;
@@ -779,9 +819,9 @@ function PromotionWizard({
               Next
             </Button>
           ) : (
-            <Button onClick={submit} data-testid="button-wizard-submit">
+            <Button onClick={submit} disabled={isSubmitting} data-testid="button-wizard-submit">
               <Check className="w-4 h-4 mr-1.5" />
-              Confirm & Submit
+              {isSubmitting ? "Submitting..." : "Confirm & Submit"}
             </Button>
           )}
         </DialogFooter>
@@ -793,26 +833,55 @@ function PromotionWizard({
 // ── Page ────────────────────────────────────────────────────────────────────
 
 export default function Simulation() {
-  const [allEmployees] = useState<Employee[]>(() => loadAllEmployees());
-  const directReports = useMemo(
-    () => allEmployees.filter((e) => e.managerId === currentUser.id),
-    [allEmployees]
-  );
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [positions, setPositions] = useState<PositionWithCount[]>([]);
-  const [requests, setRequests] = useState<PromotionRequest[]>(() =>
-    getPromotionRequests()
-  );
   const [wizardOpen, setWizardOpen] = useState(false);
+  const roleTier = user ? getRoleTier(user) : "employee";
+  const isHrSimulation = roleTier === "hr_admin";
+  const simulationScopeParams = useMemo(() => getSimulationScopeParams(user), [user]);
+  const hasSimulationScope = isHrSimulation || Boolean(simulationScopeParams.departmentId || simulationScopeParams.teamId);
+  const simulationScopeLabel = isHrSimulation
+    ? "All employees are available for HR simulation."
+    : "Only employees in your managed teams are available for simulation.";
+
+  const { data: employeesResult } = useQuery({
+    queryKey: ["simulation-employees", simulationScopeParams],
+    queryFn: () => getEmployees({ limit: 500, ...simulationScopeParams }),
+    enabled: Boolean(user && hasSimulationScope),
+  });
+  const allEmployees = useMemo(
+    () => (employeesResult?.data ?? []).map(toSimulationEmployee),
+    [employeesResult]
+  );
+  const promotionCandidates = useMemo(() => {
+    if (isHrSimulation) {
+      return allEmployees.filter(
+        (employee) => employee.id !== user?.employeeId && isCurrentEmployee(employee),
+      );
+    }
+    return allEmployees.filter(
+      (employee) => employee.id !== user?.employeeId && isCurrentEmployee(employee),
+    );
+  }, [allEmployees, isHrSimulation, user?.employeeId]);
+  const { data: requests = [], isLoading: requestsLoading } = useQuery({
+    queryKey: ["promotion-requests", "simulation", simulationScopeParams],
+    queryFn: () => getPromotionRequests(simulationScopeParams),
+    enabled: Boolean(user && hasSimulationScope),
+  });
+  const createPromotionMutation = useMutation({
+    mutationFn: createPromotionRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["promotion-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["promotion-requests-dashboard"] });
+    },
+  });
 
   useEffect(() => {
     getPositions()
       .then(setPositions)
       .catch(() => setPositions([]));
   }, []);
-
-  function refreshRequests() {
-    setRequests(getPromotionRequests());
-  }
 
   return (
     <div className="space-y-6">
@@ -828,10 +897,14 @@ export default function Simulation() {
             Model the financial and organizational impact of a promotion before
             submitting the request.
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {simulationScopeLabel}
+          </p>
         </div>
         <Button
           className="gap-2"
           onClick={() => setWizardOpen(true)}
+          disabled={!hasSimulationScope}
           data-testid="button-new-promotion"
         >
           <Plus className="w-4 h-4" />
@@ -843,14 +916,16 @@ export default function Simulation() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Sparkles className="w-4 h-4 text-blue-600" />
-            Pending Promotion Requests
+            Promotion Requests
           </CardTitle>
           <CardDescription>
-            Requests you have submitted from this device.
+            Requests submitted to HR Core and visible in your current scope.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {requests.length === 0 ? (
+          {requestsLoading ? (
+            <p className="py-12 text-center text-sm text-muted-foreground">Loading promotion requests...</p>
+          ) : requests.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground" data-testid="empty-requests">
               <Briefcase className="w-10 h-10 mx-auto text-gray-300 mb-3" />
               <p className="text-sm">No promotion requests yet.</p>
@@ -900,7 +975,7 @@ export default function Simulation() {
                           Salary
                         </p>
                         <p className="text-sm font-medium mt-0.5">
-                          {fmtMoney(r.currentSalary)} → {fmtMoney(r.newSalary)}
+                          {fmtMoney(r.currentGrossSalary)} -&gt; {fmtMoney(r.newGrossSalary)}
                         </p>
                       </div>
                       <div>
@@ -914,7 +989,7 @@ export default function Simulation() {
                           )}
                         >
                           {positive ? "+" : ""}
-                          {fmtMoney(r.salaryDelta)} ({fmtPct(r.salaryDeltaPct)})
+                          {fmtMoney(r.salaryDelta)} ({fmtPct(r.salaryDeltaPercentage)})
                         </p>
                       </div>
                       <div>
@@ -927,7 +1002,7 @@ export default function Simulation() {
                             positive ? "text-orange-700" : "text-blue-700"
                           )}
                         >
-                          {fmtPct(r.budgetImpactPct)}
+                          {fmtPct(r.budgetImpactPercentage)}
                         </p>
                       </div>
                     </div>
@@ -942,9 +1017,13 @@ export default function Simulation() {
       <PromotionWizard
         open={wizardOpen}
         onOpenChange={setWizardOpen}
-        employees={directReports}
+        employees={promotionCandidates}
+        budgetEmployees={allEmployees}
         positions={positions}
-        onSubmitted={refreshRequests}
+        isSubmitting={createPromotionMutation.isPending}
+        onSubmit={async (payload) => {
+          await createPromotionMutation.mutateAsync(payload);
+        }}
       />
     </div>
   );

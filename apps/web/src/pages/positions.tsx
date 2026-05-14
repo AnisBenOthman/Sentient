@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getPositions,
@@ -12,6 +12,7 @@ import {
   type Position,
   type PositionSkill,
   type ProficiencyLevel,
+  type SkillDomain,
   type SkillRequirementLevel,
 } from "@/lib/api/hr-core";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -81,6 +82,16 @@ const REQUIREMENT_LEVELS: { value: SkillRequirementLevel; label: string }[] = [
   { value: "NICE_TO_HAVE", label: "Nice to Have" },
 ];
 
+const SKILL_DOMAINS: { value: SkillDomain; label: string }[] = [
+  { value: "TECHNICAL", label: "Technical" },
+  { value: "LEADERSHIP", label: "Leadership" },
+  { value: "SOFT_SKILLS", label: "Soft Skills" },
+  { value: "DOMAIN_EXPERTISE", label: "Domain Expertise" },
+];
+
+type DomainFilter = SkillDomain | "ALL";
+type RequirementFilter = SkillRequirementLevel | "ALL";
+
 const REQUIREMENT_COLORS: Record<SkillRequirementLevel, string> = {
   MANDATORY: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400",
   EXPECTED: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400",
@@ -92,6 +103,13 @@ const DOMAIN_LABELS: Record<string, string> = {
   LEADERSHIP: "Leadership",
   SOFT_SKILLS: "Soft Skills",
   DOMAIN_EXPERTISE: "Domain Expertise",
+};
+
+const DOMAIN_COLORS: Record<SkillDomain, string> = {
+  TECHNICAL: "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300",
+  LEADERSHIP: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-300",
+  SOFT_SKILLS: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300",
+  DOMAIN_EXPERTISE: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300",
 };
 
 const LEVEL_COLORS: Record<string, string> = {
@@ -115,6 +133,9 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
   const [addOpen, setAddOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<PositionSkill | null>(null);
   const [skillSearch, setSkillSearch] = useState("");
+  const [domainFilter, setDomainFilter] = useState<DomainFilter>("ALL");
+  const [requirementFilter, setRequirementFilter] = useState<RequirementFilter>("ALL");
+  const [catalogDomain, setCatalogDomain] = useState<DomainFilter>("ALL");
   const [addForm, setAddForm] = useState<{
     skillId: string;
     minimumProficiency: ProficiencyLevel;
@@ -127,14 +148,49 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
   });
 
   const { data: catalog } = useQuery({
-    queryKey: ["skills-catalog", skillSearch],
-    queryFn: () => getSkillsCatalog({ search: skillSearch || undefined }),
+    queryKey: ["skills-catalog", skillSearch, catalogDomain],
+    queryFn: () => getSkillsCatalog({
+      search: skillSearch || undefined,
+      domain: catalogDomain === "ALL" ? undefined : catalogDomain,
+    }),
     enabled: addOpen,
   });
 
   const catalogSkills = catalog?.data ?? [];
   const existingSkillIds = new Set(positionSkills.map((ps) => ps.skillId));
   const availableSkills = catalogSkills.filter((s) => !existingSkillIds.has(s.id));
+  const visiblePositionSkills = useMemo(
+    () =>
+      positionSkills.filter((ps) => {
+        const matchesDomain = domainFilter === "ALL" || ps.skill.domain === domainFilter;
+        const matchesRequirement = requirementFilter === "ALL" || ps.requirementLevel === requirementFilter;
+        return matchesDomain && matchesRequirement;
+      }),
+    [domainFilter, positionSkills, requirementFilter],
+  );
+  const domainCounts = useMemo(() => {
+    const counts: Record<SkillDomain, number> = {
+      TECHNICAL: 0,
+      LEADERSHIP: 0,
+      SOFT_SKILLS: 0,
+      DOMAIN_EXPERTISE: 0,
+    };
+    for (const ps of positionSkills) {
+      if (ps.skill.domain) counts[ps.skill.domain] += 1;
+    }
+    return counts;
+  }, [positionSkills]);
+  const requirementCounts = useMemo(() => {
+    const counts: Record<SkillRequirementLevel, number> = {
+      MANDATORY: 0,
+      EXPECTED: 0,
+      NICE_TO_HAVE: 0,
+    };
+    for (const ps of positionSkills) {
+      counts[ps.requirementLevel] += 1;
+    }
+    return counts;
+  }, [positionSkills]);
 
   const addMutation = useMutation({
     mutationFn: () =>
@@ -148,6 +204,7 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
       setAddOpen(false);
       setAddForm({ skillId: "", minimumProficiency: "INTERMEDIATE", requirementLevel: "MANDATORY" });
       setSkillSearch("");
+      setCatalogDomain("ALL");
     },
   });
 
@@ -182,23 +239,81 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
       ) : positionSkills.length === 0 ? (
         <p className="text-xs text-muted-foreground py-2 italic">No required skills defined for this position.</p>
       ) : (
-        <div className="space-y-1.5">
-          {positionSkills.map((ps) => (
+        <div className="space-y-3">
+          <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={domainFilter === "ALL" ? "default" : "outline"}
+                className="h-7 text-xs"
+                onClick={() => setDomainFilter("ALL")}
+              >
+                All domains
+              </Button>
+              {SKILL_DOMAINS.map((domain) => (
+                <Button
+                  key={domain.value}
+                  type="button"
+                  size="sm"
+                  variant={domainFilter === domain.value ? "default" : "outline"}
+                  className="h-7 gap-1.5 text-xs"
+                  onClick={() => setDomainFilter(domain.value)}
+                >
+                  {domain.label}
+                  <span className="text-[10px] opacity-70">{domainCounts[domain.value]}</span>
+                </Button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2 border-t pt-3 dark:border-gray-700">
+              <Button
+                type="button"
+                size="sm"
+                variant={requirementFilter === "ALL" ? "default" : "outline"}
+                className="h-7 text-xs"
+                onClick={() => setRequirementFilter("ALL")}
+              >
+                All requirements
+              </Button>
+              {REQUIREMENT_LEVELS.map((level) => (
+                <Button
+                  key={level.value}
+                  type="button"
+                  size="sm"
+                  variant={requirementFilter === level.value ? "default" : "outline"}
+                  className={cn("h-7 gap-1.5 border text-xs", requirementFilter !== level.value && REQUIREMENT_COLORS[level.value])}
+                  onClick={() => setRequirementFilter(level.value)}
+                >
+                  {level.label}
+                  <span className="text-[10px] opacity-70">{requirementCounts[level.value]}</span>
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {visiblePositionSkills.length === 0 ? (
+            <p className="rounded-md border border-dashed py-5 text-center text-xs text-muted-foreground">
+              No skills match the selected filters.
+            </p>
+          ) : visiblePositionSkills.map((ps) => (
             <div
               key={ps.id}
-              className="flex items-center gap-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2"
+              className="grid gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-800 sm:grid-cols-[1fr_auto_auto_auto_auto] sm:items-center"
             >
               <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium truncate">{ps.skill.name}</span>
-                {ps.skill.domain && (
-                  <span className="ml-2 text-xs text-muted-foreground">{DOMAIN_LABELS[ps.skill.domain] ?? ps.skill.domain}</span>
-                )}
+                <span className="block truncate text-sm font-medium">{ps.skill.name}</span>
+                <span className="text-xs text-muted-foreground">{ps.skill.category ?? "Uncategorized"}</span>
               </div>
-              <span className={cn("text-[11px] font-medium px-2 py-0.5 rounded-full border", REQUIREMENT_COLORS[ps.requirementLevel])}>
-                {REQUIREMENT_LEVELS.find((r) => r.value === ps.requirementLevel)?.label ?? ps.requirementLevel}
+              {ps.skill.domain && (
+                <span className={cn("w-fit rounded-full border px-2 py-0.5 text-[11px] font-medium", DOMAIN_COLORS[ps.skill.domain])}>
+                  {DOMAIN_LABELS[ps.skill.domain] ?? ps.skill.domain}
+                </span>
+              )}
+              <span className={cn("w-fit rounded-md border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide", REQUIREMENT_COLORS[ps.requirementLevel])}>
+                Requirement: {REQUIREMENT_LEVELS.find((r) => r.value === ps.requirementLevel)?.label ?? ps.requirementLevel}
               </span>
-              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                {PROFICIENCY_LEVELS.find((p) => p.value === ps.minimumProficiency)?.label ?? ps.minimumProficiency}+
+              <span className="w-fit rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                Proficiency: {PROFICIENCY_LEVELS.find((p) => p.value === ps.minimumProficiency)?.label ?? ps.minimumProficiency}
               </span>
               {isAdmin && (
                 <Button
@@ -216,14 +331,31 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
       )}
 
       {/* Add skill dialog */}
-      <Dialog open={addOpen} onOpenChange={(v) => { if (!v) { setAddOpen(false); setSkillSearch(""); } }}>
-        <DialogContent className="sm:max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
+      <Dialog open={addOpen} onOpenChange={(v) => { if (!v) { setAddOpen(false); setSkillSearch(""); setCatalogDomain("ALL"); } }}>
+        <DialogContent className="sm:max-w-lg" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Add Required Skill — {position.title}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label>Skill</Label>
+              <Select
+                value={catalogDomain}
+                onValueChange={(v) => {
+                  setCatalogDomain(v as DomainFilter);
+                  setAddForm((f) => ({ ...f, skillId: "" }));
+                }}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Filter by domain" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All domains</SelectItem>
+                  {SKILL_DOMAINS.map((domain) => (
+                    <SelectItem key={domain.value} value={domain.value}>{domain.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
@@ -233,7 +365,11 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
                   onChange={(e) => { setSkillSearch(e.target.value); setAddForm((f) => ({ ...f, skillId: "" })); }}
                 />
               </div>
-              {availableSkills.length > 0 && (
+              {availableSkills.length === 0 ? (
+                <p className="rounded-md border border-dashed py-4 text-center text-xs text-muted-foreground">
+                  No available skills match this domain or search.
+                </p>
+              ) : (
                 <div className="max-h-40 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
                   {availableSkills.map((skill) => (
                     <button
@@ -245,8 +381,15 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
                       )}
                       onClick={() => setAddForm((f) => ({ ...f, skillId: skill.id }))}
                     >
-                      {skill.name}
-                      {skill.domain && <span className="ml-2 text-xs text-muted-foreground">{DOMAIN_LABELS[skill.domain] ?? skill.domain}</span>}
+                      <span className="block font-medium">{skill.name}</span>
+                      <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                        {skill.domain && (
+                          <span className={cn("rounded-full border px-1.5 py-0.5", DOMAIN_COLORS[skill.domain])}>
+                            {DOMAIN_LABELS[skill.domain] ?? skill.domain}
+                          </span>
+                        )}
+                        {skill.category && <span>{skill.category}</span>}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -288,7 +431,7 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setAddOpen(false); setSkillSearch(""); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setAddOpen(false); setSkillSearch(""); setCatalogDomain("ALL"); }}>Cancel</Button>
             <Button
               onClick={() => addMutation.mutate()}
               disabled={!addForm.skillId || addMutation.isPending}

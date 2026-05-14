@@ -43,7 +43,7 @@
 - [x] T012 Add Employee back-relations for performance reviews in `apps/hr-core/prisma/schema.prisma`
 - [x] T013 Generate and review performance review migration in `apps/hr-core/prisma/migrations/<timestamp>_add_performance_reviews/migration.sql`
 - [x] T014 Add raw CHECK constraints for review date order and non-negative training count in `apps/hr-core/prisma/migrations/<timestamp>_add_performance_reviews/migration.sql`
-- [x] T015 [P] Add idempotent EnumMeta seed data for satisfaction/rating/status/type labels in `apps/hr-core/prisma/seed-replit.ts`
+- [x] T015 [P] Add idempotent EnumMeta seed data for satisfaction/rating/status/type labels in `apps/hr-core/prisma/seed.ts`
 - [x] T016 [P] Create create-cycle DTO in `apps/hr-core/src/modules/performance-reviews/dto/create-review-cycle.dto.ts`
 - [x] T017 [P] Create initiate-cycle DTO in `apps/hr-core/src/modules/performance-reviews/dto/initiate-review-cycle.dto.ts`
 - [x] T018 [P] Create self-review DTO in `apps/hr-core/src/modules/performance-reviews/dto/submit-self-review.dto.ts`

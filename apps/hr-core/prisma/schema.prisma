@@ -115,6 +115,49 @@ enum SalaryChangeReason {
   @@schema("hr_core")
 }
 
+enum PromotionRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@schema("hr_core")
+}
+
+enum NotificationCategory {
+  LEAVE
+  PROMOTION
+  SKILL
+  PERFORMANCE
+  PROBATION
+  CONTRACT_AMENDMENT
+  COMPLAINT
+  ENGAGEMENT
+  EXIT_SURVEY
+  SYSTEM
+
+  @@schema("hr_core")
+}
+
+enum NotificationEventType {
+  REQUEST_SUBMITTED
+  REQUEST_APPROVED
+  REQUEST_REJECTED
+  REQUEST_CANCELLED
+  DECISION_PENDING
+  RESOLVED
+  INFO
+
+  @@schema("hr_core")
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+  DISMISSED
+
+  @@schema("hr_core")
+}
+
 enum HalfDay {
   MORNING
   AFTERNOON
@@ -432,6 +475,9 @@ model Employee {
   manager              Employee?       @relation("EmployeeManager", fields: [managerId], references: [id])
   directReports        Employee[]      @relation("EmployeeManager")
   salaryHistory        SalaryHistory[]
+  promotionRequests    PromotionRequest[] @relation("EmployeePromotionRequests")
+  submittedPromotionRequests PromotionRequest[] @relation("SubmittedPromotionRequests")
+  reviewedPromotionRequests PromotionRequest[] @relation("ReviewedPromotionRequests")
   skills               EmployeeSkill[]
   skillHistory         SkillHistory[]
   assessedSkillHistory SkillHistory[]  @relation("AssessedSkillHistories")
@@ -477,6 +523,41 @@ model SalaryHistory {
   @@index([employeeId])
   @@index([effectiveDate])
   @@index([reason, effectiveDate])
+}
+
+model PromotionRequest {
+  id                     String                 @id @default(uuid())
+  employeeId             String
+  requestedById          String
+  currentRole            String
+  newRole                String
+  currentGrossSalary     Decimal                @db.Decimal(12, 2)
+  newGrossSalary         Decimal                @db.Decimal(12, 2)
+  salaryDelta            Decimal                @db.Decimal(12, 2)
+  salaryDeltaPercentage  Decimal                @db.Decimal(6, 2)
+  currentTeamBudget      Decimal                @db.Decimal(12, 2)
+  newTeamBudget          Decimal                @db.Decimal(12, 2)
+  budgetImpactPercentage Decimal                @db.Decimal(6, 2)
+  responsibilities       Json
+  status                 PromotionRequestStatus @default(PENDING)
+  submittedAt            DateTime               @default(now())
+  reviewedById           String?
+  reviewedAt             DateTime?
+  reviewNote             String?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+
+  employee    Employee  @relation("EmployeePromotionRequests", fields: [employeeId], references: [id])
+  requestedBy Employee  @relation("SubmittedPromotionRequests", fields: [requestedById], references: [id])
+  reviewedBy  Employee? @relation("ReviewedPromotionRequests", fields: [reviewedById], references: [id])
+
+  @@schema("hr_core")
+  @@map("promotion_requests")
+  @@index([employeeId])
+  @@index([requestedById])
+  @@index([reviewedById])
+  @@index([status])
+  @@index([submittedAt])
 }
 
 model PerformanceReviewCycle {
@@ -825,6 +906,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   inviteTokens        InviteToken[]
   securityEvents      SecurityEvent[]
+  notifications       Notification[]       @relation("UserNotifications")
 
   @@schema("hr_core")
   @@map("users")
@@ -974,4 +1056,31 @@ model InviteToken {
   @@map("invite_tokens")
   @@index([userId])
   @@index([expiresAt])
+}
+
+model Notification {
+  id              String                @id @default(uuid())
+  recipientUserId String                @map("recipient_user_id")
+  category        NotificationCategory
+  eventType       NotificationEventType @map("event_type")
+  title           String                @db.VarChar(160)
+  body            String                @db.VarChar(600)
+  payload         Json                  @default("{}")
+  referenceType   String?               @map("reference_type") @db.VarChar(64)
+  referenceId     String?               @map("reference_id")
+  status          NotificationStatus    @default(UNREAD)
+  actorUserId     String?               @map("actor_user_id")
+  correlationId   String                @map("correlation_id")
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  readAt          DateTime?             @map("read_at") @db.Timestamptz(6)
+  dismissedAt     DateTime?             @map("dismissed_at") @db.Timestamptz(6)
+
+  recipient User @relation("UserNotifications", fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@index([recipientUserId, status, createdAt(sort: Desc)], name: "idx_notif_recipient_status_created")
+  @@index([recipientUserId, category, createdAt(sort: Desc)], name: "idx_notif_recipient_category_created")
+  @@index([referenceType, referenceId], name: "idx_notif_reference")
+  @@index([createdAt], name: "idx_notif_created_at")
+  @@map("notifications")
+  @@schema("hr_core")
 }

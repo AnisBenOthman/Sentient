@@ -1,0 +1,1 @@
+Index sanity check on 2026-05-12: `\di hr_core.*notif*` shows notifications_pkey plus idx_notif_recipient_status_created, idx_notif_recipient_category_created, idx_notif_reference, and idx_notif_created_at; fresh-table sizes are effectively empty until rows are inserted.

@@ -1,6 +1,4 @@
 import { Module } from '@nestjs/common';
-import { EVENT_BUS } from '@sentient/shared';
-import { InMemoryEventBus } from '../../common/event-bus/in-memory-event-bus';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { CatalogController } from './catalog/catalog.controller';
 import { CatalogService } from './catalog/catalog.service';
@@ -26,7 +24,6 @@ import { HistoryService } from './history/history.service';
     EmployeeSkillsService,
     CatalogService,
     HistoryService,
-    { provide: EVENT_BUS, useClass: InMemoryEventBus },
   ],
 })
 export class SkillsModule {}

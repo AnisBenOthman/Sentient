@@ -22,6 +22,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/providers/auth-provider";
 import { getEmployee } from "@/lib/api/hr-core";
 import { getRoleTier, roleTierLabel, type RoleTier } from "@/lib/auth";
+import { NotificationsBell } from "@/components/notifications/notifications-bell";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -29,12 +30,12 @@ interface LayoutProps {
 
 const ALL_MAIN_NAV = [
   { title: "Home",                href: "/home",                icon: Home,            tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "Dashboard",           href: "/dashboard",           icon: LayoutDashboard, tiers: ["hr_admin", "dept_manager"]                                        as RoleTier[] },
+  { title: "Dashboard",           href: "/dashboard",           icon: LayoutDashboard, tiers: ["hr_admin", "dept_manager", "team_lead"]                as RoleTier[] },
   { title: "Employees",           href: "/employees",           icon: Users,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "Leaves",              href: "/leaves",              icon: CalendarDays,    tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "Org Chart",           href: "/org-chart",           icon: GitFork,         tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "Performance Reviews", href: "/performance-reviews", icon: ClipboardCheck,  tiers: ["hr_admin", "dept_manager"]                                        as RoleTier[] },
-  { title: "Simulation",          href: "/simulation",          icon: Sparkles,        tiers: ["hr_admin"]                                                        as RoleTier[] },
+  { title: "Performance Reviews", href: "/performance-reviews", icon: ClipboardCheck,  tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
+  { title: "Simulation",          href: "/simulation",          icon: Sparkles,        tiers: ["hr_admin", "dept_manager", "team_lead"]              as RoleTier[] },
 ];
 
 const ALL_ADMIN_NAV = [
@@ -263,6 +264,9 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950 focus:outline-none relative">
+        <div className="sticky top-0 z-20 flex h-12 justify-end border-b border-gray-200 bg-white/90 px-6 py-2 backdrop-blur dark:border-gray-800 dark:bg-gray-950/90">
+          <NotificationsBell />
+        </div>
         <div className="relative z-10 max-w-7xl mx-auto p-8 animate-in fade-in duration-300">
           {children}
         </div>

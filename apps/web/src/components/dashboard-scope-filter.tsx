@@ -1,129 +1,151 @@
-import { useState } from "react";
-import { Check, ChevronsUpDown, Globe, Building2, Layers, Users } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Building2, Globe, Layers, Users } from "lucide-react";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import type { ScopeLevel } from "@/lib/use-dashboard-scope";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import type { BusinessUnit, Department, Team } from "@/lib/api/hr-core";
 
-const LEVELS: {
-  value: ScopeLevel;
-  label: string;
-  icon: React.ElementType;
-}[] = [
-  { value: "global", label: "Global", icon: Globe },
-  { value: "bu", label: "Business Unit", icon: Building2 },
-  { value: "dept", label: "Department", icon: Layers },
-  { value: "team", label: "Team", icon: Users },
-];
-
-type Props = {
-  level: ScopeLevel;
-  unitId: string | null;
-  unitOptions: { value: string; label: string }[];
-  onChange: (level: ScopeLevel, unitId?: string | null) => void;
+export type DashboardScopeSelection = {
+  businessUnitId: string | null;
+  departmentId: string | null;
+  teamId: string | null;
 };
 
+type Props = {
+  businessUnits: BusinessUnit[];
+  departments: Department[];
+  teams: Team[];
+  value: DashboardScopeSelection;
+  canUseGlobal: boolean;
+  disabled?: boolean;
+  onChange: (value: DashboardScopeSelection) => void;
+};
+
+function sortByName<T extends { name: string }>(items: T[]): T[] {
+  return items.slice().sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export function DashboardScopeFilter({
-  level,
-  unitId,
-  unitOptions,
+  businessUnits,
+  departments,
+  teams,
+  value,
+  canUseGlobal,
+  disabled = false,
   onChange,
 }: Props) {
-  const [open, setOpen] = useState(false);
-  const selected = unitOptions.find((o) => o.value === unitId);
+  const selectedBusinessUnit = businessUnits.find((businessUnit) => businessUnit.id === value.businessUnitId);
+  const selectedDepartment = departments.find((department) => department.id === value.departmentId);
+  const selectedTeam = teams.find((team) => team.id === value.teamId);
+
+  const departmentOptions = value.businessUnitId
+    ? departments.filter((department) => department.businessUnitId === value.businessUnitId)
+    : [];
+  const teamOptions = value.departmentId
+    ? teams.filter((team) => team.departmentId === value.departmentId)
+    : [];
+
+  const scopeTrail = [
+    selectedBusinessUnit?.name,
+    selectedDepartment?.name,
+    selectedTeam?.name,
+  ].filter(Boolean);
+  const scopeLabel = scopeTrail.length > 0 ? scopeTrail.join(" / ") : "Global";
 
   return (
     <div
-      className="flex flex-col sm:flex-row sm:items-center gap-2"
+      className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900"
       data-testid="dashboard-scope-filter"
     >
-      {/* Granularity pill bar */}
-      <div className="inline-flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 w-fit">
-        {LEVELS.map(({ value, label, icon: Icon }) => (
-          <button
-            key={value}
-            onClick={() => onChange(value)}
-            className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap",
-              level === value
-                ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
-                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-            )}
-            data-testid={`scope-level-${value}`}
+      <div className="flex flex-wrap items-center gap-2">
+        {canUseGlobal && (
+          <Button
+            type="button"
+            variant={scopeTrail.length === 0 ? "default" : "outline"}
+            size="sm"
+            onClick={() => onChange({ businessUnitId: null, departmentId: null, teamId: null })}
+            disabled={disabled}
+            data-testid="scope-global"
           >
-            <Icon className="w-3.5 h-3.5" />
-            {label}
-          </button>
-        ))}
+            <Globe className="mr-1.5 h-3.5 w-3.5" />
+            Global
+          </Button>
+        )}
+
+        <Select
+          value={value.businessUnitId ?? undefined}
+          onValueChange={(businessUnitId) => onChange({ businessUnitId, departmentId: null, teamId: null })}
+          disabled={disabled || businessUnits.length === 0}
+        >
+          <SelectTrigger className="h-9 w-full min-w-[190px] sm:w-[220px]" data-testid="scope-business-unit-trigger">
+            <Building2 className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+            <SelectValue placeholder="Select business unit" />
+          </SelectTrigger>
+          <SelectContent>
+            {sortByName(businessUnits).map((businessUnit) => (
+              <SelectItem
+                key={businessUnit.id}
+                value={businessUnit.id}
+                data-testid={`scope-business-unit-option-${businessUnit.id}`}
+              >
+                {businessUnit.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={value.departmentId ?? undefined}
+          onValueChange={(departmentId) => onChange({ businessUnitId: value.businessUnitId, departmentId, teamId: null })}
+          disabled={disabled || !value.businessUnitId || departmentOptions.length === 0}
+        >
+          <SelectTrigger className="h-9 w-full min-w-[190px] sm:w-[220px]" data-testid="scope-department-trigger">
+            <Layers className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+            <SelectValue placeholder={value.businessUnitId ? "Select department" : "Select business unit first"} />
+          </SelectTrigger>
+          <SelectContent>
+            {sortByName(departmentOptions).map((department) => (
+              <SelectItem
+                key={department.id}
+                value={department.id}
+                data-testid={`scope-department-option-${department.id}`}
+              >
+                {department.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={value.teamId ?? undefined}
+          onValueChange={(teamId) => onChange({ ...value, teamId })}
+          disabled={disabled || !value.departmentId || teamOptions.length === 0}
+        >
+          <SelectTrigger className="h-9 w-full min-w-[190px] sm:w-[220px]" data-testid="scope-team-trigger">
+            <Users className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+            <SelectValue placeholder={value.departmentId ? "Select team" : "Select department first"} />
+          </SelectTrigger>
+          <SelectContent>
+            {sortByName(teamOptions).map((team) => (
+              <SelectItem
+                key={team.id}
+                value={team.id}
+                data-testid={`scope-team-option-${team.id}`}
+              >
+                {team.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Searchable unit dropdown — only when a non-global level is active */}
-      {level !== "global" && (
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <button
-              role="combobox"
-              aria-expanded={open}
-              className="inline-flex items-center justify-between gap-2 min-w-[180px] max-w-[260px] rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover-elevate active-elevate-2"
-              data-testid="scope-unit-trigger"
-            >
-              <span className="truncate">
-                {selected?.label ?? "Select…"}
-              </span>
-              <ChevronsUpDown className="w-3.5 h-3.5 opacity-50 flex-shrink-0" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-[260px] p-0" align="start">
-            <Command>
-              <CommandInput
-                placeholder={
-                  level === "bu"
-                    ? "Search business units…"
-                    : level === "dept"
-                      ? "Search departments…"
-                      : "Search teams…"
-                }
-                className="h-9"
-              />
-              <CommandList>
-                <CommandEmpty>No matches found.</CommandEmpty>
-                <CommandGroup>
-                  {unitOptions.map((opt) => (
-                    <CommandItem
-                      key={opt.value}
-                      value={opt.label}
-                      onSelect={() => {
-                        onChange(level, opt.value);
-                        setOpen(false);
-                      }}
-                      data-testid={`scope-unit-option-${opt.value}`}
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          unitId === opt.value ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      <span className="truncate">{opt.label}</span>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-      )}
+      <p className="text-xs text-muted-foreground" data-testid="scope-summary">
+        Viewing: <span className="font-medium text-gray-700 dark:text-gray-200">{scopeLabel}</span>
+      </p>
     </div>
   );
 }

@@ -377,7 +377,7 @@ export class RequestsService {
       payload: {
         leaveRequestId: id,
         employeeId: updated.employeeId,
-        cancelledBy: ownerId,
+        cancelledAt: new Date().toISOString(),
       },
       metadata: { userId: ownerId, correlationId: randomUUID() },
     } satisfies DomainEvent<Record<string, unknown>>);
