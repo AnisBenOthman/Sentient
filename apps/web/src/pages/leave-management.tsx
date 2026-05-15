@@ -4,12 +4,16 @@ import {
   getLeaveTypes,
   createLeaveType,
   updateLeaveType,
+  deleteLeaveType,
+  reactivateLeaveType,
   getHolidays,
   createHoliday,
   updateHoliday,
   deleteHoliday,
+  getBusinessUnits,
   type LeaveType,
   type Holiday,
+  type BusinessUnit,
 } from "@/lib/api/hr-core";
 import { useAuth } from "@/components/providers/auth-provider";
 import {
@@ -51,12 +55,21 @@ import {
   Plus,
   Pencil,
   Trash2,
+  EyeOff,
   ShieldCheck,
   ListChecks,
   RefreshCw,
   Calendar,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const HR_ROLES = ["HR_ADMIN", "EXECUTIVE"];
 
@@ -288,11 +301,21 @@ function HolidayDialog({
 function LeaveTypesPanel({ businessUnitId }: { businessUnitId: string | null }) {
   const queryClient = useQueryClient();
   const { data: types = [], isLoading } = useQuery({
-    queryKey: ["leave-types"],
-    queryFn: getLeaveTypes,
+    queryKey: ["leave-types", businessUnitId, "all"],
+    queryFn: () =>
+      getLeaveTypes(
+        businessUnitId
+          ? { businessUnitId, includeInactive: true }
+          : { includeInactive: true },
+      ),
   });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<LeaveType | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<LeaveType | null>(null);
+  const [deleteError, setDeleteError] = useState("");
+  const [reactivateTarget, setReactivateTarget] = useState<LeaveType | null>(null);
+
+  const activeCount = types.filter((t) => t.isActive).length;
 
   const createMutation = useMutation({
     mutationFn: createLeaveType,
@@ -308,6 +331,37 @@ function LeaveTypesPanel({ businessUnitId }: { businessUnitId: string | null }) 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leave-types"] });
       setDialogOpen(false);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteLeaveType,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leave-types"] });
+      setDeleteTarget(null);
+      setDeleteError("");
+    },
+    onError: (err: unknown) => {
+      const msg =
+        typeof err === "object" &&
+        err !== null &&
+        "response" in err &&
+        typeof (err as { response?: { data?: { message?: string } } }).response?.data?.message === "string"
+          ? (err as { response: { data: { message: string } } }).response.data.message
+          : "Failed to deactivate leave type.";
+      setDeleteError(
+        msg === "LeaveTypeHasPendingRequests"
+          ? "Cannot deactivate: there are pending leave requests for this type. Resolve them first."
+          : msg,
+      );
+    },
+  });
+
+  const reactivateMutation = useMutation({
+    mutationFn: reactivateLeaveType,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leave-types"] });
+      setReactivateTarget(null);
     },
   });
 
@@ -342,13 +396,26 @@ function LeaveTypesPanel({ businessUnitId }: { businessUnitId: string | null }) 
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {types.length} type{types.length !== 1 ? "s" : ""} configured
+            {activeCount} active type{activeCount !== 1 ? "s" : ""}
+            {types.length > activeCount && (
+              <span className="text-muted-foreground font-normal">
+                {" "}· {types.length - activeCount} inactive
+              </span>
+            )}
           </p>
           <p className="text-xs text-muted-foreground">
-            These types appear in the leave request form for employees
+            {businessUnitId
+              ? "Active types appear in the leave request form for employees"
+              : "Select a business unit above to add or edit leave types"}
           </p>
         </div>
-        <Button size="sm" onClick={openAdd} data-testid="button-add-lt">
+        <Button
+          size="sm"
+          onClick={openAdd}
+          disabled={!businessUnitId}
+          data-testid="button-add-lt"
+          className="bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50"
+        >
           <Plus className="w-3.5 h-3.5 mr-1" /> Add Type
         </Button>
       </div>
@@ -369,7 +436,11 @@ function LeaveTypesPanel({ businessUnitId }: { businessUnitId: string | null }) 
               </TableHeader>
               <TableBody>
                 {types.map((t) => (
-                  <TableRow key={t.id} data-testid={`row-lt-${t.id}`}>
+                  <TableRow
+                    key={t.id}
+                    data-testid={`row-lt-${t.id}`}
+                    className={cn(!t.isActive && "opacity-50")}
+                  >
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {t.color && (
@@ -378,7 +449,14 @@ function LeaveTypesPanel({ businessUnitId }: { businessUnitId: string | null }) 
                             style={{ backgroundColor: t.color }}
                           />
                         )}
-                        <span className="font-medium text-sm">{t.name}</span>
+                        <span className={cn("font-medium text-sm", !t.isActive && "line-through text-muted-foreground")}>
+                          {t.name}
+                        </span>
+                        {!t.isActive && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 font-normal no-underline">
+                            Inactive
+                          </span>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -401,14 +479,42 @@ function LeaveTypesPanel({ businessUnitId }: { businessUnitId: string | null }) 
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEdit(t)}
-                        data-testid={`button-edit-lt-${t.id}`}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        {t.isActive ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEdit(t)}
+                              aria-label={`Edit ${t.name}`}
+                              data-testid={`button-edit-lt-${t.id}`}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                              onClick={() => { setDeleteTarget(t); setDeleteError(""); }}
+                              aria-label={`Deactivate ${t.name}`}
+                              data-testid={`button-delete-lt-${t.id}`}
+                            >
+                              <EyeOff className="w-3.5 h-3.5" />
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20"
+                            onClick={() => setReactivateTarget(t)}
+                            aria-label={`Reactivate ${t.name}`}
+                            data-testid={`button-reactivate-lt-${t.id}`}
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -433,6 +539,60 @@ function LeaveTypesPanel({ businessUnitId }: { businessUnitId: string | null }) 
         saving={isSaving}
         key={editTarget?.id ?? "new"}
       />
+
+      <AlertDialog
+        open={!!reactivateTarget}
+        onOpenChange={(v) => { if (!v) setReactivateTarget(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reactivate "{reactivateTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This leave type will become available again in the leave request form for employees.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => { if (reactivateTarget) reactivateMutation.mutate(reactivateTarget.id); }}
+              disabled={reactivateMutation.isPending}
+              data-testid="button-confirm-reactivate-lt"
+            >
+              {reactivateMutation.isPending ? "Reactivating…" : "Reactivate"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => { if (!v) { setDeleteTarget(null); setDeleteError(""); } }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate "{deleteTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This leave type will be hidden from employees and cannot be selected for new requests.
+              Existing approved leave and historical balances are preserved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deleteError && (
+            <p className="text-sm text-red-500 px-1" data-testid="lt-delete-error">{deleteError}</p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => { if (deleteTarget) deleteMutation.mutate(deleteTarget.id); }}
+              disabled={deleteMutation.isPending}
+              data-testid="button-confirm-delete-lt"
+            >
+              {deleteMutation.isPending ? "Deactivating…" : "Deactivate"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -581,10 +741,18 @@ function HolidaysPanel({ businessUnitId }: { businessUnitId: string | null }) {
             {upcoming.length} upcoming · {holidays.length} total
           </p>
           <p className="text-xs text-muted-foreground">
-            Holidays are excluded from business-day calculations on leave requests
+            {businessUnitId
+              ? "Holidays are excluded from business-day calculations on leave requests"
+              : "Select a business unit above to add or edit holidays"}
           </p>
         </div>
-        <Button size="sm" onClick={openAdd} data-testid="button-add-holiday">
+        <Button
+          size="sm"
+          onClick={openAdd}
+          disabled={!businessUnitId}
+          data-testid="button-add-holiday"
+          className="bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50"
+        >
           <Plus className="w-3.5 h-3.5 mr-1" /> Add Holiday
         </Button>
       </div>
@@ -663,12 +831,57 @@ function HolidaysPanel({ businessUnitId }: { businessUnitId: string | null }) {
   );
 }
 
+// ── Business Unit Selector ────────────────────────────────────────────────────
+function BuSelector({
+  businessUnits,
+  value,
+  onChange,
+}: {
+  businessUnits: BusinessUnit[];
+  value: string | null;
+  onChange: (id: string | null) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+      <Select
+        value={value ?? "all"}
+        onValueChange={(v) => onChange(v === "all" ? null : v)}
+      >
+        <SelectTrigger className="w-52" data-testid="select-bu-filter">
+          <SelectValue placeholder="All business units" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All business units</SelectItem>
+          {businessUnits.map((bu) => (
+            <SelectItem key={bu.id} value={bu.id}>
+              {bu.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 export default function LeaveManagement() {
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>("leave-types");
 
   const isAuthorized = user?.roles.some((r) => HR_ROLES.includes(r)) ?? false;
+  const isGlobalRole = user?.roles.some((r) => HR_ROLES.includes(r)) ?? false;
+
+  // HR_ADMIN / EXECUTIVE can switch BU; others are locked to their own BU.
+  const [selectedBuId, setSelectedBuId] = useState<string | null>(
+    isGlobalRole ? null : (user?.businessUnitId ?? null),
+  );
+
+  const { data: businessUnits = [] } = useQuery({
+    queryKey: ["business-units"],
+    queryFn: getBusinessUnits,
+    enabled: isGlobalRole,
+  });
 
   if (!isAuthorized) {
     return (
@@ -684,16 +897,26 @@ export default function LeaveManagement() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1
-          className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100"
-          data-testid="heading-leave-management"
-        >
-          Leave Management
-        </h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Configure leave types and public holidays for your organisation
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1
+            className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100"
+            data-testid="heading-leave-management"
+          >
+            Leave Management
+          </h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Configure leave types and public holidays for your organisation
+          </p>
+        </div>
+
+        {isGlobalRole && businessUnits.length > 0 && (
+          <BuSelector
+            businessUnits={businessUnits}
+            value={selectedBuId}
+            onChange={setSelectedBuId}
+          />
+        )}
       </div>
 
       <div className="flex gap-1 border-b border-gray-200 dark:border-gray-800">
@@ -715,8 +938,8 @@ export default function LeaveManagement() {
         ))}
       </div>
 
-      {tab === "leave-types" && <LeaveTypesPanel businessUnitId={user?.businessUnitId ?? null} />}
-      {tab === "holidays" && <HolidaysPanel businessUnitId={user?.businessUnitId ?? null} />}
+      {tab === "leave-types" && <LeaveTypesPanel businessUnitId={selectedBuId} />}
+      {tab === "holidays" && <HolidaysPanel businessUnitId={selectedBuId} />}
     </div>
   );
 }

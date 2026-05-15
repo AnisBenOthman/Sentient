@@ -1,7 +1,8 @@
 # Sentient — CLAUDE.md (Master Project Instructions)
 
 > Root instruction file for Claude Code. Read automatically at session start.
-> Detailed conventions live in `rules/code-style.md`, `rules/security.md`, `rules/testing.md`.
+> Detailed conventions live in `rules/code-style.md`, `rules/security.md`, `rules/testing.md`,
+> `rules/frontend-backend-coherence.md`.
 
 ---
 

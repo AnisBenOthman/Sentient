@@ -47,6 +47,8 @@ See `.claude/rules/code-style.md` for full conventions. Key rules:
 - Every endpoint: `@UseGuards(SharedJwtGuard, RbacGuard)` + `@Roles(...)`. Except `/health`.
 
 ## Recent Changes
+- front-replit-skill-gap-fallback: Employee profile skill gap information now renders in the isolated Replit frontend even when the local `/api` server is offline, using exported mock employee positions and required skills as a client-side fallback.
+- employee-self-profile-nav: Added a My Profile nav entry and self-service profile route for every linked employee, hid HR-only edit controls outside HR admin views, exposed own salary history safely, and added scoped promotion history to employee profile details.
 - simulation-hr-review-actions: Added HR admin Validate/Refuse actions to pending promotion request cards in the Simulation section, reusing HR Core approve/reject endpoints with query invalidation and toast feedback.
 - promotion-submit-validation-scope: Fixed Simulation promotion submission by aligning manager create-scope with department/team leadership visibility, adding frontend validation for salary increases and required responsibilities, and surfacing HR Core validation messages instead of the generic scope error.
 - simulation-budget-decimal-normalization: Fixed Simulation team-budget math by normalizing employee gross/net salary Decimal strings to numbers in the HR Core web API client, added a defensive salary coercion in the promotion wizard, and verified the live pending Backend promotion row still stores a realistic 367,918.00 team budget.

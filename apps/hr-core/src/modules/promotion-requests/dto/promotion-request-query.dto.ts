@@ -15,6 +15,11 @@ export class PromotionRequestQueryDto {
   @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
   @IsUUID()
+  employeeId?: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
   businessUnitId?: string;
 
   @ApiPropertyOptional({ format: 'uuid' })

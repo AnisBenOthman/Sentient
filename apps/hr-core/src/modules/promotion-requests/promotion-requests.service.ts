@@ -258,6 +258,7 @@ export class PromotionRequestsService {
       { deletedAt: null },
     ];
 
+    if (query.employeeId) filters.push({ id: query.employeeId });
     if (query.businessUnitId) {
       filters.push({
         OR: [

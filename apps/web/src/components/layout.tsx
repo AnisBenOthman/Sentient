@@ -15,6 +15,7 @@ import {
   Sparkles,
   ClipboardCheck,
   CalendarClock,
+  UserRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -30,6 +31,7 @@ interface LayoutProps {
 
 const ALL_MAIN_NAV = [
   { title: "Home",                href: "/home",                icon: Home,            tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
+  { title: "My Profile",          href: "/profile",             icon: UserRound,       tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "Dashboard",           href: "/dashboard",           icon: LayoutDashboard, tiers: ["hr_admin", "dept_manager", "team_lead"]                as RoleTier[] },
   { title: "Employees",           href: "/employees",           icon: Users,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "Leaves",              href: "/leaves",              icon: CalendarDays,    tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
@@ -61,7 +63,9 @@ export function Layout({ children }: LayoutProps) {
   });
 
   const roleTier: RoleTier = user ? getRoleTier(user) : "employee";
-  const visibleNav      = ALL_MAIN_NAV.filter((i) => i.tiers.includes(roleTier));
+  const visibleNav      = ALL_MAIN_NAV.filter((i) =>
+    i.tiers.includes(roleTier) && (i.href !== "/profile" || !!user?.employeeId)
+  );
   const visibleAdminNav = ALL_ADMIN_NAV.filter((i) => i.tiers.includes(roleTier));
 
   const displayName = profile

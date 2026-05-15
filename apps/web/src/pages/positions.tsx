@@ -227,7 +227,7 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
           )}
         </div>
         {isAdmin && (
-          <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => setAddOpen(true)}>
+          <Button size="sm" className="gap-1.5 h-7 text-xs bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white shadow-sm hover:shadow-md transition-all duration-200" onClick={() => setAddOpen(true)}>
             <Plus className="w-3 h-3" />
             Add Skill
           </Button>
@@ -675,7 +675,7 @@ export default function Positions() {
           </p>
         </div>
         {isAdmin && (
-          <Button onClick={openAdd} className="gap-2" data-testid="button-add-position">
+          <Button onClick={openAdd} className="gap-2 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white shadow-sm hover:shadow-md transition-all duration-200" data-testid="button-add-position">
             <Plus className="w-4 h-4" />
             Add Position
           </Button>

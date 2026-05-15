@@ -2,13 +2,10 @@ import { useMemo, useState } from "react";
 import { Link, useParams } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Bar,
-  BarChart,
+  Area,
+  AreaChart,
   CartesianGrid,
-  Cell,
   Legend,
-  Line,
-  LineChart,
   PolarAngleAxis,
   PolarGrid,
   PolarRadiusAxis,
@@ -34,12 +31,12 @@ import {
   Heart,
   Mail,
   Phone,
+  Search,
   Star,
   TrendingUp,
   UserCheck,
   Users,
   X,
-  Zap,
 } from "lucide-react";
 import {
   getDepartments,
@@ -47,6 +44,7 @@ import {
   getEmployeeLeaveRequests,
   getEmployees,
   getEmployeeSkills,
+  getPromotionRequests,
   getPositions,
   getSalaryHistory,
   getSkillHistory,
@@ -55,11 +53,14 @@ import {
   updateEmployee,
   type EmployeeProfile,
   type EmployeeSkill,
+  type PromotionRequest,
   type SkillHistoryEntry,
   type SkillsGapItem,
   type SkillsGapResult,
   type UpdateEmployeeDto,
 } from "@/lib/api/hr-core";
+import { useAuth } from "@/components/providers/auth-provider";
+import { getRoleTier } from "@/lib/auth";
 import {
   PERFORMANCE_RATING_LABELS,
   useEmployeePerformanceReviews,
@@ -172,6 +173,37 @@ const PROFICIENCY_COLORS: Record<string, string> = {
   EXPERT: "#16a34a",
 };
 
+const LEVEL_RANK_6: Record<string, number> = {
+  BEGINNER: 1,
+  DEVELOPING: 2,
+  INTERMEDIATE: 3,
+  PROFICIENT: 4,
+  ADVANCED: 5,
+  EXPERT: 6,
+};
+
+type MergedSkillRow = {
+  id: string;
+  name: string;
+  domain: string | null;
+  category: string | null;
+  employeeRank: number;
+  employeeLevelLabel: string | null;
+  requiredRank: number | null;
+  requiredLevelLabel: string | null;
+  requirementLevel: string | null;
+  status: "MET" | "EXCEEDS" | "PARTIAL" | "MISSING" | null;
+};
+
+const SKILL_STATUS_META: Record<"MET" | "EXCEEDS" | "PARTIAL" | "MISSING", {
+  label: string; color: string; cls: string;
+}> = {
+  MET:     { label: "On Track",   color: "#10b981", cls: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300" },
+  EXCEEDS: { label: "Exceeds",    color: "#6366f1", cls: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-300" },
+  PARTIAL: { label: "Needs Work", color: "#f59e0b", cls: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300" },
+  MISSING: { label: "Missing",    color: "#ef4444", cls: "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300" },
+};
+
 const GAP_COLORS: Record<SkillsGapItem["status"], string> = {
   MET: "#16a34a",
   EXCEEDS: "#4f46e5",
@@ -227,6 +259,10 @@ function formatMoney(value: number | null): string {
   return value == null
     ? "N/A"
     : value.toLocaleString("en-US", { style: "currency", currency: "DZD" });
+}
+
+function formatPercent(value: number | null): string {
+  return value == null ? "N/A" : `${value.toFixed(1)}%`;
 }
 
 function normalizeSelect(value: string | null | undefined): string {
@@ -355,9 +391,38 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export default function EmployeeProfile() {
+function SalaryTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number; color: string }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-xl border bg-white shadow-xl p-3 text-sm dark:bg-gray-900 dark:border-gray-700">
+      <p className="mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+        {label}
+      </p>
+      {payload.map((entry) => (
+        <div key={entry.name} className="flex items-center gap-2 py-0.5">
+          <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
+          <span className="text-muted-foreground">{entry.name}</span>
+          <span className="ml-auto pl-4 font-bold tabular-nums">
+            {entry.value.toLocaleString()} DZD
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function EmployeeProfile({ employeeId }: { employeeId?: string }) {
   const params = useParams<{ id: string }>();
-  const id = params.id ?? "";
+  const id = employeeId ?? params.id ?? "";
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [editMode, setEditMode] = useState(false);
   const [draft, setDraft] = useState<DraftProfile | null>(null);
@@ -390,6 +455,13 @@ export default function EmployeeProfile() {
   const { data: salaryHistory = [] } = useQuery({
     queryKey: ["salary-history", id],
     queryFn: () => getSalaryHistory(id),
+    enabled: !!id,
+    retry: false,
+  });
+
+  const { data: promotionRequests = [], isLoading: loadingPromotions } = useQuery({
+    queryKey: ["promotion-requests", "employee", id],
+    queryFn: () => getPromotionRequests({ employeeId: id }),
     enabled: !!id,
     retry: false,
   });
@@ -451,8 +523,7 @@ export default function EmployeeProfile() {
   );
 
   const reviews = useEmployeePerformanceReviews(id);
-
-  const evolution = useMemo(() => buildSkillEvolution(skillHistory), [skillHistory]);
+  const canEditProfile = user ? getRoleTier(user) === "hr_admin" : false;
 
   if (loadingEmp) {
     return (
@@ -495,7 +566,10 @@ export default function EmployeeProfile() {
     profileBusinessUnitName !== "Unassigned" ? profileBusinessUnitName : undefined,
     employee.department?.name,
   ].filter(Boolean).join(" / ");
-  const salaryChartData = salaryHistory.map((entry) => ({
+  const sortedSalaryHistory = [...salaryHistory].sort((a, b) =>
+    a.effectiveDate.localeCompare(b.effectiveDate),
+  );
+  const salaryChartData = sortedSalaryHistory.map((entry) => ({
     date: entry.effectiveDate.slice(0, 10),
     gross: entry.grossAfter,
     net: entry.netAfter,
@@ -559,25 +633,27 @@ export default function EmployeeProfile() {
           </div>
         </div>
 
-        <div className="flex gap-3">
-          {editMode ? (
-            <>
-              <Button variant="outline" className="gap-2" onClick={cancelEditing}>
-                <X className="h-4 w-4" />
-                Cancel
-              </Button>
-              <Button className="gap-2" onClick={saveEditing} disabled={updateMutation.isPending}>
+        {canEditProfile && (
+          <div className="flex gap-3">
+            {editMode ? (
+              <>
+                <Button variant="outline" className="gap-2" onClick={cancelEditing}>
+                  <X className="h-4 w-4" />
+                  Cancel
+                </Button>
+                <Button className="gap-2" onClick={saveEditing} disabled={updateMutation.isPending}>
+                  <Check className="h-4 w-4" />
+                  Save Changes
+                </Button>
+              </>
+            ) : (
+              <Button variant="outline" className="gap-2" onClick={startEditing} data-testid="button-edit-profile">
                 <Check className="h-4 w-4" />
-                Save Changes
+                Edit Profile
               </Button>
-            </>
-          ) : (
-            <Button variant="outline" className="gap-2" onClick={startEditing} data-testid="button-edit-profile">
-              <Check className="h-4 w-4" />
-              Edit Profile
-            </Button>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
       {formError && (
@@ -591,6 +667,7 @@ export default function EmployeeProfile() {
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="leave-history">Leave History {leaveRequests.length > 0 ? `(${leaveRequests.length})` : ""}</TabsTrigger>
           <TabsTrigger value="skills">Skills {skills.length > 0 ? `(${skills.length})` : ""}</TabsTrigger>
+          <TabsTrigger value="promotions">Promotion History {promotionRequests.length > 0 ? `(${promotionRequests.length})` : ""}</TabsTrigger>
           <TabsTrigger value="performance">Performance {reviews.length > 0 ? `(${reviews.length})` : ""}</TabsTrigger>
           {salaryHistory.length > 0 && <TabsTrigger value="salary">Salary History</TabsTrigger>}
         </TabsList>
@@ -796,7 +873,7 @@ export default function EmployeeProfile() {
               </Card>
 
               <DirectReportsCard directReports={directReports} />
-              <QuickStatsCard leaveCount={leaveRequests.length} skillsCount={skills.length} salaryCount={salaryHistory.length} reviewCount={reviews.length} />
+              <QuickStatsCard leaveCount={leaveRequests.length} skillsCount={skills.length} promotionCount={promotionRequests.length} salaryCount={salaryHistory.length} reviewCount={reviews.length} />
             </div>
           </div>
         </TabsContent>
@@ -807,9 +884,12 @@ export default function EmployeeProfile() {
 
         <TabsContent value="skills" className="mt-6 space-y-6">
           <GapRadarCard gap={skillsGap ?? null} />
-          <SkillsGridCard skills={skills} />
-          <SkillsGapCard gap={skillsGap ?? null} />
-          <SkillEvolutionCard evolution={evolution} />
+          <SkillsGridCard skills={skills} gap={skillsGap ?? null} />
+          <SkillEvolutionCard history={skillHistory} />
+        </TabsContent>
+
+        <TabsContent value="promotions" className="mt-6">
+          <PromotionHistoryCard isLoading={loadingPromotions} promotionRequests={promotionRequests} />
         </TabsContent>
 
         <TabsContent value="performance" className="mt-6 space-y-6">
@@ -824,17 +904,79 @@ export default function EmployeeProfile() {
                 <CardTitle>Salary History</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="mb-6 h-64">
+                {/* Legend chips */}
+                <div className="mb-4 flex items-center gap-4">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400">
+                    <span className="h-2.5 w-2.5 rounded-full bg-indigo-500" />
+                    Gross salary
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400">
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                    Net salary
+                  </div>
+                </div>
+
+                <div className="mb-6 h-72">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={salaryChartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip />
-                      <Legend />
-                      <Line type="monotone" dataKey="gross" stroke="#6366f1" name="Gross" dot />
-                      <Line type="monotone" dataKey="net" stroke="#10b981" name="Net" dot />
-                    </LineChart>
+                    <AreaChart data={salaryChartData} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
+                      <defs>
+                        <linearGradient id="gradGross" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#6366f1" stopOpacity={0.25} />
+                          <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="gradNet" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#10b981" stopOpacity={0.2} />
+                          <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid
+                        strokeDasharray="0"
+                        stroke="#f0f0f0"
+                        vertical={false}
+                        strokeOpacity={0.8}
+                      />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 11, fill: "#9ca3af" }}
+                        axisLine={false}
+                        tickLine={false}
+                        dy={6}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 11, fill: "#9ca3af" }}
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={(v: number) =>
+                          v >= 1_000_000
+                            ? `${(v / 1_000_000).toFixed(1)}M`
+                            : v >= 1_000
+                            ? `${(v / 1_000).toFixed(0)}k`
+                            : String(v)
+                        }
+                        width={48}
+                      />
+                      <Tooltip content={<SalaryTooltip />} cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }} />
+                      <Area
+                        type="monotone"
+                        dataKey="gross"
+                        name="Gross"
+                        stroke="#6366f1"
+                        strokeWidth={2.5}
+                        fill="url(#gradGross)"
+                        dot={false}
+                        activeDot={{ r: 5, fill: "#6366f1", stroke: "#fff", strokeWidth: 2 }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="net"
+                        name="Net"
+                        stroke="#10b981"
+                        strokeWidth={2.5}
+                        fill="url(#gradNet)"
+                        dot={false}
+                        activeDot={{ r: 5, fill: "#10b981", stroke: "#fff", strokeWidth: 2 }}
+                      />
+                    </AreaChart>
                   </ResponsiveContainer>
                 </div>
                 <Table>
@@ -849,9 +991,9 @@ export default function EmployeeProfile() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {salaryHistory.map((entry) => (
+                    {sortedSalaryHistory.map((entry) => (
                       <TableRow key={entry.id}>
-                        <TableCell>{entry.effectiveDate.slice(0, 10)}</TableCell>
+                        <TableCell>{formatDate(entry.effectiveDate)}</TableCell>
                         <TableCell>{entry.grossBefore?.toLocaleString() ?? "N/A"}</TableCell>
                         <TableCell className="font-semibold">{entry.grossAfter?.toLocaleString() ?? "N/A"}</TableCell>
                         <TableCell>{entry.netBefore?.toLocaleString() ?? "N/A"}</TableCell>
@@ -907,11 +1049,13 @@ function DirectReportsCard({ directReports }: { directReports: EmployeeProfile[]
 function QuickStatsCard({
   leaveCount,
   skillsCount,
+  promotionCount,
   salaryCount,
   reviewCount,
 }: {
   leaveCount: number;
   skillsCount: number;
+  promotionCount: number;
   salaryCount: number;
   reviewCount: number;
 }) {
@@ -923,6 +1067,7 @@ function QuickStatsCard({
       <CardContent className="space-y-3 text-sm">
         <StatLine label="Leave requests" value={leaveCount} />
         <StatLine label="Skills" value={skillsCount} />
+        <StatLine label="Promotion requests" value={promotionCount} />
         <StatLine label="Salary changes" value={salaryCount} />
         <StatLine label="Performance reviews" value={reviewCount} />
       </CardContent>
@@ -936,6 +1081,87 @@ function StatLine({ label, value }: { label: string; value: number }) {
       <span className="text-muted-foreground">{label}</span>
       <span className="font-semibold">{value}</span>
     </div>
+  );
+}
+
+function PromotionStatusBadge({ status }: { status: PromotionRequest["status"] }) {
+  const classes: Record<PromotionRequest["status"], string> = {
+    PENDING: "border-amber-200 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300",
+    APPROVED: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300",
+    REJECTED: "border-red-200 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300",
+  };
+
+  return (
+    <Badge variant="outline" className={classes[status] ?? "capitalize"}>
+      {status.toLowerCase()}
+    </Badge>
+  );
+}
+
+function PromotionHistoryCard({
+  isLoading,
+  promotionRequests,
+}: {
+  isLoading: boolean;
+  promotionRequests: PromotionRequest[];
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-amber-500" />
+          <CardTitle>Promotion History</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Loading promotion history...</p>
+        ) : promotionRequests.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">No promotion requests found.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Submitted</TableHead>
+                  <TableHead>Role Change</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Salary Change</TableHead>
+                  <TableHead className="text-right">Budget Impact</TableHead>
+                  <TableHead>Requested By</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {promotionRequests.map((request) => (
+                  <TableRow key={request.id}>
+                    <TableCell>{formatDate(request.submittedAt)}</TableCell>
+                    <TableCell>
+                      <div className="max-w-[260px] text-sm">
+                        <span>{request.currentRole}</span>
+                        <span className="px-1.5 text-muted-foreground">to</span>
+                        <span className="font-medium text-blue-700 dark:text-blue-400">{request.newRole}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <PromotionStatusBadge status={request.status} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="font-medium">{formatMoney(request.salaryDelta)}</div>
+                      <div className="text-xs text-muted-foreground">{formatPercent(request.salaryDeltaPercentage)}</div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div>{formatMoney(request.newTeamBudget - request.currentTeamBudget)}</div>
+                      <div className="text-xs text-muted-foreground">{formatPercent(request.budgetImpactPercentage)}</div>
+                    </TableCell>
+                    <TableCell>{request.requestedByName}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -965,8 +1191,8 @@ function LeaveHistoryCard({ leaveRequests }: { leaveRequests: LeaveRequestItem[]
               {leaveRequests.map((request) => (
                 <TableRow key={request.id}>
                   <TableCell>{request.leaveType?.name ?? request.leaveTypeId}</TableCell>
-                  <TableCell>{request.startDate}</TableCell>
-                  <TableCell>{request.endDate}</TableCell>
+                  <TableCell>{formatDate(request.startDate)}</TableCell>
+                  <TableCell>{formatDate(request.endDate)}</TableCell>
                   <TableCell>{request.totalDays}</TableCell>
                   <TableCell><Badge variant="outline">{request.status}</Badge></TableCell>
                 </TableRow>
@@ -1157,30 +1383,249 @@ function GapRadarCard({ gap }: { gap: SkillsGapResult | null }) {
   );
 }
 
-function SkillsGridCard({ skills }: { skills: EmployeeSkill[] }) {
+function SkillLevelPips({ rank, max = 6, color }: { rank: number; max?: number; color?: string }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {Array.from({ length: max }).map((_, i) => (
+        <span
+          key={i}
+          className="h-2 w-2 rounded-full transition-colors"
+          style={{ backgroundColor: i < rank ? (color ?? "#6366f1") : "#e2e8f0" }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function SkillsGridCard({ skills, gap }: { skills: EmployeeSkill[]; gap: SkillsGapResult | null }) {
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "MET" | "EXCEEDS" | "PARTIAL" | "MISSING" | "GAPS">("ALL");
+  const [domainFilter, setDomainFilter] = useState("ALL");
+
+  const merged = useMemo((): MergedSkillRow[] => {
+    const gapMap = new Map<string, SkillsGapItem>();
+    if (gap) {
+      for (const item of gap.items) {
+        gapMap.set(item.skill.id, item);
+      }
+    }
+
+    const rows: MergedSkillRow[] = skills.map((s) => {
+      const empLevel = skillLevel(s);
+      const gapItem = gapMap.get(s.skill.id);
+      const reqLevel = gapItem?.requiredProficiency ?? null;
+      return {
+        id: s.id,
+        name: s.skill.name,
+        domain: s.skill.domain ?? null,
+        category: s.skill.category ?? null,
+        employeeRank: LEVEL_RANK_6[empLevel] ?? 1,
+        employeeLevelLabel: PROFICIENCY_LABELS[empLevel] ?? empLevel,
+        requiredRank: reqLevel ? (LEVEL_RANK_6[reqLevel] ?? null) : null,
+        requiredLevelLabel: reqLevel ? (PROFICIENCY_LABELS[reqLevel] ?? reqLevel) : null,
+        requirementLevel: gapItem?.requirementLevel ?? null,
+        status: gapItem?.status ?? null,
+      };
+    });
+
+    const employeeSkillIds = new Set(skills.map((s) => s.skill.id));
+    if (gap) {
+      for (const item of gap.items) {
+        if (!employeeSkillIds.has(item.skill.id) && item.status === "MISSING") {
+          const reqLevel = item.requiredProficiency;
+          rows.push({
+            id: item.skill.id,
+            name: item.skill.name,
+            domain: item.skill.domain ?? null,
+            category: item.skill.category ?? null,
+            employeeRank: 0,
+            employeeLevelLabel: null,
+            requiredRank: reqLevel ? (LEVEL_RANK_6[reqLevel] ?? null) : null,
+            requiredLevelLabel: reqLevel ? (PROFICIENCY_LABELS[reqLevel] ?? reqLevel) : null,
+            requirementLevel: item.requirementLevel,
+            status: "MISSING",
+          });
+        }
+      }
+    }
+    return rows;
+  }, [skills, gap]);
+
+  const domains = useMemo(() => {
+    const set = new Set<string>();
+    for (const row of merged) {
+      if (row.domain) set.add(row.domain);
+    }
+    return Array.from(set);
+  }, [merged]);
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<"ALL" | "MET" | "EXCEEDS" | "PARTIAL" | "MISSING" | "GAPS", number> = {
+      ALL: merged.length, MET: 0, EXCEEDS: 0, PARTIAL: 0, MISSING: 0, GAPS: 0,
+    };
+    for (const row of merged) {
+      if (row.status === "MET") counts.MET++;
+      else if (row.status === "EXCEEDS") counts.EXCEEDS++;
+      else if (row.status === "PARTIAL") { counts.PARTIAL++; counts.GAPS++; }
+      else if (row.status === "MISSING") { counts.MISSING++; counts.GAPS++; }
+    }
+    return counts;
+  }, [merged]);
+
+  const filtered = useMemo(() => merged.filter((row) => {
+    if (search && !row.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (domainFilter !== "ALL" && row.domain !== domainFilter) return false;
+    if (statusFilter === "ALL") return true;
+    if (statusFilter === "GAPS") return row.status === "PARTIAL" || row.status === "MISSING";
+    return row.status === statusFilter;
+  }), [merged, search, statusFilter, domainFilter]);
+
+  if (merged.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Star className="h-4 w-4 text-amber-500" />
+            <CardTitle>Skills</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="py-8 text-center text-sm text-muted-foreground">No skills recorded yet.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const CHIP_META: Record<"ALL" | "MET" | "EXCEEDS" | "PARTIAL" | "MISSING" | "GAPS", { label: string; color: string; activeClass: string }> = {
+    ALL:     { label: "All",        color: "#6b7280", activeClass: "border-gray-400 bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200" },
+    GAPS:    { label: "Gaps",       color: "#ef4444", activeClass: "border-red-300 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400" },
+    MET:     { label: "On Track",   color: "#10b981", activeClass: "border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300" },
+    EXCEEDS: { label: "Exceeds",    color: "#6366f1", activeClass: "border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300" },
+    PARTIAL: { label: "Needs Work", color: "#f59e0b", activeClass: "border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300" },
+    MISSING: { label: "Missing",    color: "#ef4444", activeClass: "border-red-300 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400" },
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Skills and Proficiency</CardTitle>
+        <div className="flex flex-wrap items-center gap-2">
+          <Star className="h-4 w-4 text-amber-500" />
+          <CardTitle>Skills</CardTitle>
+          <span className="text-xs font-normal text-muted-foreground">
+            {merged.length} skill{merged.length !== 1 ? "s" : ""}
+            {gap?.positionTitle ? ` · vs. ${gap.positionTitle}` : ""}
+          </span>
+        </div>
       </CardHeader>
-      <CardContent>
-        {skills.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">No skills recorded yet.</p>
+      <CardContent className="space-y-4">
+        {/* Search + Domain filter */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search skills…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-8 pl-8 text-sm"
+            />
+          </div>
+          {domains.length > 0 && (
+            <Select value={domainFilter} onValueChange={setDomainFilter}>
+              <SelectTrigger className="h-8 w-40 text-xs">
+                <SelectValue placeholder="All Domains" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Domains</SelectItem>
+                {domains.map((d) => (
+                  <SelectItem key={d} value={d}>{DOMAIN_LABELS[d] ?? d}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+
+        {/* Status filter chips */}
+        <div className="flex flex-wrap gap-1.5">
+          {(["ALL", "GAPS", "MET", "EXCEEDS", "PARTIAL", "MISSING"] as const).map((s) => {
+            const meta = CHIP_META[s];
+            const count = statusCounts[s];
+            const active = statusFilter === s;
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setStatusFilter(s)}
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-all ${
+                  active
+                    ? meta.activeClass
+                    : "border-gray-200 bg-white text-muted-foreground hover:border-gray-300 dark:bg-gray-900 dark:border-gray-700"
+                }`}
+              >
+                {meta.label}
+                <span className="min-w-[14px] rounded-full bg-current/10 px-1 text-center tabular-nums opacity-70">
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Grid */}
+        {filtered.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">No skills match your filters.</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {skills.map((skill) => {
-              const level = skillLevel(skill);
+            {filtered.map((row) => {
+              const statusMeta = row.status ? SKILL_STATUS_META[row.status] : null;
+              const borderColor = statusMeta?.color ?? "#e2e8f0";
+              const empPipColor = statusMeta?.color ?? "#6366f1";
+
               return (
-                <div key={skill.id} className="rounded-lg border bg-card p-3">
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium">{skill.skill.name}</p>
-                      <p className="text-xs text-muted-foreground">{skill.skill.category ?? "General"}</p>
+                <div
+                  key={row.id}
+                  className="rounded-xl border bg-card p-3.5 shadow-sm transition-shadow hover:shadow-md"
+                  style={{ borderLeftWidth: "4px", borderLeftColor: borderColor }}
+                >
+                  {/* Header */}
+                  <div className="mb-3 flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold leading-snug">{row.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {row.domain ? (DOMAIN_LABELS[row.domain] ?? row.domain) : (row.category ?? "General")}
+                      </p>
                     </div>
-                    <Badge variant="secondary">{levelLabel(level)}</Badge>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      {statusMeta && (
+                        <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-semibold leading-none ${statusMeta.cls}`}>
+                          {statusMeta.label}
+                        </span>
+                      )}
+                      {row.requirementLevel && (
+                        <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium leading-none ${REQUIREMENT_COLORS[row.requirementLevel] ?? ""}`}>
+                          {REQUIREMENT_LABELS[row.requirementLevel] ?? row.requirementLevel}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div className="h-full rounded-full" style={{ width: `${levelRank(level) * 20}%`, backgroundColor: PROFICIENCY_COLORS[level] ?? "#6b7280" }} />
+
+                  {/* Level comparison */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-14 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Mine</span>
+                      <SkillLevelPips rank={row.employeeRank} color={empPipColor} />
+                      <span className="ml-auto shrink-0 text-[11px] font-medium">
+                        {row.employeeLevelLabel ?? <span className="text-muted-foreground italic">None</span>}
+                      </span>
+                    </div>
+                    {row.requiredRank != null && (
+                      <div className="flex items-center gap-2">
+                        <span className="w-14 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Target</span>
+                        <SkillLevelPips rank={row.requiredRank} color="#94a3b8" />
+                        <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
+                          {row.requiredLevelLabel ?? "N/A"}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -1192,265 +1637,29 @@ function SkillsGridCard({ skills }: { skills: EmployeeSkill[] }) {
   );
 }
 
-function SkillsGapCard({ gap }: { gap: SkillsGapResult | null }) {
-  const [activeTab, setActiveTab] = useState<"domain" | "level" | "detail">("domain");
-
-  const byDomain = useMemo(() => {
-    if (!gap) return [];
-    const map = new Map<string, { met: number; gaps: number; total: number; required: number[]; acquired: number[] }>();
-    for (const item of gap.items) {
-      const domain = item.skill.domain ?? "DOMAIN_EXPERTISE";
-      if (!map.has(domain)) map.set(domain, { met: 0, gaps: 0, total: 0, required: [], acquired: [] });
-      const entry = map.get(domain)!;
-      entry.total++;
-      entry.required.push(GAP_RANK[item.requiredProficiency] ?? 0);
-      entry.acquired.push(item.acquiredProficiency != null ? (GAP_RANK[item.acquiredProficiency] ?? 0) : 0);
-      if (item.status === "MET" || item.status === "EXCEEDS") entry.met++;
-      else entry.gaps++;
-    }
-    return Array.from(map.entries()).map(([domain, stats]) => ({
-      domain,
-      label: DOMAIN_LABELS[domain] ?? domain,
-      ...stats,
-      avgRequired: stats.required.reduce((a, b) => a + b, 0) / stats.required.length,
-      avgAcquired: stats.acquired.reduce((a, b) => a + b, 0) / stats.acquired.length,
-    }));
-  }, [gap]);
-
-  const byLevel = useMemo(() => {
-    if (!gap) return [];
-    const levels: SkillsGapItem["requirementLevel"][] = ["MANDATORY", "EXPECTED", "NICE_TO_HAVE"];
-    return levels.map((level) => {
-      const items = gap.items.filter((i) => i.requirementLevel === level);
-      const met = items.filter((i) => i.status === "MET" || i.status === "EXCEEDS").length;
-      return { level, label: REQUIREMENT_LABELS[level] ?? level, total: items.length, met, gaps: items.length - met, items };
-    }).filter((r) => r.total > 0);
-  }, [gap]);
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Zap className="h-4 w-4 text-indigo-500" />
-          <CardTitle>Skills Gap Analysis</CardTitle>
-          {gap?.positionTitle && <span className="ml-auto text-xs text-muted-foreground">vs. {gap.positionTitle}</span>}
-        </div>
-      </CardHeader>
-      <CardContent>
-        {!gap ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">No skills gap available for this employee.</p>
-        ) : (
-          <div className="space-y-5">
-            {/* Summary stats */}
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <GapStat label="Met" value={gap.summary.met} tone="text-green-700 bg-green-50" />
-              <GapStat label="Exceeds" value={gap.summary.exceeds} tone="text-indigo-700 bg-indigo-50" />
-              <GapStat label="Partial" value={gap.summary.partial} tone="text-amber-700 bg-amber-50" />
-              <GapStat label="Missing" value={gap.summary.missing} tone="text-red-700 bg-red-50" />
-            </div>
-
-            {/* Tab switcher */}
-            <div className="flex gap-1 rounded-lg bg-muted p-1 w-fit">
-              {(["domain", "level", "detail"] as const).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                    activeTab === tab
-                      ? "bg-white dark:bg-gray-800 shadow-sm text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {tab === "domain" ? "By Domain" : tab === "level" ? "By Requirement" : "All Skills"}
-                </button>
-              ))}
-            </div>
-
-            {/* By Domain */}
-            {activeTab === "domain" && (
-              <div className="space-y-3">
-                {byDomain.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic">No domain information on required skills yet.</p>
-                ) : (
-                  byDomain.map(({ domain, label, total, met, gaps, avgRequired, avgAcquired }) => (
-                    <div key={domain} className="space-y-1.5">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-medium">{label}</span>
-                        <span className="text-xs text-muted-foreground">{met}/{total} skills met</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-indigo-500 transition-all"
-                            style={{ width: `${avgRequired > 0 ? (avgAcquired / avgRequired) * 100 : 0}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-muted-foreground w-20 text-right">
-                          {avgAcquired.toFixed(1)} / {avgRequired.toFixed(1)}
-                        </span>
-                      </div>
-                      {gaps > 0 && (
-                        <p className="text-xs text-red-600 dark:text-red-400">{gaps} gap{gaps > 1 ? "s" : ""} remaining</p>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* By Requirement Level */}
-            {activeTab === "level" && (
-              <div className="space-y-3">
-                {byLevel.map(({ level, label, total, met, gaps, items }) => (
-                  <div key={level} className="space-y-3 rounded-lg border p-3">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className={`rounded-md border px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${REQUIREMENT_COLORS[level] ?? ""}`}>
-                        {label}
-                      </div>
-                      <div className="h-2 min-w-32 flex-1 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className={`h-full rounded-full transition-all ${
-                            level === "MANDATORY" ? "bg-red-500" : level === "EXPECTED" ? "bg-amber-500" : "bg-blue-500"
-                          }`}
-                          style={{ width: `${total > 0 ? (met / total) * 100 : 0}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">{met}/{total} met</span>
-                      {gaps > 0 && (
-                        <span className="text-xs text-red-600 dark:text-red-400 whitespace-nowrap">{gaps} gap{gaps > 1 ? "s" : ""}</span>
-                      )}
-                    </div>
-                    <div className="grid gap-2 md:grid-cols-2">
-                      {items.map((item) => (
-                        <div key={`${level}-${item.skill.id}`} className="rounded-md bg-muted/40 p-2">
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div>
-                              <p className="text-sm font-medium">{item.skill.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {item.skill.domain ? DOMAIN_LABELS[item.skill.domain] ?? item.skill.domain : (item.skill.category ?? "General")}
-                              </p>
-                            </div>
-                            <Badge variant="outline" className="h-fit" style={{ borderColor: GAP_COLORS[item.status], color: GAP_COLORS[item.status] }}>
-                              {item.status}
-                            </Badge>
-                          </div>
-                          <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                            <span className="rounded bg-background px-2 py-1 text-muted-foreground">
-                              Required: <b className="text-foreground">{levelLabel(item.requiredProficiency)}</b>
-                            </span>
-                            <span className="rounded bg-background px-2 py-1 text-muted-foreground">
-                              Employee: <b className="text-foreground">{levelLabel(item.acquiredProficiency)}</b>
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Detail list */}
-            {activeTab === "detail" && (
-              <div className="space-y-2">
-                {gap.items.map((item) => (
-                  <div key={`${item.skill.id}-${item.requirementLevel}`} className="grid gap-3 rounded-lg border-l-4 bg-muted/30 p-3 md:grid-cols-[1fr_120px_120px_100px]" style={{ borderLeftColor: GAP_COLORS[item.status] }}>
-                    <div>
-                      <p className="text-sm font-medium">{item.skill.name}</p>
-                      <div className="mt-1 flex flex-wrap items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {item.skill.domain ? DOMAIN_LABELS[item.skill.domain] ?? item.skill.domain : (item.skill.category ?? "General")}
-                        </span>
-                        <span className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${REQUIREMENT_COLORS[item.requirementLevel] ?? ""}`}>
-                          {REQUIREMENT_LABELS[item.requirementLevel] ?? item.requirementLevel}
-                        </span>
-                      </div>
-                    </div>
-                    <LevelPill label="Required" level={item.requiredProficiency} />
-                    <LevelPill label="Acquired" level={item.acquiredProficiency} />
-                    <Badge variant="outline" className="h-fit justify-center" style={{ borderColor: GAP_COLORS[item.status], color: GAP_COLORS[item.status] }}>{item.status}</Badge>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+function SkillEvolutionCard({ history }: { history: SkillHistoryEntry[] }) {
+  const sorted = useMemo(
+    () => [...history].sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate)),
+    [history],
   );
-}
 
-function GapStat({ label, value, tone }: { label: string; value: number; tone: string }) {
-  return (
-    <div className={`rounded-lg p-3 text-center ${tone}`}>
-      <p className="text-2xl font-bold">{value}</p>
-      <p className="text-xs font-medium">{label}</p>
-    </div>
+  const improvements = useMemo(
+    () => history.filter((e) => {
+      const prevRank = e.previousLevel ? (LEVEL_RANK_6[e.previousLevel] ?? 0) : 0;
+      const newRank = e.newLevel ? (LEVEL_RANK_6[e.newLevel] ?? 0) : 0;
+      return newRank > prevRank;
+    }).length,
+    [history],
   );
-}
 
-function LevelPill({ label, level }: { label: string; level: string | null }) {
-  const rank = levelRank(level);
-  return (
-    <div>
-      <p className="mb-1 text-[11px] font-medium uppercase text-muted-foreground">{label}</p>
-      <div className="flex items-center gap-2">
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-          <div className="h-full" style={{ width: `${rank * 20}%`, backgroundColor: level ? PROFICIENCY_COLORS[level] ?? "#6b7280" : "#d1d5db" }} />
-        </div>
-        <span className="text-xs font-medium">{levelLabel(level)}</span>
-      </div>
-    </div>
-  );
-}
-
-type SkillEvolution = {
-  chartRows: Array<Record<string, string | number | null>>;
-  diffRows: Array<{ skill: string; before: number; after: number; delta: number }>;
-  skillNames: string[];
-  snapshots: string[];
-};
-
-function buildSkillEvolution(history: SkillHistoryEntry[]): SkillEvolution {
-  const sorted = [...history].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
-  const current = new Map<string, number>();
-  const skillNames = Array.from(new Set(sorted.map((entry) => entry.skill.name)));
-  const chartRows = sorted.map((entry) => {
-    current.set(entry.skill.name, levelRank(entry.newLevel));
-    const row: Record<string, string | number | null> = {
-      label: entry.effectiveDate.slice(0, 10),
-    };
-    for (const skill of skillNames) {
-      row[skill] = current.get(skill) ?? null;
-    }
-    return row;
-  });
-
-  const first = chartRows[0];
-  const last = chartRows[chartRows.length - 1];
-  const diffRows = first && last
-    ? skillNames.map((skill) => {
-        const before = typeof first[skill] === "number" ? first[skill] : 0;
-        const after = typeof last[skill] === "number" ? last[skill] : 0;
-        return { skill, before, after, delta: after - before };
-      })
-    : [];
-
-  return {
-    chartRows,
-    diffRows,
-    skillNames,
-    snapshots: chartRows.map((row) => String(row.label)),
-  };
-}
-
-function SkillEvolutionCard({ evolution }: { evolution: SkillEvolution }) {
-  if (evolution.chartRows.length === 0) {
+  if (history.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Skill Evolution</CardTitle>
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-indigo-500" />
+            <CardTitle>Skill Evolution</CardTitle>
+          </div>
         </CardHeader>
         <CardContent>
           <p className="py-8 text-center text-sm text-muted-foreground">No skill history recorded yet.</p>
@@ -1462,55 +1671,96 @@ function SkillEvolutionCard({ evolution }: { evolution: SkillEvolution }) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <TrendingUp className="h-4 w-4 text-indigo-500" />
           <CardTitle>Skill Evolution</CardTitle>
-          <span className="ml-auto text-xs text-muted-foreground">{evolution.snapshots[0]} to {evolution.snapshots[evolution.snapshots.length - 1]}</span>
+          <span className="text-xs font-normal text-muted-foreground">{history.length} event{history.length !== 1 ? "s" : ""}</span>
+          {improvements > 0 && (
+            <span className="ml-auto rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
+              +{improvements} improvement{improvements !== 1 ? "s" : ""}
+            </span>
+          )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={evolution.chartRows} margin={{ top: 5, right: 20, bottom: 5, left: -20 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-              <YAxis domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(value: number) => [`${value}/5`, "Level"]} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              {evolution.skillNames.map((skill, index) => (
-                <Line key={skill} type="monotone" dataKey={skill} stroke={["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#0ea5e9"][index % 6]} strokeWidth={2} connectNulls />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+      <CardContent>
+        <div className="relative pl-6">
+          <div className="absolute bottom-4 left-2 top-0 w-px bg-border" />
+          <div className="space-y-4">
+            {sorted.map((entry, index) => {
+              const prevRank = entry.previousLevel ? (LEVEL_RANK_6[entry.previousLevel] ?? 0) : 0;
+              const newRank = entry.newLevel ? (LEVEL_RANK_6[entry.newLevel] ?? 0) : 0;
+              const delta = newRank - prevRank;
+              const dotColor = delta > 0 ? "#10b981" : delta < 0 ? "#ef4444" : "#94a3b8";
+              const levelColor = entry.newLevel ? (PROFICIENCY_COLORS[entry.newLevel] ?? "#6366f1") : "#6366f1";
+              const assessorName = entry.assessedBy
+                ? `${entry.assessedBy.firstName} ${entry.assessedBy.lastName}`
+                : null;
 
-        <div className="grid gap-4 lg:grid-cols-[1fr_260px]">
-          <div className="space-y-2">
-            {evolution.diffRows.map((row) => (
-              <div key={row.skill} className="flex items-center gap-3 rounded-lg bg-muted/40 p-3">
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">{row.skill}</span>
-                <Badge variant="outline">{row.before}/5</Badge>
-                <span className="text-muted-foreground">to</span>
-                <Badge variant="secondary">{row.after}/5</Badge>
-                <span className={row.delta >= 0 ? "text-sm font-semibold text-green-600" : "text-sm font-semibold text-red-600"}>
-                  {row.delta > 0 ? `+${row.delta}` : row.delta}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={evolution.diffRows}>
-                <XAxis dataKey="skill" hide />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Bar dataKey="delta" name="Change">
-                  {evolution.diffRows.map((row) => (
-                    <Cell key={row.skill} fill={row.delta >= 0 ? "#16a34a" : "#dc2626"} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+              return (
+                <div key={`${entry.id}-${index}`} className="relative">
+                  <div
+                    className="absolute -left-6 mt-1.5 h-3 w-3 rounded-full border-2 border-background shadow-sm"
+                    style={{ backgroundColor: dotColor }}
+                  />
+                  <div className="rounded-xl border bg-card p-3 shadow-sm transition-shadow hover:shadow-md">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold">{entry.skill.name}</p>
+                        {entry.skill.domain && (
+                          <p className="text-xs text-muted-foreground">
+                            {DOMAIN_LABELS[entry.skill.domain] ?? entry.skill.domain}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="text-xs text-muted-foreground">{formatDate(entry.effectiveDate)}</span>
+                        {delta !== 0 && (
+                          <span
+                            className="rounded-full px-1.5 py-0.5 text-xs font-bold tabular-nums"
+                            style={{
+                              backgroundColor: delta > 0 ? "#d1fae5" : "#fee2e2",
+                              color: delta > 0 ? "#065f46" : "#991b1b",
+                            }}
+                          >
+                            {delta > 0 ? `+${delta}` : delta}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-2.5 flex flex-wrap items-center gap-3">
+                      {entry.previousLevel && (
+                        <>
+                          <div className="flex flex-col items-start gap-1">
+                            <SkillLevelPips rank={prevRank} color="#94a3b8" />
+                            <span className="text-[10px] text-muted-foreground">
+                              {PROFICIENCY_LABELS[entry.previousLevel] ?? entry.previousLevel}
+                            </span>
+                          </div>
+                          <span className="text-muted-foreground">→</span>
+                        </>
+                      )}
+                      {entry.newLevel && (
+                        <div className="flex flex-col items-start gap-1">
+                          <SkillLevelPips rank={newRank} color={levelColor} />
+                          <span className="text-[10px] font-medium">
+                            {PROFICIENCY_LABELS[entry.newLevel] ?? entry.newLevel}
+                          </span>
+                        </div>
+                      )}
+                      {assessorName && (
+                        <span className="ml-auto text-[10px] text-muted-foreground">
+                          by {assessorName}
+                        </span>
+                      )}
+                      {entry.note && (
+                        <span className="w-full text-[11px] italic text-muted-foreground">{entry.note}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </CardContent>

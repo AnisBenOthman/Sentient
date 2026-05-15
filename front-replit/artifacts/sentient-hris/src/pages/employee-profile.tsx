@@ -128,10 +128,10 @@ export default function EmployeeProfile() {
   const [skillsGap, setSkillsGap] = useState<SkillsGapResult | null>(null);
   useEffect(() => {
     if (!original) return;
-    getSkillsGap(original.id)
+    getSkillsGap(original.id, skills)
       .then(setSkillsGap)
       .catch(() => setSkillsGap(null));
-  }, [original?.id]);
+  }, [original?.id, skills]);
   const [editingSkillIdx, setEditingSkillIdx] = useState<number | null>(null);
   const [addingSkill, setAddingSkill] = useState(false);
   const [newSkillName, setNewSkillName] = useState("");

@@ -141,31 +141,35 @@ function StatCard({
   value,
   sub,
   icon: Icon,
-  color,
+  color = "#6366f1",
 }: {
   title: string;
   value: number | string;
   sub: string;
   icon: React.ElementType;
-  color: string;
+  color?: string;
 }) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
-          {title}
-        </CardTitle>
-        <div className={`p-1.5 rounded-md ${color}`}>
-          <Icon className="h-3.5 w-3.5" />
+    <div className="relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm hover:shadow-md transition-shadow">
+      <div className="absolute inset-y-0 left-0 w-1 rounded-l-xl" style={{ backgroundColor: color }} />
+      <div className="pl-2.5">
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-tight">
+            {title}
+          </p>
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+            style={{ backgroundColor: `${color}1a` }}
+          >
+            <Icon className="w-4 h-4" style={{ color }} />
+          </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+        <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 leading-none mb-1">
           {value}
         </div>
-        <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>
-      </CardContent>
-    </Card>
+        <p className="text-[11px] text-muted-foreground">{sub}</p>
+      </div>
+    </div>
   );
 }
 
@@ -367,17 +371,17 @@ function OverviewTab({ analytics }: { analytics: DashboardAnalytics | undefined 
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <StatCard title="Total Employees" value={analytics.employees.total} sub="Visible in current scope" icon={Users} color="bg-blue-100 text-blue-600 dark:bg-blue-900/30" />
-        <StatCard title="Active" value={analytics.employees.active} sub="Currently working" icon={UserCheck} color="bg-green-100 text-green-600 dark:bg-green-900/30" />
-        <StatCard title="On Leave" value={analytics.employees.onLeave} sub="Away from office" icon={Plane} color="bg-orange-100 text-orange-600 dark:bg-orange-900/30" />
-        <StatCard title="Probation" value={analytics.employees.probation} sub="Current probation cases" icon={Hourglass} color="bg-amber-100 text-amber-600 dark:bg-amber-900/30" />
-        <StatCard title="Exits" value={analytics.employees.terminal} sub="Terminated or resigned" icon={UserX} color="bg-red-100 text-red-600 dark:bg-red-900/30" />
-        <StatCard title="New Hires" value={analytics.employees.newHiresOnProbation} sub="Hired in last 6 months" icon={UserPlus} color="bg-teal-100 text-teal-600 dark:bg-teal-900/30" />
-        <StatCard title="Avg Age" value={formatMetric(analytics.employees.averageAge)} sub="Current workforce" icon={Cake} color="bg-pink-100 text-pink-600 dark:bg-pink-900/30" />
-        <StatCard title="Avg Tenure" value={formatMetric(analytics.employees.averageTenureYears, " yrs")} sub="Current workforce" icon={Briefcase} color="bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30" />
-        <StatCard title="Full-Time" value={formatRatio(analytics.employees.fullTimeRatio)} sub="Current workforce mix" icon={ShieldCheck} color="bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30" />
-        <StatCard title="Exit Rate" value={formatRatio(analytics.employees.attritionRate)} sub="Exits in visible people" icon={LineChartIcon} color="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" />
-        <StatCard title="Pending Approvals" value={analytics.leave.pendingApprovals} sub="Leave requests awaiting review" icon={Clock} color="bg-purple-100 text-purple-600 dark:bg-purple-900/30" />
+        <StatCard title="Total Employees" value={analytics.employees.total} sub="Visible in current scope" icon={Users} color="#2563eb" />
+        <StatCard title="Active" value={analytics.employees.active} sub="Currently working" icon={UserCheck} color="#16a34a" />
+        <StatCard title="On Leave" value={analytics.employees.onLeave} sub="Away from office" icon={Plane} color="#ea580c" />
+        <StatCard title="Probation" value={analytics.employees.probation} sub="Current probation cases" icon={Hourglass} color="#d97706" />
+        <StatCard title="Exits" value={analytics.employees.terminal} sub="Terminated or resigned" icon={UserX} color="#dc2626" />
+        <StatCard title="New Hires" value={analytics.employees.newHiresOnProbation} sub="Hired in last 6 months" icon={UserPlus} color="#0d9488" />
+        <StatCard title="Avg Age" value={formatMetric(analytics.employees.averageAge)} sub="Current workforce" icon={Cake} color="#db2777" />
+        <StatCard title="Avg Tenure" value={formatMetric(analytics.employees.averageTenureYears, " yrs")} sub="Current workforce" icon={Briefcase} color="#4f46e5" />
+        <StatCard title="Full-Time" value={formatRatio(analytics.employees.fullTimeRatio)} sub="Current workforce mix" icon={ShieldCheck} color="#0891b2" />
+        <StatCard title="Exit Rate" value={formatRatio(analytics.employees.attritionRate)} sub="Exits in visible people" icon={LineChartIcon} color="#475569" />
+        <StatCard title="Pending Approvals" value={analytics.leave.pendingApprovals} sub="Leave requests awaiting review" icon={Clock} color="#9333ea" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <ChartCard title="Headcount over time" subtitle="Last 12 months">
@@ -423,14 +427,14 @@ function EmployeesTab({
     <div className="space-y-6">
       <SectionHeader icon={Users} title="Employees" subtitle="Headcount and hiring movement from HR Core" color="bg-blue-100 text-blue-600 dark:bg-blue-900/30" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Total Employees" value={analytics?.employees.total ?? 0} sub="Visible in current scope" icon={Users} color="bg-blue-100 text-blue-600" />
-        <StatCard title="Active" value={analytics?.employees.active ?? 0} sub="Currently working" icon={UserCheck} color="bg-green-100 text-green-600" />
-        <StatCard title="Probation" value={analytics?.employees.probation ?? 0} sub="Early-tenure monitoring" icon={Hourglass} color="bg-amber-100 text-amber-600" />
-        <StatCard title="New Hires (Probation)" value={analytics?.employees.newHiresOnProbation ?? 0} sub="Hired in last 6 months" icon={UserPlus} color="bg-teal-100 text-teal-600" />
-        <StatCard title="Avg Age" value={formatMetric(analytics?.employees.averageAge ?? null)} sub="Current workforce" icon={Cake} color="bg-pink-100 text-pink-600" />
-        <StatCard title="Avg Tenure" value={formatMetric(analytics?.employees.averageTenureYears ?? null, " yrs")} sub="Current workforce" icon={Briefcase} color="bg-indigo-100 text-indigo-600" />
-        <StatCard title="Full-Time Ratio" value={formatRatio(analytics?.employees.fullTimeRatio ?? null)} sub="Current workforce" icon={ShieldCheck} color="bg-cyan-100 text-cyan-600" />
-        <StatCard title="Exits" value={analytics?.employees.terminal ?? 0} sub="Terminated or resigned" icon={UserX} color="bg-red-100 text-red-600" />
+        <StatCard title="Total Employees" value={analytics?.employees.total ?? 0} sub="Visible in current scope" icon={Users} color="#2563eb" />
+        <StatCard title="Active" value={analytics?.employees.active ?? 0} sub="Currently working" icon={UserCheck} color="#16a34a" />
+        <StatCard title="Probation" value={analytics?.employees.probation ?? 0} sub="Early-tenure monitoring" icon={Hourglass} color="#d97706" />
+        <StatCard title="New Hires (Probation)" value={analytics?.employees.newHiresOnProbation ?? 0} sub="Hired in last 6 months" icon={UserPlus} color="#0d9488" />
+        <StatCard title="Avg Age" value={formatMetric(analytics?.employees.averageAge ?? null)} sub="Current workforce" icon={Cake} color="#db2777" />
+        <StatCard title="Avg Tenure" value={formatMetric(analytics?.employees.averageTenureYears ?? null, " yrs")} sub="Current workforce" icon={Briefcase} color="#4f46e5" />
+        <StatCard title="Full-Time Ratio" value={formatRatio(analytics?.employees.fullTimeRatio ?? null)} sub="Current workforce" icon={ShieldCheck} color="#0891b2" />
+        <StatCard title="Exits" value={analytics?.employees.terminal ?? 0} sub="Terminated or resigned" icon={UserX} color="#dc2626" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <ChartCard title="Headcount over time" subtitle="Employees hired by month-end">
@@ -540,9 +544,9 @@ function LeaveQueueTab({ analytics }: { analytics: DashboardAnalytics | undefine
     <div className="space-y-6">
       <SectionHeader icon={CalendarCheck} title="Leave" subtitle="Approval workload and leave demand from HR Core" color="bg-orange-100 text-orange-600 dark:bg-orange-900/30" />
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard title="Pending Approvals" value={analytics?.leave.pendingApprovals ?? 0} sub="Visible in current scope" icon={Clock} color="bg-purple-100 text-purple-600" />
-        <StatCard title="Leave Days" value={(analytics?.leave.daysByDepartment ?? []).reduce((sum, item) => sum + item.value, 0)} sub="Requested days in chart window" icon={Plane} color="bg-orange-100 text-orange-600" />
-        <StatCard title="Leave Types" value={seriesKeys(analytics?.leave.requestsByTypeOverTime ?? []).length} sub="Represented in trend" icon={CalendarCheck} color="bg-blue-100 text-blue-600" />
+        <StatCard title="Pending Approvals" value={analytics?.leave.pendingApprovals ?? 0} sub="Visible in current scope" icon={Clock} color="#9333ea" />
+        <StatCard title="Leave Days" value={(analytics?.leave.daysByDepartment ?? []).reduce((sum, item) => sum + item.value, 0)} sub="Requested days in chart window" icon={Plane} color="#ea580c" />
+        <StatCard title="Leave Types" value={seriesKeys(analytics?.leave.requestsByTypeOverTime ?? []).length} sub="Represented in trend" icon={CalendarCheck} color="#2563eb" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <ChartCard title="Leave days per department" subtitle="Total requested days">
@@ -607,9 +611,9 @@ function SkillsTab({ analytics }: { analytics: DashboardAnalytics | undefined })
     <div className="space-y-6">
       <SectionHeader icon={Sparkles} title="Skills" subtitle="Current skill coverage and proficiency evolution" color="bg-violet-100 text-violet-600 dark:bg-violet-900/30" />
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard title="Avg Skill Score" value={analytics?.skills.averageScore ?? "-"} sub="Out of 4 proficiency levels" icon={Sparkles} color="bg-violet-100 text-violet-600" />
-        <StatCard title="Skills Tracked" value={analytics?.skills.skillsTracked ?? 0} sub="Unique skills in scope" icon={ShieldCheck} color="bg-blue-100 text-blue-600" />
-        <StatCard title="Top Skill" value={analytics?.skills.topSkill ?? "-"} sub="Highest average proficiency" icon={Star} color="bg-amber-100 text-amber-600" />
+        <StatCard title="Avg Skill Score" value={analytics?.skills.averageScore ?? "-"} sub="Out of 4 proficiency levels" icon={Sparkles} color="#7c3aed" />
+        <StatCard title="Skills Tracked" value={analytics?.skills.skillsTracked ?? 0} sub="Unique skills in scope" icon={ShieldCheck} color="#2563eb" />
+        <StatCard title="Top Skill" value={analytics?.skills.topSkill ?? "-"} sub="Highest average proficiency" icon={Star} color="#d97706" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <ChartCard title="Radar skills chart" subtitle="Average proficiency by skill">
@@ -639,9 +643,9 @@ function PayTab({ analytics }: { analytics: DashboardAnalytics | undefined }) {
     <div className="space-y-6">
       <SectionHeader icon={Wallet} title="Payroll" subtitle="Compensation analytics from employee salaries and salary history" color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30" />
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard title="Total Payroll Cost" value={formatMoney(analytics?.payroll.totalCost ?? null)} sub="Current gross salary total" icon={Wallet} color="bg-emerald-100 text-emerald-600" />
-        <StatCard title="Average Salary" value={formatMoney(analytics?.payroll.averageSalary ?? null)} sub="Visible to HR/Admin roles" icon={LineChartIcon} color="bg-blue-100 text-blue-600" />
-        <StatCard title="Payroll Access" value={analytics?.payroll.visible ? "Visible" : "Restricted"} sub="Based on role permissions" icon={ShieldCheck} color="bg-violet-100 text-violet-600" />
+        <StatCard title="Total Payroll Cost" value={formatMoney(analytics?.payroll.totalCost ?? null)} sub="Current gross salary total" icon={Wallet} color="#059669" />
+        <StatCard title="Average Salary" value={formatMoney(analytics?.payroll.averageSalary ?? null)} sub="Visible to HR/Admin roles" icon={LineChartIcon} color="#2563eb" />
+        <StatCard title="Payroll Access" value={analytics?.payroll.visible ? "Visible" : "Restricted"} sub="Based on role permissions" icon={ShieldCheck} color="#7c3aed" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <ChartCard title="Wages per department" subtitle="Current gross salary total">
@@ -736,10 +740,10 @@ function PromotionsTab({
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Total Requests" value={dashboard?.totalRequests ?? 0} sub={`Submitted in ${year}`} icon={Trophy} color="bg-amber-100 text-amber-600" />
-        <StatCard title="Avg Salary Lift" value={formatMoney(dashboard?.averageSalaryLift ?? 0)} sub="Average proposed increase" icon={LineChartIcon} color="bg-blue-100 text-blue-600" />
-        <StatCard title="Total Budget Impact" value={formatMoney(dashboard?.totalBudgetImpact ?? 0)} sub="Combined proposed lift" icon={Wallet} color="bg-emerald-100 text-emerald-600" />
-        <StatCard title="Pending Requests" value={dashboard?.pendingRequests ?? 0} sub="Awaiting review" icon={Clock} color="bg-violet-100 text-violet-600" />
+        <StatCard title="Total Requests" value={dashboard?.totalRequests ?? 0} sub={`Submitted in ${year}`} icon={Trophy} color="#d97706" />
+        <StatCard title="Avg Salary Lift" value={formatMoney(dashboard?.averageSalaryLift ?? 0)} sub="Average proposed increase" icon={LineChartIcon} color="#2563eb" />
+        <StatCard title="Total Budget Impact" value={formatMoney(dashboard?.totalBudgetImpact ?? 0)} sub="Combined proposed lift" icon={Wallet} color="#059669" />
+        <StatCard title="Pending Requests" value={dashboard?.pendingRequests ?? 0} sub="Awaiting review" icon={Clock} color="#7c3aed" />
       </div>
 
       {canReview && pendingReviewRequests.length > 0 && (

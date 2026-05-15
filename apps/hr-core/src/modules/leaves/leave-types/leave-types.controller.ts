@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -54,7 +55,7 @@ export class LeaveTypesController {
 
   @Patch(':id')
   @Roles('HR_ADMIN')
-  @ApiOperation({ summary: 'Update a leave type (no DELETE per R-005)' })
+  @ApiOperation({ summary: 'Update a leave type' })
   @ApiResponse({ status: 200, description: 'Leave type updated' })
   @ApiResponse({ status: 400, description: 'AccrualFrequencyLocked' })
   @ApiResponse({ status: 404, description: 'Not found' })
@@ -63,5 +64,26 @@ export class LeaveTypesController {
     @Body() dto: UpdateLeaveTypeDto,
   ): Promise<LeaveType> {
     return this.leaveTypesService.update(id, dto);
+  }
+
+  @Delete(':id')
+  @Roles('HR_ADMIN')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Deactivate a leave type (soft-delete; blocked when pending requests exist)' })
+  @ApiResponse({ status: 200, description: 'Leave type deactivated' })
+  @ApiResponse({ status: 400, description: 'LeaveTypeHasPendingRequests' })
+  @ApiResponse({ status: 404, description: 'Not found' })
+  async deactivate(@Param('id', ParseUUIDPipe) id: string): Promise<LeaveType> {
+    return this.leaveTypesService.deactivate(id);
+  }
+
+  @Post(':id/reactivate')
+  @Roles('HR_ADMIN')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reactivate a previously deactivated leave type' })
+  @ApiResponse({ status: 200, description: 'Leave type reactivated' })
+  @ApiResponse({ status: 404, description: 'Not found' })
+  async reactivate(@Param('id', ParseUUIDPipe) id: string): Promise<LeaveType> {
+    return this.leaveTypesService.reactivate(id);
   }
 }

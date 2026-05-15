@@ -494,10 +494,19 @@ export interface LeaveType {
   accrualFrequency: string;
   maxCarryoverDays: number;
   color: string | null;
+  isActive: boolean;
 }
 
-export async function getLeaveTypes(): Promise<LeaveType[]> {
-  const { data } = await hrClient.get<LeaveType[]>('/leave-types');
+export async function getLeaveTypes(params?: {
+  businessUnitId?: string;
+  includeInactive?: boolean;
+}): Promise<LeaveType[]> {
+  const { data } = await hrClient.get<LeaveType[]>('/leave-types', { params });
+  return data;
+}
+
+export async function reactivateLeaveType(id: string): Promise<LeaveType> {
+  const { data } = await hrClient.post<LeaveType>(`/leave-types/${id}/reactivate`);
   return data;
 }
 
@@ -526,6 +535,10 @@ export async function updateLeaveType(
 ): Promise<LeaveType> {
   const { data } = await hrClient.patch<LeaveType>(`/leave-types/${id}`, dto);
   return data;
+}
+
+export async function deleteLeaveType(id: string): Promise<void> {
+  await hrClient.delete(`/leave-types/${id}`);
 }
 
 // ── Holidays ──────────────────────────────────────────────────────────────
@@ -871,6 +884,7 @@ export async function createPromotionRequest(
 
 export async function getPromotionRequests(params?: {
   year?: number;
+  employeeId?: string;
   businessUnitId?: string;
   departmentId?: string;
   teamId?: string;
@@ -1175,4 +1189,13 @@ export async function markAllAsRead(
 
 export async function dismissNotification(id: string): Promise<void> {
   await hrClient.delete(`/notifications/${id}`);
+}
+
+export async function dismissAllNotifications(
+  category?: NotificationCategory,
+): Promise<{ updatedCount: number }> {
+  const { data } = await hrClient.delete<{ updatedCount: number }>('/notifications/dismiss-all', {
+    params: category ? { category } : undefined,
+  });
+  return data;
 }

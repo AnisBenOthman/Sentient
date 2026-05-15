@@ -201,12 +201,15 @@ describe('EmployeesService', () => {
       await expect(service.findById('nonexistent', adminUser)).rejects.toThrow(NotFoundException);
     });
 
-    it('strips salary and DOB for non-privileged roles', async () => {
-      mockPrisma.employee.findFirst.mockResolvedValue(baseEmployee);
+    it('keeps salary and DOB when an employee views their own profile', async () => {
+      mockPrisma.employee.findFirst.mockResolvedValue({
+        ...baseEmployee,
+        dateOfBirth: new Date('1990-01-01'),
+      });
       const result = await service.findById('emp-001', employeeUser);
-      expect(result.grossSalary).toBeNull();
-      expect(result.netSalary).toBeNull();
-      expect(result.dateOfBirth).toBeNull();
+      expect(result.grossSalary).not.toBeNull();
+      expect(result.netSalary).not.toBeNull();
+      expect(result.dateOfBirth).not.toBeNull();
     });
 
     it('returns salary for HR_ADMIN', async () => {
@@ -293,7 +296,7 @@ describe('EmployeesService', () => {
   describe('getSalaryHistory', () => {
     it('throws NotFoundException when employee does not exist', async () => {
       mockPrisma.employee.findUnique.mockResolvedValue(null);
-      await expect(service.getSalaryHistory('nonexistent', 50)).rejects.toThrow(NotFoundException);
+      await expect(service.getSalaryHistory('nonexistent', 50, adminUser)).rejects.toThrow(NotFoundException);
     });
 
     it('returns salary history ordered by effectiveDate desc', async () => {
@@ -304,11 +307,27 @@ describe('EmployeesService', () => {
       ];
       mockPrisma.salaryHistory.findMany.mockResolvedValue(history);
 
-      const result = await service.getSalaryHistory('emp-001', 50);
+      const result = await service.getSalaryHistory('emp-001', 50, adminUser);
       expect(result).toHaveLength(2);
       expect(mockPrisma.salaryHistory.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ orderBy: { effectiveDate: 'desc' } }),
       );
+    });
+
+    it('allows an employee to read their own salary history', async () => {
+      mockPrisma.employee.findUnique.mockResolvedValue({ id: 'emp-001' });
+      mockPrisma.salaryHistory.findMany.mockResolvedValue([]);
+
+      await service.getSalaryHistory('emp-001', 50, employeeUser);
+      expect(mockPrisma.salaryHistory.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { employeeId: 'emp-001' } }),
+      );
+    });
+
+    it('blocks non-privileged users from reading another employee salary history', async () => {
+      mockPrisma.employee.findUnique.mockResolvedValue({ id: 'emp-002' });
+
+      await expect(service.getSalaryHistory('emp-002', 50, employeeUser)).rejects.toThrow(ForbiddenException);
     });
   });
 });

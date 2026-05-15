@@ -161,6 +161,21 @@ export class NotificationsService {
     });
   }
 
+  async dismissAll(
+    userId: string,
+    category?: SharedNotificationCategory,
+  ): Promise<UpdatedCountResult> {
+    const result = await this.prisma.notification.updateMany({
+      where: {
+        recipientUserId: userId,
+        status: { not: NotificationStatus.DISMISSED },
+        ...(category ? { category: category as unknown as NotificationCategory } : {}),
+      },
+      data: { status: NotificationStatus.DISMISSED, dismissedAt: new Date() },
+    });
+    return { updatedCount: result.count };
+  }
+
   async purgeOlderThan(date: Date): Promise<number> {
     const result = await this.prisma.notification.deleteMany({
       where: { createdAt: { lt: date } },
