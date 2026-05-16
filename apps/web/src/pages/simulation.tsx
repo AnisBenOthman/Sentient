@@ -42,6 +42,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
 import { getRoleTier } from "@/lib/auth";
 import { getPositions, type PositionWithCount } from "@/lib/positions-api";
+import { POSITION_DOMAINS, getPositionDomain, sortPositionsByLevelThenTitle } from "@/lib/position-domains";
 import {
   approvePromotionRequest,
   createPromotionRequest,
@@ -342,7 +343,6 @@ function PromotionWizard({
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [newSalaryStr, setNewSalaryStr] = useState("");
   const [newPositionId, setNewPositionId] = useState<string>("");
-  const [newRoleTitle, setNewRoleTitle] = useState<string>("");
   const [responsibilities, setResponsibilities] = useState<string[]>([]);
   const [respDraft, setRespDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -353,7 +353,6 @@ function PromotionWizard({
       setEmployeeId(null);
       setNewSalaryStr("");
       setNewPositionId("");
-      setNewRoleTitle("");
       setResponsibilities([]);
       setRespDraft("");
       setError(null);
@@ -392,7 +391,16 @@ function PromotionWizard({
       : 0;
 
   const newPosition = positions.find((p) => p.id === newPositionId);
-  const effectiveNewRole = newPosition?.title || newRoleTitle.trim();
+  const groupedPositions = useMemo(
+    () =>
+      POSITION_DOMAINS.map((domain) => ({
+        ...domain,
+        positions: positions
+          .filter((position) => getPositionDomain(position) === domain.value)
+          .sort(sortPositionsByLevelThenTitle),
+      })).filter((group) => group.positions.length > 0),
+    [positions],
+  );
 
   function handleAddResp() {
     const t = respDraft.trim();
@@ -412,7 +420,9 @@ function PromotionWizard({
         return "The proposed salary must be greater than the current salary.";
     }
     if (s === 3) {
-      if (!effectiveNewRole) return "Select a new role for this promotion.";
+      if (!newPosition) return "Select a new role for this promotion.";
+      if (newPosition.title === employee?.role)
+        return "Select a promoted role different from the employee's current role.";
       if (responsibilities.length === 0)
         return "Add at least one new responsibility for this promotion.";
     }
@@ -440,10 +450,7 @@ function PromotionWizard({
     try {
       await onSubmit({
         employeeId: employee.id,
-        currentRole: employee.role,
-        newRole: effectiveNewRole,
-        currentTeamBudget,
-        currentGrossSalary: currentSalary,
+        newPositionId,
         newGrossSalary: newSalary,
         responsibilities,
       });
@@ -636,36 +643,25 @@ function PromotionWizard({
                 <Label>New role / position</Label>
                 <select
                   value={newPositionId}
-                  onChange={(e) => {
-                    setNewPositionId(e.target.value);
-                    if (e.target.value) setNewRoleTitle("");
-                  }}
+                  onChange={(e) => setNewPositionId(e.target.value)}
                   className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900"
                   data-testid="select-new-position"
                 >
                   <option value="">— Select a position —</option>
-                  {positions
-                    .slice()
-                    .sort((a, b) => a.title.localeCompare(b.title))
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.title}
-                        {p.department ? ` (${p.department})` : ""}
-                      </option>
-                    ))}
+                  {groupedPositions.map((group) => (
+                    <optgroup key={group.value} label={group.label}>
+                      {group.positions.map((p) => (
+                        <option key={p.id} value={p.id} disabled={p.title === employee.role}>
+                          {p.title}
+                          {p.department ? ` (${p.department})` : ""}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
                 </select>
                 <p className="text-xs text-muted-foreground">
-                  Or type a custom title below if the position isn't listed.
+                  Roles come from the active Positions catalog and are grouped by job family.
                 </p>
-                <Input
-                  placeholder="Custom new role title (optional)"
-                  value={newRoleTitle}
-                  onChange={(e) => {
-                    setNewRoleTitle(e.target.value);
-                    if (e.target.value) setNewPositionId("");
-                  }}
-                  data-testid="input-custom-role"
-                />
               </div>
 
               <div className="space-y-2">
@@ -748,7 +744,7 @@ function PromotionWizard({
                       <span className="text-sm">{employee.role}</span>
                       <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
                       <span className="text-sm font-semibold text-blue-700 dark:text-blue-400">
-                        {effectiveNewRole}
+                        {newPosition?.title ?? "No role selected"}
                       </span>
                     </div>
                   </div>

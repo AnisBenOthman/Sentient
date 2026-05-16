@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -8,6 +10,8 @@ import {
   Legend,
   Line,
   LineChart,
+  Pie,
+  PieChart as RechartsPieChart,
   PolarAngleAxis,
   PolarGrid,
   Radar,
@@ -47,6 +51,7 @@ import {
   DashboardScopeFilter,
   type DashboardScopeSelection,
 } from "@/components/dashboard-scope-filter";
+import { DashboardPeriodFilter } from "@/components/dashboard-period-filter";
 import { useAuth } from "@/components/providers/auth-provider";
 import {
   approvePromotionRequest,
@@ -64,22 +69,29 @@ import {
   type DashboardAnalytics,
   type PromotionRequestsDashboard,
   type SeriesPoint,
+  type TimeGranularity,
 } from "@/lib/api/hr-core";
 import { cn } from "@/lib/utils";
 import {
-  CalendarCheck,
-  CalendarX,
+  BarChart as BarChartBaseIcon,
+  BarChart2,
+  BarChart3,
+  BarChart4,
   Briefcase,
   Cake,
+  CalendarCheck,
+  CalendarX,
   CheckCircle2,
   Clock,
   Hourglass,
   LayoutDashboard,
   LineChart as LineChartIcon,
+  PieChart as PieChartIcon,
   Plane,
   ShieldCheck,
   Sparkles,
   Star,
+  TrendingUp,
   Trophy,
   UserCheck,
   UserPlus,
@@ -87,6 +99,7 @@ import {
   Users,
   Wallet,
   XCircle,
+  AreaChart as AreaChartIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -97,6 +110,17 @@ type ScopeParams = {
   departmentId?: string;
   teamId?: string;
 };
+
+type ChartType = "area" | "line" | "column" | "bar" | "donut" | "stacked" | "clustered";
+
+type ChartTypeState = {
+  get: (id: string, fallback?: ChartType) => ChartType;
+  set: (id: string, type: ChartType) => void;
+};
+
+function granularitySubtitle(g: TimeGranularity): string {
+  return g === "YEARLY" ? "Last 5 years" : g === "QUARTERLY" ? "Last 8 quarters" : "Last 12 months";
+}
 
 const TABS: { value: Tab; label: string; icon: React.ElementType }[] = [
   { value: "overview", label: "Overview", icon: LayoutDashboard },
@@ -119,20 +143,23 @@ function initialDashboardTab(): Tab {
 }
 
 const CHART_COLORS = [
-  "#2563eb",
+  "#6366f1",
+  "#06b6d4",
   "#10b981",
   "#f59e0b",
-  "#8b5cf6",
   "#ef4444",
-  "#06b6d4",
+  "#8b5cf6",
   "#ec4899",
   "#64748b",
 ];
 
+const BRAND = "#6366f1";
+
 const tooltipStyle = {
   borderRadius: "8px",
-  border: "1px solid #e5e7eb",
-  background: "white",
+  border: "1px solid hsl(var(--border))",
+  background: "hsl(var(--card))",
+  color: "hsl(var(--card-foreground))",
   fontSize: "12px",
 };
 
@@ -255,15 +282,11 @@ function PointBarChart({
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} layout="vertical" margin={{ left: 0, right: 16 }}>
-        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-        <XAxis type="number" tick={{ fontSize: 11 }} />
-        <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={120} />
-        <Tooltip contentStyle={tooltipStyle} />
-        <Bar dataKey="value" name={valueName} radius={[0, 4, 4, 0]}>
-          {data.map((_, index) => (
-            <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-          ))}
-        </Bar>
+        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
+        <XAxis type="number" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={120} axisLine={false} tickLine={false} />
+        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: `${BRAND}14` }} />
+        <Bar dataKey="value" name={valueName} fill={BRAND} radius={[0, 4, 4, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -278,40 +301,103 @@ function PointLineChart({
   valueName: string;
   height?: number;
 }) {
+  const gradId = `grad-${valueName.replace(/\s+/g, "")}`;
+  if (data.length === 0) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <AreaChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={BRAND} stopOpacity={0.18} />
+            <stop offset="95%" stopColor={BRAND} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+        <XAxis dataKey="label" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} axisLine={false} tickLine={false} />
+        <Tooltip contentStyle={tooltipStyle} />
+        <Area
+          type="monotone"
+          dataKey="value"
+          name={valueName}
+          stroke={BRAND}
+          strokeWidth={2.5}
+          fill={`url(#${gradId})`}
+          dot={false}
+          activeDot={{ r: 4, fill: BRAND, strokeWidth: 0 }}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+function PointColumnChart({
+  data,
+  valueName,
+  height = 220,
+}: {
+  data: ChartPoint[];
+  valueName: string;
+  height?: number;
+}) {
+  if (data.length === 0) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+        <XAxis dataKey="label" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} axisLine={false} tickLine={false} />
+        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: `${BRAND}14` }} />
+        <Bar dataKey="value" name={valueName} fill={BRAND} radius={[4, 4, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function PointLineOnlyChart({
+  data,
+  valueName,
+  height = 220,
+}: {
+  data: ChartPoint[];
+  valueName: string;
+  height?: number;
+}) {
   if (data.length === 0) return <EmptyChart />;
   return (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-        <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+        <XAxis dataKey="label" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} axisLine={false} tickLine={false} />
         <Tooltip contentStyle={tooltipStyle} />
         <Line
           type="monotone"
           dataKey="value"
           name={valueName}
-          stroke="#2563eb"
+          stroke={BRAND}
           strokeWidth={2.5}
-          dot={{ r: 3 }}
+          dot={{ r: 0 }}
+          activeDot={{ r: 4, fill: BRAND, strokeWidth: 0 }}
         />
       </LineChart>
     </ResponsiveContainer>
   );
 }
 
-function SeriesBarChart({ data, height = 240 }: { data: SeriesPoint[]; height?: number }) {
+function SeriesStackedBarChart({ data, height = 240 }: { data: SeriesPoint[]; height?: number }) {
   const keys = seriesKeys(data);
   if (data.length === 0 || keys.length === 0) return <EmptyChart />;
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-        <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-        <Tooltip contentStyle={tooltipStyle} />
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+        <XAxis dataKey="label" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} axisLine={false} tickLine={false} />
+        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "hsl(var(--muted))" }} />
         <Legend wrapperStyle={{ fontSize: 11 }} />
         {keys.map((key, index) => (
-          <Bar key={key} dataKey={key} stackId="total" fill={CHART_COLORS[index % CHART_COLORS.length]} />
+          <Bar key={key} dataKey={key} stackId="total" fill={CHART_COLORS[index % CHART_COLORS.length]} radius={index === keys.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
         ))}
       </BarChart>
     </ResponsiveContainer>
@@ -324,9 +410,9 @@ function SeriesLineChart({ data, height = 240 }: { data: SeriesPoint[]; height?:
   return (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-        <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+        <XAxis dataKey="label" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} axisLine={false} tickLine={false} />
         <Tooltip contentStyle={tooltipStyle} />
         <Legend wrapperStyle={{ fontSize: 11 }} />
         {keys.map((key, index) => (
@@ -336,7 +422,8 @@ function SeriesLineChart({ data, height = 240 }: { data: SeriesPoint[]; height?:
             dataKey={key}
             stroke={CHART_COLORS[index % CHART_COLORS.length]}
             strokeWidth={2}
-            dot={{ r: 2.5 }}
+            dot={{ r: 0 }}
+            activeDot={{ r: 4, strokeWidth: 0 }}
           />
         ))}
       </LineChart>
@@ -344,30 +431,171 @@ function SeriesLineChart({ data, height = 240 }: { data: SeriesPoint[]; height?:
   );
 }
 
+function DonutChart({ data, height = 240 }: { data: ChartPoint[]; height?: number }) {
+  if (data.length === 0) return <EmptyChart />;
+  const normalized = data.map((d) => ({ name: d.label, value: d.value }));
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <RechartsPieChart>
+        <Pie
+          data={normalized}
+          cx="50%"
+          cy="50%"
+          innerRadius="45%"
+          outerRadius="70%"
+          paddingAngle={2}
+          dataKey="value"
+        >
+          {normalized.map((_, index) => (
+            <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+          ))}
+        </Pie>
+        <Tooltip contentStyle={tooltipStyle} />
+        <Legend wrapperStyle={{ fontSize: 11 }} />
+      </RechartsPieChart>
+    </ResponsiveContainer>
+  );
+}
+
+function SeriesClusteredBarChart({ data, height = 240 }: { data: SeriesPoint[]; height?: number }) {
+  const keys = seriesKeys(data);
+  if (data.length === 0 || keys.length === 0) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+        <XAxis dataKey="label" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} axisLine={false} tickLine={false} />
+        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "hsl(var(--muted))" }} />
+        <Legend wrapperStyle={{ fontSize: 11 }} />
+        {keys.map((key, index) => (
+          <Bar key={key} dataKey={key} fill={CHART_COLORS[index % CHART_COLORS.length]} radius={[4, 4, 0, 0]} />
+        ))}
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
 function ChartCard({
   title,
   subtitle,
+  action,
   children,
 }: {
   title: string;
   subtitle: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-          {title}
-        </CardTitle>
-        <p className="text-xs text-muted-foreground">{subtitle}</p>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+              {title}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">{subtitle}</p>
+          </div>
+          {action}
+        </div>
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
   );
 }
 
-function OverviewTab({ analytics }: { analytics: DashboardAnalytics | undefined }) {
+const CHART_TYPE_ICONS: Record<ChartType, React.ElementType> = {
+  area: AreaChartIcon,
+  line: TrendingUp,
+  column: BarChart3,
+  bar: BarChart2,
+  donut: PieChartIcon,
+  stacked: BarChart4,
+  clustered: BarChartBaseIcon,
+};
+
+const CHART_TYPE_LABELS: Record<ChartType, string> = {
+  area: "Area",
+  line: "Line",
+  column: "Column",
+  bar: "Bar (horizontal)",
+  donut: "Donut",
+  stacked: "Stacked",
+  clustered: "Clustered",
+};
+
+function ChartTypeToggle({
+  id,
+  types,
+  cts,
+}: {
+  id: string;
+  types: ChartType[];
+  cts: ChartTypeState;
+}) {
+  return (
+    <div className="flex items-center gap-0.5 shrink-0">
+      {types.map((t) => {
+        const Icon = CHART_TYPE_ICONS[t];
+        return (
+          <button
+            key={t}
+            onClick={() => cts.set(id, t)}
+            className={cn(
+              "rounded p-1 text-muted-foreground transition-colors hover:text-foreground",
+              cts.get(id) === t && "bg-muted text-foreground",
+            )}
+            title={CHART_TYPE_LABELS[t]}
+          >
+            <Icon className="w-3.5 h-3.5" />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function SwitchableChartCard({
+  id,
+  title,
+  subtitle,
+  types,
+  cts,
+  renderChart,
+}: {
+  id: string;
+  title: string;
+  subtitle: string;
+  types: ChartType[];
+  cts: ChartTypeState;
+  renderChart: (type: ChartType) => React.ReactNode;
+}) {
+  const first: ChartType = types[0] ?? "area";
+  const stored = cts.get(id, first);
+  const activeType: ChartType = (types as string[]).includes(stored) ? stored : first;
+  return (
+    <ChartCard
+      title={title}
+      subtitle={subtitle}
+      action={<ChartTypeToggle id={id} types={types} cts={cts} />}
+    >
+      {renderChart(activeType)}
+    </ChartCard>
+  );
+}
+
+function OverviewTab({
+  analytics,
+  granularity,
+  cts,
+}: {
+  analytics: DashboardAnalytics | undefined;
+  granularity: TimeGranularity;
+  cts: ChartTypeState;
+}) {
   if (!analytics) return <EmptyChart label="Loading analytics..." />;
+  const trendSubtitle = granularitySubtitle(granularity);
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
@@ -384,18 +612,66 @@ function OverviewTab({ analytics }: { analytics: DashboardAnalytics | undefined 
         <StatCard title="Pending Approvals" value={analytics.leave.pendingApprovals} sub="Leave requests awaiting review" icon={Clock} color="#9333ea" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
-        <ChartCard title="Headcount over time" subtitle="Last 12 months">
-          <PointLineChart data={analytics.employees.headcountOverTime} valueName="Headcount" />
-        </ChartCard>
-        <ChartCard title="Leave requests by type" subtitle="Last 12 months">
-          <SeriesLineChart data={analytics.leave.requestsByTypeOverTime} />
-        </ChartCard>
-        <ChartCard title="Age distribution" subtitle="Current workforce by age band">
-          <PointBarChart data={analytics.employees.ageBands} valueName="Employees" />
-        </ChartCard>
-        <ChartCard title="Tenure distribution" subtitle="Current workforce by service length">
-          <PointBarChart data={analytics.employees.tenureBands} valueName="Employees" />
-        </ChartCard>
+        <SwitchableChartCard
+          id="ov-headcount"
+          title="Headcount over time"
+          subtitle={trendSubtitle}
+          types={["area", "line", "column"]}
+          cts={cts}
+          renderChart={(type) =>
+            type === "column" ? (
+              <PointColumnChart data={analytics.employees.headcountOverTime} valueName="Headcount" />
+            ) : type === "line" ? (
+              <PointLineOnlyChart data={analytics.employees.headcountOverTime} valueName="Headcount" />
+            ) : (
+              <PointLineChart data={analytics.employees.headcountOverTime} valueName="Headcount" />
+            )
+          }
+        />
+        <SwitchableChartCard
+          id="ov-leave-type"
+          title="Leave requests by type"
+          subtitle={trendSubtitle}
+          types={["stacked", "clustered", "line"]}
+          cts={cts}
+          renderChart={(type) =>
+            type === "stacked" ? (
+              <SeriesStackedBarChart data={analytics.leave.requestsByTypeOverTime} />
+            ) : type === "clustered" ? (
+              <SeriesClusteredBarChart data={analytics.leave.requestsByTypeOverTime} />
+            ) : (
+              <SeriesLineChart data={analytics.leave.requestsByTypeOverTime} />
+            )
+          }
+        />
+        <SwitchableChartCard
+          id="ov-age"
+          title="Age distribution"
+          subtitle="Current workforce by age band"
+          types={["bar", "donut"]}
+          cts={cts}
+          renderChart={(type) =>
+            type === "donut" ? (
+              <DonutChart data={analytics.employees.ageBands} />
+            ) : (
+              <PointBarChart data={analytics.employees.ageBands} valueName="Employees" />
+            )
+          }
+        />
+        <SwitchableChartCard
+          id="ov-tenure"
+          title="Tenure distribution"
+          subtitle="Current workforce by service length"
+          types={["bar", "donut"]}
+          cts={cts}
+          renderChart={(type) =>
+            type === "donut" ? (
+              <DonutChart data={analytics.employees.tenureBands} />
+            ) : (
+              <PointBarChart data={analytics.employees.tenureBands} valueName="Employees" />
+            )
+          }
+        />
       </div>
     </div>
   );
@@ -404,9 +680,13 @@ function OverviewTab({ analytics }: { analytics: DashboardAnalytics | undefined 
 function EmployeesTab({
   analytics,
   scopeParams,
+  granularity,
+  cts,
 }: {
   analytics: DashboardAnalytics | undefined;
   scopeParams: ScopeParams;
+  granularity: TimeGranularity;
+  cts: ChartTypeState;
 }) {
   const { data: result, isLoading } = useQuery({
     queryKey: ["employees", { limit: 500, ...scopeParams }],
@@ -423,6 +703,7 @@ function EmployeesTab({
     return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [employees]);
 
+  const trendSubtitle = granularitySubtitle(granularity);
   return (
     <div className="space-y-6">
       <SectionHeader icon={Users} title="Employees" subtitle="Headcount and hiring movement from HR Core" color="bg-blue-100 text-blue-600 dark:bg-blue-900/30" />
@@ -437,29 +718,110 @@ function EmployeesTab({
         <StatCard title="Exits" value={analytics?.employees.terminal ?? 0} sub="Terminated or resigned" icon={UserX} color="#dc2626" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
-        <ChartCard title="Headcount over time" subtitle="Employees hired by month-end">
-          <PointLineChart data={analytics?.employees.headcountOverTime ?? []} valueName="Headcount" />
-        </ChartCard>
-        <ChartCard title="New hire trend" subtitle="Monthly new hires globally (last 12 months)">
-          <PointLineChart data={analytics?.employees.newHiresTrend ?? []} valueName="New Hires" />
-        </ChartCard>
-        <ChartCard title="Status breakdown" subtitle="All visible people by employment status">
-          <PointBarChart data={analytics?.employees.statusBreakdown ?? []} valueName="Employees" />
-        </ChartCard>
-        <ChartCard title="Contract mix" subtitle="Current workforce by contract type">
-          <PointBarChart data={analytics?.employees.contractMix ?? []} valueName="Employees" />
-        </ChartCard>
-        <ChartCard title="Age bands" subtitle="Current workforce distribution">
-          <PointBarChart data={analytics?.employees.ageBands ?? []} valueName="Employees" />
-        </ChartCard>
-        <ChartCard title="Tenure bands" subtitle="Current workforce service length">
-          <PointBarChart data={analytics?.employees.tenureBands ?? []} valueName="Employees" />
-        </ChartCard>
+        <SwitchableChartCard
+          id="emp-headcount"
+          title="Headcount over time"
+          subtitle={trendSubtitle}
+          types={["area", "line", "column"]}
+          cts={cts}
+          renderChart={(type) =>
+            type === "column" ? (
+              <PointColumnChart data={analytics?.employees.headcountOverTime ?? []} valueName="Headcount" />
+            ) : type === "line" ? (
+              <PointLineOnlyChart data={analytics?.employees.headcountOverTime ?? []} valueName="Headcount" />
+            ) : (
+              <PointLineChart data={analytics?.employees.headcountOverTime ?? []} valueName="Headcount" />
+            )
+          }
+        />
+        <SwitchableChartCard
+          id="emp-newhires"
+          title="New hire trend"
+          subtitle={trendSubtitle}
+          types={["column", "line", "area"]}
+          cts={cts}
+          renderChart={(type) =>
+            type === "area" ? (
+              <PointLineChart data={analytics?.employees.newHiresTrend ?? []} valueName="New Hires" />
+            ) : type === "line" ? (
+              <PointLineOnlyChart data={analytics?.employees.newHiresTrend ?? []} valueName="New Hires" />
+            ) : (
+              <PointColumnChart data={analytics?.employees.newHiresTrend ?? []} valueName="New Hires" />
+            )
+          }
+        />
+        <SwitchableChartCard
+          id="emp-status"
+          title="Status breakdown"
+          subtitle="All visible people by employment status"
+          types={["bar", "donut"]}
+          cts={cts}
+          renderChart={(type) =>
+            type === "donut" ? (
+              <DonutChart data={analytics?.employees.statusBreakdown ?? []} />
+            ) : (
+              <PointBarChart data={analytics?.employees.statusBreakdown ?? []} valueName="Employees" />
+            )
+          }
+        />
+        <SwitchableChartCard
+          id="emp-contract"
+          title="Contract mix"
+          subtitle="Current workforce by contract type"
+          types={["bar", "donut"]}
+          cts={cts}
+          renderChart={(type) =>
+            type === "donut" ? (
+              <DonutChart data={analytics?.employees.contractMix ?? []} />
+            ) : (
+              <PointBarChart data={analytics?.employees.contractMix ?? []} valueName="Employees" />
+            )
+          }
+        />
+        <SwitchableChartCard
+          id="emp-age"
+          title="Age bands"
+          subtitle="Current workforce distribution"
+          types={["bar", "donut"]}
+          cts={cts}
+          renderChart={(type) =>
+            type === "donut" ? (
+              <DonutChart data={analytics?.employees.ageBands ?? []} />
+            ) : (
+              <PointBarChart data={analytics?.employees.ageBands ?? []} valueName="Employees" />
+            )
+          }
+        />
+        <SwitchableChartCard
+          id="emp-tenure"
+          title="Tenure bands"
+          subtitle="Current workforce service length"
+          types={["bar", "donut"]}
+          cts={cts}
+          renderChart={(type) =>
+            type === "donut" ? (
+              <DonutChart data={analytics?.employees.tenureBands ?? []} />
+            ) : (
+              <PointBarChart data={analytics?.employees.tenureBands ?? []} valueName="Employees" />
+            )
+          }
+        />
       </div>
       <div className="grid gap-6 lg:grid-cols-1">
-        <ChartCard title="New hires by department" subtitle="Monthly new hires per department (last 12 months)">
-          <SeriesBarChart data={analytics?.employees.newHiresByDepartment ?? []} height={280} />
-        </ChartCard>
+        <SwitchableChartCard
+          id="emp-dept-hires"
+          title="New hires by department"
+          subtitle={trendSubtitle}
+          types={["bar", "line"]}
+          cts={cts}
+          renderChart={(type) =>
+            type === "line" ? (
+              <SeriesLineChart data={analytics?.employees.newHiresByDepartment ?? []} height={280} />
+            ) : (
+              <SeriesStackedBarChart data={analytics?.employees.newHiresByDepartment ?? []} height={280} />
+            )
+          }
+        />
       </div>
 
       {isLoading ? (
@@ -523,7 +885,15 @@ function EmployeesTab({
   );
 }
 
-function LeaveQueueTab({ analytics }: { analytics: DashboardAnalytics | undefined }) {
+function LeaveQueueTab({
+  analytics,
+  granularity,
+  cts,
+}: {
+  analytics: DashboardAnalytics | undefined;
+  granularity: TimeGranularity;
+  cts: ChartTypeState;
+}) {
   const queryClient = useQueryClient();
   const { data: queue = [], isLoading } = useQuery({
     queryKey: ["pending-leave-queue"],
@@ -540,6 +910,7 @@ function LeaveQueueTab({ analytics }: { analytics: DashboardAnalytics | undefine
     onSuccess: () => queryClient.invalidateQueries(),
   });
 
+  const trendSubtitle = granularitySubtitle(granularity);
   return (
     <div className="space-y-6">
       <SectionHeader icon={CalendarCheck} title="Leave" subtitle="Approval workload and leave demand from HR Core" color="bg-orange-100 text-orange-600 dark:bg-orange-900/30" />
@@ -552,9 +923,20 @@ function LeaveQueueTab({ analytics }: { analytics: DashboardAnalytics | undefine
         <ChartCard title="Leave days per department" subtitle="Total requested days">
           <PointBarChart data={analytics?.leave.daysByDepartment ?? []} valueName="Days" />
         </ChartCard>
-        <ChartCard title="Leave requests by type over time" subtitle="Monthly request count">
-          <SeriesLineChart data={analytics?.leave.requestsByTypeOverTime ?? []} />
-        </ChartCard>
+        <SwitchableChartCard
+          id="leave-type-trend"
+          title="Leave requests by type over time"
+          subtitle={trendSubtitle}
+          types={["line", "bar"]}
+          cts={cts}
+          renderChart={(type) =>
+            type === "bar" ? (
+              <SeriesStackedBarChart data={analytics?.leave.requestsByTypeOverTime ?? []} />
+            ) : (
+              <SeriesLineChart data={analytics?.leave.requestsByTypeOverTime ?? []} />
+            )
+          }
+        />
       </div>
 
       {isLoading ? (
@@ -605,8 +987,17 @@ function LeaveQueueTab({ analytics }: { analytics: DashboardAnalytics | undefine
   );
 }
 
-function SkillsTab({ analytics }: { analytics: DashboardAnalytics | undefined }) {
+function SkillsTab({
+  analytics,
+  granularity,
+  cts,
+}: {
+  analytics: DashboardAnalytics | undefined;
+  granularity: TimeGranularity;
+  cts: ChartTypeState;
+}) {
   const radarData = analytics?.skills.radar ?? [];
+  const trendSubtitle = granularitySubtitle(granularity);
   return (
     <div className="space-y-6">
       <SectionHeader icon={Sparkles} title="Skills" subtitle="Current skill coverage and proficiency evolution" color="bg-violet-100 text-violet-600 dark:bg-violet-900/30" />
@@ -630,15 +1021,37 @@ function SkillsTab({ analytics }: { analytics: DashboardAnalytics | undefined })
             </ResponsiveContainer>
           )}
         </ChartCard>
-        <ChartCard title="Skill evolution" subtitle="Quarterly average score from skill history">
-          <PointLineChart data={analytics?.skills.skillEvolution ?? []} valueName="Avg score" />
-        </ChartCard>
+        <SwitchableChartCard
+          id="skills-evolution"
+          title="Skill evolution"
+          subtitle={trendSubtitle}
+          types={["area", "line", "bar"]}
+          cts={cts}
+          renderChart={(type) =>
+            type === "bar" ? (
+              <PointColumnChart data={analytics?.skills.skillEvolution ?? []} valueName="Avg score" />
+            ) : type === "line" ? (
+              <PointLineOnlyChart data={analytics?.skills.skillEvolution ?? []} valueName="Avg score" />
+            ) : (
+              <PointLineChart data={analytics?.skills.skillEvolution ?? []} valueName="Avg score" />
+            )
+          }
+        />
       </div>
     </div>
   );
 }
 
-function PayTab({ analytics }: { analytics: DashboardAnalytics | undefined }) {
+function PayTab({
+  analytics,
+  granularity,
+  cts,
+}: {
+  analytics: DashboardAnalytics | undefined;
+  granularity: TimeGranularity;
+  cts: ChartTypeState;
+}) {
+  const trendSubtitle = granularitySubtitle(granularity);
   return (
     <div className="space-y-6">
       <SectionHeader icon={Wallet} title="Payroll" subtitle="Compensation analytics from employee salaries and salary history" color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30" />
@@ -651,9 +1064,20 @@ function PayTab({ analytics }: { analytics: DashboardAnalytics | undefined }) {
         <ChartCard title="Wages per department" subtitle="Current gross salary total">
           <PointBarChart data={analytics?.payroll.costByDepartment ?? []} valueName="Gross salary" />
         </ChartCard>
-        <ChartCard title="Payroll cost trends" subtitle="Quarterly salary changes by team">
-          <SeriesLineChart data={analytics?.payroll.costTrendByTeam ?? []} />
-        </ChartCard>
+        <SwitchableChartCard
+          id="pay-cost-trend"
+          title="Payroll cost trends"
+          subtitle={trendSubtitle}
+          types={["line", "bar"]}
+          cts={cts}
+          renderChart={(type) =>
+            type === "bar" ? (
+              <SeriesStackedBarChart data={analytics?.payroll.costTrendByTeam ?? []} />
+            ) : (
+              <SeriesLineChart data={analytics?.payroll.costTrendByTeam ?? []} />
+            )
+          }
+        />
       </div>
     </div>
   );
@@ -915,6 +1339,12 @@ export default function Dashboard() {
     teamId: null,
   });
   const [promotionYear, setPromotionYear] = useState<number>(() => new Date().getFullYear());
+  const [granularity, setGranularity] = useState<TimeGranularity>("MONTHLY");
+  const [chartTypeMap, setChartTypeMap] = useState<Record<string, ChartType>>({});
+  const cts: ChartTypeState = {
+    get: (id, fallback = "bar") => chartTypeMap[id] ?? fallback,
+    set: (id, type) => setChartTypeMap((prev) => ({ ...prev, [id]: type })),
+  };
 
   const roles = user?.roles ?? [];
   const roleAssignments = user?.roleAssignments ?? [];
@@ -1013,8 +1443,8 @@ export default function Dashboard() {
   }, [effectiveScopeSelection]);
 
   const { data: analytics, isLoading: analyticsLoading } = useQuery({
-    queryKey: ["dashboard-analytics", scopeParams],
-    queryFn: () => getDashboardAnalytics(scopeParams),
+    queryKey: ["dashboard-analytics", scopeParams, granularity],
+    queryFn: () => getDashboardAnalytics({ ...scopeParams, granularity }),
     enabled: Boolean(user),
   });
 
@@ -1063,17 +1493,22 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {(canUseGlobalScope || businessUnitAssignment || forcedScope) && (
-        <DashboardScopeFilter
-          businessUnits={allowedBusinessUnits}
-          departments={departments}
-          teams={teams}
-          value={effectiveScopeSelection}
-          canUseGlobal={canUseGlobalScope && !businessUnitAssignment && !forcedScope}
-          disabled={Boolean(forcedScope)}
-          onChange={forcedScope ? () => undefined : handleScopeChange}
-        />
-      )}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {(canUseGlobalScope || businessUnitAssignment || forcedScope) ? (
+          <DashboardScopeFilter
+            businessUnits={allowedBusinessUnits}
+            departments={departments}
+            teams={teams}
+            value={effectiveScopeSelection}
+            canUseGlobal={canUseGlobalScope && !businessUnitAssignment && !forcedScope}
+            disabled={Boolean(forcedScope)}
+            onChange={forcedScope ? () => undefined : handleScopeChange}
+          />
+        ) : (
+          <div />
+        )}
+        <DashboardPeriodFilter value={granularity} onChange={setGranularity} />
+      </div>
 
       <div className="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800">
         {visibleTabs.map(({ value, label, icon: Icon }) => (
@@ -1094,11 +1529,11 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {tab === "overview" && <OverviewTab analytics={analytics} />}
-      {tab === "employees" && <EmployeesTab analytics={analytics} scopeParams={scopeParams} />}
-      {tab === "leave" && isManager && <LeaveQueueTab analytics={analytics} />}
-      {tab === "skills" && <SkillsTab analytics={analytics} />}
-      {tab === "pay" && <PayTab analytics={analytics} />}
+      {tab === "overview" && <OverviewTab analytics={analytics} granularity={granularity} cts={cts} />}
+      {tab === "employees" && <EmployeesTab analytics={analytics} scopeParams={scopeParams} granularity={granularity} cts={cts} />}
+      {tab === "leave" && isManager && <LeaveQueueTab analytics={analytics} granularity={granularity} cts={cts} />}
+      {tab === "skills" && <SkillsTab analytics={analytics} granularity={granularity} cts={cts} />}
+      {tab === "pay" && <PayTab analytics={analytics} granularity={granularity} cts={cts} />}
       {tab === "promotions" && (
         <PromotionsTab
           dashboard={promotionDashboard}

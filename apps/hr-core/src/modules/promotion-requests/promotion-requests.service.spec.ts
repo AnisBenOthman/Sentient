@@ -81,6 +81,7 @@ describe('PromotionRequestsService', () => {
   let prisma: {
     $transaction: jest.Mock;
     employee: { findFirst: jest.Mock; update: jest.Mock; aggregate: jest.Mock };
+    position: { findFirst: jest.Mock };
     salaryHistory: { create: jest.Mock };
     promotionRequest: {
       create: jest.Mock;
@@ -96,6 +97,7 @@ describe('PromotionRequestsService', () => {
     prisma = {
       $transaction: jest.fn((callback: (tx: typeof prisma) => unknown) => callback(prisma)),
       employee: { findFirst: jest.fn(), update: jest.fn(), aggregate: jest.fn() },
+      position: { findFirst: jest.fn() },
       salaryHistory: { create: jest.fn() },
       promotionRequest: {
         create: jest.fn(),
@@ -117,18 +119,18 @@ describe('PromotionRequestsService', () => {
       grossSalary: new Decimal(100000),
       teamId: 'team-1',
       managerId: 'manager-1',
+      positionId: 'position-current',
+      position: { id: 'position-current', title: 'Engineer', isActive: true },
     });
+    prisma.position.findFirst.mockResolvedValue({ id: 'position-new', title: 'Senior Engineer' });
     prisma.employee.aggregate.mockResolvedValue({ _sum: { grossSalary: new Decimal(400000) } });
     prisma.promotionRequest.create.mockResolvedValue(makeRequest());
 
     const result = await service.create(
       {
         employeeId: 'emp-1',
-        currentRole: ' Engineer ',
-        newRole: ' Senior Engineer ',
-        currentGrossSalary: 100000,
+        newPositionId: 'position-new',
         newGrossSalary: 115000,
-        currentTeamBudget: 400000,
         responsibilities: [' Lead delivery ', ''],
       },
       scopedUser,
@@ -163,18 +165,18 @@ describe('PromotionRequestsService', () => {
       grossSalary: new Decimal(100000),
       teamId: 'team-1',
       managerId: 'manager-1',
+      positionId: 'position-current',
+      position: { id: 'position-current', title: 'Engineer', isActive: true },
     });
+    prisma.position.findFirst.mockResolvedValue({ id: 'position-new', title: 'Senior Engineer' });
     prisma.employee.aggregate.mockResolvedValue({ _sum: { grossSalary: new Decimal(400000) } });
 
     await expect(
       service.create(
         {
           employeeId: 'emp-1',
-          currentRole: 'Engineer',
-          newRole: 'Senior Engineer',
-          currentGrossSalary: 100000,
+          newPositionId: 'position-new',
           newGrossSalary: 115000,
-          currentTeamBudget: 400000,
           responsibilities: [' '],
         },
         scopedUser,
@@ -188,18 +190,18 @@ describe('PromotionRequestsService', () => {
       grossSalary: new Decimal(100000),
       teamId: 'team-2',
       managerId: 'manager-2',
+      positionId: 'position-current',
+      position: { id: 'position-current', title: 'Engineer', isActive: true },
     });
+    prisma.position.findFirst.mockResolvedValue({ id: 'position-new', title: 'Senior Engineer' });
     prisma.employee.aggregate.mockResolvedValue({ _sum: { grossSalary: new Decimal(400000) } });
     prisma.promotionRequest.create.mockResolvedValue(makeRequest());
 
     await service.create(
       {
         employeeId: 'emp-1',
-        currentRole: 'Engineer',
-        newRole: 'Senior Engineer',
-        currentGrossSalary: 100000,
+        newPositionId: 'position-new',
         newGrossSalary: 115000,
-        currentTeamBudget: 400000,
         responsibilities: ['Lead delivery'],
       },
       globalDepartmentHeadUser,
@@ -248,6 +250,7 @@ describe('PromotionRequestsService', () => {
   });
 
   it('approves a pending request and applies the salary change with history', async () => {
+    prisma.position.findFirst.mockResolvedValue({ id: 'position-new' });
     prisma.promotionRequest.findUnique.mockResolvedValue({
       ...makeRequest(),
       employee: {
@@ -284,6 +287,7 @@ describe('PromotionRequestsService', () => {
       expect.objectContaining({
         where: { id: 'emp-1' },
         data: {
+          positionId: 'position-new',
           grossSalary: new Decimal(115000),
           netSalary: new Decimal(85100),
         },

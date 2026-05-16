@@ -630,6 +630,7 @@ export interface PositionSkillPayload {
 export interface PositionSkillQuery {
   minProficiency?: ProficiencyLevel;
   requirementLevel?: SkillRequirementLevel;
+  domain?: SkillDomain;
 }
 
 export async function getPositionSkills(
@@ -754,6 +755,8 @@ export async function getSkillHistory(employeeId: string): Promise<SkillHistoryE
 
 // ── Dashboard Analytics ─────────────────────────────────────────────────────
 
+export type TimeGranularity = 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
+
 export interface ChartPoint {
   label: string;
   value: number;
@@ -828,6 +831,7 @@ export async function getDashboardAnalytics(params?: {
   businessUnitId?: string;
   departmentId?: string;
   teamId?: string;
+  granularity?: TimeGranularity;
 }): Promise<DashboardAnalytics> {
   const { data } = await hrClient.get<DashboardAnalytics>('/analytics/dashboard', { params });
   return data;
@@ -859,11 +863,8 @@ export interface PromotionRequest {
 
 export interface CreatePromotionRequestPayload {
   employeeId: string;
-  currentRole: string;
-  newRole: string;
-  currentGrossSalary: number;
+  newPositionId: string;
   newGrossSalary: number;
-  currentTeamBudget: number;
   responsibilities: string[];
 }
 

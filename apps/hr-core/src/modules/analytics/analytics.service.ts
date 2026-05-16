@@ -160,8 +160,12 @@ export class AnalyticsService {
       employeeWhere,
       this.buildCurrentWorkforceFilter(),
     );
-    const dateWindow = this.buildMonthWindow(MONTH_COUNT);
-    const quarterWindow = this.buildQuarterWindow(QUARTER_COUNT);
+    const gran = query.granularity ?? 'MONTHLY';
+    const dateWindow =
+      gran === 'YEARLY'    ? this.buildYearWindow(5) :
+      gran === 'QUARTERLY' ? this.buildQuarterWindow(QUARTER_COUNT) :
+                             this.buildMonthWindow(MONTH_COUNT);
+    const quarterWindow = dateWindow;
 
     const [
       employees,
@@ -586,6 +590,16 @@ export class AnalyticsService {
     right: Prisma.EmployeeWhereInput,
   ): Prisma.EmployeeWhereInput {
     return { AND: [left, right] };
+  }
+
+  private buildYearWindow(count: number): Array<{ label: string; start: Date; end: Date }> {
+    const currentYear = new Date().getUTCFullYear();
+    return Array.from({ length: count }, (_, index) => {
+      const year = currentYear - (count - 1 - index);
+      const start = new Date(Date.UTC(year, 0, 1));
+      const end = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999));
+      return { label: `${year}`, start, end };
+    });
   }
 
   private buildMonthWindow(count: number): Array<{ label: string; start: Date; end: Date }> {

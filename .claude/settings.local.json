@@ -114,7 +114,9 @@
       "Skill(update-config)",
       "Bash(mkdir -p \"C:\\\\Users\\\\Anis\\\\Downloads\\\\Sentient\\\\.claude\\\\skills\\\\frontend-design\")",
       "Bash(mkdir -p \"C:\\\\Users\\\\Anis\\\\Downloads\\\\Sentient\\\\.claude\\\\skills\\\\frontend-code-review\")",
-      "Skill(react-vite-best-practices)"
+      "Skill(react-vite-best-practices)",
+      "Bash(Get-ChildItem -Path C:\\\\Users\\\\Anis\\\\Downloads\\\\Sentient\\\\apps -Directory)",
+      "Bash(Select-Object Name)"
     ]
   }
 }

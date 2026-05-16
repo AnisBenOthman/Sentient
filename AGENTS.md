@@ -47,6 +47,9 @@ See `.claude/rules/code-style.md` for full conventions. Key rules:
 - Every endpoint: `@UseGuards(SharedJwtGuard, RbacGuard)` + `@Roles(...)`. Except `/health`.
 
 ## Recent Changes
+- promotion-position-catalog-alignment: Promotion requests now require selecting an active Position by job-family in Simulation, removed custom promoted-role titles, and HR Core derives current/new role titles from canonical positions while applying the promoted position on approval.
+- positions-domain-sections: Reorganized the Positions page into seeded job-family sections (Engineering, Product & Design, HR, Finance, Sales) and grouped each position's required skills by actual SkillDomain, with backend position-skill domain filtering support.
+- employee-profile-gap-radar-port: Reworked the main React employee profile Skills tab to use a front-replit-style Skills & Proficiency gap radar, overlaying employee proficiency against role requirements and listing partial/missing gaps below the chart.
 - front-replit-skill-gap-fallback: Employee profile skill gap information now renders in the isolated Replit frontend even when the local `/api` server is offline, using exported mock employee positions and required skills as a client-side fallback.
 - employee-self-profile-nav: Added a My Profile nav entry and self-service profile route for every linked employee, hid HR-only edit controls outside HR admin views, exposed own salary history safely, and added scoped promotion history to employee profile details.
 - simulation-hr-review-actions: Added HR admin Validate/Refuse actions to pending promotion request cards in the Simulation section, reusing HR Core approve/reject endpoints with query invalidation and toast feedback.

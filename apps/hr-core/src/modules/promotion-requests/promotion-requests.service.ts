@@ -84,11 +84,32 @@ export class PromotionRequestsService {
           this.buildUserScopeFilter(user),
         ],
       },
-      select: { id: true, grossSalary: true, teamId: true, managerId: true },
+      select: {
+        id: true,
+        grossSalary: true,
+        teamId: true,
+        managerId: true,
+        positionId: true,
+        position: { select: { id: true, title: true, isActive: true } },
+      },
     });
     if (!employee) throw new NotFoundException(`Employee ${dto.employeeId} not found`);
     if (!employee.grossSalary || employee.grossSalary.isZero()) {
       throw new BadRequestException('Employee compensation is required before requesting a promotion');
+    }
+    if (!employee.position) {
+      throw new BadRequestException('Employee must have a current position before requesting a promotion');
+    }
+
+    const newPosition = await this.prisma.position.findFirst({
+      where: { id: dto.newPositionId, isActive: true },
+      select: { id: true, title: true },
+    });
+    if (!newPosition) {
+      throw new BadRequestException('Selected promoted position does not exist or is inactive');
+    }
+    if (newPosition.id === employee.positionId) {
+      throw new BadRequestException('Promoted position must be different from the current position');
     }
 
     const currentGrossSalary = this.roundMoney(this.decimalToNumber(employee.grossSalary));
@@ -115,8 +136,8 @@ export class PromotionRequestsService {
       data: {
         employeeId: dto.employeeId,
         requestedById,
-        currentRole: dto.currentRole.trim(),
-        newRole: dto.newRole.trim(),
+        currentRole: employee.position.title,
+        newRole: newPosition.title,
         currentGrossSalary: new Decimal(currentGrossSalary),
         newGrossSalary: new Decimal(newGrossSalary),
         salaryDelta: new Decimal(salaryDelta),
@@ -425,6 +446,14 @@ export class PromotionRequestsService {
       }
 
       if (status === PromotionRequestStatus.APPROVED) {
+        const promotedPosition = await tx.position.findFirst({
+          where: { title: request.newRole, isActive: true },
+          select: { id: true },
+        });
+        if (!promotedPosition) {
+          throw new BadRequestException(`Promoted position ${request.newRole} is no longer active`);
+        }
+
         const previousGrossSalary = request.employee.grossSalary ?? request.currentGrossSalary;
         const previousNetSalary = request.employee.netSalary;
         const newNetSalary = previousNetSalary
@@ -465,6 +494,7 @@ export class PromotionRequestsService {
         await tx.employee.update({
           where: { id: request.employeeId },
           data: {
+            positionId: promotedPosition.id,
             grossSalary: request.newGrossSalary,
             netSalary: newNetSalary,
           },

@@ -108,9 +108,10 @@ export class PositionSkillsService {
         positionId,
         ...(levelFilter ? { minimumProficiency: { in: levelFilter } } : {}),
         ...(query.requirementLevel !== undefined ? { requirementLevel: query.requirementLevel } : {}),
+        ...(query.domain !== undefined ? { skill: { domain: query.domain } } : {}),
       },
       include: { skill: { select: SKILL_SELECT } },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ skill: { domain: 'asc' } }, { requirementLevel: 'asc' }, { skill: { name: 'asc' } }],
     });
 
     return results as PositionSkillWithSkill[];

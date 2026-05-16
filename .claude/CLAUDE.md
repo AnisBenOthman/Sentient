@@ -619,3 +619,25 @@ Use the same one-liner format as existing entries.
 - No `WORK_STATE.md` — git is the state; a separate file rots when sessions are killed or `/clear`'d.
 - No task attribution beyond `[x]` — git blame covers who did what.
 - No synchronization file — sequential execution means no collision risk.
+
+---
+
+## 17. Dashboard Design Philosophy — Power BI / Tableau Style
+
+The Sentient HRIS dashboard aims for **Power BI / Tableau-level interactivity**.
+
+**Time period selector (global):**
+- Three options: Monthly (12 months), Quarterly (8 quarters), Yearly (5 years)
+- All time-series charts respect the selection; snapshot charts (age bands, status breakdown, contract mix, radar) are unaffected
+- State lives in `Dashboard` as `granularity: TimeGranularity`; included in `queryKey`: `['dashboard-analytics', scopeParams, granularity]`
+- Backend: `DashboardAnalyticsQueryDto.granularity` routes to `buildMonthWindow(12)` / `buildQuarterWindow(8)` / `buildYearWindow(5)` in `AnalyticsService`
+
+**Per-chart type toggle:**
+- Each time-series `ChartCard` renders a `ChartTypeToggle` (bar / line / area icons)
+- Preference stored in `chartTypeMap: Record<string, ChartType>` in `Dashboard`; accessed via `ChartTypeState` object passed as `cts` prop to each tab
+- Implemented via `SwitchableChartCard` wrapper in `dashboard.tsx`
+- Chart primitives: `PointLineChart` (area), `PointLineOnlyChart` (line), `PointColumnChart` (bar — time on X axis), `SeriesLineChart`, `SeriesBarChart`
+
+**Period filter component:** `apps/web/src/components/dashboard-period-filter.tsx`
+
+**Guiding principle:** As the app grows, add KPI drill-downs, cross-tab filters, and export-to-CSV. Every new time-series chart should be a `SwitchableChartCard`.
