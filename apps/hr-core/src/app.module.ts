@@ -18,6 +18,7 @@ import { OrganizationModule } from './modules/organization/organization.module';
 import { PerformanceReviewsModule } from './modules/performance-reviews/performance-reviews.module';
 import { PromotionRequestsModule } from './modules/promotion-requests/promotion-requests.module';
 import { SkillsModule } from './modules/skills/skills.module';
+import { ThresholdIndicatorsModule } from './modules/threshold-indicators/threshold-indicators.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -47,6 +48,7 @@ import { PrismaModule } from './prisma/prisma.module';
     NotificationsModule,
     PerformanceReviewsModule,
     PromotionRequestsModule,
+    ThresholdIndicatorsModule,
   ],
   controllers: [AppController],
   providers: [

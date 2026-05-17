@@ -1200,3 +1200,60 @@ export async function dismissAllNotifications(
   });
   return data;
 }
+
+// ── Threshold Indicators ──────────────────────────────────────────────────
+
+export interface ThresholdIndicator {
+  id: string;
+  metricKey: string;
+  label: string;
+  warningThreshold: number | null;
+  criticalThreshold: number | null;
+  warningBelow: number | null;
+  criticalBelow: number | null;
+  isActive: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertThresholdIndicatorPayload {
+  metricKey: string;
+  label: string;
+  warningThreshold?: number | null;
+  criticalThreshold?: number | null;
+  warningBelow?: number | null;
+  criticalBelow?: number | null;
+}
+
+export interface UpdateThresholdIndicatorPayload {
+  label?: string;
+  warningThreshold?: number | null;
+  criticalThreshold?: number | null;
+  warningBelow?: number | null;
+  criticalBelow?: number | null;
+}
+
+export async function getThresholdIndicators(): Promise<ThresholdIndicator[]> {
+  const { data } = await hrClient.get<ThresholdIndicator[]>('/threshold-indicators');
+  return data;
+}
+
+export async function upsertThresholdIndicator(
+  payload: UpsertThresholdIndicatorPayload,
+): Promise<ThresholdIndicator> {
+  const { data } = await hrClient.post<ThresholdIndicator>('/threshold-indicators', payload);
+  return data;
+}
+
+export async function updateThresholdIndicator(
+  id: string,
+  payload: UpdateThresholdIndicatorPayload,
+): Promise<ThresholdIndicator> {
+  const { data } = await hrClient.patch<ThresholdIndicator>(`/threshold-indicators/${id}`, payload);
+  return data;
+}
+
+export async function deleteThresholdIndicator(id: string): Promise<void> {
+  await hrClient.delete(`/threshold-indicators/${id}`);
+}

@@ -46,3 +46,4 @@ export * from './user-status.enum';
 export * from './security-event-type.enum';
 export * from './role-code.enum';
 export * from './satisfaction-level.enum';
+export * from './dashboard-metric-key.enum';

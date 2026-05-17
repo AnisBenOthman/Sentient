@@ -1085,3 +1085,27 @@ model Notification {
   @@map("notifications")
   @@schema("hr_core")
 }
+
+// ============================================================
+// DOMAIN: Dashboard Threshold Indicators
+// WHY: Global per-metric alert thresholds configured by HR Admin.
+//      metricKey is unique — one config per metric at a time.
+// ============================================================
+
+model ThresholdIndicator {
+  id                String   @id @default(uuid())
+  metricKey         String   @unique
+  label             String
+  warningThreshold  Float?
+  criticalThreshold Float?
+  warningBelow      Float?
+  criticalBelow     Float?
+  isActive          Boolean  @default(true)
+  createdBy         String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@schema("hr_core")
+  @@map("threshold_indicators")
+  @@index([isActive])
+}

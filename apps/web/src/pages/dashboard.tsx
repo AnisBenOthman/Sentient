@@ -65,6 +65,7 @@ import {
   getPendingLeaveQueue,
   getPromotionRequestsDashboard,
   getTeams,
+  getThresholdIndicators,
   type ChartPoint,
   type DashboardAnalytics,
   type PromotionRequestsDashboard,
@@ -73,6 +74,7 @@ import {
 } from "@/lib/api/hr-core";
 import { cn } from "@/lib/utils";
 import {
+  AlertTriangle,
   BarChart as BarChartBaseIcon,
   BarChart2,
   BarChart3,
@@ -155,6 +157,23 @@ const CHART_COLORS = [
 
 const BRAND = "#6366f1";
 
+type CardStatus = "normal" | "warning" | "critical";
+
+interface ThresholdConfig {
+  warning?: number;
+  critical?: number;
+  warningBelow?: number;
+  criticalBelow?: number;
+}
+
+function computeCardStatus(value: number, cfg: ThresholdConfig): CardStatus {
+  if (cfg.critical !== undefined && value >= cfg.critical) return "critical";
+  if (cfg.warning  !== undefined && value >= cfg.warning)  return "warning";
+  if (cfg.criticalBelow !== undefined && value <= cfg.criticalBelow) return "critical";
+  if (cfg.warningBelow  !== undefined && value <= cfg.warningBelow)  return "warning";
+  return "normal";
+}
+
 const tooltipStyle = {
   borderRadius: "8px",
   border: "1px solid hsl(var(--border))",
@@ -163,38 +182,92 @@ const tooltipStyle = {
   fontSize: "12px",
 };
 
+const STATUS_COLOR: Record<CardStatus, string> = {
+  normal:   "",
+  warning:  "#d97706",
+  critical: "#dc2626",
+};
+
 function StatCard({
   title,
   value,
   sub,
   icon: Icon,
   color = "#6366f1",
+  status = "normal",
+  statusLabel,
 }: {
   title: string;
   value: number | string;
   sub: string;
   icon: React.ElementType;
   color?: string;
+  status?: CardStatus;
+  statusLabel?: string;
 }) {
+  const resolvedColor = status !== "normal" ? STATUS_COLOR[status] : color;
+  const isAlert = status !== "normal";
+
   return (
-    <div className="relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm hover:shadow-md transition-shadow">
-      <div className="absolute inset-y-0 left-0 w-1 rounded-l-xl" style={{ backgroundColor: color }} />
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm hover:shadow-md transition-all duration-300",
+        isAlert && status === "warning" && "border-amber-400/60 bg-amber-500/[0.04] dark:bg-amber-500/[0.06]",
+        isAlert && status === "critical" && "border-red-500/60 bg-red-500/[0.05] dark:bg-red-500/[0.07]",
+      )}
+    >
+      {/* Left accent bar */}
+      <div className="absolute inset-y-0 left-0 w-1 rounded-l-xl" style={{ backgroundColor: resolvedColor }} />
+
+      {/* Pulsing alert dot — top-right corner */}
+      {isAlert && (
+        <span className="absolute top-3 right-3 flex h-2.5 w-2.5">
+          <span
+            className={cn(
+              "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+              status === "critical" ? "bg-red-500" : "bg-amber-500",
+            )}
+          />
+          <span
+            className={cn(
+              "relative inline-flex rounded-full h-2.5 w-2.5",
+              status === "critical" ? "bg-red-500" : "bg-amber-500",
+            )}
+          />
+        </span>
+      )}
+
       <div className="pl-2.5">
         <div className="flex items-start justify-between gap-2 mb-3">
-          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-tight">
+          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-tight pr-5">
             {title}
           </p>
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-            style={{ backgroundColor: `${color}1a` }}
+            style={{ backgroundColor: `${resolvedColor}20` }}
           >
-            <Icon className="w-4 h-4" style={{ color }} />
+            <Icon className="w-4 h-4" style={{ color: resolvedColor }} />
           </div>
         </div>
         <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 leading-none mb-1">
           {value}
         </div>
         <p className="text-[11px] text-muted-foreground">{sub}</p>
+
+        {/* Status chip */}
+        {isAlert && statusLabel && (
+          <span
+            className={cn(
+              "mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+              status === "critical"
+                ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+            )}
+          >
+            <AlertTriangle className="w-2.5 h-2.5" />
+            {statusLabel}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -589,27 +662,67 @@ function OverviewTab({
   analytics,
   granularity,
   cts,
+  thresholdMap,
 }: {
   analytics: DashboardAnalytics | undefined;
   granularity: TimeGranularity;
   cts: ChartTypeState;
+  thresholdMap: Record<string, ThresholdConfig>;
 }) {
   if (!analytics) return <EmptyChart label="Loading analytics..." />;
   const trendSubtitle = granularitySubtitle(granularity);
+
+  const ovExitsStatus     = computeCardStatus(analytics.employees.terminal,            thresholdMap['EMPLOYEES_EXITS']             ?? {});
+  const ovAttritionStatus = computeCardStatus(analytics.employees.attritionRate ?? 0, thresholdMap['EMPLOYEES_ATTRITION_RATE']    ?? {});
+  const ovProbationStatus = computeCardStatus(analytics.employees.probation,          thresholdMap['EMPLOYEES_PROBATION']         ?? {});
+  const ovPendingStatus   = computeCardStatus(analytics.leave.pendingApprovals,       thresholdMap['LEAVE_PENDING_APPROVALS']     ?? {});
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <StatCard title="Total Employees" value={analytics.employees.total} sub="Visible in current scope" icon={Users} color="#2563eb" />
         <StatCard title="Active" value={analytics.employees.active} sub="Currently working" icon={UserCheck} color="#16a34a" />
         <StatCard title="On Leave" value={analytics.employees.onLeave} sub="Away from office" icon={Plane} color="#ea580c" />
-        <StatCard title="Probation" value={analytics.employees.probation} sub="Current probation cases" icon={Hourglass} color="#d97706" />
-        <StatCard title="Exits" value={analytics.employees.terminal} sub="Terminated or resigned" icon={UserX} color="#dc2626" />
+        <StatCard
+          title="Probation"
+          value={analytics.employees.probation}
+          sub="Current probation cases"
+          icon={Hourglass}
+          color="#d97706"
+          status={ovProbationStatus}
+          statusLabel={ovProbationStatus === "critical" ? "High caseload" : ovProbationStatus === "warning" ? "Review caseload" : undefined}
+        />
+        <StatCard
+          title="Exits"
+          value={analytics.employees.terminal}
+          sub="Terminated or resigned"
+          icon={UserX}
+          color="#dc2626"
+          status={ovExitsStatus}
+          statusLabel={ovExitsStatus === "critical" ? "Retention risk" : ovExitsStatus === "warning" ? "Monitor exits" : undefined}
+        />
         <StatCard title="New Hires" value={analytics.employees.newHiresOnProbation} sub="Hired in last 6 months" icon={UserPlus} color="#0d9488" />
         <StatCard title="Avg Age" value={formatMetric(analytics.employees.averageAge)} sub="Current workforce" icon={Cake} color="#db2777" />
         <StatCard title="Avg Tenure" value={formatMetric(analytics.employees.averageTenureYears, " yrs")} sub="Current workforce" icon={Briefcase} color="#4f46e5" />
         <StatCard title="Full-Time" value={formatRatio(analytics.employees.fullTimeRatio)} sub="Current workforce mix" icon={ShieldCheck} color="#0891b2" />
-        <StatCard title="Exit Rate" value={formatRatio(analytics.employees.attritionRate)} sub="Exits in visible people" icon={LineChartIcon} color="#475569" />
-        <StatCard title="Pending Approvals" value={analytics.leave.pendingApprovals} sub="Leave requests awaiting review" icon={Clock} color="#9333ea" />
+        <StatCard
+          title="Exit Rate"
+          value={formatRatio(analytics.employees.attritionRate)}
+          sub="Exits in visible people"
+          icon={LineChartIcon}
+          color="#475569"
+          status={ovAttritionStatus}
+          statusLabel={ovAttritionStatus === "critical" ? "Critical attrition" : ovAttritionStatus === "warning" ? "Elevated attrition" : undefined}
+        />
+        <StatCard
+          title="Pending Approvals"
+          value={analytics.leave.pendingApprovals}
+          sub="Leave requests awaiting review"
+          icon={Clock}
+          color="#9333ea"
+          status={ovPendingStatus}
+          statusLabel={ovPendingStatus === "critical" ? "Needs immediate review" : ovPendingStatus === "warning" ? "Growing backlog" : undefined}
+        />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <SwitchableChartCard
@@ -682,10 +795,12 @@ function EmployeesTab({
   scopeParams,
   granularity,
   cts,
+  thresholdMap,
 }: {
   analytics: DashboardAnalytics | undefined;
   scopeParams: ScopeParams;
   granularity: TimeGranularity;
+  thresholdMap: Record<string, ThresholdConfig>;
   cts: ChartTypeState;
 }) {
   const { data: result, isLoading } = useQuery({
@@ -704,18 +819,38 @@ function EmployeesTab({
   }, [employees]);
 
   const trendSubtitle = granularitySubtitle(granularity);
+
+  const empProbationStatus = computeCardStatus(analytics?.employees.probation ?? 0, thresholdMap['EMPLOYEES_PROBATION'] ?? {});
+  const empExitsStatus     = computeCardStatus(analytics?.employees.terminal  ?? 0, thresholdMap['EMPLOYEES_EXITS']     ?? {});
+
   return (
     <div className="space-y-6">
       <SectionHeader icon={Users} title="Employees" subtitle="Headcount and hiring movement from HR Core" color="bg-blue-100 text-blue-600 dark:bg-blue-900/30" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Total Employees" value={analytics?.employees.total ?? 0} sub="Visible in current scope" icon={Users} color="#2563eb" />
         <StatCard title="Active" value={analytics?.employees.active ?? 0} sub="Currently working" icon={UserCheck} color="#16a34a" />
-        <StatCard title="Probation" value={analytics?.employees.probation ?? 0} sub="Early-tenure monitoring" icon={Hourglass} color="#d97706" />
+        <StatCard
+          title="Probation"
+          value={analytics?.employees.probation ?? 0}
+          sub="Early-tenure monitoring"
+          icon={Hourglass}
+          color="#d97706"
+          status={empProbationStatus}
+          statusLabel={empProbationStatus === "critical" ? "High caseload" : empProbationStatus === "warning" ? "Review caseload" : undefined}
+        />
         <StatCard title="New Hires (Probation)" value={analytics?.employees.newHiresOnProbation ?? 0} sub="Hired in last 6 months" icon={UserPlus} color="#0d9488" />
         <StatCard title="Avg Age" value={formatMetric(analytics?.employees.averageAge ?? null)} sub="Current workforce" icon={Cake} color="#db2777" />
         <StatCard title="Avg Tenure" value={formatMetric(analytics?.employees.averageTenureYears ?? null, " yrs")} sub="Current workforce" icon={Briefcase} color="#4f46e5" />
         <StatCard title="Full-Time Ratio" value={formatRatio(analytics?.employees.fullTimeRatio ?? null)} sub="Current workforce" icon={ShieldCheck} color="#0891b2" />
-        <StatCard title="Exits" value={analytics?.employees.terminal ?? 0} sub="Terminated or resigned" icon={UserX} color="#dc2626" />
+        <StatCard
+          title="Exits"
+          value={analytics?.employees.terminal ?? 0}
+          sub="Terminated or resigned"
+          icon={UserX}
+          color="#dc2626"
+          status={empExitsStatus}
+          statusLabel={empExitsStatus === "critical" ? "Retention risk" : empExitsStatus === "warning" ? "Monitor exits" : undefined}
+        />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <SwitchableChartCard
@@ -889,10 +1024,12 @@ function LeaveQueueTab({
   analytics,
   granularity,
   cts,
+  thresholdMap,
 }: {
   analytics: DashboardAnalytics | undefined;
   granularity: TimeGranularity;
   cts: ChartTypeState;
+  thresholdMap: Record<string, ThresholdConfig>;
 }) {
   const queryClient = useQueryClient();
   const { data: queue = [], isLoading } = useQuery({
@@ -911,11 +1048,22 @@ function LeaveQueueTab({
   });
 
   const trendSubtitle = granularitySubtitle(granularity);
+
+  const lvPendingStatus = computeCardStatus(analytics?.leave.pendingApprovals ?? 0, thresholdMap['LEAVE_PENDING_APPROVALS'] ?? {});
+
   return (
     <div className="space-y-6">
       <SectionHeader icon={CalendarCheck} title="Leave" subtitle="Approval workload and leave demand from HR Core" color="bg-orange-100 text-orange-600 dark:bg-orange-900/30" />
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard title="Pending Approvals" value={analytics?.leave.pendingApprovals ?? 0} sub="Visible in current scope" icon={Clock} color="#9333ea" />
+        <StatCard
+          title="Pending Approvals"
+          value={analytics?.leave.pendingApprovals ?? 0}
+          sub="Visible in current scope"
+          icon={Clock}
+          color="#9333ea"
+          status={lvPendingStatus}
+          statusLabel={lvPendingStatus === "critical" ? "Needs immediate review" : lvPendingStatus === "warning" ? "Growing backlog" : undefined}
+        />
         <StatCard title="Leave Days" value={(analytics?.leave.daysByDepartment ?? []).reduce((sum, item) => sum + item.value, 0)} sub="Requested days in chart window" icon={Plane} color="#ea580c" />
         <StatCard title="Leave Types" value={seriesKeys(analytics?.leave.requestsByTypeOverTime ?? []).length} sub="Represented in trend" icon={CalendarCheck} color="#2563eb" />
       </div>
@@ -1089,12 +1237,14 @@ function PromotionsTab({
   year,
   onYearChange,
   canReview,
+  thresholdMap,
 }: {
   dashboard: PromotionRequestsDashboard | undefined;
   isLoading: boolean;
   year: number;
   onYearChange: (year: number) => void;
   canReview: boolean;
+  thresholdMap: Record<string, ThresholdConfig>;
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -1163,12 +1313,25 @@ function PromotionsTab({
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Total Requests" value={dashboard?.totalRequests ?? 0} sub={`Submitted in ${year}`} icon={Trophy} color="#d97706" />
-        <StatCard title="Avg Salary Lift" value={formatMoney(dashboard?.averageSalaryLift ?? 0)} sub="Average proposed increase" icon={LineChartIcon} color="#2563eb" />
-        <StatCard title="Total Budget Impact" value={formatMoney(dashboard?.totalBudgetImpact ?? 0)} sub="Combined proposed lift" icon={Wallet} color="#059669" />
-        <StatCard title="Pending Requests" value={dashboard?.pendingRequests ?? 0} sub="Awaiting review" icon={Clock} color="#7c3aed" />
-      </div>
+      {(() => {
+        const promoPendingStatus = computeCardStatus(dashboard?.pendingRequests ?? 0, thresholdMap['PROMOTIONS_PENDING_REQUESTS'] ?? {});
+        return (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <StatCard title="Total Requests" value={dashboard?.totalRequests ?? 0} sub={`Submitted in ${year}`} icon={Trophy} color="#d97706" />
+            <StatCard title="Avg Salary Lift" value={formatMoney(dashboard?.averageSalaryLift ?? 0)} sub="Average proposed increase" icon={LineChartIcon} color="#2563eb" />
+            <StatCard title="Total Budget Impact" value={formatMoney(dashboard?.totalBudgetImpact ?? 0)} sub="Combined proposed lift" icon={Wallet} color="#059669" />
+            <StatCard
+              title="Pending Requests"
+              value={dashboard?.pendingRequests ?? 0}
+              sub="Awaiting review"
+              icon={Clock}
+              color="#7c3aed"
+              status={promoPendingStatus}
+              statusLabel={promoPendingStatus === "critical" ? "Needs immediate review" : promoPendingStatus === "warning" ? "Review queue building" : undefined}
+            />
+          </div>
+        );
+      })()}
 
       {canReview && pendingReviewRequests.length > 0 && (
         <Card>
@@ -1459,6 +1622,25 @@ export default function Dashboard() {
     enabled: Boolean(user),
   });
 
+  const { data: thresholdIndicators = [] } = useQuery({
+    queryKey: ["threshold-indicators"],
+    queryFn: getThresholdIndicators,
+    staleTime: 60_000,
+    enabled: Boolean(user),
+  });
+
+  const thresholdMap = useMemo<Record<string, ThresholdConfig>>(
+    () => Object.fromEntries(
+      thresholdIndicators.map((t) => [t.metricKey, {
+        warning:       t.warningThreshold  ?? undefined,
+        critical:      t.criticalThreshold ?? undefined,
+        warningBelow:  t.warningBelow      ?? undefined,
+        criticalBelow: t.criticalBelow     ?? undefined,
+      }])
+    ),
+    [thresholdIndicators],
+  );
+
   const visibleTabs = TABS.filter((item) => item.value !== "leave" || isManager);
 
   function handleScopeChange(nextSelection: DashboardScopeSelection): void {
@@ -1529,9 +1711,9 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {tab === "overview" && <OverviewTab analytics={analytics} granularity={granularity} cts={cts} />}
-      {tab === "employees" && <EmployeesTab analytics={analytics} scopeParams={scopeParams} granularity={granularity} cts={cts} />}
-      {tab === "leave" && isManager && <LeaveQueueTab analytics={analytics} granularity={granularity} cts={cts} />}
+      {tab === "overview" && <OverviewTab analytics={analytics} granularity={granularity} cts={cts} thresholdMap={thresholdMap} />}
+      {tab === "employees" && <EmployeesTab analytics={analytics} scopeParams={scopeParams} granularity={granularity} cts={cts} thresholdMap={thresholdMap} />}
+      {tab === "leave" && isManager && <LeaveQueueTab analytics={analytics} granularity={granularity} cts={cts} thresholdMap={thresholdMap} />}
       {tab === "skills" && <SkillsTab analytics={analytics} granularity={granularity} cts={cts} />}
       {tab === "pay" && <PayTab analytics={analytics} granularity={granularity} cts={cts} />}
       {tab === "promotions" && (
@@ -1541,6 +1723,7 @@ export default function Dashboard() {
           year={promotionYear}
           onYearChange={setPromotionYear}
           canReview={canReviewPromotions}
+          thresholdMap={thresholdMap}
         />
       )}
       {tab === "engagement" && <EngagementTab analytics={analytics} />}
