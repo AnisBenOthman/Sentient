@@ -1,6 +1,8 @@
-import { Decimal } from '@prisma/client/runtime/library';
+import { Prisma } from '../../../generated/prisma';
 
 import { KeyResultMetricType } from '@sentient/shared';
+
+type Decimal = Prisma.Decimal;
 
 export function computeScore(
   metricType: KeyResultMetricType,
@@ -8,9 +10,14 @@ export function computeScore(
   targetValue: Decimal,
 ): Decimal {
   if (metricType === KeyResultMetricType.BOOLEAN) {
-    return currentValue.greaterThanOrEqualTo(1) ? new Decimal(1) : new Decimal(0);
+    return currentValue.greaterThanOrEqualTo(1)
+      ? new Prisma.Decimal(1)
+      : new Prisma.Decimal(0);
   }
-  if (targetValue.lessThanOrEqualTo(0)) return new Decimal(0);
+  if (targetValue.lessThanOrEqualTo(0)) return new Prisma.Decimal(0);
   const raw = currentValue.dividedBy(targetValue);
-  return Decimal.max(new Decimal(0), Decimal.min(new Decimal(1), raw));
+  return Prisma.Decimal.max(
+    new Prisma.Decimal(0),
+    Prisma.Decimal.min(new Prisma.Decimal(1), raw),
+  );
 }

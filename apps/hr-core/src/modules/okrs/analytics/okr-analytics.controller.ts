@@ -16,7 +16,7 @@ import {
   EmployeeOkrPortfolioDto,
 } from './okr-analytics.service';
 
-@Controller('hr/okr-analytics')
+@Controller('okr-analytics')
 @UseGuards(SharedJwtGuard, RbacGuard)
 @ApiTags('OKR Analytics')
 export class OkrAnalyticsController {

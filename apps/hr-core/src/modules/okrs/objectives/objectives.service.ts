@@ -55,7 +55,34 @@ export class ObjectivesService {
   ) {}
 
   async create(dto: CreateObjectiveDto, user: JwtPayload): Promise<ObjectiveResponseDto> {
-    if (!canCreateObjective(user, dto.level, dto.departmentId, dto.ownerId)) {
+    let resolvedOwnerId = dto.ownerId ?? null;
+    let resolvedOwnerDepartmentId: string | null = null;
+
+    if (dto.level === ObjectiveLevel.EMPLOYEE) {
+      const requestedOwnerId = dto.ownerId ?? user.employeeId;
+      if (!requestedOwnerId) throw new BadRequestException('LevelMismatch');
+
+      const employee = await this.prisma.employee.findFirst({
+        where: {
+          deletedAt: null,
+          OR: [{ id: requestedOwnerId }, { user: { id: requestedOwnerId } }],
+        },
+        select: { departmentId: true, user: { select: { id: true } } },
+      });
+
+      if (!employee?.user?.id) throw new BadRequestException('LevelMismatch');
+      resolvedOwnerId = employee.user.id;
+      resolvedOwnerDepartmentId = employee.departmentId;
+    }
+
+    const requestedDepartmentId =
+      dto.level === ObjectiveLevel.DEPARTMENT && user.roles.includes('MANAGER')
+        ? user.departmentId
+        : dto.level === ObjectiveLevel.EMPLOYEE
+          ? resolvedOwnerDepartmentId
+          : dto.departmentId ?? null;
+
+    if (!canCreateObjective(user, dto.level, requestedDepartmentId, resolvedOwnerId)) {
       throw new ForbiddenException('Insufficient permissions to create this Objective');
     }
 
@@ -79,34 +106,22 @@ export class ObjectivesService {
       if (parent.level !== expectedParentLevel) throw new BadRequestException('ParentWrongLevel');
 
       if (dto.level === ObjectiveLevel.DEPARTMENT) {
-        if (!dto.departmentId) throw new BadRequestException('LevelMismatch');
+        if (!requestedDepartmentId) throw new BadRequestException('LevelMismatch');
       }
 
       if (dto.level === ObjectiveLevel.EMPLOYEE) {
-        if (!dto.ownerId) throw new BadRequestException('LevelMismatch');
+        if (!resolvedOwnerId) throw new BadRequestException('LevelMismatch');
 
-        let employeeDeptId: string | null = null;
-        const employee = await this.prisma.employee.findUnique({
-          where: { id: dto.ownerId },
-          select: { departmentId: true },
-        });
-        employeeDeptId = employee?.departmentId ?? null;
-
-        if (parent.departmentId && employeeDeptId && parent.departmentId !== employeeDeptId) {
+        if (parent.departmentId && resolvedOwnerDepartmentId && parent.departmentId !== resolvedOwnerDepartmentId) {
           throw new BadRequestException('CrossDepartmentAlignment');
         }
       }
     }
 
     const createdDepartmentId =
-      dto.level === ObjectiveLevel.EMPLOYEE && dto.ownerId
-        ? (
-            await this.prisma.employee.findUnique({
-              where: { id: dto.ownerId },
-              select: { departmentId: true },
-            })
-          )?.departmentId ?? dto.departmentId ?? null
-        : dto.departmentId ?? null;
+      dto.level === ObjectiveLevel.EMPLOYEE
+        ? resolvedOwnerDepartmentId ?? requestedDepartmentId
+        : requestedDepartmentId;
 
     const objective = await this.prisma.objective.create({
       data: {
@@ -115,14 +130,14 @@ export class ObjectivesService {
         level: dto.level as unknown as PrismaObjectiveLevel,
         cycleId: dto.cycleId,
         parentObjectiveId: dto.parentObjectiveId ?? null,
-        ownerId: dto.ownerId ?? null,
+        ownerId: resolvedOwnerId,
         departmentId: createdDepartmentId,
         createdById: user.sub,
         status: PrismaObjectiveStatus.DRAFT,
       },
     });
 
-    if (dto.level === ObjectiveLevel.EMPLOYEE && dto.ownerId) {
+    if (dto.level === ObjectiveLevel.EMPLOYEE && resolvedOwnerId) {
       await this.eventBus.emit<Record<string, unknown>>({
         id: randomUUID(),
         type: 'okr.objective_created',

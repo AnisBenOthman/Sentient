@@ -41,6 +41,7 @@ const ALL_MAIN_NAV = [
   { title: "Performance Reviews", href: "/performance-reviews", icon: ClipboardCheck,  tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "My OKRs",             href: "/my-okrs",             icon: Target,          tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "OKR Dashboard",       href: "/okr-dashboard",       icon: BarChart2,       tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
+  { title: "OKR Management",      href: "/okr-cycle-management", icon: Target,          tiers: ["dept_manager", "team_lead"] as RoleTier[] },
   { title: "Simulation",          href: "/simulation",          icon: Sparkles,        tiers: ["hr_admin", "dept_manager", "team_lead"]              as RoleTier[] },
 ];
 

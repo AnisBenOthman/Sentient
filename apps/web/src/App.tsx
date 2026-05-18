@@ -176,9 +176,11 @@ function AppRoutes() {
       </Route>
       <Route path="/okr-cycle-management">
         <ProtectedRoute>
-          <Layout>
-            <OkrCycleManagement />
-          </Layout>
+          <RoleGatedRoute allowed={["hr_admin", "dept_manager", "team_lead"]}>
+            <Layout>
+              <OkrCycleManagement />
+            </Layout>
+          </RoleGatedRoute>
         </ProtectedRoute>
       </Route>
       <Route path="/my-okrs">

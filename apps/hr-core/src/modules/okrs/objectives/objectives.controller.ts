@@ -27,7 +27,7 @@ import {
   ObjectiveDetailResult,
 } from './objectives.service';
 
-@Controller('hr/objectives')
+@Controller('objectives')
 @UseGuards(SharedJwtGuard, RbacGuard)
 @ApiTags('Objectives')
 export class ObjectivesController {

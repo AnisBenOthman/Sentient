@@ -20,7 +20,7 @@ import { UpdateKeyResultDto } from '../dto/key-results/update-key-result.dto';
 import { KeyResultResponseDto } from '../dto/response/key-result-response.dto';
 import { KeyResultsService, KeyResultListResult } from './key-results.service';
 
-@Controller('hr/key-results')
+@Controller('key-results')
 @UseGuards(SharedJwtGuard, RbacGuard)
 @ApiTags('Key Results')
 export class KeyResultsController {

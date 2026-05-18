@@ -4,15 +4,16 @@ import { JwtPayload } from '@sentient/shared';
 import { canApproveCheckIn, canCreateObjective, canEditObjective } from './okr-rbac.util';
 
 function makeUser(overrides: Partial<JwtPayload> & { roles: string[] }): JwtPayload {
+  const { roles, ...rest } = overrides;
   return {
     sub: 'user-1',
     employeeId: 'emp-1',
-    roles: overrides.roles,
-    departmentId: overrides.departmentId ?? 'dept-1',
+    roles,
+    departmentId: rest.departmentId ?? 'dept-1',
     teamId: null,
     businessUnitId: 'bu-1',
     channel: ChannelType.WEB,
-    roleAssignments: overrides.roles.map((r) => ({
+    roleAssignments: roles.map((r) => ({
       roleCode: r,
       scope: PermissionScope.GLOBAL,
       scopeEntityId: null,
@@ -20,7 +21,7 @@ function makeUser(overrides: Partial<JwtPayload> & { roles: string[] }): JwtPayl
     sessionId: 'sess-1',
     iat: 0,
     exp: 9999999999,
-    ...overrides,
+    ...rest,
   };
 }
 

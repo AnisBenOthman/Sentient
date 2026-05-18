@@ -46,8 +46,8 @@ export class OkrCyclesService {
       throw new BadRequestException('InvalidQuarter');
     }
 
-    const start = new Date(dto.startDate);
-    const end = new Date(dto.endDate);
+    const start = this.parseDateOnly(dto.startDate);
+    const end = this.parseDateOnly(dto.endDate);
     if (end <= start) {
       throw new BadRequestException('EndBeforeStart');
     }
@@ -70,8 +70,8 @@ export class OkrCyclesService {
         type: dto.type as unknown as PrismaOkrCycleType,
         year: dto.year,
         quarter: dto.quarter ?? null,
-        startDate: dto.startDate,
-        endDate: dto.endDate,
+        startDate: start,
+        endDate: end,
         parentCycleId: dto.parentCycleId ?? null,
         createdById: user.sub,
         status: PrismaOkrCycleStatus.DRAFT,
@@ -237,6 +237,14 @@ export class OkrCyclesService {
     dto.createdAt = cycle.createdAt.toISOString();
     dto.updatedAt = cycle.updatedAt.toISOString();
     return dto;
+  }
+
+  private parseDateOnly(value: string): Date {
+    const parsed = new Date(value.includes('T') ? value : `${value}T00:00:00.000Z`);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException('InvalidDate');
+    }
+    return parsed;
   }
 
   private encodeCursor(cycle: OkrCycle): string {

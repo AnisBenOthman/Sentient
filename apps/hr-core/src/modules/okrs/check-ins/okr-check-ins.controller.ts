@@ -20,7 +20,7 @@ import { SubmitCheckInDto } from '../dto/check-ins/submit-check-in.dto';
 import { OkrCheckInResponseDto } from '../dto/response/okr-check-in-response.dto';
 import { OkrCheckInsService, CheckInListResult } from './okr-check-ins.service';
 
-@Controller('hr/okr-check-ins')
+@Controller('okr-check-ins')
 @UseGuards(SharedJwtGuard, RbacGuard)
 @ApiTags('OKR Check-ins')
 export class OkrCheckInsController {

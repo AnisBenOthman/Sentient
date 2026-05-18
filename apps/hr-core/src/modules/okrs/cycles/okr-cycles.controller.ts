@@ -21,7 +21,7 @@ import { OkrCycleQueryDto } from '../dto/cycles/okr-cycle-query.dto';
 import { OkrCycleResponseDto } from '../dto/response/okr-cycle-response.dto';
 import { OkrCyclesService, OkrCycleListResult } from './okr-cycles.service';
 
-@Controller('hr/okr-cycles')
+@Controller('okr-cycles')
 @UseGuards(SharedJwtGuard, RbacGuard)
 @ApiTags('OKR Cycles')
 export class OkrCyclesController {
