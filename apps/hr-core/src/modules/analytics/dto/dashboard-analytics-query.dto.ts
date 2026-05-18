@@ -16,4 +16,8 @@ export class DashboardAnalyticsQueryDto {
   @IsOptional()
   @IsUUID()
   teamId?: string;
+
+  @IsOptional()
+  @IsIn(['MONTHLY', 'QUARTERLY', 'YEARLY'])
+  granularity?: 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
 }

@@ -94,6 +94,23 @@ export interface PaginatedEmployees {
   limit: number;
 }
 
+type ApiEmployeeProfile = Omit<EmployeeProfile, "grossSalary" | "netSalary"> & {
+  grossSalary: number | string | null;
+  netSalary: number | string | null;
+};
+
+type ApiPaginatedEmployees = Omit<PaginatedEmployees, "data"> & {
+  data: ApiEmployeeProfile[];
+};
+
+function normalizeEmployeeProfile(employee: ApiEmployeeProfile): EmployeeProfile {
+  return {
+    ...employee,
+    grossSalary: toNullableNumber(employee.grossSalary),
+    netSalary: toNullableNumber(employee.netSalary),
+  };
+}
+
 export async function getEmployees(params?: {
   page?: number;
   limit?: number;
@@ -103,16 +120,20 @@ export async function getEmployees(params?: {
   businessUnitId?: string;
   departmentId?: string;
   teamId?: string;
+  includeCompensation?: boolean;
 }): Promise<PaginatedEmployees> {
   const { status, ...rest } = params ?? {};
   const queryParams = status ? { ...rest, employmentStatus: status } : rest;
-  const { data } = await hrClient.get<PaginatedEmployees>('/employees', { params: queryParams });
-  return data;
+  const { data } = await hrClient.get<ApiPaginatedEmployees>('/employees', { params: queryParams });
+  return {
+    ...data,
+    data: data.data.map(normalizeEmployeeProfile),
+  };
 }
 
 export async function getEmployee(id: string): Promise<EmployeeProfile> {
-  const { data } = await hrClient.get<EmployeeProfile>(`/employees/${id}`);
-  return data;
+  const { data } = await hrClient.get<ApiEmployeeProfile>(`/employees/${id}`);
+  return normalizeEmployeeProfile(data);
 }
 
 export type UpdateEmployeeDto = Partial<{
@@ -139,8 +160,8 @@ export async function updateEmployee(
   id: string,
   dto: UpdateEmployeeDto,
 ): Promise<EmployeeProfile> {
-  const { data } = await hrClient.patch<EmployeeProfile>(`/employees/${id}`, dto);
-  return data;
+  const { data } = await hrClient.patch<ApiEmployeeProfile>(`/employees/${id}`, dto);
+  return normalizeEmployeeProfile(data);
 }
 
 export interface CreateEmployeeDto {
@@ -159,8 +180,8 @@ export interface CreateEmployeeDto {
 }
 
 export async function createEmployee(dto: CreateEmployeeDto): Promise<EmployeeProfile> {
-  const { data } = await hrClient.post<EmployeeProfile>('/employees', dto);
-  return data;
+  const { data } = await hrClient.post<ApiEmployeeProfile>('/employees', dto);
+  return normalizeEmployeeProfile(data);
 }
 
 export interface Department {
@@ -473,10 +494,19 @@ export interface LeaveType {
   accrualFrequency: string;
   maxCarryoverDays: number;
   color: string | null;
+  isActive: boolean;
 }
 
-export async function getLeaveTypes(): Promise<LeaveType[]> {
-  const { data } = await hrClient.get<LeaveType[]>('/leave-types');
+export async function getLeaveTypes(params?: {
+  businessUnitId?: string;
+  includeInactive?: boolean;
+}): Promise<LeaveType[]> {
+  const { data } = await hrClient.get<LeaveType[]>('/leave-types', { params });
+  return data;
+}
+
+export async function reactivateLeaveType(id: string): Promise<LeaveType> {
+  const { data } = await hrClient.post<LeaveType>(`/leave-types/${id}/reactivate`);
   return data;
 }
 
@@ -505,6 +535,10 @@ export async function updateLeaveType(
 ): Promise<LeaveType> {
   const { data } = await hrClient.patch<LeaveType>(`/leave-types/${id}`, dto);
   return data;
+}
+
+export async function deleteLeaveType(id: string): Promise<void> {
+  await hrClient.delete(`/leave-types/${id}`);
 }
 
 // ── Holidays ──────────────────────────────────────────────────────────────
@@ -596,6 +630,7 @@ export interface PositionSkillPayload {
 export interface PositionSkillQuery {
   minProficiency?: ProficiencyLevel;
   requirementLevel?: SkillRequirementLevel;
+  domain?: SkillDomain;
 }
 
 export async function getPositionSkills(
@@ -720,6 +755,8 @@ export async function getSkillHistory(employeeId: string): Promise<SkillHistoryE
 
 // ── Dashboard Analytics ─────────────────────────────────────────────────────
 
+export type TimeGranularity = 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
+
 export interface ChartPoint {
   label: string;
   value: number;
@@ -794,6 +831,7 @@ export async function getDashboardAnalytics(params?: {
   businessUnitId?: string;
   departmentId?: string;
   teamId?: string;
+  granularity?: TimeGranularity;
 }): Promise<DashboardAnalytics> {
   const { data } = await hrClient.get<DashboardAnalytics>('/analytics/dashboard', { params });
   return data;
@@ -825,11 +863,8 @@ export interface PromotionRequest {
 
 export interface CreatePromotionRequestPayload {
   employeeId: string;
-  currentRole: string;
-  newRole: string;
-  currentGrossSalary: number;
+  newPositionId: string;
   newGrossSalary: number;
-  currentTeamBudget: number;
   responsibilities: string[];
 }
 
@@ -850,6 +885,7 @@ export async function createPromotionRequest(
 
 export async function getPromotionRequests(params?: {
   year?: number;
+  employeeId?: string;
   businessUnitId?: string;
   departmentId?: string;
   teamId?: string;
@@ -932,10 +968,10 @@ export async function getOrgChart(): Promise<OrgDepartment[]> {
 // ── Team Members ──────────────────────────────────────────────────────────
 
 export async function getTeamMembers(teamId: string): Promise<EmployeeProfile[]> {
-  const { data } = await hrClient.get<PaginatedEmployees>('/employees', {
+  const { data } = await hrClient.get<ApiPaginatedEmployees>('/employees', {
     params: { teamId, limit: 50 },
   });
-  return data.data;
+  return data.data.map(normalizeEmployeeProfile);
 }
 
 // Performance Reviews
@@ -1154,4 +1190,13 @@ export async function markAllAsRead(
 
 export async function dismissNotification(id: string): Promise<void> {
   await hrClient.delete(`/notifications/${id}`);
+}
+
+export async function dismissAllNotifications(
+  category?: NotificationCategory,
+): Promise<{ updatedCount: number }> {
+  const { data } = await hrClient.delete<{ updatedCount: number }>('/notifications/dismiss-all', {
+    params: category ? { category } : undefined,
+  });
+  return data;
 }

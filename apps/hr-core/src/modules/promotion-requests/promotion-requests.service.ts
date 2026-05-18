@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { DomainEvent, EVENT_BUS, IEventBus, JwtPayload, PermissionScope } from '@sentient/shared';
-import { Prisma, PromotionRequestStatus, SalaryChangeReason } from '../../generated/prisma';
+import { EmploymentStatus, Prisma, PromotionRequestStatus, SalaryChangeReason } from '../../generated/prisma';
 import { Decimal } from '../../generated/prisma/runtime/library';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePromotionRequestDto } from './dto/create-promotion-request.dto';
@@ -84,13 +84,40 @@ export class PromotionRequestsService {
           this.buildUserScopeFilter(user),
         ],
       },
-      select: { id: true },
+      select: {
+        id: true,
+        grossSalary: true,
+        teamId: true,
+        managerId: true,
+        positionId: true,
+        position: { select: { id: true, title: true, isActive: true } },
+      },
     });
     if (!employee) throw new NotFoundException(`Employee ${dto.employeeId} not found`);
+    if (!employee.grossSalary || employee.grossSalary.isZero()) {
+      throw new BadRequestException('Employee compensation is required before requesting a promotion');
+    }
+    if (!employee.position) {
+      throw new BadRequestException('Employee must have a current position before requesting a promotion');
+    }
 
-    const currentGrossSalary = this.roundMoney(dto.currentGrossSalary);
+    const newPosition = await this.prisma.position.findFirst({
+      where: { id: dto.newPositionId, isActive: true },
+      select: { id: true, title: true },
+    });
+    if (!newPosition) {
+      throw new BadRequestException('Selected promoted position does not exist or is inactive');
+    }
+    if (newPosition.id === employee.positionId) {
+      throw new BadRequestException('Promoted position must be different from the current position');
+    }
+
+    const currentGrossSalary = this.roundMoney(this.decimalToNumber(employee.grossSalary));
     const newGrossSalary = this.roundMoney(dto.newGrossSalary);
-    const currentTeamBudget = this.roundMoney(dto.currentTeamBudget);
+    if (newGrossSalary <= currentGrossSalary) {
+      throw new BadRequestException('Proposed salary must be greater than the current salary');
+    }
+    const currentTeamBudget = await this.getCurrentTeamBudget(employee.teamId, employee.managerId);
     const salaryDelta = this.roundMoney(newGrossSalary - currentGrossSalary);
     const newTeamBudget = this.roundMoney(currentTeamBudget + salaryDelta);
     const salaryDeltaPercentage =
@@ -109,8 +136,8 @@ export class PromotionRequestsService {
       data: {
         employeeId: dto.employeeId,
         requestedById,
-        currentRole: dto.currentRole.trim(),
-        newRole: dto.newRole.trim(),
+        currentRole: employee.position.title,
+        newRole: newPosition.title,
         currentGrossSalary: new Decimal(currentGrossSalary),
         newGrossSalary: new Decimal(newGrossSalary),
         salaryDelta: new Decimal(salaryDelta),
@@ -252,6 +279,7 @@ export class PromotionRequestsService {
       { deletedAt: null },
     ];
 
+    if (query.employeeId) filters.push({ id: query.employeeId });
     if (query.businessUnitId) {
       filters.push({
         OR: [
@@ -274,7 +302,13 @@ export class PromotionRequestsService {
           assignment.roleCode,
         ),
     );
-    if (hasGlobalVisibility || user.roles.includes('HR_ADMIN') || user.roles.includes('EXECUTIVE')) {
+    if (
+      hasGlobalVisibility ||
+      user.roles.includes('HR_ADMIN') ||
+      user.roles.includes('GLOBAL_HR_ADMIN') ||
+      user.roles.includes('EXECUTIVE') ||
+      user.roles.includes('SYSTEM_ADMIN')
+    ) {
       return {};
     }
 
@@ -288,18 +322,40 @@ export class PromotionRequestsService {
     const teamAssignment = user.roleAssignments.find(
       (assignment) => assignment.scope === PermissionScope.TEAM,
     );
-    const teamId = teamAssignment?.scopeEntityId ?? user.teamId;
-    if (teamId) return { teamId };
+    if (teamAssignment?.scopeEntityId) return { teamId: teamAssignment.scopeEntityId };
 
     const businessUnitAssignment = user.roleAssignments.find(
       (assignment) => assignment.scope === PermissionScope.BUSINESS_UNIT,
     );
-    const businessUnitId = businessUnitAssignment?.scopeEntityId ?? user.businessUnitId;
+    const businessUnitId = businessUnitAssignment?.scopeEntityId ?? null;
     if (businessUnitId) {
       return {
         OR: [
           { department: { businessUnitId } },
           { team: { businessUnitId } },
+        ],
+      };
+    }
+
+    if (user.roles.includes('MANAGER')) {
+      const managerScopes: Prisma.EmployeeWhereInput[] = [];
+      if (user.employeeId) {
+        managerScopes.push(
+          { department: { is: { headId: user.employeeId } } },
+          { team: { is: { leadId: user.employeeId } } },
+        );
+      }
+      if (user.teamId) managerScopes.push({ teamId: user.teamId });
+      if (managerScopes.length > 0) return { OR: managerScopes };
+    }
+
+    if (user.teamId) return { teamId: user.teamId };
+
+    if (user.businessUnitId) {
+      return {
+        OR: [
+          { department: { businessUnitId: user.businessUnitId } },
+          { team: { businessUnitId: user.businessUnitId } },
         ],
       };
     }
@@ -340,6 +396,27 @@ export class PromotionRequestsService {
       : [];
   }
 
+  private async getCurrentTeamBudget(
+    teamId: string | null,
+    managerId: string | null,
+  ): Promise<number> {
+    const scope: Prisma.EmployeeWhereInput =
+      teamId
+        ? { teamId }
+        : managerId
+          ? { managerId }
+          : {};
+    const result = await this.prisma.employee.aggregate({
+      where: {
+        ...scope,
+        deletedAt: null,
+        employmentStatus: { notIn: [EmploymentStatus.TERMINATED, EmploymentStatus.RESIGNED] },
+      },
+      _sum: { grossSalary: true },
+    });
+    return this.roundMoney(this.decimalToNumber(result._sum.grossSalary ?? 0));
+  }
+
   private requireEmployeeId(user: JwtPayload): string {
     if (!user.employeeId) throw new ForbiddenException('No employee record linked to this account');
     return user.employeeId;
@@ -369,6 +446,14 @@ export class PromotionRequestsService {
       }
 
       if (status === PromotionRequestStatus.APPROVED) {
+        const promotedPosition = await tx.position.findFirst({
+          where: { title: request.newRole, isActive: true },
+          select: { id: true },
+        });
+        if (!promotedPosition) {
+          throw new BadRequestException(`Promoted position ${request.newRole} is no longer active`);
+        }
+
         const previousGrossSalary = request.employee.grossSalary ?? request.currentGrossSalary;
         const previousNetSalary = request.employee.netSalary;
         const newNetSalary = previousNetSalary
@@ -409,6 +494,7 @@ export class PromotionRequestsService {
         await tx.employee.update({
           where: { id: request.employeeId },
           data: {
+            positionId: promotedPosition.id,
             grossSalary: request.newGrossSalary,
             netSalary: newNetSalary,
           },

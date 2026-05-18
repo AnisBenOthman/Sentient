@@ -141,15 +141,16 @@ export class EmployeesController {
   }
 
   @Get(':id/salary-history')
-  @Roles('HR_ADMIN', 'EXECUTIVE')
+  @Roles('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'EXECUTIVE')
   @ApiOperation({ summary: 'Get salary history for an employee (ordered by effectiveDate desc)' })
   @ApiResponse({ status: 200, description: 'Array of salary history entries' })
-  @ApiResponse({ status: 403, description: 'Forbidden — HR_ADMIN or EXECUTIVE required' })
+  @ApiResponse({ status: 403, description: 'Forbidden - HR/exec or own employee profile required' })
   @ApiResponse({ status: 404, description: 'Employee not found' })
   async getSalaryHistory(
     @Param('id', ParseUUIDPipe) id: string,
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
+    @CurrentUser() user: JwtPayload,
   ): Promise<SalaryHistory[]> {
-    return this.employeesService.getSalaryHistory(id, limit);
+    return this.employeesService.getSalaryHistory(id, limit, user);
   }
 }

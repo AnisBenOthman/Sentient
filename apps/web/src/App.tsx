@@ -50,6 +50,13 @@ function EmployeeProfileRoute() {
   return <EmployeeProfile key={params.id} />;
 }
 
+function SelfEmployeeProfileRoute() {
+  const payload = authStore.getPayload();
+  if (!payload) return <Redirect to="/signin" />;
+  if (!payload.employeeId) return <Redirect to="/home" />;
+  return <EmployeeProfile key={payload.employeeId} employeeId={payload.employeeId} />;
+}
+
 function AppRoutes() {
   return (
     <Switch>
@@ -90,6 +97,13 @@ function AppRoutes() {
               <EmployeeProfileRoute />
             </Layout>
           </RoleGatedRoute>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/profile">
+        <ProtectedRoute>
+          <Layout>
+            <SelfEmployeeProfileRoute />
+          </Layout>
         </ProtectedRoute>
       </Route>
       <Route path="/leaves">

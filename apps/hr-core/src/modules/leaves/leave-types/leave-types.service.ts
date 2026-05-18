@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { LeaveStatus } from '@sentient/shared';
 import { LeaveType, Prisma } from '../../../generated/prisma';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateLeaveTypeDto } from '../dto/create-leave-type.dto';
@@ -11,6 +12,7 @@ import { UpdateLeaveTypeDto } from '../dto/update-leave-type.dto';
 
 export interface LeaveTypeQueryDto {
   businessUnitId?: string;
+  includeInactive?: boolean | string;
 }
 
 @Injectable()
@@ -18,9 +20,13 @@ export class LeaveTypesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(filter: LeaveTypeQueryDto): Promise<LeaveType[]> {
+    const showInactive = filter.includeInactive === true || filter.includeInactive === 'true';
     return this.prisma.leaveType.findMany({
-      where: filter.businessUnitId ? { businessUnitId: filter.businessUnitId } : {},
-      orderBy: { name: 'asc' },
+      where: {
+        ...(showInactive ? {} : { isActive: true }),
+        ...(filter.businessUnitId ? { businessUnitId: filter.businessUnitId } : {}),
+      },
+      orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
     });
   }
 
@@ -89,5 +95,32 @@ export class LeaveTypesService {
       }
       throw e;
     }
+  }
+
+  async deactivate(id: string): Promise<LeaveType> {
+    await this.findOne(id);
+
+    // Block if any leave request for this type is still pending approval.
+    const pendingCount = await this.prisma.leaveRequest.count({
+      where: { leaveTypeId: id, status: LeaveStatus.PENDING },
+    });
+    if (pendingCount > 0) {
+      throw new BadRequestException(
+        'LeaveTypeHasPendingRequests',
+      );
+    }
+
+    return this.prisma.leaveType.update({
+      where: { id },
+      data: { isActive: false },
+    });
+  }
+
+  async reactivate(id: string): Promise<LeaveType> {
+    await this.findOne(id);
+    return this.prisma.leaveType.update({
+      where: { id },
+      data: { isActive: true },
+    });
   }
 }

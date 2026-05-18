@@ -34,7 +34,7 @@ export class PromotionRequestsController {
   }
 
   @Get()
-  @Roles('MANAGER', 'HR_ADMIN', 'EXECUTIVE')
+  @Roles('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'EXECUTIVE')
   @ApiOperation({ summary: 'List scoped promotion requests' })
   @ApiResponse({ status: 200, description: 'Promotion requests visible to the current user' })
   async findAll(
@@ -45,7 +45,7 @@ export class PromotionRequestsController {
   }
 
   @Get('dashboard')
-  @Roles('MANAGER', 'HR_ADMIN', 'EXECUTIVE')
+  @Roles('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'EXECUTIVE')
   @ApiOperation({ summary: 'Get promotion request dashboard metrics' })
   @ApiResponse({ status: 200, description: 'Promotion request aggregate metrics and detail rows' })
   async dashboard(

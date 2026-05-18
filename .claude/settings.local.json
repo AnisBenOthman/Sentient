@@ -110,7 +110,13 @@
       "Bash(Get-ChildItem -Recurse -Directory -Name)",
       "Bash(Select-Object -First 30)",
       "Bash(New-Item -Path \"C:\\\\Users\\\\Anis\\\\Downloads\\\\Sentient\\\\apps\\\\hr-core\\\\prisma\\\\migrations\\\\20260510000000_add_skill_domain\" -ItemType Directory -Force)",
-      "Bash(Out-Null)"
+      "Bash(Out-Null)",
+      "Skill(update-config)",
+      "Bash(mkdir -p \"C:\\\\Users\\\\Anis\\\\Downloads\\\\Sentient\\\\.claude\\\\skills\\\\frontend-design\")",
+      "Bash(mkdir -p \"C:\\\\Users\\\\Anis\\\\Downloads\\\\Sentient\\\\.claude\\\\skills\\\\frontend-code-review\")",
+      "Skill(react-vite-best-practices)",
+      "Bash(Get-ChildItem -Path C:\\\\Users\\\\Anis\\\\Downloads\\\\Sentient\\\\apps -Directory)",
+      "Bash(Select-Object Name)"
     ]
   }
 }

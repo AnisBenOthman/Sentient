@@ -524,7 +524,8 @@ export default function PerformanceReviews() {
               </Select>
             </Field>
             <Field label="Manager Comments">
-              <Textarea rows={4} value={managerForm.managerComments} onChange={(event) => setManagerForm((current) => ({ ...current, managerComments: event.target.value }))} />
+              <Textarea rows={4} maxLength={4000} value={managerForm.managerComments} onChange={(event) => setManagerForm((current) => ({ ...current, managerComments: event.target.value }))} />
+              <p className="text-xs text-muted-foreground text-right">{managerForm.managerComments.length} / 4000</p>
             </Field>
           </div>
           <DialogFooter>
@@ -620,12 +621,12 @@ function ReviewScaleForm({
 }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <SatisfactionSelect label="Environment" value={form.environmentSatisfaction} onChange={(value) => setForm((current) => ({ ...current, environmentSatisfaction: value }))} />
-      <SatisfactionSelect label="Job" value={form.jobSatisfaction} onChange={(value) => setForm((current) => ({ ...current, jobSatisfaction: value }))} />
-      <SatisfactionSelect label="Relationships" value={form.relationshipSatisfaction} onChange={(value) => setForm((current) => ({ ...current, relationshipSatisfaction: value }))} />
+      <SatisfactionSelect label="Work Environment Satisfaction" value={form.environmentSatisfaction} onChange={(value) => setForm((current) => ({ ...current, environmentSatisfaction: value }))} />
+      <SatisfactionSelect label="Job Satisfaction" value={form.jobSatisfaction} onChange={(value) => setForm((current) => ({ ...current, jobSatisfaction: value }))} />
+      <SatisfactionSelect label="Team Relationship Satisfaction" value={form.relationshipSatisfaction} onChange={(value) => setForm((current) => ({ ...current, relationshipSatisfaction: value }))} />
       <SatisfactionSelect label="Work-Life Balance" value={form.workLifeBalance} onChange={(value) => setForm((current) => ({ ...current, workLifeBalance: value }))} />
-      <Field label="Training Opportunities Taken">
-        <Input type="number" min={0} value={form.trainingOpportunitiesTaken} onChange={(event) => setForm((current) => ({ ...current, trainingOpportunitiesTaken: event.target.value }))} />
+      <Field label="Training Opportunities Taken (0 – 100)">
+        <Input type="number" min={0} max={100} value={form.trainingOpportunitiesTaken} onChange={(event) => setForm((current) => ({ ...current, trainingOpportunitiesTaken: event.target.value }))} />
       </Field>
       <Field label="Self Rating">
         <Select value={form.selfRating} onValueChange={(value) => setForm((current) => ({ ...current, selfRating: value as PerformanceRating }))}>
@@ -634,8 +635,9 @@ function ReviewScaleForm({
         </Select>
       </Field>
       <div className="sm:col-span-2">
-        <Field label="Comments">
-          <Textarea rows={4} value={form.employeeComments} onChange={(event) => setForm((current) => ({ ...current, employeeComments: event.target.value }))} />
+        <Field label="Employee Comments">
+          <Textarea rows={4} maxLength={4000} value={form.employeeComments} onChange={(event) => setForm((current) => ({ ...current, employeeComments: event.target.value }))} />
+          <p className="text-xs text-muted-foreground text-right">{form.employeeComments.length} / 4000</p>
         </Field>
       </div>
     </div>

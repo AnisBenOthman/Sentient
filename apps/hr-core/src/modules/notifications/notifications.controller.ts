@@ -12,7 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtPayload, RbacGuard, Roles, SharedJwtGuard } from '@sentient/shared';
+import { JwtPayload, NotificationCategory, RbacGuard, Roles, SharedJwtGuard } from '@sentient/shared';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { MarkAllReadDto } from './dto/mark-all-read.dto';
 import { NotificationQueryDto } from './dto/notification-query.dto';
@@ -63,6 +63,16 @@ export class NotificationsController {
     @CurrentUser() user: JwtPayload,
   ): Promise<NotificationResponseDto> {
     return this.notificationsService.markRead(id, user.sub);
+  }
+
+  @Delete('dismiss-all')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Dismiss all current-user notifications (optionally filtered by category)' })
+  async dismissAll(
+    @CurrentUser() user: JwtPayload,
+    @Query('category') category?: string,
+  ): Promise<UpdatedCountResult> {
+    return this.notificationsService.dismissAll(user.sub, category as NotificationCategory | undefined);
   }
 
   @Delete(':id')

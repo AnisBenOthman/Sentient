@@ -7,8 +7,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { markAllAsRead } from "@/lib/api/hr-core";
-import { invalidateNotifications } from "@/lib/notifications/notifications-store";
+import { dismissAllNotifications, markAllAsRead } from "@/lib/api/hr-core";
+import { dismissAllInCache, invalidateNotifications, markAllReadInCache } from "@/lib/notifications/notifications-store";
 import { NotificationRow } from "./notification-row";
 import { NotificationsFilterChips } from "./notifications-filter-chips";
 import { useNotifications } from "./notifications-provider";
@@ -26,6 +26,13 @@ export function NotificationsDrawer() {
 
   async function markAll(): Promise<void> {
     await markAllAsRead(activeCategory ?? undefined);
+    markAllReadInCache(queryClient, activeCategory);
+    await invalidateNotifications(queryClient);
+  }
+
+  async function clearAll(): Promise<void> {
+    await dismissAllNotifications(activeCategory ?? undefined);
+    dismissAllInCache(queryClient, activeCategory);
     await invalidateNotifications(queryClient);
   }
 
@@ -39,15 +46,27 @@ export function NotificationsDrawer() {
         <NotificationsFilterChips value={activeCategory} onChange={setActiveCategory} />
         <div className="flex items-center justify-between">
           <span className="text-xs text-gray-500">{notifications.length} items</span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => void markAll()}
-            disabled={notifications.length === 0}
-          >
-            Mark all as read
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => void markAll()}
+              disabled={!notifications.some((n) => n.status === "UNREAD")}
+            >
+              Mark all as read
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-red-500 hover:text-red-600 hover:bg-red-50"
+              onClick={() => void clearAll()}
+              disabled={notifications.length === 0}
+            >
+              Clear all
+            </Button>
+          </div>
         </div>
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
           {isLoading && <div className="py-8 text-center text-sm text-gray-500">Loading...</div>}

@@ -59,6 +59,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ChevronDown, ChevronRight, Search, Briefcase, Plus, Pencil, Trash2, ShieldAlert, Key, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { POSITION_DOMAINS, getPositionDomain, sortPositionsByLevelThenTitle } from "@/lib/position-domains";
 
 const POSITION_LEVELS = [
   { value: "JUNIOR", label: "Junior" },
@@ -128,6 +129,12 @@ const RISK_COLORS: Record<string, string> = {
 };
 
 // ── Required Skills Panel ──────────────────────────────────────────────────────
+const REQUIREMENT_RANK: Record<SkillRequirementLevel, number> = {
+  MANDATORY: 0,
+  EXPECTED: 1,
+  NICE_TO_HAVE: 2,
+};
+
 function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmin: boolean }) {
   const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
@@ -191,6 +198,20 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
     }
     return counts;
   }, [positionSkills]);
+  const groupedVisiblePositionSkills = useMemo(
+    () =>
+      SKILL_DOMAINS.map((domain) => ({
+        ...domain,
+        skills: visiblePositionSkills
+          .filter((ps) => ps.skill.domain === domain.value)
+          .sort((a, b) => {
+            const requirementDelta = REQUIREMENT_RANK[a.requirementLevel] - REQUIREMENT_RANK[b.requirementLevel];
+            if (requirementDelta !== 0) return requirementDelta;
+            return a.skill.name.localeCompare(b.skill.name);
+          }),
+      })).filter((group) => group.skills.length > 0),
+    [visiblePositionSkills],
+  );
 
   const addMutation = useMutation({
     mutationFn: () =>
@@ -227,7 +248,7 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
           )}
         </div>
         {isAdmin && (
-          <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => setAddOpen(true)}>
+          <Button size="sm" className="gap-1.5 h-7 text-xs bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white shadow-sm hover:shadow-md transition-all duration-200" onClick={() => setAddOpen(true)}>
             <Plus className="w-3 h-3" />
             Add Skill
           </Button>
@@ -295,38 +316,51 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
             <p className="rounded-md border border-dashed py-5 text-center text-xs text-muted-foreground">
               No skills match the selected filters.
             </p>
-          ) : visiblePositionSkills.map((ps) => (
-            <div
-              key={ps.id}
-              className="grid gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-800 sm:grid-cols-[1fr_auto_auto_auto_auto] sm:items-center"
-            >
-              <div className="flex-1 min-w-0">
-                <span className="block truncate text-sm font-medium">{ps.skill.name}</span>
-                <span className="text-xs text-muted-foreground">{ps.skill.category ?? "Uncategorized"}</span>
-              </div>
-              {ps.skill.domain && (
-                <span className={cn("w-fit rounded-full border px-2 py-0.5 text-[11px] font-medium", DOMAIN_COLORS[ps.skill.domain])}>
-                  {DOMAIN_LABELS[ps.skill.domain] ?? ps.skill.domain}
-                </span>
-              )}
-              <span className={cn("w-fit rounded-md border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide", REQUIREMENT_COLORS[ps.requirementLevel])}>
-                Requirement: {REQUIREMENT_LEVELS.find((r) => r.value === ps.requirementLevel)?.label ?? ps.requirementLevel}
-              </span>
-              <span className="w-fit rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                Proficiency: {PROFICIENCY_LEVELS.find((p) => p.value === ps.minimumProficiency)?.label ?? ps.minimumProficiency}
-              </span>
-              {isAdmin && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex-shrink-0"
-                  onClick={() => setDeleteTarget(ps)}
-                >
-                  <Trash2 className="w-3 h-3" />
-                </Button>
-              )}
+          ) : (
+            <div className="space-y-3">
+              {groupedVisiblePositionSkills.map((group) => (
+                <section key={group.value} className="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/40">
+                    <div className="flex items-center gap-2">
+                      <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold", DOMAIN_COLORS[group.value])}>
+                        {group.label}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{group.skills.length} skills</span>
+                    </div>
+                  </div>
+                  <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {group.skills.map((ps) => (
+                      <div
+                        key={ps.id}
+                        className="grid gap-2 px-3 py-2 sm:grid-cols-[1fr_auto_auto_auto] sm:items-center"
+                      >
+                        <div className="min-w-0">
+                          <span className="block truncate text-sm font-medium">{ps.skill.name}</span>
+                          <span className="text-xs text-muted-foreground">{ps.skill.category ?? "Uncategorized"}</span>
+                        </div>
+                        <span className={cn("w-fit rounded-md border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide", REQUIREMENT_COLORS[ps.requirementLevel])}>
+                          {REQUIREMENT_LEVELS.find((r) => r.value === ps.requirementLevel)?.label ?? ps.requirementLevel}
+                        </span>
+                        <span className="w-fit rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                          {PROFICIENCY_LEVELS.find((p) => p.value === ps.minimumProficiency)?.label ?? ps.minimumProficiency}
+                        </span>
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            onClick={() => setDeleteTarget(ps)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
 
@@ -632,6 +666,16 @@ export default function Positions() {
   const filtered = positions.filter((p) =>
     p.title.toLowerCase().includes(search.toLowerCase()),
   );
+  const groupedPositions = useMemo(
+    () =>
+      POSITION_DOMAINS.map((domain) => ({
+        ...domain,
+        positions: filtered
+          .filter((position) => getPositionDomain(position) === domain.value)
+          .sort(sortPositionsByLevelThenTitle),
+      })).filter((group) => group.positions.length > 0),
+    [filtered],
+  );
 
   const initForm = editTarget ? formFromPosition(editTarget) : emptyForm();
   const isSaving = createMutation.isPending || updateMutation.isPending;
@@ -675,7 +719,7 @@ export default function Positions() {
           </p>
         </div>
         {isAdmin && (
-          <Button onClick={openAdd} className="gap-2" data-testid="button-add-position">
+          <Button onClick={openAdd} className="gap-2 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white shadow-sm hover:shadow-md transition-all duration-200" data-testid="button-add-position">
             <Plus className="w-4 h-4" />
             Add Position
           </Button>
@@ -727,8 +771,21 @@ export default function Positions() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((pos) => (
+                {groupedPositions.flatMap((group) => group.positions.map((pos, index) => ({ group, pos, index }))).map(({ group, pos, index }) => (
                   <React.Fragment key={pos.id}>
+                    {index === 0 && (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell colSpan={isAdmin ? 4 : 3} className="bg-gray-50 px-4 py-3 dark:bg-gray-900/40">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{group.label}</div>
+                              <div className="text-xs text-muted-foreground">{group.description}</div>
+                            </div>
+                            <Badge variant="secondary" className="text-xs">{group.positions.length} positions</Badge>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
                     <TableRow
                       data-testid={`row-pos-${pos.id}`}
                       className="cursor-pointer hover:bg-muted/30"

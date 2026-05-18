@@ -29,9 +29,7 @@ const quickLinks = [
     description: "Analytics, headcount trends, and payroll overview",
     href: "/dashboard",
     icon: LayoutDashboard,
-    color: "bg-blue-50 dark:bg-blue-950/40 border-blue-100 dark:border-blue-900/60",
-    iconColor: "text-blue-600 dark:text-blue-400",
-    iconBg: "bg-blue-100 dark:bg-blue-900/50",
+    color: "#2563eb",
     tiers: ["hr_admin", "dept_manager", "team_lead"] as RoleTier[],
   },
   {
@@ -39,9 +37,7 @@ const quickLinks = [
     description: "Browse the employee directory and org context",
     href: "/employees",
     icon: Users,
-    color: "bg-violet-50 dark:bg-violet-950/40 border-violet-100 dark:border-violet-900/60",
-    iconColor: "text-violet-600 dark:text-violet-400",
-    iconBg: "bg-violet-100 dark:bg-violet-900/50",
+    color: "#7c3aed",
     tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[],
   },
   {
@@ -49,9 +45,7 @@ const quickLinks = [
     description: "Review and approve pending time-off requests",
     href: "/leaves",
     icon: CalendarDays,
-    color: "bg-amber-50 dark:bg-amber-950/40 border-amber-100 dark:border-amber-900/60",
-    iconColor: "text-amber-600 dark:text-amber-400",
-    iconBg: "bg-amber-100 dark:bg-amber-900/50",
+    color: "#d97706",
     tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[],
   },
   {
@@ -59,9 +53,7 @@ const quickLinks = [
     description: "Visual hierarchy by department, team, and people",
     href: "/org-chart",
     icon: GitFork,
-    color: "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-emerald-900/60",
-    iconColor: "text-emerald-600 dark:text-emerald-400",
-    iconBg: "bg-emerald-100 dark:bg-emerald-900/50",
+    color: "#059669",
     tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[],
   },
   {
@@ -69,9 +61,7 @@ const quickLinks = [
     description: "Submit and track performance review work",
     href: "/performance-reviews",
     icon: ClipboardList,
-    color: "bg-sky-50 dark:bg-sky-950/40 border-sky-100 dark:border-sky-900/60",
-    iconColor: "text-sky-600 dark:text-sky-400",
-    iconBg: "bg-sky-100 dark:bg-sky-900/50",
+    color: "#0ea5e9",
     tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[],
   },
   {
@@ -79,9 +69,7 @@ const quickLinks = [
     description: "Model promotion budget impact in your scope",
     href: "/simulation",
     icon: Sparkles,
-    color: "bg-fuchsia-50 dark:bg-fuchsia-950/40 border-fuchsia-100 dark:border-fuchsia-900/60",
-    iconColor: "text-fuchsia-600 dark:text-fuchsia-400",
-    iconBg: "bg-fuchsia-100 dark:bg-fuchsia-900/50",
+    color: "#c026d3",
     tiers: ["hr_admin", "dept_manager", "team_lead"] as RoleTier[],
   },
 ];
@@ -132,29 +120,25 @@ export default function Home() {
       label: "Total Employees",
       value: totalResult?.total ?? "—",
       icon: Users,
-      iconColor: "text-blue-500 dark:text-blue-400",
-      iconBg: "bg-blue-50 dark:bg-blue-950/40",
+      color: "#2563eb",
     },
     {
       label: "Active Today",
       value: activeResult?.total ?? "—",
       icon: UserCheck,
-      iconColor: "text-emerald-500 dark:text-emerald-400",
-      iconBg: "bg-emerald-50 dark:bg-emerald-950/40",
+      color: "#059669",
     },
     {
       label: "On Leave",
       value: onLeaveResult?.total ?? "—",
       icon: Briefcase,
-      iconColor: "text-amber-500 dark:text-amber-400",
-      iconBg: "bg-amber-50 dark:bg-amber-950/40",
+      color: "#d97706",
     },
     {
       label: "Pending Approvals",
       value: pendingLeaves?.length ?? "—",
       icon: ClipboardList,
-      iconColor: "text-violet-500 dark:text-violet-400",
-      iconBg: "bg-violet-50 dark:bg-violet-950/40",
+      color: "#7c3aed",
     },
   ];
 
@@ -189,12 +173,18 @@ export default function Home() {
         {stats.map((s) => (
           <div
             key={s.label}
-            className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 flex flex-col gap-3"
+            className="relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm hover:shadow-md transition-shadow"
           >
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${s.iconBg}`}>
-              <s.icon className={`w-4 h-4 ${s.iconColor}`} />
-            </div>
-            <div>
+            <div className="absolute inset-y-0 left-0 w-1 rounded-l-xl" style={{ backgroundColor: s.color }} />
+            <div className="pl-2.5">
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: `${s.color}1a` }}
+                >
+                  <s.icon className="w-4 h-4" style={{ color: s.color }} />
+                </div>
+              </div>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
                 {s.value}
               </p>
@@ -213,13 +203,15 @@ export default function Home() {
           {visibleQuickLinks.map((link) => (
             <Link key={link.href} href={link.href}>
               <div
-                className={`border rounded-xl p-4 flex items-start gap-3 hover:shadow-sm transition-all cursor-pointer group ${link.color}`}
+                className="relative overflow-hidden rounded-xl border bg-card p-4 flex items-start gap-3 shadow-sm hover:shadow-md transition-all cursor-pointer group"
                 data-testid={`home-link-${link.title.toLowerCase().replace(/\s+/g, "-")}`}
               >
+                <div className="absolute inset-y-0 left-0 w-1 rounded-l-xl" style={{ backgroundColor: link.color }} />
                 <div
-                  className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${link.iconBg}`}
+                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ml-2"
+                  style={{ backgroundColor: `${link.color}1a` }}
                 >
-                  <link.icon className={`w-4 h-4 ${link.iconColor}`} />
+                  <link.icon className="w-4 h-4" style={{ color: link.color }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 group-hover:underline underline-offset-2">
@@ -242,7 +234,7 @@ export default function Home() {
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wider">
             Recently Approved Leave
           </h2>
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl divide-y divide-gray-100 dark:divide-gray-800">
+          <div className="rounded-xl border bg-card shadow-sm divide-y divide-gray-100 dark:divide-gray-800">
             {recentlyApproved.map((req) => {
               const empName = req.employee
                 ? `${req.employee.firstName} ${req.employee.lastName}`

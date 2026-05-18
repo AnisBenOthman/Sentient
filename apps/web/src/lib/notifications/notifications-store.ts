@@ -1,5 +1,6 @@
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import type { NotificationCategory } from "@sentient/shared";
+import { NotificationStatus } from "@sentient/shared";
 import type { NotificationListResponse, NotificationResponse } from "@/lib/api/hr-core";
 
 export const notificationKeys = {
@@ -65,6 +66,64 @@ function findCachedNotification(
     if (cached) return cached;
   }
   return undefined;
+}
+
+export function dismissAllInCache(
+  queryClient: QueryClient,
+  category: NotificationCategory | null,
+): void {
+  const queries = queryClient.getQueryCache().findAll({ queryKey: notificationKeys.all });
+  for (const query of queries) {
+    const listCat = listCategory(query.queryKey);
+    if (listCat === undefined) continue;
+    queryClient.setQueryData<NotificationListResponse>(query.queryKey, (current) => {
+      if (!current) return current;
+      const items = current.items.filter(
+        (item) => category !== null && item.category !== category,
+      );
+      return {
+        ...current,
+        items,
+        unreadCount: items.filter((i) => i.status === "UNREAD").length,
+      };
+    });
+  }
+  if (category === null) {
+    queryClient.setQueryData<{ unreadCount: number }>(
+      notificationKeys.unreadCount,
+      () => ({ unreadCount: 0 }),
+    );
+  }
+}
+
+export function markAllReadInCache(
+  queryClient: QueryClient,
+  category: NotificationCategory | null,
+): void {
+  const queries = queryClient.getQueryCache().findAll({ queryKey: notificationKeys.all });
+  for (const query of queries) {
+    const listCat = listCategory(query.queryKey);
+    if (listCat === undefined) continue;
+    queryClient.setQueryData<NotificationListResponse>(query.queryKey, (current) => {
+      if (!current) return current;
+      const items = current.items.map((item) => {
+        if (item.status !== "UNREAD") return item;
+        if (category !== null && item.category !== category) return item;
+        return { ...item, status: NotificationStatus.READ, readAt: new Date().toISOString() };
+      });
+      return {
+        ...current,
+        items,
+        unreadCount: items.filter((i) => i.status === "UNREAD").length,
+      };
+    });
+  }
+  if (category === null) {
+    queryClient.setQueryData<{ unreadCount: number }>(
+      notificationKeys.unreadCount,
+      () => ({ unreadCount: 0 }),
+    );
+  }
 }
 
 export function mergeNotificationIntoCache(

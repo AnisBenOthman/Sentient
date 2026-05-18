@@ -254,7 +254,7 @@ export default function Employees() {
         {canManageEmployees && (
           <Button
             onClick={() => setWizardOpen(true)}
-            className="gap-2"
+            className="gap-2 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white shadow-sm hover:shadow-md transition-all duration-200"
             data-testid="button-add-employee"
           >
             <UserPlus className="w-4 h-4" />

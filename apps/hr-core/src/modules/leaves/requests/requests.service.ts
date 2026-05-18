@@ -66,6 +66,7 @@ export class RequestsService {
       where: { id: dto.leaveTypeId },
     });
     if (!leaveType) throw new NotFoundException(`LeaveType ${dto.leaveTypeId} not found`);
+    if (!leaveType.isActive) throw new BadRequestException('LeaveTypeInactive');
     if (leaveType.businessUnitId !== businessUnitId) {
       throw new BadRequestException('LeaveTypeOutOfScope');
     }

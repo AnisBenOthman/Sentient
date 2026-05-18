@@ -167,18 +167,19 @@ export class EmployeesService {
   async findById(id: string, user: JwtPayload): Promise<EmployeeProfile> {
     const scopeFilter = this.buildProfileAccessFilter(user);
     const where: Prisma.EmployeeWhereInput = { AND: [scopeFilter, { id, deletedAt: null }] };
-    const isPrivileged =
+    const canViewSensitive =
       user.roles.includes('HR_ADMIN') ||
       user.roles.includes('GLOBAL_HR_ADMIN') ||
-      user.roles.includes('EXECUTIVE');
+      user.roles.includes('EXECUTIVE') ||
+      user.employeeId === id;
 
     const employee = await this.prisma.employee.findFirst({
       where,
       include: {
         ...this.defaultInclude(),
-        // WHY: Spec requires complete profile for privileged roles,
-        // including salary history. Non-privileged roles get it stripped anyway.
-        ...(isPrivileged && {
+        // WHY: Profile detail can expose salary history to HR/exec users and
+        // to the employee viewing their own self-service profile.
+        ...(canViewSensitive && {
           salaryHistory: { orderBy: { effectiveDate: 'desc' as const } },
         }),
       },
@@ -196,7 +197,7 @@ export class EmployeesService {
       throw new NotFoundException(`Employee ${id} not found`);
     }
 
-    return this.stripSensitiveFields(employee as EmployeeProfile, user.roles);
+    return this.stripSensitiveFields(employee as EmployeeProfile, user.roles, canViewSensitive);
   }
 
   // ============================================================
@@ -296,6 +297,11 @@ export class EmployeesService {
 
   async findAll(query: EmployeeQueryDto, user: JwtPayload): Promise<PaginatedEmployees> {
     const filters: Prisma.EmployeeWhereInput[] = [{ deletedAt: null }];
+    const includeCompensation = query.includeCompensation === true;
+
+    if (includeCompensation) {
+      filters.push(this.buildCompensationAccessFilter(user));
+    }
 
     if (query.businessUnitId) {
       filters.push({
@@ -338,7 +344,9 @@ export class EmployeesService {
     ]);
 
     const data = (employees as EmployeeProfile[]).map((e) =>
-      this.stripSensitiveFields(e, user.roles),
+      includeCompensation
+        ? this.stripDirectoryFieldsForCompensationScope(e, user.roles)
+        : this.stripSensitiveFields(e, user.roles),
     );
 
     return { data, total, page, limit };
@@ -394,12 +402,20 @@ export class EmployeesService {
   // US6: Salary History
   // ============================================================
 
-  async getSalaryHistory(employeeId: string, limit: number): Promise<SalaryHistory[]> {
+  async getSalaryHistory(employeeId: string, limit: number, user: JwtPayload): Promise<SalaryHistory[]> {
     const exists = await this.prisma.employee.findUnique({
       where: { id: employeeId },
       select: { id: true, deletedAt: true },
     });
     if (!exists || exists.deletedAt) throw new NotFoundException(`Employee ${employeeId} not found`);
+
+    const isPrivileged =
+      user.roles.includes('HR_ADMIN') ||
+      user.roles.includes('GLOBAL_HR_ADMIN') ||
+      user.roles.includes('EXECUTIVE');
+    if (!isPrivileged && user.employeeId !== employeeId) {
+      throw new ForbiddenException('You do not have permission to view this salary history');
+    }
 
     return this.prisma.salaryHistory.findMany({
       where: { employeeId },
@@ -621,8 +637,41 @@ export class EmployeesService {
     throw new ForbiddenException('No employee profile linked to this account');
   }
 
-  private stripSensitiveFields(employee: EmployeeProfile, roles: string[]): EmployeeProfile {
+  private buildCompensationAccessFilter(user: JwtPayload): Prisma.EmployeeWhereInput {
     const isPrivileged =
+      user.roles.includes('HR_ADMIN') ||
+      user.roles.includes('GLOBAL_HR_ADMIN') ||
+      user.roles.includes('EXECUTIVE');
+    if (isPrivileged) return {};
+    if (!user.roles.includes('MANAGER')) {
+      throw new ForbiddenException('Compensation data is limited to HR and manager simulation scopes');
+    }
+    return this.buildProfileAccessFilter(user);
+  }
+
+  private stripDirectoryFieldsForCompensationScope(
+    employee: EmployeeProfile,
+    roles: string[],
+  ): EmployeeProfile {
+    const isPrivileged =
+      roles.includes('HR_ADMIN') ||
+      roles.includes('GLOBAL_HR_ADMIN') ||
+      roles.includes('EXECUTIVE');
+    return {
+      ...employee,
+      netSalary: isPrivileged ? employee.netSalary : null,
+      dateOfBirth: isPrivileged ? employee.dateOfBirth : null,
+      salaryHistory: undefined,
+    };
+  }
+
+  private stripSensitiveFields(
+    employee: EmployeeProfile,
+    roles: string[],
+    revealSensitive = false,
+  ): EmployeeProfile {
+    const isPrivileged =
+      revealSensitive ||
       roles.includes('HR_ADMIN') ||
       roles.includes('GLOBAL_HR_ADMIN') ||
       roles.includes('EXECUTIVE');
