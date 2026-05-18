@@ -79,6 +79,42 @@ export class NotificationRenderers {
         body: `This promotion request was ${asText(payload.decision).toLowerCase()} by ${asText(payload.decidedByName)}.`,
       }),
     ],
+    [
+      this.key(NotificationCategory.OKR, NotificationEventType.INFO),
+      (payload) => {
+        if (payload.approverName !== undefined) {
+          return {
+            title: `Your check-in on ${asText(payload.keyResultTitle)} was approved`,
+            body: `${asText(payload.approverName)} approved your check-in. New KR score: ${asText(payload.newScore)}.`,
+          };
+        }
+        return {
+          title: `OKR cycle "${asText(payload.cycleName)}" is active`,
+          body: `The ${asText(payload.type).toLowerCase()} cycle "${asText(payload.cycleName)}" runs ${asText(payload.startDate)} to ${asText(payload.endDate)}. Open your OKR workspace to align your goals.`,
+        };
+      },
+    ],
+    [
+      this.key(NotificationCategory.OKR, NotificationEventType.DECISION_PENDING),
+      (payload) => {
+        if (payload.submitterName !== undefined) {
+          return {
+            title: `Check-in awaiting review on ${asText(payload.keyResultTitle)}`,
+            body: `${asText(payload.submitterName)} submitted a check-in of ${asText(payload.value)} on "${asText(payload.keyResultTitle)}". Approve or reject in the OKR review queue.`,
+          };
+        }
+        if (payload.reviewerName !== undefined) {
+          return {
+            title: `Your check-in on ${asText(payload.keyResultTitle)} was rejected`,
+            body: `${asText(payload.reviewerName)} asked you to resubmit. Reason: ${truncate(asText(payload.reason, 'No reason provided'), 400)}`,
+          };
+        }
+        return {
+          title: `Cycle ${asText(payload.cycleName)} closes in 14 days — log your check-ins`,
+          body: `You have ${asNumber(payload.openCount)} Key Result(s) without an approved check-in in the last 14 days. Cycle ends on ${asText(payload.dueAt)}.`,
+        };
+      },
+    ],
   ]);
 
   render(

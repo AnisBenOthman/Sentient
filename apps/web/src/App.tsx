@@ -21,6 +21,9 @@ import Positions from "@/pages/positions";
 import LeaveManagement from "@/pages/leave-management";
 import Simulation from "@/pages/simulation";
 import PerformanceReviews from "@/pages/performance-reviews";
+import OkrDashboard from "@/pages/okr-dashboard";
+import OkrCycleManagement from "@/pages/okr-cycle-management";
+import MyOkrs from "@/pages/my-okrs";
 import NotFound from "@/pages/not-found";
 import { authStore, getRoleTier, type RoleTier } from "@/lib/auth";
 
@@ -161,6 +164,28 @@ function AppRoutes() {
               <LeaveManagement />
             </Layout>
           </RoleGatedRoute>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/okr-dashboard">
+        <ProtectedRoute>
+          <Layout>
+            <OkrDashboard />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/okr-cycle-management">
+        <ProtectedRoute>
+          <Layout>
+            <OkrCycleManagement />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/my-okrs">
+        <ProtectedRoute>
+          <Layout>
+            <MyOkrs />
+          </Layout>
         </ProtectedRoute>
       </Route>
 

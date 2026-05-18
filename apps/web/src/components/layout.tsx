@@ -16,6 +16,8 @@ import {
   ClipboardCheck,
   CalendarClock,
   UserRound,
+  Target,
+  BarChart2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -37,13 +39,16 @@ const ALL_MAIN_NAV = [
   { title: "Leaves",              href: "/leaves",              icon: CalendarDays,    tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "Org Chart",           href: "/org-chart",           icon: GitFork,         tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "Performance Reviews", href: "/performance-reviews", icon: ClipboardCheck,  tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
+  { title: "My OKRs",             href: "/my-okrs",             icon: Target,          tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
+  { title: "OKR Dashboard",       href: "/okr-dashboard",       icon: BarChart2,       tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "Simulation",          href: "/simulation",          icon: Sparkles,        tiers: ["hr_admin", "dept_manager", "team_lead"]              as RoleTier[] },
 ];
 
 const ALL_ADMIN_NAV = [
-  { title: "Positions",        href: "/positions",        icon: Briefcase,    tiers: ["hr_admin"] as RoleTier[] },
-  { title: "Leave Management", href: "/leave-management", icon: CalendarClock, tiers: ["hr_admin"] as RoleTier[] },
-  { title: "Settings",         href: "/settings",         icon: Settings,      tiers: ["hr_admin"] as RoleTier[] },
+  { title: "Positions",             href: "/positions",             icon: Briefcase,    tiers: ["hr_admin"] as RoleTier[] },
+  { title: "Leave Management",      href: "/leave-management",      icon: CalendarClock, tiers: ["hr_admin"] as RoleTier[] },
+  { title: "OKR Cycle Management",  href: "/okr-cycle-management",  icon: Target,        tiers: ["hr_admin"] as RoleTier[] },
+  { title: "Settings",              href: "/settings",              icon: Settings,      tiers: ["hr_admin"] as RoleTier[] },
 ];
 
 export function Layout({ children }: LayoutProps) {

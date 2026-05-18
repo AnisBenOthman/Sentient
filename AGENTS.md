@@ -47,6 +47,7 @@ See `.claude/rules/code-style.md` for full conventions. Key rules:
 - Every endpoint: `@UseGuards(SharedJwtGuard, RbacGuard)` + `@Roles(...)`. Except `/health`.
 
 ## Recent Changes
+- 011-okr-module: OKR module — 4 new entities + 7 enums in hr_core, 3-level cascading hierarchy (Company/Department/Employee), dual-track contribution (personal OKRs auto-approve + shared KR check-ins via Manager review), notifications integration via okr.rules.ts + new OKR enum values, 14-day reminder cron (OkrReminderScheduler), 3 React pages (okr-dashboard, okr-cycle-management, my-okrs), HR Core backend clean build
 - promotion-position-catalog-alignment: Promotion requests now require selecting an active Position by job-family in Simulation, removed custom promoted-role titles, and HR Core derives current/new role titles from canonical positions while applying the promoted position on approval.
 - positions-domain-sections: Reorganized the Positions page into seeded job-family sections (Engineering, Product & Design, HR, Finance, Sales) and grouped each position's required skills by actual SkillDomain, with backend position-skill domain filtering support.
 - employee-profile-gap-radar-port: Reworked the main React employee profile Skills tab to use a front-replit-style Skills & Proficiency gap radar, overlaying employee proficiency against role requirements and listing partial/missing gaps below the chart.

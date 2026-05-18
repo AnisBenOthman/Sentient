@@ -133,6 +133,7 @@ enum NotificationCategory {
   COMPLAINT
   ENGAGEMENT
   EXIT_SURVEY
+  OKR
   SYSTEM
 
   @@schema("hr_core")
@@ -308,6 +309,65 @@ enum PerformanceReviewAuditAction {
   @@schema("hr_core")
 }
 
+enum OkrCycleType {
+  ANNUAL
+  QUARTERLY
+
+  @@schema("hr_core")
+}
+
+enum OkrCycleStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+
+  @@schema("hr_core")
+}
+
+enum ObjectiveLevel {
+  COMPANY
+  DEPARTMENT
+  EMPLOYEE
+
+  @@schema("hr_core")
+}
+
+enum ObjectiveStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  CANCELLED
+
+  @@schema("hr_core")
+}
+
+enum KeyResultMetricType {
+  PERCENTAGE
+  NUMBER
+  CURRENCY
+  BOOLEAN
+
+  @@schema("hr_core")
+}
+
+enum KeyResultStatus {
+  ON_TRACK
+  AT_RISK
+  BEHIND
+  ACHIEVED
+  CANCELLED
+
+  @@schema("hr_core")
+}
+
+enum OkrCheckInStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@schema("hr_core")
+}
+
 // ============================================================
 // DOMAIN: Enum Metadata
 // WHY: Prisma enums are stored as strings — no native integer
@@ -364,6 +424,7 @@ model Department {
   businessUnit BusinessUnit @relation(fields: [businessUnitId], references: [id])
   teams        Team[]
   employees    Employee[]
+  objectives   Objective[] @relation("DepartmentObjectives")
 
   @@schema("hr_core")
   @@map("departments")
@@ -907,7 +968,17 @@ model User {
   passwordResetTokens PasswordResetToken[]
   inviteTokens        InviteToken[]
   securityEvents      SecurityEvent[]
-  notifications       Notification[]       @relation("UserNotifications")
+  notifications       Notification[]              @relation("UserNotifications")
+  ownedObjectives     Objective[]                 @relation("UserOwnedObjectives")
+  createdObjectives   Objective[]                 @relation("UserCreatedObjectives")
+  activatedObjectives Objective[]                 @relation("UserActivatedObjectives")
+  closedObjectives    Objective[]                 @relation("UserClosedObjectives")
+  cancelledObjectives Objective[]                 @relation("UserCancelledObjectives")
+  createdOkrCycles    OkrCycle[]                  @relation("UserCreatedOkrCycles")
+  activatedOkrCycles  OkrCycle[]                  @relation("UserActivatedOkrCycles")
+  closedOkrCycles     OkrCycle[]                  @relation("UserClosedOkrCycles")
+  reviewedOkrCheckIns OkrCheckIn[]                @relation("UserReviewedOkrCheckIns")
+  changedKeyResultStatuses KeyResultStatusHistory[] @relation("UserChangedKeyResultStatus")
 
   @@schema("hr_core")
   @@map("users")
@@ -1108,4 +1179,144 @@ model ThresholdIndicator {
   @@schema("hr_core")
   @@map("threshold_indicators")
   @@index([isActive])
+}
+
+// ============================================================
+// DOMAIN: OKR (Objectives & Key Results)
+// ============================================================
+
+model OkrCycle {
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String         @db.VarChar(64)
+  type          OkrCycleType
+  year          Int
+  quarter       Int?           @db.SmallInt
+  status        OkrCycleStatus @default(DRAFT)
+  startDate     DateTime       @map("start_date") @db.Date
+  endDate       DateTime       @map("end_date") @db.Date
+  parentCycleId String?        @map("parent_cycle_id") @db.Uuid
+  createdById   String         @map("created_by_id")
+  activatedAt   DateTime?      @map("activated_at") @db.Timestamptz(6)
+  activatedById String?        @map("activated_by_id")
+  closedAt      DateTime?      @map("closed_at") @db.Timestamptz(6)
+  closedById    String?        @map("closed_by_id")
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  parentCycle OkrCycle?   @relation("OkrCycleChildren", fields: [parentCycleId], references: [id], onDelete: SetNull)
+  childCycles OkrCycle[]  @relation("OkrCycleChildren")
+  objectives  Objective[]
+  createdBy   User        @relation("UserCreatedOkrCycles", fields: [createdById], references: [id])
+  activatedBy User?       @relation("UserActivatedOkrCycles", fields: [activatedById], references: [id], onDelete: SetNull)
+  closedBy    User?       @relation("UserClosedOkrCycles", fields: [closedById], references: [id], onDelete: SetNull)
+
+  @@unique([name], name: "uq_okr_cycle_name")
+  @@index([type, year, status], name: "idx_okr_cycle_type_year_status")
+  @@index([parentCycleId], name: "idx_okr_cycle_parent")
+  @@index([status, endDate], name: "idx_okr_cycle_status_end")
+  @@map("okr_cycles")
+  @@schema("hr_core")
+}
+
+model Objective {
+  id                String          @id @default(uuid()) @db.Uuid
+  title             String          @db.VarChar(200)
+  description       String?         @db.VarChar(2000)
+  level             ObjectiveLevel
+  cycleId           String          @map("cycle_id") @db.Uuid
+  parentObjectiveId String?         @map("parent_objective_id") @db.Uuid
+  ownerId           String?         @map("owner_id")
+  departmentId      String?         @map("department_id")
+  status            ObjectiveStatus @default(DRAFT)
+  createdById       String          @map("created_by_id")
+  activatedAt       DateTime?       @map("activated_at") @db.Timestamptz(6)
+  activatedById     String?         @map("activated_by_id")
+  closedAt          DateTime?       @map("closed_at") @db.Timestamptz(6)
+  closedById        String?         @map("closed_by_id")
+  cancelledAt       DateTime?       @map("cancelled_at") @db.Timestamptz(6)
+  cancelledById     String?         @map("cancelled_by_id")
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  cycle           OkrCycle    @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  parentObjective Objective?  @relation("ObjectiveAlignment", fields: [parentObjectiveId], references: [id], onDelete: SetNull)
+  childObjectives Objective[] @relation("ObjectiveAlignment")
+  department      Department? @relation("DepartmentObjectives", fields: [departmentId], references: [id], onDelete: SetNull)
+  owner           User?       @relation("UserOwnedObjectives", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdBy       User        @relation("UserCreatedObjectives", fields: [createdById], references: [id])
+  activatedBy     User?       @relation("UserActivatedObjectives", fields: [activatedById], references: [id], onDelete: SetNull)
+  closedBy        User?       @relation("UserClosedObjectives", fields: [closedById], references: [id], onDelete: SetNull)
+  cancelledBy     User?       @relation("UserCancelledObjectives", fields: [cancelledById], references: [id], onDelete: SetNull)
+  keyResults      KeyResult[]
+
+  @@index([cycleId, level, status], name: "idx_objective_cycle_level_status")
+  @@index([parentObjectiveId], name: "idx_objective_parent")
+  @@index([departmentId, level], name: "idx_objective_dept_level")
+  @@index([ownerId, level], name: "idx_objective_owner_level")
+  @@map("objectives")
+  @@schema("hr_core")
+}
+
+model KeyResult {
+  id           String              @id @default(uuid()) @db.Uuid
+  objectiveId  String              @map("objective_id") @db.Uuid
+  title        String              @db.VarChar(200)
+  metricType   KeyResultMetricType @map("metric_type")
+  targetValue  Decimal             @map("target_value") @db.Decimal(18, 4)
+  currentValue Decimal             @default(0) @map("current_value") @db.Decimal(18, 4)
+  unit         String              @db.VarChar(32)
+  score        Decimal             @default(0) @db.Decimal(3, 2)
+  assigneeIds  String[]            @map("assignee_ids") @db.Uuid
+  dueDate      DateTime?           @map("due_date") @db.Date
+  status       KeyResultStatus     @default(ON_TRACK)
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  objective     Objective                @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  checkIns      OkrCheckIn[]
+  statusHistory KeyResultStatusHistory[]
+
+  @@index([objectiveId, status], name: "idx_kr_objective_status")
+  @@map("key_results")
+  @@schema("hr_core")
+}
+
+model OkrCheckIn {
+  id              String           @id @default(uuid()) @db.Uuid
+  keyResultId     String           @map("key_result_id") @db.Uuid
+  employeeId      String           @map("employee_id")
+  value           Decimal          @db.Decimal(18, 4)
+  score           Decimal          @db.Decimal(3, 2)
+  comment         String?          @db.VarChar(2000)
+  status          OkrCheckInStatus @default(PENDING)
+  reviewedById    String?          @map("reviewed_by_id")
+  reviewedAt      DateTime?        @map("reviewed_at") @db.Timestamptz(6)
+  rejectionReason String?          @map("rejection_reason") @db.VarChar(2000)
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  keyResult  KeyResult @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+  reviewedBy User?     @relation("UserReviewedOkrCheckIns", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([keyResultId, createdAt(sort: Desc)], name: "idx_checkin_kr_created")
+  @@index([status, keyResultId], name: "idx_checkin_status_kr")
+  @@index([employeeId, createdAt(sort: Desc)], name: "idx_checkin_employee_created")
+  @@map("okr_check_ins")
+  @@schema("hr_core")
+}
+
+model KeyResultStatusHistory {
+  id          String           @id @default(uuid()) @db.Uuid
+  keyResultId String           @map("key_result_id") @db.Uuid
+  fromStatus  KeyResultStatus? @map("from_status")
+  toStatus    KeyResultStatus  @map("to_status")
+  changedById String?          @map("changed_by_id")
+  reason      String?          @db.VarChar(2000)
+  changedAt   DateTime         @default(now()) @map("changed_at") @db.Timestamptz(6)
+
+  keyResult KeyResult @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+  changedBy User?     @relation("UserChangedKeyResultStatus", fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([keyResultId, changedAt(sort: Desc)], name: "idx_kr_status_history_kr_changed")
+  @@map("key_result_status_history")
+  @@schema("hr_core")
 }

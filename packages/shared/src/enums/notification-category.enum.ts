@@ -8,5 +8,6 @@ export enum NotificationCategory {
   COMPLAINT = 'COMPLAINT',
   ENGAGEMENT = 'ENGAGEMENT',
   EXIT_SURVEY = 'EXIT_SURVEY',
+  OKR = 'OKR',
   SYSTEM = 'SYSTEM',
 }
