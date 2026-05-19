@@ -47,6 +47,7 @@ See `.claude/rules/code-style.md` for full conventions. Key rules:
 - Every endpoint: `@UseGuards(SharedJwtGuard, RbacGuard)` + `@Roles(...)`. Except `/health`.
 
 ## Recent Changes
+- org-chart-replit-behavior-port: Org Chart now uses the front-replit hierarchy behavior against live HR Core data, including CEO root support, skill search/highlights/tooltips, recent-joiner badges, department filters, and collapsed team branches that expand from lead-only views.
 - okr-cascade-tree-expand-collapse: OKR Cycle Management now renders the cascade as a friendlier expandable tree, with per-parent expand/reduce controls, global Expand all/Reduce all actions, child counts, and clearer Company/Department/Employee visual hierarchy.
 - okr-objectives-table-cascade-levels: The selected-cycle Objectives table now renders objectives in cascade order with indentation, explicit Company/Department/Employee badges, and parent alignment context instead of a flat level column.
 - okr-cascade-management-ui: OKR Management now shows an explicit Company → Department → Employee cascade for the selected cycle, including active company objectives from a quarterly cycle's annual parent; managers can start a department objective directly under a company objective and activate linked draft department objectives from the cascade.

@@ -591,6 +591,7 @@ async function seedFoundation(): Promise<FoundationMaps> {
 
   // -- Positions --
   const positionDefs = [
+    { title: "Chief Executive Officer",       level: PositionLevel.EXPERT,    isKey: true,  risk: KeyPositionRisk.HIGH   },
     { title: "Engineering Manager",           level: PositionLevel.SENIOR_2,  isKey: true,  risk: KeyPositionRisk.HIGH   },
     { title: "Technical Lead",                level: PositionLevel.SENIOR_2,  isKey: true,  risk: KeyPositionRisk.HIGH   },
     { title: "Software Engineer - Senior I",  level: PositionLevel.SENIOR_1,  isKey: false, risk: null },
@@ -805,6 +806,33 @@ interface BulkEmployee {
   buCode: string;
   isLead: boolean;
   globalIdx: number;
+}
+
+async function seedExecutiveEmployee(f: FoundationMaps): Promise<void> {
+  console.log("  -> Seeding CEO employee...");
+
+  await prisma.employee.create({
+    data: {
+      employeeCode: "EMP-0000",
+      firstName: "Amira",
+      lastName: "Benyahia",
+      email: "amira.benyahia@sentient.dev",
+      phone: "+1-202-555-0100",
+      dateOfBirth: new Date(1978, 4, 17),
+      hireDate: new Date(2018, 0, 8),
+      employmentStatus: EmploymentStatus.ACTIVE,
+      contractType: ContractType.FULL_TIME,
+      grossSalary: 185000,
+      netSalary: 126950,
+      maritalStatus: MaritalStatus.MARRIED,
+      educationLevel: EducationLevel.MASTER,
+      educationField: "Business Administration",
+      positionId: f.posMap.get("Chief Executive Officer") ?? null,
+      departmentId: null,
+      teamId: null,
+      managerId: null,
+    },
+  });
 }
 
 async function seedBulkEmployees(f: FoundationMaps): Promise<BulkEmployee[]> {
@@ -1390,7 +1418,7 @@ async function seedPerformanceReviews(
 // ============================================================
 
 async function main(): Promise<void> {
-  console.log("\n🌱 Sentient HR Core — Full Seed (200 employees, 3-year history)\n");
+  console.log("\n🌱 Sentient HR Core — Full Seed (201 employees, 3-year history)\n");
 
   console.log("Phase 0: Resetting database...");
   await resetDatabase();
@@ -1403,6 +1431,9 @@ async function main(): Promise<void> {
 
   console.log("Phase 2: Seeding position skills...");
   await seedPositionSkills(foundation.posMap, foundation.skillMap);
+
+  console.log("Phase 2b: Seeding executive root employee...");
+  await seedExecutiveEmployee(foundation);
 
   console.log("Phase 3: Seeding employees...");
   const employees = await seedBulkEmployees(foundation);

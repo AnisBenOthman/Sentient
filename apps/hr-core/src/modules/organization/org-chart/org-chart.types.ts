@@ -1,5 +1,8 @@
-import { OrgChartDepartment, OrgChartTeam } from "@sentient/shared";
+import {
+  OrgChartDepartment,
+  OrgChartEmployee,
+  OrgChartResponse,
+  OrgChartTeam,
+} from "@sentient/shared";
 
-export { OrgChartDepartment, OrgChartTeam };
-
-export type OrgChartResponse = OrgChartDepartment[];
+export { OrgChartDepartment, OrgChartEmployee, OrgChartResponse, OrgChartTeam };

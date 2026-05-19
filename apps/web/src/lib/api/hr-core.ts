@@ -931,7 +931,7 @@ export async function rejectPromotionRequest(
 export interface OrgTeam {
   id: string;
   name: string;
-  code: string;
+  code: string | null;
   departmentId: string;
   businessUnitId: string;
   leadId: string | null;
@@ -939,6 +939,12 @@ export interface OrgTeam {
   leadVacant: boolean;
   projectFocus: string | null;
   employeeCount: number;
+  members: OrgEmployee[];
+}
+
+export interface OrgEmployeeSkill {
+  skill: string;
+  proficiency: string;
 }
 
 export interface OrgEmployee {
@@ -946,7 +952,13 @@ export interface OrgEmployee {
   firstName: string;
   lastName: string;
   email: string;
+  hireDate: string;
+  employmentStatus: string;
+  departmentId: string | null;
+  teamId: string | null;
+  managerId: string | null;
   position: { id: string; title: string } | null;
+  skills: OrgEmployeeSkill[];
 }
 
 export interface OrgDepartment {
@@ -959,9 +971,13 @@ export interface OrgDepartment {
   teams: OrgTeam[];
 }
 
-// Backend returns OrgDepartment[] directly (not wrapped)
-export async function getOrgChart(): Promise<OrgDepartment[]> {
-  const { data } = await hrClient.get<OrgDepartment[]>('/org-chart');
+export interface OrgChartResponse {
+  root: OrgEmployee | null;
+  departments: OrgDepartment[];
+}
+
+export async function getOrgChart(): Promise<OrgChartResponse> {
+  const { data } = await hrClient.get<OrgChartResponse>('/org-chart');
   return data;
 }
 
