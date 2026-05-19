@@ -167,7 +167,7 @@ export class OkrCheckInsService {
     let where: Prisma.OkrCheckInWhereInput = { keyResultId };
 
     if (!user.roles.includes('HR_ADMIN')) {
-      if (user.roles.includes('MANAGER')) {
+      if (user.roles.includes('MANAGER') || user.roles.includes('TEAM_LEAD')) {
         where = {
           keyResultId,
           OR: [

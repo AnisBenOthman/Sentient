@@ -445,6 +445,16 @@ async function seedIam(): Promise<Map<string, string>> {
       ],
     },
     {
+      code: "TEAM_LEAD", name: "Team Lead", isSystem: true, isEditable: false,
+      permIds: [
+        ...permsFor("employee",           [PermissionAction.READ, PermissionAction.UPDATE],              PermissionScope.TEAM),
+        ...permsFor("leave_request",      [PermissionAction.READ, PermissionAction.APPROVE],             PermissionScope.TEAM),
+        ...permsFor("performance_review", [PermissionAction.CREATE, PermissionAction.READ, PermissionAction.UPDATE], PermissionScope.TEAM),
+        ...permsFor("leave_balance",      [PermissionAction.READ],                                       PermissionScope.TEAM),
+        ...permsFor("skill",              [PermissionAction.READ, PermissionAction.UPDATE],              PermissionScope.TEAM),
+      ],
+    },
+    {
       code: "EMPLOYEE", name: "Employee", isSystem: true, isEditable: false,
       permIds: [
         ...permsFor("employee",           [PermissionAction.READ, PermissionAction.UPDATE],              PermissionScope.OWN),
@@ -908,11 +918,40 @@ async function seedDemoUsers(employees: BulkEmployee[], roleMap: Map<string, str
   const teamLeadEmp = employees.find(e => e.buCode === "HQ" && e.teamCode === "ENG-FE"   && e.isLead)!;
   const empEmp      = employees.find(e => e.buCode === "HQ" && !e.isLead && e.employmentStatus === EmploymentStatus.ACTIVE)!;
 
-  const demos = [
-    { email: "hradmin@sentient.dev",  empId: hrAdminEmp?.id,  roles: ["HR_ADMIN", "EMPLOYEE"] },
-    { email: "manager@sentient.dev",  empId: managerEmp?.id,  roles: ["MANAGER",  "EMPLOYEE"] },
-    { email: "teamlead@sentient.dev", empId: teamLeadEmp?.id, roles: ["MANAGER",  "EMPLOYEE"] },
-    { email: "employee@sentient.dev", empId: empEmp?.id,      roles: ["EMPLOYEE"]             },
+  type RoleAssignment = { code: string; scope: PermissionScope; scopeEntityId?: string };
+
+  const demos: Array<{ email: string; empId: string | undefined; assignments: RoleAssignment[] }> = [
+    {
+      email: "hradmin@sentient.dev",
+      empId: hrAdminEmp?.id,
+      assignments: [
+        { code: "HR_ADMIN", scope: PermissionScope.GLOBAL },
+        { code: "EMPLOYEE", scope: PermissionScope.OWN },
+      ],
+    },
+    {
+      email: "manager@sentient.dev",
+      empId: managerEmp?.id,
+      assignments: [
+        { code: "MANAGER", scope: PermissionScope.DEPARTMENT, scopeEntityId: managerEmp?.departmentId },
+        { code: "EMPLOYEE", scope: PermissionScope.OWN },
+      ],
+    },
+    {
+      email: "teamlead@sentient.dev",
+      empId: teamLeadEmp?.id,
+      assignments: [
+        { code: "TEAM_LEAD", scope: PermissionScope.TEAM, scopeEntityId: teamLeadEmp?.teamId },
+        { code: "EMPLOYEE", scope: PermissionScope.OWN },
+      ],
+    },
+    {
+      email: "employee@sentient.dev",
+      empId: empEmp?.id,
+      assignments: [
+        { code: "EMPLOYEE", scope: PermissionScope.OWN },
+      ],
+    },
   ];
 
   const pwHash = await argon2.hash(DEMO_PASSWORD, { type: argon2.argon2id });
@@ -924,11 +963,16 @@ async function seedDemoUsers(employees: BulkEmployee[], roleMap: Map<string, str
       update: {},
       create: { email: d.email, passwordHash: pwHash, status: UserStatus.ACTIVE, employeeId: d.empId },
     });
-    for (const code of d.roles) {
-      const roleId = roleMap.get(code);
+    for (const assignment of d.assignments) {
+      const roleId = roleMap.get(assignment.code);
       if (!roleId) continue;
       await prisma.userRole.createMany({
-        data: [{ userId: user.id, roleId, scope: PermissionScope.GLOBAL }],
+        data: [{
+          userId: user.id,
+          roleId,
+          scope: assignment.scope,
+          scopeEntityId: assignment.scopeEntityId ?? null,
+        }],
         skipDuplicates: true,
       });
     }

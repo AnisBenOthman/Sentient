@@ -611,14 +611,18 @@ export class EmployeesService {
       user.roles.includes('EXECUTIVE');
     if (isPrivileged) return {};
 
-    if (user.roles.includes('MANAGER')) {
+    if (user.roles.includes('MANAGER') || user.roles.includes('TEAM_LEAD')) {
       const departmentAssignment = user.roleAssignments.find(
-        (assignment) => assignment.roleCode === 'MANAGER' && assignment.scope === PermissionScope.DEPARTMENT,
+        (assignment) =>
+          (assignment.roleCode === 'MANAGER' || assignment.roleCode === 'TEAM_LEAD') &&
+          assignment.scope === PermissionScope.DEPARTMENT,
       );
       if (departmentAssignment?.scopeEntityId) return { departmentId: departmentAssignment.scopeEntityId };
 
       const teamAssignment = user.roleAssignments.find(
-        (assignment) => assignment.roleCode === 'MANAGER' && assignment.scope === PermissionScope.TEAM,
+        (assignment) =>
+          (assignment.roleCode === 'MANAGER' || assignment.roleCode === 'TEAM_LEAD') &&
+          assignment.scope === PermissionScope.TEAM,
       );
       if (teamAssignment?.scopeEntityId) return { teamId: teamAssignment.scopeEntityId };
 
@@ -643,7 +647,7 @@ export class EmployeesService {
       user.roles.includes('GLOBAL_HR_ADMIN') ||
       user.roles.includes('EXECUTIVE');
     if (isPrivileged) return {};
-    if (!user.roles.includes('MANAGER')) {
+    if (!user.roles.includes('MANAGER') && !user.roles.includes('TEAM_LEAD')) {
       throw new ForbiddenException('Compensation data is limited to HR and manager simulation scopes');
     }
     return this.buildProfileAccessFilter(user);

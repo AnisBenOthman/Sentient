@@ -91,6 +91,10 @@ export function getRoleTier(payload: JwtPayload): RoleTier {
     return 'hr_admin';
   }
 
+  if (roles.includes('TEAM_LEAD')) {
+    return 'team_lead';
+  }
+
   if (roles.includes('MANAGER')) {
     const hasDept = roleAssignments.some(
       (a) => a.roleCode === 'MANAGER' && a.scope === 'DEPARTMENT',
@@ -125,20 +129,24 @@ export function canViewEmployeeDetails(
     return true;
   }
 
-  if (!roles.includes('MANAGER')) return false;
+  if (!roles.includes('MANAGER') && !roles.includes('TEAM_LEAD')) return false;
 
   const targetDepartmentId = target.departmentId ?? target.department?.id ?? null;
   const targetTeamId = target.teamId ?? target.team?.id ?? null;
 
   const departmentAssignment = roleAssignments.find(
-    (assignment) => assignment.roleCode === 'MANAGER' && assignment.scope === 'DEPARTMENT',
+    (assignment) =>
+      (assignment.roleCode === 'MANAGER' || assignment.roleCode === 'TEAM_LEAD') &&
+      assignment.scope === 'DEPARTMENT',
   );
   if (departmentAssignment?.scopeEntityId) {
     return targetDepartmentId === departmentAssignment.scopeEntityId;
   }
 
   const teamAssignment = roleAssignments.find(
-    (assignment) => assignment.roleCode === 'MANAGER' && assignment.scope === 'TEAM',
+    (assignment) =>
+      (assignment.roleCode === 'MANAGER' || assignment.roleCode === 'TEAM_LEAD') &&
+      assignment.scope === 'TEAM',
   );
   if (teamAssignment?.scopeEntityId) {
     return targetTeamId === teamAssignment.scopeEntityId;

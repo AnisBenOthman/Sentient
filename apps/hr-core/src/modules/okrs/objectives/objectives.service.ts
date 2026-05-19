@@ -76,7 +76,7 @@ export class ObjectivesService {
     }
 
     const requestedDepartmentId =
-      dto.level === ObjectiveLevel.DEPARTMENT && user.roles.includes('MANAGER')
+      dto.level === ObjectiveLevel.DEPARTMENT && (user.roles.includes('MANAGER') || user.roles.includes('TEAM_LEAD'))
         ? user.departmentId
         : dto.level === ObjectiveLevel.EMPLOYEE
           ? resolvedOwnerDepartmentId
@@ -363,7 +363,7 @@ export class ObjectivesService {
     if (user.roles.includes('HR_ADMIN') || user.roles.includes('EXECUTIVE')) {
       return {};
     }
-    if (user.roles.includes('MANAGER')) {
+    if (user.roles.includes('MANAGER') || user.roles.includes('TEAM_LEAD')) {
       return {
         OR: [
           { level: PrismaObjectiveLevel.COMPANY },

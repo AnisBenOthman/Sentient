@@ -41,7 +41,7 @@ export class BalancesController {
     @CurrentUser() user: JwtPayload,
   ): Promise<LeaveBalanceDto[]> {
     const privileged = user.roles.some(r =>
-      ['MANAGER', 'HR_ADMIN', 'EXECUTIVE', 'SYSTEM'].includes(r),
+      ['MANAGER', 'TEAM_LEAD', 'HR_ADMIN', 'EXECUTIVE', 'SYSTEM'].includes(r),
     );
     if (!privileged && employeeId !== user.employeeId) {
       throw new ForbiddenException('Insufficient permissions to view this balance');

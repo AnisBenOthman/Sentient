@@ -337,7 +337,7 @@ export class PromotionRequestsService {
       };
     }
 
-    if (user.roles.includes('MANAGER')) {
+    if (user.roles.includes('MANAGER') || user.roles.includes('TEAM_LEAD')) {
       const managerScopes: Prisma.EmployeeWhereInput[] = [];
       if (user.employeeId) {
         managerScopes.push(

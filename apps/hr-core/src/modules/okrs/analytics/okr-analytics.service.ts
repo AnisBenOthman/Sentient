@@ -73,7 +73,7 @@ export class OkrAnalyticsService {
     const cycle = await this.prisma.okrCycle.findUnique({ where: { id: cycleId } });
     if (!cycle) throw new NotFoundException('OKR cycle not found');
 
-    const isManagerOnly = user.roles.includes('MANAGER') && !user.roles.includes('HR_ADMIN') && !user.roles.includes('EXECUTIVE');
+    const isManagerOnly = (user.roles.includes('MANAGER') || user.roles.includes('TEAM_LEAD')) && !user.roles.includes('HR_ADMIN') && !user.roles.includes('EXECUTIVE');
 
     const deptFilter = isManagerOnly ? { departmentId: user.departmentId ?? undefined } : {};
 
@@ -165,7 +165,7 @@ export class OkrAnalyticsService {
   ): Promise<EmployeeOkrPortfolioDto> {
     const isSelf = user.employeeId === employeeId;
     const isManagerOfDept =
-      user.roles.includes('MANAGER') &&
+      (user.roles.includes('MANAGER') || user.roles.includes('TEAM_LEAD')) &&
       !user.roles.includes('HR_ADMIN') &&
       !isSelf;
     const isAdmin = user.roles.includes('HR_ADMIN');

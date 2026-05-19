@@ -1,6 +1,10 @@
 import { JwtPayload } from '@sentient/shared';
 import { ObjectiveLevel } from '@sentient/shared';
 
+function isManagerTier(roles: string[]): boolean {
+  return roles.includes('MANAGER') || roles.includes('TEAM_LEAD');
+}
+
 export function canCreateObjective(
   user: JwtPayload,
   level: ObjectiveLevel,
@@ -15,11 +19,11 @@ export function canCreateObjective(
   }
 
   if (level === ObjectiveLevel.DEPARTMENT) {
-    return roles.includes('MANAGER') && departmentId === user.departmentId;
+    return isManagerTier(roles) && departmentId === user.departmentId;
   }
 
   if (level === ObjectiveLevel.EMPLOYEE) {
-    if (roles.includes('MANAGER')) {
+    if (isManagerTier(roles)) {
       return departmentId === user.departmentId;
     }
     if (roles.includes('EMPLOYEE')) {
@@ -44,11 +48,11 @@ export function canEditObjective(
   }
 
   if (level === ObjectiveLevel.DEPARTMENT) {
-    return roles.includes('MANAGER') && departmentId === user.departmentId;
+    return isManagerTier(roles) && departmentId === user.departmentId;
   }
 
   if (level === ObjectiveLevel.EMPLOYEE) {
-    if (roles.includes('MANAGER')) return departmentId === user.departmentId;
+    if (isManagerTier(roles)) return departmentId === user.departmentId;
     if (roles.includes('EMPLOYEE')) return ownerId === user.sub;
   }
 
@@ -61,7 +65,7 @@ export function canApproveCheckIn(
 ): boolean {
   const { roles } = user;
   if (roles.includes('HR_ADMIN')) return true;
-  if (roles.includes('MANAGER')) {
+  if (isManagerTier(roles)) {
     return objectiveDepartmentId === user.departmentId;
   }
   return false;
