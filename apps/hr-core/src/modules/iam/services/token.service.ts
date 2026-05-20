@@ -79,6 +79,7 @@ export class TokenService {
     channel: ChannelType;
     sessionId: string;
     roleAssignments: RoleAssignmentClaim[];
+    onboardingCompletedAt: Date | null;
   }): Omit<JwtPayload, 'iat' | 'exp'> {
     return {
       sub: params.userId,
@@ -90,6 +91,7 @@ export class TokenService {
       channel: params.channel,
       sessionId: params.sessionId,
       roleAssignments: params.roleAssignments,
+      onboardingCompleted: params.onboardingCompletedAt !== null,
     };
   }
 }

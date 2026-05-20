@@ -79,6 +79,7 @@ export class AuthService {
       channel: dto.channel,
       sessionId,
       roleAssignments,
+      onboardingCompletedAt: user.onboardingCompletedAt,
     });
 
     const { token: accessToken, expiresIn } = this.tokens.signAccessToken(jwtPayload);
@@ -147,6 +148,7 @@ export class AuthService {
       channel,
       sessionId: session.id,
       roleAssignments,
+      onboardingCompletedAt: dbUser.onboardingCompletedAt,
     });
 
     const { token: newAccessToken, expiresIn } = this.tokens.signAccessToken(jwtPayload);
@@ -159,5 +161,12 @@ export class AuthService {
   async logout(sessionId: string, userId: string): Promise<void> {
     await this.sessions.revokeById(sessionId);
     this.audit.log(userId, SecurityEventType.LOGOUT);
+  }
+
+  async completeOnboarding(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { onboardingCompletedAt: new Date() },
+    });
   }
 }

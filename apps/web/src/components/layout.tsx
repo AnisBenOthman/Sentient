@@ -26,6 +26,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { getEmployee } from "@/lib/api/hr-core";
 import { getRoleTier, roleTierLabel, type RoleTier } from "@/lib/auth";
 import { NotificationsBell } from "@/components/notifications/notifications-bell";
+import { OnboardingTour } from "@/components/onboarding-tour";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -60,6 +61,9 @@ export function Layout({ children }: LayoutProps) {
   );
 
   const { user, logout } = useAuth();
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+
+  const showTour = !!user && user.onboardingCompleted === false && !onboardingDismissed;
 
   const { data: profile } = useQuery({
     queryKey: ["employee-self", user?.employeeId],
@@ -281,6 +285,10 @@ export function Layout({ children }: LayoutProps) {
           {children}
         </div>
       </main>
+
+      {showTour && user && (
+        <OnboardingTour user={user} onComplete={() => setOnboardingDismissed(true)} />
+      )}
     </div>
   );
 }

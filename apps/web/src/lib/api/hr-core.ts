@@ -39,6 +39,10 @@ export async function logout(): Promise<void> {
   await hrClient.post('/auth/logout');
 }
 
+export async function completeOnboarding(): Promise<void> {
+  await hrClient.patch('/auth/onboarding/complete');
+}
+
 // ── Employees ─────────────────────────────────────────────────────────────
 
 export interface EmployeeNested {
