@@ -62,6 +62,9 @@ export class OrgChartService {
       this.prisma.department.findMany({
         where: { isActive: true },
         include: {
+          businessUnit: {
+            select: { id: true, name: true },
+          },
           employees: {
             where: ACTIVE_EMPLOYEE_WHERE,
             select: ORG_EMPLOYEE_SELECT,
@@ -90,6 +93,7 @@ export class OrgChartService {
         name: department.name,
         code: department.code,
         businessUnitId: department.businessUnitId,
+        businessUnit: department.businessUnit,
         headId: department.headId,
         head: this.findOrgEmployee(department.employees, department.headId),
         teams: department.teams.map((team) => {

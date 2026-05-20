@@ -36,6 +36,7 @@ export interface OrgChartDepartment {
   name: string;
   code: string;
   businessUnitId: string;
+  businessUnit: { id: string; name: string } | null;
   headId: string | null;
   head: OrgChartEmployee | null;
   teams: OrgChartTeam[];

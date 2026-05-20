@@ -235,6 +235,7 @@ function resolveTeamLead(members: OrgEmployee[], team: OrgTeam): OrgEmployee | u
 
 export default function OrgChart() {
   const { user } = useAuth();
+  const [selectedBusinessUnitId, setSelectedBusinessUnitId] = useState<string | null>(null);
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const [skillSearch, setSkillSearch] = useState("");
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
@@ -246,13 +247,33 @@ export default function OrgChart() {
 
   const root = data?.root ?? null;
   const orgDepts = data?.departments ?? [];
-  const allDepartments = [...new Set(orgDepts.map((department) => department.name))].sort((a, b) =>
+  const businessUnits = useMemo(() => {
+    const byId = new Map<string, { id: string; name: string; departmentCount: number }>();
+    for (const department of orgDepts) {
+      const existing = byId.get(department.businessUnitId);
+      const name = department.businessUnit?.name ?? department.businessUnitId;
+      byId.set(department.businessUnitId, {
+        id: department.businessUnitId,
+        name: existing?.name ?? name,
+        departmentCount: (existing?.departmentCount ?? 0) + 1,
+      });
+    }
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [orgDepts]);
+  const effectiveBusinessUnitId =
+    selectedBusinessUnitId && businessUnits.some((businessUnit) => businessUnit.id === selectedBusinessUnitId)
+      ? selectedBusinessUnitId
+      : null;
+  const departmentsForBusinessUnit = effectiveBusinessUnitId
+    ? orgDepts.filter((department) => department.businessUnitId === effectiveBusinessUnitId)
+    : orgDepts;
+  const allDepartments = [...new Set(departmentsForBusinessUnit.map((department) => department.name))].sort((a, b) =>
     a.localeCompare(b),
   );
   const effectiveDept = selectedDept && allDepartments.includes(selectedDept) ? selectedDept : null;
   const visibleDepts = effectiveDept
-    ? orgDepts.filter((department) => department.name === effectiveDept)
-    : orgDepts;
+    ? departmentsForBusinessUnit.filter((department) => department.name === effectiveDept)
+    : departmentsForBusinessUnit;
 
   const allEmployees = useMemo(() => uniqueEmployees(root, orgDepts), [root, orgDepts]);
   const highlightedIds = useMemo(() => {
@@ -266,9 +287,10 @@ export default function OrgChart() {
   }, [allEmployees, skillSearch]);
 
   const hasSkillFilter = skillSearch.trim().length > 0;
-  const totalEmployees = allEmployees.length;
-  const totalDepartments = orgDepts.length;
-  const totalTeams = orgDepts.reduce((sum, department) => sum + department.teams.length, 0);
+  const visibleEmployees = useMemo(() => uniqueEmployees(root, visibleDepts), [root, visibleDepts]);
+  const totalEmployees = visibleEmployees.length;
+  const totalDepartments = visibleDepts.length;
+  const totalTeams = visibleDepts.reduce((sum, department) => sum + department.teams.length, 0);
 
   function canOpenEmployeeDetails(emp: OrgEmployee): boolean {
     return user
@@ -291,6 +313,11 @@ export default function OrgChart() {
 
   function isExpanded(departmentId: string, teamId: string): boolean {
     return expandedTeams.has(`${departmentId}:${teamId}`);
+  }
+
+  function handleBusinessUnitSelect(businessUnitId: string | null): void {
+    setSelectedBusinessUnitId(businessUnitId);
+    setSelectedDept(null);
   }
 
   if (isLoading) {
@@ -334,7 +361,49 @@ export default function OrgChart() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3" data-testid="org-filter-bar">
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5" data-testid="bu-filter-tabs">
+          <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+            BU
+          </span>
+          <button
+            onClick={() => handleBusinessUnitSelect(null)}
+            data-testid="bu-tab-all"
+            className={[
+              "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+              effectiveBusinessUnitId === null
+                ? "bg-gray-800 text-white dark:bg-gray-100 dark:text-gray-900"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700",
+            ].join(" ")}
+          >
+            All BUs
+          </button>
+          {businessUnits.map((businessUnit) => {
+            const isActive = effectiveBusinessUnitId === businessUnit.id;
+            return (
+              <button
+                key={businessUnit.id}
+                onClick={() => handleBusinessUnitSelect(isActive ? null : businessUnit.id)}
+                data-testid={`bu-tab-${businessUnit.id.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}
+                className={[
+                  "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                  isActive
+                    ? "bg-gray-800 text-white dark:bg-gray-100 dark:text-gray-900"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700",
+                ].join(" ")}
+              >
+                {businessUnit.name}
+                <span className="ml-1 opacity-60">{businessUnit.departmentCount}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="hidden h-5 w-px bg-gray-200 dark:bg-gray-700 sm:block" />
+
+        <div className="flex flex-wrap items-center gap-1.5" data-testid="dept-filter-tabs">
+          <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+            Dept
+          </span>
           <button
             onClick={() => setSelectedDept(null)}
             data-testid="dept-tab-all"
@@ -424,13 +493,15 @@ export default function OrgChart() {
                     ...(dept.head ? [dept.head.id] : []),
                     ...dept.teams.flatMap((team) => team.members.map((member) => member.id)),
                   ]).size;
+                  const businessUnitName = dept.businessUnit?.name ?? dept.businessUnitId;
 
                   return (
                     <div key={dept.id} className="flex flex-col items-center">
                       {root && <div className="h-5 w-px bg-gray-300 dark:bg-gray-600" />}
-                      <div className={`rounded-xl border p-4 ${deptColor}`} data-testid={`dept-branch-${dept.name.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
+                      <div className={`rounded-xl border p-4 ${deptColor}`} data-testid={`dept-branch-${dept.id}`}>
                         <div className={`mb-4 rounded-md px-2 py-1.5 text-center ${headerColor}`}>
                           <div className="text-xs font-bold uppercase tracking-wider">{dept.name}</div>
+                          <div className="mt-0.5 text-[10px] font-medium opacity-80">{businessUnitName}</div>
                           <div className="mt-1 flex items-center justify-center gap-2 opacity-75">
                             <span className="text-[10px] font-medium">{dept.code}</span>
                             <span className="text-[10px] opacity-50">-</span>

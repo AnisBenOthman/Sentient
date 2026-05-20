@@ -49,6 +49,7 @@ describe("OrgChartService", () => {
         name: "Engineering",
         code: "ENG",
         businessUnitId: "bu-1",
+        businessUnit: { id: "bu-1", name: "HQ" },
         headId: "emp-1",
         employees: [
           {
@@ -98,6 +99,7 @@ describe("OrgChartService", () => {
 
     expect(result.root?.position?.title).toBe("Chief Executive Officer");
     expect(result.departments).toHaveLength(1);
+    expect(result.departments[0]?.businessUnit?.name).toBe("HQ");
     expect(result.departments[0]?.head?.id).toBe("emp-1");
     expect(result.departments[0]?.teams[0]?.members[0]?.skills[0]?.skill).toBe("Leadership");
   });

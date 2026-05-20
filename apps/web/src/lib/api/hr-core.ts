@@ -966,6 +966,7 @@ export interface OrgDepartment {
   name: string;
   code: string;
   businessUnitId: string;
+  businessUnit: { id: string; name: string } | null;
   headId: string | null;
   head: OrgEmployee | null;
   teams: OrgTeam[];
