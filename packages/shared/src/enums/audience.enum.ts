@@ -1,0 +1,7 @@
+export enum Audience {
+  COMPANY = 'COMPANY',
+  DEPARTMENT = 'DEPARTMENT',
+  TEAM = 'TEAM',
+  ROLE = 'ROLE',
+  INDIVIDUAL = 'INDIVIDUAL',
+}

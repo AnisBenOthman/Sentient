@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Public } from '@sentient/shared';
 import { AppService } from './app.service';
 
 @Controller()
@@ -8,8 +9,9 @@ export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @Get('health')
+  @Public()
   @ApiOperation({ summary: 'Service health check' })
-  getHealth(): { status: string; service: string; timestamp: string } {
+  getHealth(): { status: 'ok'; service: 'social'; timestamp: string } {
     return this.appService.getHealth();
   }
 }

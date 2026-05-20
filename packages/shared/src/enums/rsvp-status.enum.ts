@@ -1,0 +1,8 @@
+export enum RsvpStatus {
+  INVITED = 'INVITED',
+  ACCEPTED = 'ACCEPTED',
+  DECLINED = 'DECLINED',
+  TENTATIVE = 'TENTATIVE',
+  ATTENDED = 'ATTENDED',
+  NO_SHOW = 'NO_SHOW',
+}

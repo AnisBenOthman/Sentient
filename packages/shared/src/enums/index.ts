@@ -54,3 +54,7 @@ export * from './objective-status.enum';
 export * from './okr-check-in-status.enum';
 export * from './okr-cycle-status.enum';
 export * from './okr-cycle-type.enum';
+export * from './audience.enum';
+export * from './rsvp-status.enum';
+export * from './sentiment-label.enum';
+export * from './feedback-type.enum';

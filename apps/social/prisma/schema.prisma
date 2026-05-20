@@ -10,5 +10,236 @@ generator client {
   previewFeatures = ["multiSchema"]
 }
 
-// Models are added feature-by-feature.
-// Next: Social module (Announcement, Event, EventAttendee, Document, Feedback, EngagementSnapshot, ExitSurvey, ExitSurveyResponse).
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Audience {
+  COMPANY
+  DEPARTMENT
+  TEAM
+  ROLE
+  INDIVIDUAL
+
+  @@schema("social")
+}
+
+enum EventType {
+  MEETING
+  TRAINING
+  SOCIAL
+  ALL_HANDS
+  ONBOARDING
+  OFFSITE
+
+  @@schema("social")
+}
+
+enum RsvpStatus {
+  INVITED
+  ACCEPTED
+  DECLINED
+  TENTATIVE
+  ATTENDED
+  NO_SHOW
+
+  @@schema("social")
+}
+
+enum DocumentCategory {
+  INTERNAL_POLICY
+  HANDBOOK
+  REGULATION
+  TEMPLATE
+  GUIDE
+  OTHER
+
+  @@schema("social")
+}
+
+enum SentimentLabel {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+  MIXED
+
+  @@schema("social")
+}
+
+enum FeedbackType {
+  EVENT_FEEDBACK
+  ANNOUNCEMENT_FEEDBACK
+  GENERAL_FEEDBACK
+  MANAGER_FEEDBACK
+  PEER_FEEDBACK
+
+  @@schema("social")
+}
+
+enum ExitSurveyStatus {
+  PENDING
+  SENT
+  COMPLETED
+  EXPIRED
+  CANCELLED
+
+  @@schema("social")
+}
+
+enum ExitSurveyQuestionKey {
+  REASON_FOR_LEAVING
+  MANAGER_RATING
+  TEAM_CULTURE_RATING
+  GROWTH_OPPORTUNITY_RATING
+  WOULD_RECOMMEND_COMPANY
+  OPEN_FEEDBACK
+
+  @@schema("social")
+}
+
+// ============================================================
+// MODELS
+// ============================================================
+
+model Announcement {
+  id          String    @id @default(uuid())
+  title       String
+  body        String    @db.Text
+  authorId    String
+  audience    Audience
+  publishedAt DateTime?
+  pinnedUntil DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([audience, publishedAt(sort: Desc)])
+  @@schema("social")
+  @@map("announcements")
+}
+
+model Event {
+  id          String    @id @default(uuid())
+  title       String
+  description String    @db.Text
+  eventType   EventType
+  organizerId String
+  startAt     DateTime
+  endAt       DateTime
+  location    String?
+  audience    Audience
+  capacity    Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  attendees EventAttendee[]
+
+  @@index([eventType, startAt(sort: Desc)])
+  @@schema("social")
+  @@map("events")
+}
+
+model EventAttendee {
+  id          String     @id @default(uuid())
+  eventId     String
+  employeeId  String
+  rsvpStatus  RsvpStatus
+  respondedAt DateTime
+  createdAt   DateTime   @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, employeeId])
+  @@index([eventId])
+  @@schema("social")
+  @@map("event_attendees")
+}
+
+model Document {
+  id           String           @id @default(uuid())
+  title        String
+  description  String?          @db.Text
+  category     DocumentCategory
+  sourceUrl    String
+  mimeType     String
+  sizeBytes    BigInt
+  uploadedById String
+  version      Int              @default(1)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([category, createdAt(sort: Desc)])
+  @@schema("social")
+  @@map("documents")
+}
+
+model Feedback {
+  id           String         @id @default(uuid())
+  feedbackType FeedbackType
+  subjectType  String
+  subjectId    String?
+  content      String         @db.Text
+  rating       Int?
+  sentiment    SentimentLabel?
+  isAnonymous  Boolean        @default(false)
+  employeeId   String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([subjectType, subjectId])
+  @@index([isAnonymous])
+  @@schema("social")
+  @@map("feedback")
+}
+
+model EngagementSnapshot {
+  id            String   @id @default(uuid())
+  scopeType     String
+  scopeId       String?
+  periodStart   DateTime
+  periodEnd     DateTime
+  metrics       Json
+  generatedById String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([scopeType, scopeId, periodStart])
+  @@schema("social")
+  @@map("engagement_snapshots")
+}
+
+model ExitSurvey {
+  id                   String           @id @default(uuid())
+  respondentId         String?
+  terminationReference String?
+  status               ExitSurveyStatus @default(PENDING)
+  surveyTokenHash      String
+  sentAt               DateTime?
+  expiresAt            DateTime?
+  completedAt          DateTime?
+  channel              String
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  responses ExitSurveyResponse[]
+
+  @@index([status])
+  @@index([expiresAt])
+  @@schema("social")
+  @@map("exit_surveys")
+}
+
+model ExitSurveyResponse {
+  id           String                @id @default(uuid())
+  surveyId     String
+  questionKey  ExitSurveyQuestionKey
+  answerText   String?               @db.Text
+  answerRating Int?
+  submittedAt  DateTime
+  createdAt    DateTime              @default(now())
+
+  survey ExitSurvey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+
+  @@index([surveyId, questionKey])
+  @@schema("social")
+  @@map("exit_survey_responses")
+}
