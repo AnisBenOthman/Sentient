@@ -959,7 +959,6 @@ model User {
   lockedUntil        DateTime?
   mustChangePassword    Boolean    @default(false)
   lastLoginAt           DateTime?
-  onboardingCompletedAt DateTime?
   createdAt             DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
 

@@ -1,0 +1,74 @@
+{
+  "title": "Gestion des Congés",
+  "tabs": {
+    "leaveTypes": "Types de Congé",
+    "holidays": "Jours Fériés"
+  },
+  "leaveTypes": {
+    "addType": "Ajouter un Type",
+    "name": "Nom",
+    "daysPerYear": "Jours / An",
+    "accrual": "Acquisition",
+    "maxCarryover": "Report Max.",
+    "requiresApproval": "Approbation Requise",
+    "businessUnit": "Unité Commerciale",
+    "status": "Statut",
+    "actions": "Actions",
+    "noTypes": "Aucun type de congé trouvé.",
+    "active": "Actif",
+    "inactive": "Inactif",
+    "reactivate": "Réactiver",
+    "accrualFrequency": {
+      "MONTHLY": "Mensuel",
+      "QUARTERLY": "Trimestriel",
+      "ANNUALLY": "Annuel",
+      "UPFRONT": "Anticipé"
+    },
+    "dialog": {
+      "createTitle": "Ajouter un Type de Congé",
+      "editTitle": "Modifier le Type de Congé",
+      "nameLabel": "Nom",
+      "namePlaceholder": "ex. Congé Annuel",
+      "daysLabel": "Jours par Défaut par An",
+      "accrualLabel": "Fréquence d'Acquisition",
+      "carryoverLabel": "Report Maximum (jours)",
+      "approvalLabel": "Approbation Requise",
+      "colorLabel": "Couleur",
+      "activeLabel": "Actif",
+      "businessUnitLabel": "Unité Commerciale",
+      "submit": "Enregistrer",
+      "submitting": "Enregistrement…"
+    },
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce type de congé ? Cette action est irréversible.",
+    "reactivateConfirm": "Réactiver ce type de congé ?"
+  },
+  "holidays": {
+    "addHoliday": "Ajouter un Jour Férié",
+    "name": "Nom",
+    "date": "Date",
+    "type": "Type",
+    "recurring": "Récurrent",
+    "actions": "Actions",
+    "noHolidays": "Aucun jour férié configuré.",
+    "types": {
+      "NATIONAL": "National",
+      "REGIONAL": "Régional",
+      "COMPANY": "Entreprise"
+    },
+    "dialog": {
+      "createTitle": "Ajouter un Jour Férié",
+      "editTitle": "Modifier le Jour Férié",
+      "nameLabel": "Nom du Jour Férié",
+      "dateLabel": "Date",
+      "typeLabel": "Type",
+      "recurringLabel": "Récurrent chaque année",
+      "submit": "Enregistrer",
+      "submitting": "Enregistrement…"
+    },
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce jour férié ?"
+  },
+  "errors": {
+    "generic": "Échec de l'enregistrement. Veuillez réessayer.",
+    "HolidayConflict": "Cette date est déjà un jour férié."
+  }
+}

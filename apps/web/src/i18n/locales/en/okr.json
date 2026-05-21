@@ -1,0 +1,83 @@
+{
+  "title": "OKRs",
+  "dashboardTitle": "OKR Dashboard",
+  "myOkrsTitle": "My OKRs",
+  "cycleManagementTitle": "OKR Cycle Management",
+  "tabs": {
+    "overview": "Overview",
+    "objectives": "Objectives",
+    "keyResults": "Key Results",
+    "checkIns": "Check-Ins"
+  },
+  "cycle": {
+    "create": "New Cycle",
+    "title": "Cycle Name",
+    "type": "Type",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "status": "Status",
+    "actions": "Actions",
+    "noCycles": "No OKR cycles found.",
+    "types": {
+      "ANNUAL": "Annual",
+      "QUARTERLY": "Quarterly",
+      "MONTHLY": "Monthly"
+    },
+    "statuses": {
+      "DRAFT": "Draft",
+      "ACTIVE": "Active",
+      "CLOSED": "Closed",
+      "ARCHIVED": "Archived"
+    }
+  },
+  "objective": {
+    "create": "Add Objective",
+    "title": "Title",
+    "description": "Description",
+    "level": "Level",
+    "owner": "Owner",
+    "progress": "Progress",
+    "status": "Status",
+    "noObjectives": "No objectives found.",
+    "levels": {
+      "COMPANY": "Company",
+      "DEPARTMENT": "Department",
+      "TEAM": "Team",
+      "INDIVIDUAL": "Individual"
+    },
+    "statuses": {
+      "ON_TRACK": "On Track",
+      "AT_RISK": "At Risk",
+      "BEHIND": "Behind",
+      "COMPLETED": "Completed",
+      "CANCELLED": "Cancelled"
+    }
+  },
+  "keyResult": {
+    "create": "Add Key Result",
+    "title": "Key Result",
+    "metric": "Metric Type",
+    "target": "Target",
+    "current": "Current",
+    "unit": "Unit",
+    "progress": "Progress",
+    "status": "Status",
+    "noKeyResults": "No key results found.",
+    "metricTypes": {
+      "NUMERIC": "Numeric",
+      "PERCENTAGE": "Percentage",
+      "BOOLEAN": "Yes/No",
+      "CURRENCY": "Currency"
+    }
+  },
+  "checkIn": {
+    "create": "Add Check-In",
+    "value": "Current Value",
+    "notes": "Notes",
+    "date": "Date",
+    "noCheckIns": "No check-ins yet."
+  },
+  "errors": {
+    "generic": "Failed to save. Please try again."
+  }
+}

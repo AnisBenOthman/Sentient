@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { CurrentUser, JwtPayload, Public, RbacGuard, SharedJwtGuard } from '@sentient/shared';
@@ -65,12 +65,4 @@ export class AuthController {
     await this.auth.logout(user.sessionId, user.sub);
   }
 
-  @Patch('onboarding/complete')
-  @UseGuards(SharedJwtGuard, UserStatusGuard, RbacGuard)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Mark the onboarding tour as completed for the current user' })
-  @ApiResponse({ status: 204, description: 'Onboarding marked as complete' })
-  async completeOnboarding(@CurrentUser() user: JwtPayload): Promise<void> {
-    await this.auth.completeOnboarding(user.sub);
-  }
 }

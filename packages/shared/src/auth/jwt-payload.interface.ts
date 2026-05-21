@@ -21,8 +21,6 @@ export interface JwtPayload {
   /** Full per-assignment claims used by buildScopeFilter. */
   roleAssignments: RoleAssignmentClaim[];
   sessionId: string;
-  /** True when the user has completed the onboarding tour at least once. */
-  onboardingCompleted: boolean;
   iat: number;
   exp: number;
 }

@@ -23,7 +23,6 @@ export interface UserWithRelations {
   lockedUntil: Date | null;
   mustChangePassword: boolean;
   lastLoginAt: Date | null;
-  onboardingCompletedAt: Date | null;
   employee: {
     departmentId: string | null;
     teamId: string | null;

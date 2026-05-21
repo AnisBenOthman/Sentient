@@ -1,0 +1,70 @@
+{
+  "title": "Demandes de Congé",
+  "tabs": {
+    "myLeaves": "Mes Congés",
+    "pendingQueue": "Approbations en Attente",
+    "balances": "Mes Soldes"
+  },
+  "newRequest": "Nouvelle Demande",
+  "table": {
+    "type": "Type",
+    "startDate": "Date de Début",
+    "endDate": "Date de Fin",
+    "days": "Jours",
+    "status": "Statut",
+    "reason": "Motif",
+    "actions": "Actions",
+    "requestedBy": "Demandé Par",
+    "noLeaves": "Aucune demande de congé trouvée.",
+    "noPending": "Aucune demande en attente."
+  },
+  "status": {
+    "PENDING": "En Attente",
+    "APPROVED": "Approuvé",
+    "REJECTED": "Refusé",
+    "CANCELLED": "Annulé",
+    "ESCALATED": "Escaladé"
+  },
+  "dialog": {
+    "newRequestTitle": "Nouvelle Demande de Congé",
+    "leaveTypeLabel": "Type de Congé",
+    "leaveTypePlaceholder": "Sélectionnez un type de congé",
+    "startDateLabel": "Date de Début",
+    "endDateLabel": "Date de Fin",
+    "halfDayLabel": "Demi-Journée",
+    "halfDayOptions": {
+      "MORNING": "Matin",
+      "AFTERNOON": "Après-midi"
+    },
+    "reasonLabel": "Motif (facultatif)",
+    "reasonPlaceholder": "Motif du congé…",
+    "submitButton": "Soumettre la Demande",
+    "submitting": "Envoi…",
+    "cancelRequest": "Annuler la Demande",
+    "confirmCancel": "Êtes-vous sûr de vouloir annuler cette demande de congé ?"
+  },
+  "balances": {
+    "available": "Disponible",
+    "used": "Utilisé",
+    "pending": "En Attente",
+    "days": "jours",
+    "noBalances": "Aucun solde de congé trouvé."
+  },
+  "actions": {
+    "approve": "Approuver",
+    "reject": "Refuser",
+    "cancel": "Annuler",
+    "confirmApprove": "Approuver la demande de congé",
+    "confirmReject": "Refuser la demande de congé",
+    "rejectReason": "Motif du refus (facultatif)",
+    "rejectPlaceholder": "Entrez le motif du refus…"
+  },
+  "errors": {
+    "LeaveTypeInactive": "Ce type de congé n'est plus disponible.",
+    "InsufficientBalance": "Solde de congés insuffisant.",
+    "OverlappingRequest": "Les dates chevauchent une demande existante.",
+    "ZeroDayRequest": "Aucun jour ouvré dans la plage sélectionnée.",
+    "HalfDayNotSupported": "Demi-journée non prise en charge pour ce type de congé.",
+    "generic": "Échec de la soumission. Veuillez réessayer."
+  }
+}

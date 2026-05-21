@@ -1,0 +1,83 @@
+{
+  "title": "OKR",
+  "dashboardTitle": "Tableau de Bord OKR",
+  "myOkrsTitle": "Mes OKR",
+  "cycleManagementTitle": "Gestion des Cycles OKR",
+  "tabs": {
+    "overview": "Vue d'Ensemble",
+    "objectives": "Objectifs",
+    "keyResults": "Résultats Clés",
+    "checkIns": "Points d'Avancement"
+  },
+  "cycle": {
+    "create": "Nouveau Cycle",
+    "title": "Nom du Cycle",
+    "type": "Type",
+    "startDate": "Date de Début",
+    "endDate": "Date de Fin",
+    "status": "Statut",
+    "actions": "Actions",
+    "noCycles": "Aucun cycle OKR trouvé.",
+    "types": {
+      "ANNUAL": "Annuel",
+      "QUARTERLY": "Trimestriel",
+      "MONTHLY": "Mensuel"
+    },
+    "statuses": {
+      "DRAFT": "Brouillon",
+      "ACTIVE": "Actif",
+      "CLOSED": "Clôturé",
+      "ARCHIVED": "Archivé"
+    }
+  },
+  "objective": {
+    "create": "Ajouter un Objectif",
+    "title": "Titre",
+    "description": "Description",
+    "level": "Niveau",
+    "owner": "Propriétaire",
+    "progress": "Avancement",
+    "status": "Statut",
+    "noObjectives": "Aucun objectif trouvé.",
+    "levels": {
+      "COMPANY": "Entreprise",
+      "DEPARTMENT": "Département",
+      "TEAM": "Équipe",
+      "INDIVIDUAL": "Individuel"
+    },
+    "statuses": {
+      "ON_TRACK": "En Bonne Voie",
+      "AT_RISK": "À Risque",
+      "BEHIND": "En Retard",
+      "COMPLETED": "Terminé",
+      "CANCELLED": "Annulé"
+    }
+  },
+  "keyResult": {
+    "create": "Ajouter un Résultat Clé",
+    "title": "Résultat Clé",
+    "metric": "Type de Métrique",
+    "target": "Cible",
+    "current": "Actuel",
+    "unit": "Unité",
+    "progress": "Avancement",
+    "status": "Statut",
+    "noKeyResults": "Aucun résultat clé trouvé.",
+    "metricTypes": {
+      "NUMERIC": "Numérique",
+      "PERCENTAGE": "Pourcentage",
+      "BOOLEAN": "Oui/Non",
+      "CURRENCY": "Devise"
+    }
+  },
+  "checkIn": {
+    "create": "Ajouter un Point",
+    "value": "Valeur Actuelle",
+    "notes": "Notes",
+    "date": "Date",
+    "noCheckIns": "Aucun point d'avancement enregistré."
+  },
+  "errors": {
+    "generic": "Échec de l'enregistrement. Veuillez réessayer."
+  }
+}

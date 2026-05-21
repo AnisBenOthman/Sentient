@@ -1,0 +1,70 @@
+{
+  "title": "Leave Requests",
+  "tabs": {
+    "myLeaves": "My Leaves",
+    "pendingQueue": "Pending Approvals",
+    "balances": "My Balances"
+  },
+  "newRequest": "New Request",
+  "table": {
+    "type": "Type",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "days": "Days",
+    "status": "Status",
+    "reason": "Reason",
+    "actions": "Actions",
+    "requestedBy": "Requested By",
+    "noLeaves": "No leave requests found.",
+    "noPending": "No pending requests."
+  },
+  "status": {
+    "PENDING": "Pending",
+    "APPROVED": "Approved",
+    "REJECTED": "Rejected",
+    "CANCELLED": "Cancelled",
+    "ESCALATED": "Escalated"
+  },
+  "dialog": {
+    "newRequestTitle": "New Leave Request",
+    "leaveTypeLabel": "Leave Type",
+    "leaveTypePlaceholder": "Select a leave type",
+    "startDateLabel": "Start Date",
+    "endDateLabel": "End Date",
+    "halfDayLabel": "Half Day",
+    "halfDayOptions": {
+      "MORNING": "Morning",
+      "AFTERNOON": "Afternoon"
+    },
+    "reasonLabel": "Reason (optional)",
+    "reasonPlaceholder": "Reason for leave…",
+    "submitButton": "Submit Request",
+    "submitting": "Submitting…",
+    "cancelRequest": "Cancel Request",
+    "confirmCancel": "Are you sure you want to cancel this leave request?"
+  },
+  "balances": {
+    "available": "Available",
+    "used": "Used",
+    "pending": "Pending",
+    "days": "days",
+    "noBalances": "No leave balances found."
+  },
+  "actions": {
+    "approve": "Approve",
+    "reject": "Reject",
+    "cancel": "Cancel",
+    "confirmApprove": "Approve leave request",
+    "confirmReject": "Reject leave request",
+    "rejectReason": "Reason for rejection (optional)",
+    "rejectPlaceholder": "Enter rejection reason…"
+  },
+  "errors": {
+    "LeaveTypeInactive": "This leave type is no longer available.",
+    "InsufficientBalance": "Insufficient leave balance.",
+    "OverlappingRequest": "Dates overlap with an existing request.",
+    "ZeroDayRequest": "No working days in the selected range.",
+    "HalfDayNotSupported": "Half-day not supported for this leave type.",
+    "generic": "Failed to submit request. Please try again."
+  }
+}

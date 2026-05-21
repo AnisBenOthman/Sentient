@@ -1,0 +1,71 @@
+{
+  "title": "Employés",
+  "addEmployee": "Ajouter un Employé",
+  "searchPlaceholder": "Rechercher des employés…",
+  "filters": {
+    "allStatuses": "Tous les Statuts",
+    "allDepartments": "Tous les Départements",
+    "allTeams": "Toutes les Équipes",
+    "allBusinessUnits": "Toutes les Unités",
+    "status": "Statut",
+    "department": "Département",
+    "team": "Équipe",
+    "businessUnit": "Unité Commerciale"
+  },
+  "table": {
+    "name": "Nom",
+    "position": "Poste",
+    "department": "Département",
+    "team": "Équipe",
+    "status": "Statut",
+    "hireDate": "Date d'Embauche",
+    "actions": "Actions",
+    "noEmployees": "Aucun employé trouvé."
+  },
+  "status": {
+    "ACTIVE": "Actif",
+    "ON_LEAVE": "En Congé",
+    "PROBATION": "Période d'Essai",
+    "TERMINATED": "Résilié",
+    "RESIGNED": "Démissionné"
+  },
+  "profile": {
+    "title": "Profil Employé",
+    "personalInfo": "Informations Personnelles",
+    "contactInfo": "Coordonnées",
+    "employment": "Emploi",
+    "skills": "Compétences",
+    "salaryHistory": "Historique des Salaires",
+    "leaveBalance": "Solde de Congés",
+    "edit": "Modifier le Profil",
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "email": "E-mail",
+    "phone": "Téléphone",
+    "dateOfBirth": "Date de Naissance",
+    "hireDate": "Date d'Embauche",
+    "position": "Poste",
+    "department": "Département",
+    "team": "Équipe",
+    "employmentStatus": "Statut d'Emploi",
+    "contractType": "Type de Contrat",
+    "currentSalary": "Salaire Actuel",
+    "manager": "Responsable",
+    "noSkills": "Aucune compétence enregistrée.",
+    "noSalaryHistory": "Aucun historique de salaire.",
+    "contractTypes": {
+      "FULL_TIME": "Temps plein",
+      "PART_TIME": "Temps partiel",
+      "CONTRACTOR": "Prestataire",
+      "INTERN": "Stagiaire"
+    }
+  },
+  "wizard": {
+    "title": "Ajouter un Employé",
+    "step1": "Informations de Base",
+    "step2": "Emploi",
+    "step3": "Accès & Rôle",
+    "submit": "Créer l'Employé",
+    "submitting": "Création…"
+  }
+}

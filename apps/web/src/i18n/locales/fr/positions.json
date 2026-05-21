@@ -1,0 +1,60 @@
+{
+  "title": "Postes",
+  "addPosition": "Ajouter un Poste",
+  "searchPlaceholder": "Rechercher des postes…",
+  "showInactive": "Afficher les inactifs",
+  "table": {
+    "title": "Intitulé",
+    "level": "Niveau",
+    "department": "Département",
+    "skills": "Compétences",
+    "employees": "Employés",
+    "status": "Statut",
+    "actions": "Actions",
+    "noPositions": "Aucun poste trouvé."
+  },
+  "levels": {
+    "JUNIOR": "Junior",
+    "MID": "Intermédiaire",
+    "SENIOR": "Senior",
+    "LEAD": "Lead",
+    "MANAGER": "Manager",
+    "DIRECTOR": "Directeur",
+    "VP": "VP",
+    "C_LEVEL": "C-Level"
+  },
+  "dialog": {
+    "createTitle": "Ajouter un Poste",
+    "editTitle": "Modifier le Poste",
+    "titleLabel": "Intitulé du Poste",
+    "titlePlaceholder": "ex. Ingénieur Logiciel Senior",
+    "levelLabel": "Niveau",
+    "departmentLabel": "Département",
+    "activeLabel": "Actif",
+    "submitCreate": "Créer le Poste",
+    "submitEdit": "Enregistrer les Modifications",
+    "submitting": "Enregistrement…"
+  },
+  "skills": {
+    "manageTitle": "Gérer les Compétences — {{title}}",
+    "addSkill": "Ajouter une Compétence",
+    "skill": "Compétence",
+    "requirement": "Exigence",
+    "proficiency": "Maîtrise Min.",
+    "actions": "Actions",
+    "noSkills": "Aucune compétence assignée.",
+    "requirement_MANDATORY": "Obligatoire",
+    "requirement_PREFERRED": "Préféré",
+    "requirement_NICE_TO_HAVE": "Optionnel"
+  },
+  "deactivate": {
+    "title": "Désactiver le Poste",
+    "description": "Êtes-vous sûr de vouloir désactiver « {{title}} » ? Les employés assignés à ce poste le conserveront, mais il n'apparaîtra plus dans les nouvelles affectations.",
+    "confirm": "Désactiver",
+    "cancel": "Annuler"
+  },
+  "errors": {
+    "PositionAlreadyExists": "Un poste avec cet intitulé existe déjà.",
+    "generic": "Échec de l'enregistrement. Veuillez réessayer."
+  }
+}

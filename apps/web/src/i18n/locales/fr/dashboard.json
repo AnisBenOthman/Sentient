@@ -1,0 +1,76 @@
+{
+  "title": "Tableau de Bord",
+  "scope": "Périmètre",
+  "period": "Période",
+  "granularity": {
+    "monthly": "Mensuel",
+    "quarterly": "Trimestriel",
+    "yearly": "Annuel"
+  },
+  "sections": {
+    "headcountTrend": "Évolution des Effectifs",
+    "attritionTrend": "Évolution du Turnover",
+    "leaveDistribution": "Répartition des Congés",
+    "contractMix": "Répartition des Contrats",
+    "ageBands": "Tranches d'Âge",
+    "departmentBreakdown": "Répartition par Département",
+    "statusBreakdown": "Répartition par Statut",
+    "pendingLeaveQueue": "File des Congés en Attente",
+    "topPerformers": "Meilleurs Performers",
+    "upcomingBirthdays": "Prochains Anniversaires",
+    "promotionRequests": "Demandes de Promotion",
+    "thresholdAlerts": "Alertes de Seuil",
+    "keyMetrics": "Indicateurs Clés",
+    "radarProfile": "Profil Radar RH"
+  },
+  "metrics": {
+    "headcount": "Effectifs",
+    "attrition": "Turnover",
+    "averageTenure": "Ancienneté Moy.",
+    "avgSalary": "Salaire Moy.",
+    "newHires": "Nouvelles Embauches",
+    "exits": "Départs",
+    "onLeave": "En Congé",
+    "probation": "En Période d'Essai",
+    "pendingLeave": "Congés en Attente",
+    "pendingPromotion": "Promotions en Attente"
+  },
+  "leaveQueue": {
+    "approve": "Approuver",
+    "reject": "Refuser",
+    "employee": "Employé",
+    "type": "Type",
+    "dates": "Dates",
+    "days": "Jours",
+    "status": "Statut",
+    "noRequests": "Aucune demande de congé en attente"
+  },
+  "promotions": {
+    "approve": "Approuver",
+    "reject": "Refuser",
+    "employee": "Employé",
+    "currentPosition": "Poste Actuel",
+    "proposedPosition": "Poste Proposé",
+    "salaryCurrent": "Salaire Actuel",
+    "salaryProposed": "Salaire Proposé",
+    "salaryDelta": "Variation",
+    "requestedBy": "Demandé par",
+    "noRequests": "Aucune demande de promotion en attente"
+  },
+  "alerts": {
+    "noAlerts": "Aucune alerte de seuil",
+    "warning": "Avertissement",
+    "critical": "Critique"
+  },
+  "chartTypes": {
+    "bar": "Barres",
+    "line": "Ligne",
+    "area": "Aire"
+  },
+  "approve": "Approuver",
+  "reject": "Refuser",
+  "confirmApprove": "Confirmer l'approbation",
+  "confirmReject": "Confirmer le refus",
+  "rejectReason": "Motif du refus",
+  "noReason": "Aucun motif fourni"
+}

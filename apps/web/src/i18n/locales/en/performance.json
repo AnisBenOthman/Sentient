@@ -1,0 +1,73 @@
+{
+  "title": "Performance Reviews",
+  "tabs": {
+    "myReviews": "My Reviews",
+    "cycles": "Review Cycles",
+    "team": "Team Reviews"
+  },
+  "reviewCycle": {
+    "create": "New Review Cycle",
+    "title": "Cycle Name",
+    "titlePlaceholder": "e.g. Q2 2026 Performance Review",
+    "type": "Type",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "selfDeadline": "Self-Review Deadline",
+    "managerDeadline": "Manager Deadline",
+    "initiate": "Initiate Cycle",
+    "status": "Status",
+    "actions": "Actions",
+    "noCycles": "No review cycles found."
+  },
+  "review": {
+    "status": "Status",
+    "selfReview": "Self Review",
+    "managerReview": "Manager Review",
+    "overallRating": "Overall Rating",
+    "selfRating": "Self Rating",
+    "achievements": "Achievements",
+    "improvements": "Areas for Improvement",
+    "goals": "Goals for Next Period",
+    "managerComments": "Manager Comments",
+    "satisfactionLevel": "Satisfaction Level",
+    "submitSelf": "Submit Self Review",
+    "submitManager": "Submit Manager Review",
+    "submitting": "Submitting…",
+    "reopen": "Reopen",
+    "reassign": "Reassign Reviewer",
+    "salaryFollowUp": "Salary Follow-Up",
+    "noReviews": "No reviews found."
+  },
+  "ratings": {
+    "UNACCEPTABLE": "Unacceptable",
+    "NEEDS_IMPROVEMENT": "Needs Improvement",
+    "MEETS_EXPECTATIONS": "Meets Expectations",
+    "EXCEEDS_EXPECTATIONS": "Exceeds Expectations",
+    "ABOVE_AND_BEYOND": "Above and Beyond"
+  },
+  "satisfaction": {
+    "VERY_DISSATISFIED": "Very Dissatisfied",
+    "DISSATISFIED": "Dissatisfied",
+    "NEUTRAL": "Neutral",
+    "SATISFIED": "Satisfied",
+    "VERY_SATISFIED": "Very Satisfied"
+  },
+  "cycleStatus": {
+    "DRAFT": "Draft",
+    "ACTIVE": "Active",
+    "CLOSED": "Closed",
+    "ARCHIVED": "Archived"
+  },
+  "reviewStatus": {
+    "NOT_STARTED": "Not Started",
+    "SELF_REVIEW_PENDING": "Self Review Pending",
+    "MANAGER_REVIEW_PENDING": "Manager Review Pending",
+    "COMPLETED": "Completed",
+    "LOCKED": "Locked"
+  },
+  "errors": {
+    "ReviewAlreadySubmitted": "This review has already been submitted.",
+    "UnauthorizedReview": "You are not authorized to submit this review.",
+    "generic": "Failed to save review. Please try again."
+  }
+}

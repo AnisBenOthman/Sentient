@@ -1,0 +1,73 @@
+{
+  "title": "Évaluations de Performance",
+  "tabs": {
+    "myReviews": "Mes Évaluations",
+    "cycles": "Cycles d'Évaluation",
+    "team": "Évaluations d'Équipe"
+  },
+  "reviewCycle": {
+    "create": "Nouveau Cycle",
+    "title": "Nom du Cycle",
+    "titlePlaceholder": "ex. Évaluation T2 2026",
+    "type": "Type",
+    "startDate": "Date de Début",
+    "endDate": "Date de Fin",
+    "selfDeadline": "Échéance Auto-Évaluation",
+    "managerDeadline": "Échéance Manager",
+    "initiate": "Lancer le Cycle",
+    "status": "Statut",
+    "actions": "Actions",
+    "noCycles": "Aucun cycle d'évaluation trouvé."
+  },
+  "review": {
+    "status": "Statut",
+    "selfReview": "Auto-Évaluation",
+    "managerReview": "Évaluation Manager",
+    "overallRating": "Note Globale",
+    "selfRating": "Note Auto",
+    "achievements": "Réalisations",
+    "improvements": "Axes d'Amélioration",
+    "goals": "Objectifs pour la Prochaine Période",
+    "managerComments": "Commentaires du Manager",
+    "satisfactionLevel": "Niveau de Satisfaction",
+    "submitSelf": "Soumettre l'Auto-Évaluation",
+    "submitManager": "Soumettre l'Évaluation Manager",
+    "submitting": "Envoi…",
+    "reopen": "Rouvrir",
+    "reassign": "Réaffecter l'Évaluateur",
+    "salaryFollowUp": "Suivi Salarial",
+    "noReviews": "Aucune évaluation trouvée."
+  },
+  "ratings": {
+    "UNACCEPTABLE": "Inacceptable",
+    "NEEDS_IMPROVEMENT": "À Améliorer",
+    "MEETS_EXPECTATIONS": "Conforme aux Attentes",
+    "EXCEEDS_EXPECTATIONS": "Dépasse les Attentes",
+    "ABOVE_AND_BEYOND": "Exceptionnel"
+  },
+  "satisfaction": {
+    "VERY_DISSATISFIED": "Très Insatisfait",
+    "DISSATISFIED": "Insatisfait",
+    "NEUTRAL": "Neutre",
+    "SATISFIED": "Satisfait",
+    "VERY_SATISFIED": "Très Satisfait"
+  },
+  "cycleStatus": {
+    "DRAFT": "Brouillon",
+    "ACTIVE": "Actif",
+    "CLOSED": "Clôturé",
+    "ARCHIVED": "Archivé"
+  },
+  "reviewStatus": {
+    "NOT_STARTED": "Non Démarré",
+    "SELF_REVIEW_PENDING": "Auto-Évaluation en Attente",
+    "MANAGER_REVIEW_PENDING": "Évaluation Manager en Attente",
+    "COMPLETED": "Terminé",
+    "LOCKED": "Verrouillé"
+  },
+  "errors": {
+    "ReviewAlreadySubmitted": "Cette évaluation a déjà été soumise.",
+    "UnauthorizedReview": "Vous n'êtes pas autorisé à soumettre cette évaluation.",
+    "generic": "Échec de l'enregistrement. Veuillez réessayer."
+  }
+}
