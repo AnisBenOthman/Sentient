@@ -160,6 +160,7 @@ const BRAND = "#6366f1";
 type CardStatus = "normal" | "warning" | "critical";
 
 interface ThresholdConfig {
+  label?: string;
   warning?: number;
   critical?: number;
   warningBelow?: number;
@@ -188,6 +189,29 @@ const STATUS_COLOR: Record<CardStatus, string> = {
   critical: "#dc2626",
 };
 
+const STATUS_TONE: Record<Exclude<CardStatus, "normal">, {
+  frame: string;
+  badge: string;
+  icon: string;
+  glow: string;
+  label: string;
+}> = {
+  warning: {
+    frame: "border-amber-500/80 bg-amber-50 text-amber-950 shadow-amber-500/15 ring-1 ring-amber-500/25 dark:bg-amber-950/30 dark:text-amber-50",
+    badge: "bg-amber-500 text-amber-950 dark:bg-amber-400 dark:text-amber-950",
+    icon: "bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-200",
+    glow: "bg-amber-400/20",
+    label: "Warning",
+  },
+  critical: {
+    frame: "border-red-600/90 bg-red-50 text-red-950 shadow-red-600/20 ring-1 ring-red-600/30 dark:bg-red-950/35 dark:text-red-50",
+    badge: "bg-red-600 text-red-50 dark:bg-red-500 dark:text-red-50",
+    icon: "bg-red-100 text-red-700 dark:bg-red-900/60 dark:text-red-200",
+    glow: "bg-red-500/20",
+    label: "Critical",
+  },
+};
+
 function StatCard({
   title,
   value,
@@ -207,67 +231,110 @@ function StatCard({
 }) {
   const resolvedColor = status !== "normal" ? STATUS_COLOR[status] : color;
   const isAlert = status !== "normal";
+  const tone = isAlert ? STATUS_TONE[status] : null;
 
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm hover:shadow-md transition-all duration-300",
-        isAlert && status === "warning" && "border-amber-400/60 bg-amber-500/[0.04] dark:bg-amber-500/[0.06]",
-        isAlert && status === "critical" && "border-red-500/60 bg-red-500/[0.05] dark:bg-red-500/[0.07]",
+        "relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm transition-all duration-200 hover:shadow-md",
+        tone?.frame,
       )}
     >
-      {/* Left accent bar */}
-      <div className="absolute inset-y-0 left-0 w-1 rounded-l-xl" style={{ backgroundColor: resolvedColor }} />
-
-      {/* Pulsing alert dot — top-right corner */}
       {isAlert && (
-        <span className="absolute top-3 right-3 flex h-2.5 w-2.5">
-          <span
-            className={cn(
-              "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
-              status === "critical" ? "bg-red-500" : "bg-amber-500",
-            )}
-          />
-          <span
-            className={cn(
-              "relative inline-flex rounded-full h-2.5 w-2.5",
-              status === "critical" ? "bg-red-500" : "bg-amber-500",
-            )}
-          />
-        </span>
+        <div className={cn("pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl", tone?.glow)} />
       )}
 
-      <div className="pl-2.5">
+      <div className="relative">
         <div className="flex items-start justify-between gap-2 mb-3">
-          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-tight pr-5">
+          <p className={cn("text-sm font-semibold leading-tight", isAlert ? "text-current" : "text-gray-800 dark:text-gray-200")}>
             {title}
           </p>
           <div
-            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-            style={{ backgroundColor: `${resolvedColor}20` }}
+            className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0", tone?.icon)}
+            style={isAlert ? undefined : { backgroundColor: `${resolvedColor}20` }}
           >
             <Icon className="w-4 h-4" style={{ color: resolvedColor }} />
           </div>
         </div>
-        <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 leading-none mb-1">
+        <div className={cn("text-2xl font-bold leading-none mb-1", isAlert ? "text-current" : "text-gray-900 dark:text-gray-100")}>
           {value}
         </div>
-        <p className="text-[11px] text-muted-foreground">{sub}</p>
+        <p className={cn("text-[11px]", isAlert ? "text-current/70" : "text-muted-foreground")}>{sub}</p>
 
-        {/* Status chip */}
         {isAlert && statusLabel && (
           <span
             className={cn(
-              "mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold",
-              status === "critical"
-                ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+              "mt-3 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+              tone?.badge,
             )}
           >
             <AlertTriangle className="w-2.5 h-2.5" />
-            {statusLabel}
+            {tone?.label}: {statusLabel}
           </span>
         )}
+      </div>
+    </div>
+  );
+}
+
+interface RiskAlert {
+  key: string;
+  title: string;
+  value: number | string;
+  status: Exclude<CardStatus, "normal">;
+  message: string;
+}
+
+function RiskAlertDeck({ alerts }: { alerts: RiskAlert[] }) {
+  if (alerts.length === 0) return null;
+
+  const hasCritical = alerts.some((alert) => alert.status === "critical");
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border p-4 shadow-sm",
+        hasCritical
+          ? "border-red-600/70 bg-red-50 text-red-950 dark:bg-red-950/30 dark:text-red-50"
+          : "border-amber-500/70 bg-amber-50 text-amber-950 dark:bg-amber-950/30 dark:text-amber-50",
+      )}
+    >
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-3">
+          <div
+            className={cn(
+              "flex h-10 w-10 items-center justify-center rounded-full",
+              hasCritical ? "bg-red-600 text-red-50" : "bg-amber-500 text-amber-950",
+            )}
+          >
+            <AlertTriangle className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-sm font-bold uppercase tracking-wide">
+              {hasCritical ? "Dashboard check required" : "Dashboard watchlist"}
+            </p>
+            <p className="text-xs text-current/70">
+              {alerts.length} KPI{alerts.length === 1 ? "" : "s"} crossed configured risk thresholds.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {alerts.map((alert) => {
+            const tone = STATUS_TONE[alert.status];
+            return (
+              <div key={alert.key} className="rounded-lg border border-current/15 bg-card/70 px-3 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="truncate text-xs font-semibold">{alert.title}</p>
+                  <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase", tone.badge)}>
+                    {tone.label}
+                  </span>
+                </div>
+                <p className="mt-1 text-lg font-bold leading-none">{alert.value}</p>
+                <p className="mt-1 text-[11px] text-current/65">{alert.message}</p>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -676,9 +743,40 @@ function OverviewTab({
   const ovAttritionStatus = computeCardStatus(analytics.employees.attritionRate ?? 0, thresholdMap['EMPLOYEES_ATTRITION_RATE']    ?? {});
   const ovProbationStatus = computeCardStatus(analytics.employees.probation,          thresholdMap['EMPLOYEES_PROBATION']         ?? {});
   const ovPendingStatus   = computeCardStatus(analytics.leave.pendingApprovals,       thresholdMap['LEAVE_PENDING_APPROVALS']     ?? {});
+  const overviewRiskAlerts: RiskAlert[] = [
+    ...(ovProbationStatus === "normal" ? [] : [{
+      key: "EMPLOYEES_PROBATION",
+      title: "Probation",
+      value: analytics.employees.probation,
+      status: ovProbationStatus,
+      message: ovProbationStatus === "critical" ? "High caseload" : "Review caseload",
+    }]),
+    ...(ovExitsStatus === "normal" ? [] : [{
+      key: "EMPLOYEES_EXITS",
+      title: "Exits",
+      value: analytics.employees.terminal,
+      status: ovExitsStatus,
+      message: ovExitsStatus === "critical" ? "Retention risk" : "Monitor exits",
+    }]),
+    ...(ovAttritionStatus === "normal" ? [] : [{
+      key: "EMPLOYEES_ATTRITION_RATE",
+      title: "Exit Rate",
+      value: formatRatio(analytics.employees.attritionRate),
+      status: ovAttritionStatus,
+      message: ovAttritionStatus === "critical" ? "Critical attrition" : "Elevated attrition",
+    }]),
+    ...(ovPendingStatus === "normal" ? [] : [{
+      key: "LEAVE_PENDING_APPROVALS",
+      title: "Pending Approvals",
+      value: analytics.leave.pendingApprovals,
+      status: ovPendingStatus,
+      message: ovPendingStatus === "critical" ? "Immediate review" : "Queue building",
+    }]),
+  ];
 
   return (
     <div className="space-y-6">
+      <RiskAlertDeck alerts={overviewRiskAlerts} />
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <StatCard title="Total Employees" value={analytics.employees.total} sub="Visible in current scope" icon={Users} color="#2563eb" />
         <StatCard title="Active" value={analytics.employees.active} sub="Currently working" icon={UserCheck} color="#16a34a" />
@@ -1632,6 +1730,7 @@ export default function Dashboard() {
   const thresholdMap = useMemo<Record<string, ThresholdConfig>>(
     () => Object.fromEntries(
       thresholdIndicators.map((t) => [t.metricKey, {
+        label:         t.label,
         warning:       t.warningThreshold  ?? undefined,
         critical:      t.criticalThreshold ?? undefined,
         warningBelow:  t.warningBelow      ?? undefined,

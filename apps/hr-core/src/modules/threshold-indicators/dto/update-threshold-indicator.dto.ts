@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class UpdateThresholdIndicatorDto {
   @IsOptional()
@@ -8,17 +8,21 @@ export class UpdateThresholdIndicatorDto {
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   warningThreshold?: number | null;
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   criticalThreshold?: number | null;
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   warningBelow?: number | null;
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   criticalBelow?: number | null;
 }

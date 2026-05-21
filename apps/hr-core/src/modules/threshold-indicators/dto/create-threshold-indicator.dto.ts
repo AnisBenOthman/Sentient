@@ -1,4 +1,4 @@
-import { IsEnum, IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 import { DashboardMetricKey } from '@sentient/shared';
 
 export class CreateThresholdIndicatorDto {
@@ -11,17 +11,21 @@ export class CreateThresholdIndicatorDto {
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   warningThreshold?: number;
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   criticalThreshold?: number;
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   warningBelow?: number;
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   criticalBelow?: number;
 }

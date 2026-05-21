@@ -34,10 +34,14 @@ const METRIC_DEFINITIONS: MetricDefinition[] = [
   { key: "PROMOTIONS_PENDING_REQUESTS", label: "Pending promotions",      unit: "count" },
 ];
 
-interface EditState {
-  metricKey: string;
-  warning: string;
-  critical: string;
+function parseThresholdInput(value: string): number | null {
+  const trimmed = value.trim();
+  if (trimmed === "") return null;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error("Threshold values must be zero or greater.");
+  }
+  return parsed;
 }
 
 function ThresholdRow({
@@ -176,8 +180,14 @@ export default function Settings() {
 
   const saveMutation = useMutation({
     mutationFn: ({ key, warning, critical, id }: { key: string; warning: string; critical: string; id?: string }) => {
-      const w = warning.trim() !== "" ? Number(warning) : null;
-      const c = critical.trim() !== "" ? Number(critical) : null;
+      const w = parseThresholdInput(warning);
+      const c = parseThresholdInput(critical);
+      if (w === null && c === null && !id) {
+        throw new Error("Enter at least one threshold.");
+      }
+      if (w !== null && c !== null && c < w) {
+        throw new Error("Critical threshold must be greater than or equal to warning.");
+      }
       if (id) {
         return updateThresholdIndicator(id, { warningThreshold: w, criticalThreshold: c });
       }
@@ -188,7 +198,11 @@ export default function Settings() {
       queryClient.invalidateQueries({ queryKey: ["threshold-indicators"] });
       toast({ title: "Threshold saved" });
     },
-    onError: () => toast({ title: "Failed to save threshold", variant: "destructive" }),
+    onError: (error) => toast({
+      title: "Failed to save threshold",
+      description: error instanceof Error ? error.message : undefined,
+      variant: "destructive",
+    }),
   });
 
   const removeMutation = useMutation({
