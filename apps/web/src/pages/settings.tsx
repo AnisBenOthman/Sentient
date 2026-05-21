@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Pencil, Trash2, X, Check } from "lucide-react";
+import { AlertTriangle, Pencil, Trash2, X, Check, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useTour } from "@/hooks/use-tour";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -162,6 +163,7 @@ export default function Settings() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isHrAdmin = (user?.roles ?? []).some((r) => ["HR_ADMIN", "GLOBAL_HR_ADMIN"].includes(r));
+  const { restart: restartTour } = useTour();
 
   const { data: thresholds = [] } = useQuery({
     queryKey: ["threshold-indicators"],
@@ -295,6 +297,19 @@ export default function Settings() {
         )}
 
         <OrgStructureCard />
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Guided Tour</CardTitle>
+            <CardDescription>Restart the platform walkthrough to rediscover all features.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" onClick={restartTour} className="gap-2">
+              <PlayCircle className="w-4 h-4" />
+              Restart Tour
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

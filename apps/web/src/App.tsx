@@ -26,6 +26,9 @@ import OkrCycleManagement from "@/pages/okr-cycle-management";
 import MyOkrs from "@/pages/my-okrs";
 import NotFound from "@/pages/not-found";
 import { authStore, getRoleTier, type RoleTier } from "@/lib/auth";
+import { GuidedTourProvider } from "@/components/guided-tour";
+import { GuidedTourRenderer } from "@/components/guided-tour";
+import { useAuth } from "@/components/providers/auth-provider";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -196,15 +199,25 @@ function AppRoutes() {
   );
 }
 
+function AppWithTour() {
+  const { user } = useAuth();
+  return (
+    <GuidedTourProvider user={user}>
+      <NotificationsProvider>
+        <AppRoutes />
+        <GuidedTourRenderer />
+        <Toaster />
+      </NotificationsProvider>
+    </GuidedTourProvider>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
-          <NotificationsProvider>
-            <AppRoutes />
-            <Toaster />
-          </NotificationsProvider>
+          <AppWithTour />
         </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>
