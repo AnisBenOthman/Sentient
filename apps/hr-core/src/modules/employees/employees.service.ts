@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
@@ -20,6 +21,8 @@ import {
 import { Decimal } from '../../generated/prisma/runtime/library';
 import { IEventBus, EVENT_BUS, JwtPayload, PermissionScope, ProficiencyLevel, SkillDomain, SkillRequirementLevel } from '@sentient/shared';
 import { PrismaService } from '../../prisma/prisma.service';
+import { InviteService } from '../iam/services/invite.service';
+import { UsersService } from '../iam/services/users.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { SkillsGapQueryDto } from './dto/skills-gap-query.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
@@ -97,9 +100,13 @@ const TERMINAL_STATUSES = new Set<string>([
 
 @Injectable()
 export class EmployeesService {
+  private readonly logger = new Logger(EmployeesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(EVENT_BUS) private readonly eventBus: IEventBus,
+    private readonly usersService: UsersService,
+    private readonly inviteService: InviteService,
   ) {}
 
   // ============================================================
@@ -156,6 +163,17 @@ export class EmployeesService {
       },
       metadata: { userId: actorUserId, correlationId: randomUUID() },
     });
+
+    // Auto-provision user account and send invite email.
+    // Fire-and-forget: email failure must never roll back the employee record.
+    try {
+      const user = await this.usersService.create({ email: employee.email, employeeId: employee.id });
+      await this.inviteService.issue(user.id, employee.email);
+    } catch (err) {
+      this.logger.error(
+        `Employee ${employee.id} created but invite failed for ${employee.email}: ${String(err)}`,
+      );
+    }
 
     return employee as EmployeeProfile;
   }

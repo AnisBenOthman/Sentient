@@ -39,6 +39,6 @@ import { UsersService } from './services/users.service';
     MailService,
     InviteService,
   ],
-  exports: [UsersService, RolesService, TokenService, UserStatusGuard],
+  exports: [UsersService, RolesService, TokenService, UserStatusGuard, InviteService, MailService],
 })
 export class IamModule {}

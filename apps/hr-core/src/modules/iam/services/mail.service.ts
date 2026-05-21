@@ -21,14 +21,14 @@ export class MailService implements OnModuleInit {
       return;
     }
 
+    const smtpUser = this.config.get<string>('SMTP_USER');
     this.transporter = createTransport({
       host,
       port: this.config.get<number>('SMTP_PORT') ?? 587,
       secure: this.config.get<boolean>('SMTP_SECURE') ?? false,
-      auth: {
-        user: this.config.getOrThrow<string>('SMTP_USER'),
-        pass: this.config.getOrThrow<string>('SMTP_PASS'),
-      },
+      ...(smtpUser
+        ? { auth: { user: smtpUser, pass: this.config.get<string>('SMTP_PASS') ?? '' } }
+        : {}),
     });
   }
 
