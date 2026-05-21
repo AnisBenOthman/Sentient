@@ -34,6 +34,13 @@ const MARITAL_STATUS_OPTS = [
   { value: "WIDOWED", label: "Widowed" },
 ];
 
+const GENDER_OPTS = [
+  { value: "FEMALE", label: "Female" },
+  { value: "MALE", label: "Male" },
+  { value: "NON_BINARY", label: "Non-binary" },
+  { value: "PREFER_NOT_TO_SAY", label: "Prefer not to say" },
+];
+
 const EDUCATION_LEVEL_OPTS = [
   { value: "BELOW_COLLEGE", label: "Below College" },
   { value: "COLLEGE", label: "College" },
@@ -69,6 +76,7 @@ const BLANK_FORM = {
   email: "",
   phone: "",
   dateOfBirth: "",
+  gender: "",
   maritalStatus: "",
   educationLevel: "",
   educationField: "",
@@ -243,6 +251,7 @@ export function AddEmployeeWizard({
       else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = "Enter a valid email";
       if (!form.dateOfBirth) e.dateOfBirth = "Date of birth is required";
       else if (form.dateOfBirth >= today) e.dateOfBirth = "Date of birth must be in the past";
+      if (!form.gender) e.gender = "Gender is required";
       if (!form.maritalStatus) e.maritalStatus = "Marital status is required";
       if (!form.educationLevel) e.educationLevel = "Education level is required";
     } else if (s === 2) {
@@ -272,6 +281,10 @@ export function AddEmployeeWizard({
       dateOfBirth: form.dateOfBirth || undefined,
       grossSalary: form.grossSalary || undefined,
       netSalary: form.netSalary || undefined,
+      gender: form.gender || undefined,
+      maritalStatus: form.maritalStatus || undefined,
+      educationLevel: form.educationLevel || undefined,
+      educationField: form.educationField.trim() || undefined,
       departmentId: form.departmentId || undefined,
       teamId: form.teamId || undefined,
       positionId: form.positionId || undefined,
@@ -357,6 +370,16 @@ export function AddEmployeeWizard({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Gender *</Label>
+                  <Select value={form.gender} onValueChange={(v) => field("gender", v)}>
+                    <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                    <SelectContent>
+                      {GENDER_OPTS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {errors.gender && <p className="text-xs text-red-500">{errors.gender}</p>}
+                </div>
                 <div className="space-y-1.5">
                   <Label>Marital Status *</Label>
                   <Select value={form.maritalStatus} onValueChange={(v) => field("maritalStatus", v)}>
@@ -545,6 +568,7 @@ export function AddEmployeeWizard({
                   <SummaryRow label="Email" value={form.email} />
                   <SummaryRow label="Phone" value={form.phone} />
                   <SummaryRow label="Date of Birth" value={form.dateOfBirth} />
+                  <SummaryRow label="Gender" value={form.gender ? labelOf(GENDER_OPTS, form.gender) : undefined} />
                   <SummaryRow label="Marital Status" value={form.maritalStatus ? labelOf(MARITAL_STATUS_OPTS, form.maritalStatus) : undefined} />
                   <SummaryRow label="Education" value={form.educationLevel ? `${labelOf(EDUCATION_LEVEL_OPTS, form.educationLevel)}${form.educationField ? ` · ${form.educationField}` : ""}` : undefined} />
                 </SummarySection>

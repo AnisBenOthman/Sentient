@@ -1,5 +1,6 @@
 export * from './agent-type.enum';
 export * from './education-level.enum';
+export * from './gender.enum';
 export * from './marital-status.enum';
 export * from './position-level.enum';
 export * from './key-position-risk.enum';

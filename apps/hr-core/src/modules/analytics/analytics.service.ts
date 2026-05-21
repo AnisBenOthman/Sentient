@@ -39,6 +39,11 @@ export interface DashboardAnalytics {
     contractMix: ChartPoint[];
     ageBands: ChartPoint[];
     tenureBands: ChartPoint[];
+    educationLevels: ChartPoint[];
+    educationFields: ChartPoint[];
+    genderDistribution: ChartPoint[];
+    attritionByMaritalStatus: ChartPoint[];
+    attritionByJob: ChartPoint[];
   };
   payroll: {
     visible: boolean;
@@ -84,6 +89,7 @@ type EmployeeRow = Prisma.EmployeeGetPayload<{
   include: {
     department: { select: { id: true; name: true; businessUnitId: true } };
     team: { select: { id: true; name: true; businessUnitId: true } };
+    position: { select: { id: true; title: true } };
   };
 }>;
 
@@ -180,6 +186,7 @@ export class AnalyticsService {
         include: {
           department: { select: { id: true, name: true, businessUnitId: true } },
           team: { select: { id: true, name: true, businessUnitId: true } },
+          position: { select: { id: true, title: true } },
         },
       }),
       this.prisma.salaryHistory.findMany({
@@ -261,6 +268,7 @@ export class AnalyticsService {
       .map((employee) => this.yearsBetween(employee.hireDate, now))
       .filter((value): value is number => value !== null);
     const terminalCount = employees.filter((employee) => TERMINAL_STATUSES.has(employee.employmentStatus)).length;
+    const terminalEmployees = employees.filter((employee) => TERMINAL_STATUSES.has(employee.employmentStatus));
     const fullTimeCount = currentEmployees.filter((employee) => employee.contractType === 'FULL_TIME').length;
     const sixMonthsAgo = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 6, now.getUTCDate()));
 
@@ -302,6 +310,21 @@ export class AnalyticsService {
       ),
       ageBands: this.buildBandDistribution(ages, AGE_BANDS),
       tenureBands: this.buildBandDistribution(tenures, TENURE_BANDS),
+      educationLevels: this.sortPoints(
+        this.sumBy(currentEmployees, (employee) => this.formatNullableEnumLabel(employee.educationLevel), () => 1),
+      ),
+      educationFields: this.sortPoints(
+        this.sumBy(currentEmployees, (employee) => employee.educationField ?? 'Unspecified', () => 1),
+      ).slice(0, 10),
+      genderDistribution: this.sortPoints(
+        this.sumBy(employees, (employee) => this.formatNullableEnumLabel(employee.gender), () => 1),
+      ),
+      attritionByMaritalStatus: this.sortPoints(
+        this.sumBy(terminalEmployees, (employee) => this.formatNullableEnumLabel(employee.maritalStatus), () => 1),
+      ),
+      attritionByJob: this.sortPoints(
+        this.sumBy(terminalEmployees, (employee) => employee.position?.title ?? 'Unassigned', () => 1),
+      ).slice(0, 10),
     };
   }
 
@@ -700,6 +723,10 @@ export class AnalyticsService {
       .split('_')
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(' ');
+  }
+
+  private formatNullableEnumLabel(value: string | null): string {
+    return value ? this.formatEnumLabel(value) : 'Unspecified';
   }
 
   private round(value: number): number {

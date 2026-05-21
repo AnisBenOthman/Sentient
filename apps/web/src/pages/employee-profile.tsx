@@ -222,6 +222,7 @@ type DraftProfile = {
   contractType: string;
   grossSalary: string;
   netSalary: string;
+  gender: string;
   maritalStatus: string;
   educationLevel: string;
   educationField: string;
@@ -282,6 +283,7 @@ function buildDraft(emp: EmployeeProfile): DraftProfile {
     contractType: emp.contractType,
     grossSalary: emp.grossSalary == null ? "" : String(emp.grossSalary),
     netSalary: emp.netSalary == null ? "" : String(emp.netSalary),
+    gender: normalizeSelect(emp.gender),
     maritalStatus: normalizeSelect(emp.maritalStatus),
     educationLevel: normalizeSelect(emp.educationLevel),
     educationField: emp.educationField ?? "",
@@ -302,6 +304,7 @@ function draftToUpdate(draft: DraftProfile, emp: EmployeeProfile): UpdateEmploye
     phone: draft.phone.trim() || undefined,
     dateOfBirth: draft.dateOfBirth || undefined,
     contractType: draft.contractType,
+    gender: denormalizeSelect(draft.gender),
     maritalStatus: denormalizeSelect(draft.maritalStatus),
     educationLevel: denormalizeSelect(draft.educationLevel),
     educationField: draft.educationField.trim() || undefined,
@@ -785,6 +788,18 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                       <EditField icon={Calendar} label="Date of Birth">
                         <Input type="date" value={currentDraft.dateOfBirth} onChange={(event) => patchDraft({ dateOfBirth: event.target.value })} />
                       </EditField>
+                      <EditField icon={UserCheck} label="Gender">
+                        <Select value={currentDraft.gender} onValueChange={(value) => patchDraft({ gender: value })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={NONE}>Unspecified</SelectItem>
+                            <SelectItem value="FEMALE">Female</SelectItem>
+                            <SelectItem value="MALE">Male</SelectItem>
+                            <SelectItem value="NON_BINARY">Non-binary</SelectItem>
+                            <SelectItem value="PREFER_NOT_TO_SAY">Prefer not to say</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </EditField>
                       <EditField icon={Heart} label="Marital Status">
                         <Select value={currentDraft.maritalStatus} onValueChange={(value) => patchDraft({ maritalStatus: value })}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
@@ -802,11 +817,11 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value={NONE}>Unspecified</SelectItem>
-                            <SelectItem value="HIGH_SCHOOL">High School</SelectItem>
+                            <SelectItem value="BELOW_COLLEGE">Below College</SelectItem>
+                            <SelectItem value="COLLEGE">College</SelectItem>
                             <SelectItem value="BACHELOR">Bachelor</SelectItem>
                             <SelectItem value="MASTER">Master</SelectItem>
-                            <SelectItem value="PHD">PhD</SelectItem>
-                            <SelectItem value="OTHER">Other</SelectItem>
+                            <SelectItem value="DOCTOR">Doctorate</SelectItem>
                           </SelectContent>
                         </Select>
                       </EditField>
@@ -819,6 +834,7 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                       <InfoRow icon={Mail} label="Email" value={emp.email} />
                       <InfoRow icon={Phone} label="Phone" value={emp.phone} />
                       <InfoRow icon={Calendar} label="Date of Birth" value={formatDate(emp.dateOfBirth)} />
+                      <InfoRow icon={UserCheck} label="Gender" value={emp.gender} />
                       <InfoRow icon={Heart} label="Marital Status" value={emp.maritalStatus} />
                       <InfoRow icon={GraduationCap} label="Education Level" value={emp.educationLevel} />
                       <InfoRow icon={GraduationCap} label="Education Field" value={emp.educationField} />

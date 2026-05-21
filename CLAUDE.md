@@ -1,6 +1,6 @@
 # Sentient Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-05-19
+Auto-generated from all feature plans. Last updated: 2026-05-21
 
 ## Persona
 
@@ -14,6 +14,8 @@ Senior Full-Stack Engineer. Write complete, production-quality code. No placehol
 - PostgreSQL 16, schema `hr_core`, one new table `notifications` plus three new enums (`notification_category`, `notification_event_type`, `notification_status`). (010-notifications)
 - TypeScript 5.x strict — repo-wide `tsconfig.base.json` enforces `strict`, `noUncheckedIndexedAccess`, `noImplicitReturns`, `forceConsistentCasingInFileNames`. Social inherits. + NestJS 10, Prisma 5 (multiSchema preview), class-validator, class-transformer, @nestjs/swagger, @nestjs/config, @nestjs/throttler, axios 1.x, `@sentient/shared` workspace package (`SharedJwtGuard`, `RbacGuard`, `EVENT_BUS`, `IEventBus`, `DomainEvent`, `JwtPayload`, `Public`/`Roles`/`CurrentUser` decorators, enums barrel). (012-social-scaffold)
 - PostgreSQL 16, schema `social`. Eight new tables (`announcements`, `events`, `event_attendees`, `documents`, `feedback`, `engagement_snapshots`, `exit_surveys`, `exit_survey_responses`), eight new Postgres enums, ten new indexes. The `social` schema and `social_svc` role already exist from feature 002 (`scripts/init-schemas.sql`); this feature only adds tables, never schema-level DDL. (012-social-scaffold)
+- TypeScript 5.x strict (`strict`, `noUncheckedIndexedAccess`, `noImplicitReturns`, `forceConsistentCasingInFileNames` via repo-wide `tsconfig.base.json`) + NestJS 10, Prisma 5 (multiSchema preview), class-validator, class-transformer, @nestjs/swagger, @nestjs/config, `@sentient/shared` (SharedJwtGuard, RbacGuard, Roles, CurrentUser, Public, IEventBus, EVENT_BUS, DomainEvent, Audience enum, JwtPayload) (013-announcements-module)
+- PostgreSQL 16, schema `social` — one existing table `announcements` (3 new columns + 2 indexes added by migration) (013-announcements-module)
 
 - TypeScript 5.x — strict mode via `tsconfig.base.json` (`strict`, `noUncheckedIndexedAccess`, `noImplicitReturns`, `forceConsistentCasingInFileNames`) + NestJS 10, React 18 + Vite 7 (no SSR), Prisma 5 (multiSchema preview), @nestjs/config, @nestjs/swagger, class-validator, class-transformer, Turborepo 2.x
 - PostgreSQL 16 + pgvector — Docker Compose (`pgvector/pgvector:pg16` image); 3 schemas (`hr_core`, `social`, `ai_agent`), 4 roles
@@ -51,9 +53,9 @@ See `.claude/rules/code-style.md` for full conventions. Key rules:
 - Every endpoint: `@UseGuards(SharedJwtGuard, RbacGuard)` + `@Roles(...)`. Except `/health`.
 
 ## Recent Changes
+- 013-announcements-module: Added TypeScript 5.x strict (`strict`, `noUncheckedIndexedAccess`, `noImplicitReturns`, `forceConsistentCasingInFileNames` via repo-wide `tsconfig.base.json`) + NestJS 10, Prisma 5 (multiSchema preview), class-validator, class-transformer, @nestjs/swagger, @nestjs/config, `@sentient/shared` (SharedJwtGuard, RbacGuard, Roles, CurrentUser, Public, IEventBus, EVENT_BUS, DomainEvent, Audience enum, JwtPayload)
 - 012-social-scaffold: Added TypeScript 5.x strict — repo-wide `tsconfig.base.json` enforces `strict`, `noUncheckedIndexedAccess`, `noImplicitReturns`, `forceConsistentCasingInFileNames`. Social inherits. + NestJS 10, Prisma 5 (multiSchema preview), class-validator, class-transformer, @nestjs/swagger, @nestjs/config, @nestjs/throttler, axios 1.x, `@sentient/shared` workspace package (`SharedJwtGuard`, `RbacGuard`, `EVENT_BUS`, `IEventBus`, `DomainEvent`, `JwtPayload`, `Public`/`Roles`/`CurrentUser` decorators, enums barrel).
 - 010-notifications: Implemented generic in-app notifications with the hr_core notifications table, shared notification enums, event-bus routing rules for leave and promotion, REST/SSE inbox endpoints, web bell/drawer, and retention purge.
-- 010-notifications: Added TypeScript 5.x strict (`strict`, `noUncheckedIndexedAccess`, `noImplicitReturns` on) + NestJS 10, Prisma 5 (multiSchema preview), class-validator, class-transformer, @nestjs/swagger, @nestjs/config, existing `@sentient/shared` (`IEventBus`, `DomainEvent`, `JwtPayload`, `PermissionScope`). Frontend: React 18 + Vite 7, TanStack Query v5, wouter, Tailwind CSS v4, shadcn/ui.
 
 
 <!-- MANUAL ADDITIONS START -->

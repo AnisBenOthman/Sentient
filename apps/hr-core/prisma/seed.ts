@@ -8,6 +8,7 @@ import {
   ContractType,
   EducationLevel,
   EmploymentStatus,
+  Gender,
   KeyPositionRisk,
   LeaveStatus,
   MaritalStatus,
@@ -300,6 +301,22 @@ function resolveMaritalStatus(idx: number): MaritalStatus {
     MaritalStatus.WIDOWED,
   ];
   return statuses[idx % statuses.length]!;
+}
+
+function resolveGender(idx: number): Gender {
+  const genders = [
+    Gender.FEMALE,
+    Gender.MALE,
+    Gender.FEMALE,
+    Gender.MALE,
+    Gender.FEMALE,
+    Gender.MALE,
+    Gender.NON_BINARY,
+    Gender.FEMALE,
+    Gender.MALE,
+    Gender.PREFER_NOT_TO_SAY,
+  ];
+  return genders[idx % genders.length]!;
 }
 
 function resolveEducationLevel(posTitle: string): EducationLevel {
@@ -824,6 +841,7 @@ async function seedExecutiveEmployee(f: FoundationMaps): Promise<void> {
       contractType: ContractType.FULL_TIME,
       grossSalary: 185000,
       netSalary: 126950,
+      gender: Gender.FEMALE,
       maritalStatus: MaritalStatus.MARRIED,
       educationLevel: EducationLevel.MASTER,
       educationField: "Business Administration",
@@ -882,6 +900,7 @@ async function seedBulkEmployees(f: FoundationMaps): Promise<BulkEmployee[]> {
           contractType: resolveContractType(slot, globalIdx),
           grossSalary: base,
           netSalary: resolveNetSalary(base, globalIdx),
+          gender: resolveGender(globalIdx),
           maritalStatus: resolveMaritalStatus(globalIdx),
           educationLevel: resolveEducationLevel(slot.positionTitle),
           educationField: resolveEducationField(slot.deptCode),

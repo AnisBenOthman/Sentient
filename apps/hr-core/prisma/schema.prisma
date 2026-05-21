@@ -51,6 +51,15 @@ enum EducationLevel {
   @@schema("hr_core")
 }
 
+enum Gender {
+  FEMALE
+  MALE
+  NON_BINARY
+  PREFER_NOT_TO_SAY
+
+  @@schema("hr_core")
+}
+
 enum PositionLevel {
   JUNIOR
   MEDIUM
@@ -519,6 +528,7 @@ model Employee {
   contractType     ContractType     @default(FULL_TIME)
   grossSalary      Decimal?         @db.Decimal(12, 2)
   netSalary        Decimal?         @db.Decimal(12, 2)
+  gender           Gender?
   maritalStatus    MaritalStatus?
   educationLevel   EducationLevel?
   educationField   String?

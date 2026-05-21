@@ -1,6 +1,6 @@
 import { ChannelType, JwtPayload, PermissionScope } from '@sentient/shared';
 import { AnalyticsService } from './analytics.service';
-import { ContractType, EmploymentStatus, Prisma } from '../../generated/prisma';
+import { ContractType, EmploymentStatus, Gender, MaritalStatus, Prisma } from '../../generated/prisma';
 import { Decimal } from '../../generated/prisma/runtime/library';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -39,6 +39,7 @@ function employeeRow(
   include: {
     department: { select: { id: true; name: true; businessUnitId: true } };
     team: { select: { id: true; name: true; businessUnitId: true } };
+    position: { select: { id: true; title: true } };
   };
 }> {
   return {
@@ -54,6 +55,7 @@ function employeeRow(
     contractType: overrides.contractType ?? ContractType.FULL_TIME,
     grossSalary: new Decimal(grossSalary),
     netSalary: null,
+    gender: overrides.contractType === ContractType.FIXED_TERM ? Gender.FEMALE : Gender.MALE,
     maritalStatus: null,
     educationLevel: null,
     educationField: null,
@@ -66,6 +68,7 @@ function employeeRow(
     deletedAt: null,
     department: { id: 'dept-finance', name: 'Finance', businessUnitId: 'bu-hq' },
     team: { id: 'team-accounting', name: 'Accounting', businessUnitId: 'bu-hq' },
+    position: { id: 'pos-analyst', title: 'Finance Analyst' },
   };
 }
 
@@ -179,6 +182,39 @@ describe('AnalyticsService', () => {
     );
     expect(analytics.employees.ageBands.reduce((sum, item) => sum + item.value, 0)).toBe(2);
     expect(analytics.employees.tenureBands.reduce((sum, item) => sum + item.value, 0)).toBe(2);
+    expect(analytics.employees.genderDistribution).toEqual(
+      expect.arrayContaining([
+        { label: 'Male', value: 2 },
+        { label: 'Female', value: 1 },
+      ]),
+    );
+    expect(analytics.employees.educationLevels).toEqual(
+      expect.arrayContaining([{ label: 'Unspecified', value: 2 }]),
+    );
+  });
+
+  it('builds attrition slices by marital status and job', async () => {
+    mockPrisma.employee.findMany.mockResolvedValue([
+      {
+        ...employeeRow('emp-active', EmploymentStatus.ACTIVE, '1000'),
+        maritalStatus: MaritalStatus.SINGLE,
+      },
+      {
+        ...employeeRow('emp-resigned', EmploymentStatus.RESIGNED, '1000'),
+        maritalStatus: MaritalStatus.MARRIED,
+        position: { id: 'pos-controller', title: 'Finance Controller' },
+      },
+      {
+        ...employeeRow('emp-terminated', EmploymentStatus.TERMINATED, '1000'),
+        maritalStatus: MaritalStatus.MARRIED,
+        position: { id: 'pos-controller', title: 'Finance Controller' },
+      },
+    ]);
+
+    const analytics = await service.getDashboard({ departmentId: 'dept-finance' }, hrUser);
+
+    expect(analytics.employees.attritionByMaritalStatus).toEqual([{ label: 'Married', value: 2 }]);
+    expect(analytics.employees.attritionByJob).toEqual([{ label: 'Finance Controller', value: 2 }]);
   });
 
   it('applies department manager scope before dashboard filters', async () => {

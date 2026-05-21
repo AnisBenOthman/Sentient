@@ -66,6 +66,7 @@ export interface EmployeeProfile {
   employmentStatus: string;
   grossSalary: number | null;
   netSalary: number | null;
+  gender: string | null;
   maritalStatus: string | null;
   educationLevel: string | null;
   educationField?: string | null;
@@ -151,6 +152,7 @@ export type UpdateEmployeeDto = Partial<{
   netSalary: string;
   salaryChangeReason: string;
   salaryChangeComment: string;
+  gender: string;
   maritalStatus: string;
   educationLevel: string;
   educationField: string;
@@ -178,6 +180,10 @@ export interface CreateEmployeeDto {
   dateOfBirth?: string;
   grossSalary?: string;
   netSalary?: string;
+  gender?: string;
+  maritalStatus?: string;
+  educationLevel?: string;
+  educationField?: string;
   departmentId?: string;
   teamId?: string;
   positionId?: string;
@@ -790,6 +796,11 @@ export interface DashboardAnalytics {
     contractMix: ChartPoint[];
     ageBands: ChartPoint[];
     tenureBands: ChartPoint[];
+    educationLevels: ChartPoint[];
+    educationFields: ChartPoint[];
+    genderDistribution: ChartPoint[];
+    attritionByMaritalStatus: ChartPoint[];
+    attritionByJob: ChartPoint[];
   };
   payroll: {
     visible: boolean;

@@ -85,6 +85,8 @@ import {
   CalendarX,
   CheckCircle2,
   Clock,
+  GraduationCap,
+  Heart,
   Hourglass,
   LayoutDashboard,
   LineChart as LineChartIcon,
@@ -391,6 +393,14 @@ function formatRatio(value: number | null): string {
   return `${value.toFixed(0)}%`;
 }
 
+function pointTotal(data: ChartPoint[]): number {
+  return data.reduce((sum, item) => sum + item.value, 0);
+}
+
+function topPointLabel(data: ChartPoint[]): string {
+  return data[0]?.label ?? "-";
+}
+
 function seriesKeys(data: SeriesPoint[]): string[] {
   const keys = new Set<string>();
   for (const point of data) {
@@ -628,11 +638,12 @@ function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <Card>
+    <Card className="overflow-hidden border-slate-200/80 shadow-sm dark:border-slate-800">
+      <div className="h-1 bg-gradient-to-r from-cyan-500 via-blue-600 to-emerald-500" />
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+            <CardTitle className="text-sm font-semibold text-slate-800 dark:text-slate-200">
               {title}
             </CardTitle>
             <p className="text-xs text-muted-foreground">{subtitle}</p>
@@ -920,6 +931,14 @@ function EmployeesTab({
 
   const empProbationStatus = computeCardStatus(analytics?.employees.probation ?? 0, thresholdMap['EMPLOYEES_PROBATION'] ?? {});
   const empExitsStatus     = computeCardStatus(analytics?.employees.terminal  ?? 0, thresholdMap['EMPLOYEES_EXITS']     ?? {});
+  const educationFields = analytics?.employees.educationFields ?? [];
+  const genderDistribution = analytics?.employees.genderDistribution ?? [];
+  const attritionByMaritalStatus = analytics?.employees.attritionByMaritalStatus ?? [];
+  const attritionByJob = analytics?.employees.attritionByJob ?? [];
+  const educationFieldTotal = pointTotal(educationFields);
+  const genderTotal = pointTotal(genderDistribution);
+  const attritionByMaritalTotal = pointTotal(attritionByMaritalStatus);
+  const attritionByJobTotal = pointTotal(attritionByJob);
 
   return (
     <div className="space-y-6">
@@ -949,6 +968,12 @@ function EmployeesTab({
           status={empExitsStatus}
           statusLabel={empExitsStatus === "critical" ? "Retention risk" : empExitsStatus === "warning" ? "Monitor exits" : undefined}
         />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard title="Top Education Field" value={topPointLabel(educationFields)} sub={`${educationFieldTotal} current employees classified`} icon={GraduationCap} color="#7c3aed" />
+        <StatCard title="Gender Records" value={genderTotal} sub="Employees with demographic grouping" icon={UserCheck} color="#0f766e" />
+        <StatCard title="Marital Attrition" value={attritionByMaritalTotal} sub="Exited employees with marital status" icon={Heart} color="#be123c" />
+        <StatCard title="Job Attrition" value={attritionByJobTotal} sub="Exited employees by position" icon={Briefcase} color="#a16207" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <SwitchableChartCard
@@ -1036,6 +1061,78 @@ function EmployeesTab({
               <DonutChart data={analytics?.employees.tenureBands ?? []} />
             ) : (
               <PointBarChart data={analytics?.employees.tenureBands ?? []} valueName="Employees" />
+            )
+          }
+        />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SwitchableChartCard
+          id="emp-education-level"
+          title="Education level mix"
+          subtitle="Current workforce credentials by highest level"
+          types={["bar", "donut"]}
+          cts={cts}
+          renderChart={(type) =>
+            type === "donut" ? (
+              <DonutChart data={analytics?.employees.educationLevels ?? []} />
+            ) : (
+              <PointBarChart data={analytics?.employees.educationLevels ?? []} valueName="Employees" />
+            )
+          }
+        />
+        <SwitchableChartCard
+          id="emp-education-field"
+          title="Education field concentration"
+          subtitle="Top fields across the current workforce"
+          types={["bar", "donut"]}
+          cts={cts}
+          renderChart={(type) =>
+            type === "donut" ? (
+              <DonutChart data={educationFields} />
+            ) : (
+              <PointBarChart data={educationFields} valueName="Employees" />
+            )
+          }
+        />
+        <SwitchableChartCard
+          id="emp-gender"
+          title="Total employees by gender"
+          subtitle="Visible employees grouped by recorded gender"
+          types={["donut", "bar"]}
+          cts={cts}
+          renderChart={(type) =>
+            type === "bar" ? (
+              <PointBarChart data={genderDistribution} valueName="Employees" />
+            ) : (
+              <DonutChart data={genderDistribution} />
+            )
+          }
+        />
+        <SwitchableChartCard
+          id="emp-attrition-marital"
+          title="Attrition by marital status"
+          subtitle="Terminated or resigned employees by marital status"
+          types={["bar", "donut"]}
+          cts={cts}
+          renderChart={(type) =>
+            type === "donut" ? (
+              <DonutChart data={attritionByMaritalStatus} />
+            ) : (
+              <PointBarChart data={attritionByMaritalStatus} valueName="Exits" />
+            )
+          }
+        />
+        <SwitchableChartCard
+          id="emp-attrition-job"
+          title="Attrition by job"
+          subtitle="Top positions represented in exits"
+          types={["bar", "donut"]}
+          cts={cts}
+          renderChart={(type) =>
+            type === "donut" ? (
+              <DonutChart data={attritionByJob} />
+            ) : (
+              <PointBarChart data={attritionByJob} valueName="Exits" />
             )
           }
         />

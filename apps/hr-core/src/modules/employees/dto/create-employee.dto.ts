@@ -11,7 +11,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ContractType, EducationLevel, MaritalStatus } from '@sentient/shared';
+import { ContractType, EducationLevel, Gender, MaritalStatus } from '@sentient/shared';
 
 export class CreateEmployeeDto {
   @ApiProperty({ example: 'Anis' })
@@ -58,6 +58,11 @@ export class CreateEmployeeDto {
   @IsOptional()
   @IsDecimal({ decimal_digits: '0,2' })
   netSalary?: string;
+
+  @ApiPropertyOptional({ enum: Gender, example: Gender.FEMALE })
+  @IsOptional()
+  @IsEnum(Gender)
+  gender?: Gender;
 
   @ApiPropertyOptional({ enum: MaritalStatus, example: MaritalStatus.SINGLE })
   @IsOptional()
