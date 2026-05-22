@@ -102,17 +102,22 @@ enum ExitSurveyQuestionKey {
 // ============================================================
 
 model Announcement {
-  id          String    @id @default(uuid())
-  title       String
-  body        String    @db.Text
-  authorId    String
-  audience    Audience
-  publishedAt DateTime?
-  pinnedUntil DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                 String    @id @default(uuid())
+  title              String
+  body               String    @db.Text
+  authorId           String
+  audience           Audience
+  targetDepartmentId String?
+  targetTeamId       String?
+  publishedAt        DateTime?
+  expiresAt          DateTime?
+  pinnedUntil        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([audience, publishedAt(sort: Desc)])
+  @@index([targetDepartmentId])
+  @@index([targetTeamId])
   @@schema("social")
   @@map("announcements")
 }

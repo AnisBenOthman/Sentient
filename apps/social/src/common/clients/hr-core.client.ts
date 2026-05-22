@@ -10,6 +10,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance, isAxiosError } from 'axios';
 import { EmployeeRef, HrCoreCallContext } from './employee-ref.interface';
+import { DepartmentRef } from './department-ref.interface';
+import { TeamRef } from './team-ref.interface';
 
 function isEmployeeRef(raw: unknown): raw is EmployeeRef {
   return (
@@ -27,8 +29,8 @@ function isEmployeeRef(raw: unknown): raw is EmployeeRef {
   );
 }
 
-interface CacheEntry {
-  value: EmployeeRef;
+interface CacheEntry<T> {
+  value: T;
   expiresAt: number;
 }
 
@@ -37,7 +39,9 @@ export class HrCoreClient {
   private readonly logger = new Logger(HrCoreClient.name);
   private readonly http: AxiosInstance;
   private readonly cacheTtlMs: number;
-  private readonly cache = new Map<string, CacheEntry>();
+  private readonly cache = new Map<string, CacheEntry<EmployeeRef>>();
+  private readonly deptCache = new Map<string, CacheEntry<DepartmentRef | null>>();
+  private readonly teamCache = new Map<string, CacheEntry<TeamRef | null>>();
 
   constructor(private readonly config: ConfigService) {
     const baseURL = config.getOrThrow<string>('HR_CORE_URL');
@@ -111,8 +115,96 @@ export class HrCoreClient {
     }
   }
 
+  async getDepartmentRef(id: string, context: HrCoreCallContext): Promise<DepartmentRef | null> {
+    const cached = this.deptCache.get(id);
+    if (cached !== undefined) {
+      if (cached.expiresAt > Date.now()) return cached.value;
+      this.deptCache.delete(id);
+    }
+
+    const url = `/departments/${encodeURIComponent(id)}`;
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${context.jwt}`,
+      Accept: 'application/json',
+    };
+    if (context.correlationId) headers['x-correlation-id'] = context.correlationId;
+
+    const start = Date.now();
+    try {
+      const response = await this.http.get<unknown>(url, { headers });
+      const raw = response.data as Record<string, unknown>;
+      const dept: DepartmentRef = { id: String(raw['id'] ?? ''), name: String(raw['name'] ?? '') };
+      this.deptCache.set(id, { value: dept, expiresAt: Date.now() + this.cacheTtlMs });
+      return dept;
+    } catch (err: unknown) {
+      const durationMs = Date.now() - start;
+      if (isAxiosError(err)) {
+        const status = err.response?.status;
+        if (status === 404) {
+          this.deptCache.set(id, { value: null, expiresAt: Date.now() + this.cacheTtlMs });
+          return null;
+        }
+        this.logger.error('HrCoreClient: getDepartmentRef failed', {
+          url, correlationId: context.correlationId, statusOrCode: status ?? err.code, durationMs,
+        });
+        if (status !== undefined && status >= 500) {
+          throw new ServiceUnavailableException(`HR Core unreachable (status ${status})`);
+        }
+        throw new ServiceUnavailableException(`HR Core unreachable (${err.code ?? 'UNKNOWN'})`);
+      }
+      throw err;
+    }
+  }
+
+  async getTeamRef(id: string, context: HrCoreCallContext): Promise<TeamRef | null> {
+    const cached = this.teamCache.get(id);
+    if (cached !== undefined) {
+      if (cached.expiresAt > Date.now()) return cached.value;
+      this.teamCache.delete(id);
+    }
+
+    const url = `/teams/${encodeURIComponent(id)}`;
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${context.jwt}`,
+      Accept: 'application/json',
+    };
+    if (context.correlationId) headers['x-correlation-id'] = context.correlationId;
+
+    const start = Date.now();
+    try {
+      const response = await this.http.get<unknown>(url, { headers });
+      const raw = response.data as Record<string, unknown>;
+      const team: TeamRef = {
+        id: String(raw['id'] ?? ''),
+        name: String(raw['name'] ?? ''),
+        departmentId: String(raw['departmentId'] ?? ''),
+      };
+      this.teamCache.set(id, { value: team, expiresAt: Date.now() + this.cacheTtlMs });
+      return team;
+    } catch (err: unknown) {
+      const durationMs = Date.now() - start;
+      if (isAxiosError(err)) {
+        const status = err.response?.status;
+        if (status === 404) {
+          this.teamCache.set(id, { value: null, expiresAt: Date.now() + this.cacheTtlMs });
+          return null;
+        }
+        this.logger.error('HrCoreClient: getTeamRef failed', {
+          url, correlationId: context.correlationId, statusOrCode: status ?? err.code, durationMs,
+        });
+        if (status !== undefined && status >= 500) {
+          throw new ServiceUnavailableException(`HR Core unreachable (status ${status})`);
+        }
+        throw new ServiceUnavailableException(`HR Core unreachable (${err.code ?? 'UNKNOWN'})`);
+      }
+      throw err;
+    }
+  }
+
   /** @internal Test-only hook to reset the in-process cache. */
   __resetCache(): void {
     this.cache.clear();
+    this.deptCache.clear();
+    this.teamCache.clear();
   }
 }

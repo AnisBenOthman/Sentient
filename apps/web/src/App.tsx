@@ -24,6 +24,7 @@ import PerformanceReviews from "@/pages/performance-reviews";
 import OkrDashboard from "@/pages/okr-dashboard";
 import OkrCycleManagement from "@/pages/okr-cycle-management";
 import MyOkrs from "@/pages/my-okrs";
+import AnnouncementsPage from "@/pages/announcements";
 import NotFound from "@/pages/not-found";
 import { authStore, getRoleTier, type RoleTier } from "@/lib/auth";
 import { GuidedTourProvider } from "@/components/guided-tour";
@@ -190,6 +191,14 @@ function AppRoutes() {
         <ProtectedRoute>
           <Layout>
             <MyOkrs />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/announcements">
+        <ProtectedRoute>
+          <Layout>
+            <AnnouncementsPage />
           </Layout>
         </ProtectedRoute>
       </Route>
