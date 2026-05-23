@@ -20,7 +20,8 @@ export class NotificationSseClient {
     const token = authStore.getAccess();
     if (!token) return;
     this.stop();
-    const baseUrl = import.meta.env.VITE_HR_CORE_URL ?? "http://localhost:3001";
+    const gatewayBaseUrl = (import.meta.env.VITE_API_GATEWAY_URL ?? "").replace(/\/$/, "");
+    const baseUrl = gatewayBaseUrl ? `${gatewayBaseUrl}/api/hr` : "/api/hr";
     this.source = new EventSource(
       `${baseUrl}/notifications/stream?accessToken=${encodeURIComponent(token)}`,
     );

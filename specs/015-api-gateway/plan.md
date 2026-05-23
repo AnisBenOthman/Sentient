@@ -12,7 +12,7 @@ The frontend migration is intentionally mechanical: web API clients use one gate
 ## Technical Context
 
 **Language/Version**: TypeScript 5.x strict mode on Node.js 22-compatible runtime  
-**Primary Dependencies**: NestJS 10, Express adapter, `http-proxy-middleware`/`http-proxy` for streaming proxying, `jsonwebtoken` for JWT verification, `@nestjs/throttler` for in-memory rate limiting, `@nestjs/config`, `@nestjs/swagger`, `helmet`, `morgan`, `rxjs`  
+**Primary Dependencies**: NestJS 10, Express adapter, Node `http`/`https` streaming proxying, `jsonwebtoken` for JWT verification, in-process gateway throttling guard, `@nestjs/config`, `@nestjs/swagger`, `helmet`, `morgan`, `rxjs`  
 **Storage**: N/A - no database or persistent store; v1 rate-limit counters are in process memory  
 **Testing**: Jest + `@nestjs/testing`, Supertest for HTTP contracts, Nock or local test HTTP servers for upstream proxy behavior, existing Turborepo `pnpm --filter` commands  
 **Target Platform**: Node.js service in the existing pnpm/Turborepo monorepo; local dev on Windows with downstream Nest services on ports 3001-3003 and gateway default port 3004 to avoid Vite's 3000 dev server  

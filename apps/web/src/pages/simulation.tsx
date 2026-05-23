@@ -52,6 +52,7 @@ import {
   type CreatePromotionRequestPayload,
   type EmployeeProfile,
 } from "@/lib/api/hr-core";
+import { getGatewayErrorMessage } from "@/lib/api/gateway-error";
 import { useToast } from "@/hooks/use-toast";
 
 const STEP_LABELS = [
@@ -80,24 +81,6 @@ function fmtDate(iso: string): string {
   } catch {
     return iso;
   }
-}
-
-function getApiErrorMessage(error: unknown): string {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "response" in error &&
-    typeof (error as { response?: unknown }).response === "object" &&
-    (error as { response?: unknown }).response !== null
-  ) {
-    const data = (error as { response: { data?: unknown } }).response.data;
-    if (typeof data === "object" && data !== null && "message" in data) {
-      const message = (data as { message?: unknown }).message;
-      if (Array.isArray(message)) return message.filter((item): item is string => typeof item === "string").join(" ");
-      if (typeof message === "string") return message;
-    }
-  }
-  return "Could not submit this promotion request. Please check the employee scope and try again.";
 }
 
 type SimulationEmployee = {
@@ -456,7 +439,7 @@ function PromotionWizard({
       });
       onOpenChange(false);
     } catch (submitError) {
-      setError(getApiErrorMessage(submitError));
+      setError(getGatewayErrorMessage(submitError, "Could not submit this promotion request. Please check the employee scope and try again."));
     }
   }
 
@@ -918,7 +901,7 @@ export default function Simulation() {
     onError: (error) => {
       toast({
         title: "Could not validate request",
-        description: getApiErrorMessage(error),
+        description: getGatewayErrorMessage(error, "Could not submit this promotion request. Please check the employee scope and try again."),
         variant: "destructive",
       });
     },
@@ -935,7 +918,7 @@ export default function Simulation() {
     onError: (error) => {
       toast({
         title: "Could not refuse request",
-        description: getApiErrorMessage(error),
+        description: getGatewayErrorMessage(error, "Could not submit this promotion request. Please check the employee scope and try again."),
         variant: "destructive",
       });
     },

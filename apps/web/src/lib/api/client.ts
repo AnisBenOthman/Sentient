@@ -1,8 +1,12 @@
 import axios from 'axios';
 import { authStore } from '../auth';
 
+const gatewayBaseUrl = (import.meta.env.VITE_API_GATEWAY_URL ?? '').replace(/\/$/, '');
+
+export const hrApiBaseUrl = gatewayBaseUrl ? `${gatewayBaseUrl}/api/hr` : '/api/hr';
+
 export const hrClient = axios.create({
-  baseURL: import.meta.env.VITE_HR_CORE_URL ?? 'http://localhost:3001',
+  baseURL: hrApiBaseUrl,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -16,32 +20,38 @@ hrClient.interceptors.request.use(config => {
 // Attempt silent refresh on 401
 let refreshing: Promise<string> | null = null;
 
+export async function refreshAccessToken(): Promise<string> {
+  const refreshToken = authStore.getRefresh();
+  if (!refreshToken) {
+    authStore.clear();
+    window.location.replace('/signin');
+    throw new Error('Missing refresh token');
+  }
+
+  if (!refreshing) {
+    refreshing = axios
+      .post<{ accessToken: string; refreshToken: string }>(
+        `${hrApiBaseUrl}/auth/refresh`,
+        { refreshToken },
+      )
+      .then(r => {
+        authStore.set(r.data.accessToken, r.data.refreshToken);
+        return r.data.accessToken;
+      })
+      .finally(() => { refreshing = null; });
+  }
+
+  return refreshing;
+}
+
 hrClient.interceptors.response.use(
   res => res,
   async error => {
     const original = error.config;
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true;
-      const refreshToken = authStore.getRefresh();
-      if (!refreshToken) {
-        authStore.clear();
-        window.location.replace('/signin');
-        return Promise.reject(error);
-      }
       try {
-        if (!refreshing) {
-          refreshing = axios
-            .post<{ accessToken: string; refreshToken: string }>(
-              `${hrClient.defaults.baseURL}/auth/refresh`,
-              { refreshToken },
-            )
-            .then(r => {
-              authStore.set(r.data.accessToken, r.data.refreshToken);
-              return r.data.accessToken;
-            })
-            .finally(() => { refreshing = null; });
-        }
-        const newToken = await refreshing;
+        const newToken = await refreshAccessToken();
         original.headers['Authorization'] = `Bearer ${newToken}`;
         return hrClient(original);
       } catch {

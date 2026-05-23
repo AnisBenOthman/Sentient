@@ -5,7 +5,7 @@ import type {
   RateLimitPolicy,
   RouteConfig,
 } from './route-config.types';
-import { parseCsv, parseHttpUrl, parsePositiveInt } from './validation';
+import { parseBoolean, parseCsv, parseHttpUrl, parsePositiveInt } from './validation';
 
 const publicRoutes: PublicRouteRule[] = [
   { method: 'GET', pathPattern: '/health', reason: 'gateway health' },
@@ -151,6 +151,7 @@ export const gatewayConfig = registerAs('gateway', (): GatewayConfig => {
   return {
     port: parsePositiveInt(process.env.API_GATEWAY_PORT, 3004, 'API_GATEWAY_PORT'),
     corsOrigins: parseCsv(process.env.API_GATEWAY_CORS_ORIGINS, ['http://localhost:3000']),
+    trustProxy: parseBoolean(process.env.API_GATEWAY_TRUST_PROXY, false, 'API_GATEWAY_TRUST_PROXY'),
     jwtSecret: process.env.API_GATEWAY_JWT_SECRET ?? process.env.JWT_SECRET ?? 'change-me',
     defaultJsonBodyLimitBytes,
     uploadBodyLimitBytes,
@@ -158,4 +159,3 @@ export const gatewayConfig = registerAs('gateway', (): GatewayConfig => {
     publicRoutes,
   };
 });
-

@@ -27,12 +27,6 @@ export class RateLimitKeyFactory {
       return request.correlation.userId;
     }
 
-    const forwardedFor = request.headers['x-forwarded-for'];
-    if (typeof forwardedFor === 'string' && forwardedFor.trim().length > 0) {
-      return forwardedFor.split(',')[0]?.trim() ?? request.ip ?? 'unknown-ip';
-    }
-
     return request.ip ?? request.socket.remoteAddress ?? 'unknown-ip';
   }
 }
-

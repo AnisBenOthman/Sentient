@@ -20,6 +20,7 @@ export class RequestLoggingInterceptor implements NestInterceptor {
           method: request.method,
           path: request.originalUrl ?? request.url,
           routeKey: request.correlation?.routeKey,
+          downstreamTarget: request.correlation?.downstreamTarget,
           statusCode: response.statusCode,
           latencyMs: Date.now() - startedAt,
           userId: request.correlation?.userId,
@@ -28,4 +29,3 @@ export class RequestLoggingInterceptor implements NestInterceptor {
     );
   }
 }
-

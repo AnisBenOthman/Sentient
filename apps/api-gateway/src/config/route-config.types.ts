@@ -35,6 +35,7 @@ export interface RouteConfig {
 export interface GatewayConfig {
   port: number;
   corsOrigins: string[];
+  trustProxy: boolean;
   jwtSecret: string;
   defaultJsonBodyLimitBytes: number;
   uploadBodyLimitBytes: number;
@@ -46,4 +47,3 @@ export interface MatchedRoute {
   route: RouteConfig;
   downstreamPath: string;
 }
-

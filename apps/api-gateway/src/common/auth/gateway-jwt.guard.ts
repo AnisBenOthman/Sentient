@@ -29,24 +29,16 @@ export class GatewayJwtGuard implements CanActivate {
       return true;
     }
 
-    const header = request.headers.authorization;
-    if (!header) {
+    const token = this.extractToken(request);
+    if (!token) {
       throw new UnauthorizedException({
         code: GatewayErrorCode.MissingAuthorization,
         message: 'Authorization header is required.',
       });
     }
 
-    const match = /^Bearer\s+(.+)$/i.exec(header);
-    if (!match?.[1]) {
-      throw new UnauthorizedException({
-        code: GatewayErrorCode.MalformedAuthorization,
-        message: 'Authorization header must use the Bearer scheme.',
-      });
-    }
-
     try {
-      const decoded = verify(match[1], this.config.jwtSecret);
+      const decoded = verify(token, this.config.jwtSecret);
       if (!this.isJwtClaims(decoded)) {
         throw new UnauthorizedException({
           code: GatewayErrorCode.JwtInvalid,
@@ -83,6 +75,29 @@ export class GatewayJwtGuard implements CanActivate {
   private extractRoles(claims: JwtClaims): string[] | undefined {
     if (Array.isArray(claims.roles)) return claims.roles.filter((role): role is string => typeof role === 'string');
     if (typeof claims.role === 'string') return [claims.role];
+    return undefined;
+  }
+
+  private extractToken(request: Request): string | undefined {
+    const header = request.headers.authorization;
+    if (header) {
+      const match = /^Bearer\s+(.+)$/i.exec(header);
+      if (!match?.[1]) {
+        throw new UnauthorizedException({
+          code: GatewayErrorCode.MalformedAuthorization,
+          message: 'Authorization header must use the Bearer scheme.',
+        });
+      }
+      return match[1];
+    }
+
+    if (request.path === '/api/hr/notifications/stream') {
+      const accessToken = request.query.accessToken;
+      if (typeof accessToken === 'string' && accessToken.trim().length > 0) {
+        return accessToken;
+      }
+    }
+
     return undefined;
   }
 

@@ -1,10 +1,17 @@
 import axios from 'axios';
 
 import { authStore } from '../auth';
-import { hrClient } from './client';
+import { refreshAccessToken } from './client';
+export {
+  ANNOUNCEMENT_ERROR_MESSAGES,
+  DOCUMENT_ERROR_MESSAGES,
+  extractApiError,
+} from './gateway-error';
+
+const gatewayBaseUrl = (import.meta.env.VITE_API_GATEWAY_URL ?? '').replace(/\/$/, '');
 
 export const socialClient = axios.create({
-  baseURL: (import.meta.env as Record<string, string>)['VITE_SOCIAL_URL'] ?? '/api/social',
+  baseURL: gatewayBaseUrl ? `${gatewayBaseUrl}/api/social` : '/api/social',
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -16,8 +23,6 @@ socialClient.interceptors.request.use((config) => {
   }
   return config;
 });
-
-let socialRefreshing: Promise<string> | null = null;
 
 socialClient.interceptors.response.use(
   (res) => res,
@@ -33,21 +38,7 @@ socialClient.interceptors.response.use(
         return Promise.reject(error);
       }
       try {
-        if (!socialRefreshing) {
-          socialRefreshing = axios
-            .post<{ accessToken: string; refreshToken: string }>(
-              `${hrClient.defaults.baseURL}/auth/refresh`,
-              { refreshToken },
-            )
-            .then((r) => {
-              authStore.set(r.data.accessToken, r.data.refreshToken);
-              return r.data.accessToken;
-            })
-            .finally(() => {
-              socialRefreshing = null;
-            });
-        }
-        const newToken = await socialRefreshing;
+        const newToken = await refreshAccessToken();
         original.headers['Authorization'] = `Bearer ${newToken}`;
         return socialClient(original);
       } catch {
@@ -127,26 +118,6 @@ export interface PinAnnouncementDto {
 }
 
 // ── Error extraction ──────────────────────────────────────────────────────────
-
-export function extractApiError(err: unknown): string {
-  if (typeof err === 'object' && err !== null && 'response' in err) {
-    const response = (err as { response?: { data?: { message?: string } } }).response;
-    if (typeof response?.data?.message === 'string') return response.data.message;
-  }
-  return '';
-}
-
-export const ANNOUNCEMENT_ERROR_MESSAGES: Record<string, string> = {
-  UnsupportedAudienceInThisRelease: 'This audience type is not supported yet.',
-  ExpiryInPast: 'The expiry date must be in the future.',
-  TargetDepartmentRequired: 'A department must be specified for DEPARTMENT audience.',
-  UnknownTargetDepartment: 'The selected department does not exist.',
-  MissingTeamForTeamAudience: 'A team must be specified for TEAM audience.',
-  UnknownTargetTeam: 'The selected team does not exist.',
-  InconsistentAudienceTarget: 'Audience and targeting fields are inconsistent.',
-  PinExpiryInPast: 'The pin expiry date must be in the future.',
-  NotAnnouncementAuthor: 'You can only edit or delete your own announcements.',
-};
 
 // ── API functions ─────────────────────────────────────────────────────────────
 
@@ -233,16 +204,6 @@ export interface DocumentListResponse {
   page: number;
   pageSize: number;
 }
-
-export const DOCUMENT_ERROR_MESSAGES: Record<string, string> = {
-  MissingFile: 'No file was attached to the upload.',
-  EmptyFile: 'The uploaded file is empty.',
-  FileTooLarge: 'The file exceeds the 25 MiB size limit.',
-  UnsupportedMimeType: 'File type is not supported. Use PDF, DOCX, TXT, MD, or HTML.',
-  StorageUnavailable: 'Storage is temporarily unavailable. Please try again.',
-  DocumentNotFound: 'Document not found.',
-  DocumentFileMissing: 'The document file is no longer available on the server.',
-};
 
 function mimeToExt(mimeType: string): string {
   const map: Record<string, string> = {

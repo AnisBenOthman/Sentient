@@ -33,23 +33,7 @@ import {
   type ObjectiveResponse,
 } from '@/lib/api/hr-core';
 import { useAuth } from '@/components/providers/auth-provider';
-
-const ERROR_MAP: Record<string, string> = {
-  CycleNotActive: 'Cannot create an OKR in a closed or draft cycle.',
-  ParentNotFound: 'Parent OKR no longer exists.',
-  ParentWrongLevel: 'Parent OKR is not at the expected level.',
-  ParentNotActive: 'Cannot align to a closed or cancelled parent OKR.',
-  CrossDepartmentAlignment: 'Employee OKRs must align to your own department\'s OKRs.',
-  LevelMismatch: 'Invalid OKR level configuration.',
-};
-
-function extractApiError(err: unknown): string {
-  if (err && typeof err === 'object' && 'response' in err) {
-    const r = (err as { response?: { data?: { message?: string } } }).response;
-    return r?.data?.message ?? 'Unknown error';
-  }
-  return String(err);
-}
+import { getGatewayErrorMessage } from '@/lib/api/gateway-error';
 
 function formatEmployeeName(employee: EmployeeProfile): string {
   const name = `${employee.firstName} ${employee.lastName}`.trim();
@@ -169,8 +153,7 @@ export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialPar
       onClose();
     },
     onError: (err: unknown) => {
-      const code = extractApiError(err);
-      setFormError(ERROR_MAP[code] ?? 'Failed to create objective. Please try again.');
+      setFormError(getGatewayErrorMessage(err, 'Failed to create objective. Please try again.'));
     },
   });
 

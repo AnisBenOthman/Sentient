@@ -33,3 +33,10 @@ export function parseHttpUrl(value: string | undefined, fallback: string, name: 
   return url.toString().replace(/\/$/, '');
 }
 
+export function parseBoolean(value: string | undefined, fallback: boolean, name: string): boolean {
+  if (value === undefined || value.trim() === '') return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  throw new Error(`${name} must be a boolean`);
+}

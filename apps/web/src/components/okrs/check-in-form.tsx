@@ -16,21 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { KeyResultResponse, submitCheckIn } from '@/lib/api/hr-core';
-
-const ERROR_MAP: Record<string, string> = {
-  KrNotFound: 'Key Result no longer exists.',
-  NotAssigned: 'You are not assigned to this Key Result.',
-  KrNotActive: 'This Key Result is not active.',
-  BooleanValueInvalid: 'Value must be 0 or 1 for boolean Key Results.',
-};
-
-function extractApiError(err: unknown): string {
-  if (err && typeof err === 'object' && 'response' in err) {
-    const r = (err as { response?: { data?: { message?: string } } }).response;
-    return r?.data?.message ?? 'Unknown error';
-  }
-  return String(err);
-}
+import { getGatewayErrorMessage } from '@/lib/api/gateway-error';
 
 function previewScore(kr: KeyResultResponse, value: string): string {
   const v = parseFloat(value);
@@ -75,8 +61,7 @@ export function CheckInForm({ open, onClose, kr }: CheckInFormProps) {
       onClose();
     },
     onError: (err: unknown) => {
-      const code = extractApiError(err);
-      setFormError(ERROR_MAP[code] ?? 'Failed to submit check-in. Please try again.');
+      setFormError(getGatewayErrorMessage(err, 'Failed to submit check-in. Please try again.'));
     },
   });
 

@@ -20,25 +20,7 @@ import {
   OkrCheckInResponse,
 } from '@/lib/api/hr-core';
 import { useAuth } from '@/components/providers/auth-provider';
-
-const APPROVE_ERROR_MAP: Record<string, string> = {
-  CheckInNotPending: 'This check-in was already reviewed.',
-  WrongDepartment: 'You can only review check-ins for your own department.',
-};
-
-const REJECT_ERROR_MAP: Record<string, string> = {
-  CheckInNotPending: 'This check-in was already reviewed.',
-  WrongDepartment: 'You can only review check-ins for your own department.',
-  ReasonRequired: 'A reason is required to reject a check-in.',
-};
-
-function extractApiError(err: unknown): string {
-  if (err && typeof err === 'object' && 'response' in err) {
-    const r = (err as { response?: { data?: { message?: string } } }).response;
-    return r?.data?.message ?? 'Unknown error';
-  }
-  return String(err);
-}
+import { getGatewayErrorMessage } from '@/lib/api/gateway-error';
 
 interface RejectDialogProps {
   checkIn: OkrCheckInResponse;
@@ -58,8 +40,7 @@ function RejectDialog({ checkIn, onClose }: RejectDialogProps) {
       onClose();
     },
     onError: (err: unknown) => {
-      const code = extractApiError(err);
-      setError(REJECT_ERROR_MAP[code] ?? 'Failed to reject check-in.');
+      setError(getGatewayErrorMessage(err, 'Failed to reject check-in.'));
     },
   });
 
@@ -119,8 +100,7 @@ export function CheckInReviewQueue({ cycleId }: CheckInReviewQueueProps) {
       setApproveError(null);
     },
     onError: (err: unknown) => {
-      const code = extractApiError(err);
-      setApproveError(APPROVE_ERROR_MAP[code] ?? 'Failed to approve check-in.');
+      setApproveError(getGatewayErrorMessage(err, 'Failed to approve check-in.'));
     },
   });
 

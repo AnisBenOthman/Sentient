@@ -18,7 +18,7 @@ describe('RateLimitKeyFactory', () => {
     expect(key).toBe('hr:auto:user-1:default');
   });
 
-  it('uses forwarded IP for public buckets', () => {
+  it('uses Express resolved IP for public buckets', () => {
     const key = factory.create({
       routeKey: 'social',
       keyMode: 'ip',
@@ -29,7 +29,6 @@ describe('RateLimitKeyFactory', () => {
       } as never,
     });
 
-    expect(key).toBe('social:ip:203.0.113.1:public');
+    expect(key).toBe('social:ip:127.0.0.1:public');
   });
 });
-

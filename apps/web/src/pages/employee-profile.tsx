@@ -58,6 +58,7 @@ import {
   type SkillsGapResult,
   type UpdateEmployeeDto,
 } from "@/lib/api/hr-core";
+import { getGatewayErrorMessage } from "@/lib/api/gateway-error";
 import { useAuth } from "@/components/providers/auth-provider";
 import { getRoleTier } from "@/lib/auth";
 import {
@@ -507,14 +508,7 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
       ]);
     },
     onError: (error: unknown) => {
-      const message =
-        typeof error === "object" &&
-        error !== null &&
-        "response" in error &&
-        typeof (error as { response?: { data?: { message?: unknown } } }).response?.data?.message === "string"
-          ? (error as { response: { data: { message: string } } }).response.data.message
-          : "Could not save employee changes.";
-      setFormError(message);
+      setFormError(getGatewayErrorMessage(error, "Could not save employee changes."));
     },
   });
 

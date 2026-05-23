@@ -47,23 +47,8 @@ import {
 import { ObjectiveForm } from '@/components/okrs/objective-form';
 import { CheckInReviewQueue } from '@/components/okrs/check-in-review-queue';
 import { useAuth } from '@/components/providers/auth-provider';
+import { getGatewayErrorMessage } from '@/lib/api/gateway-error';
 
-const CYCLE_ERROR_MAP: Record<string, string> = {
-  CycleNameTaken: 'A cycle with this name already exists.',
-  InvalidQuarter: 'Quarter must be 1–4 for quarterly cycles.',
-  ParentMustBeAnnual: 'Parent cycle must be an annual cycle.',
-  EndBeforeStart: 'End date must be after start date.',
-  CycleNotDraft: 'Cycle must be in Draft status to activate.',
-  EndDateInPast: 'Cannot activate a cycle whose end date is in the past.',
-};
-
-function extractApiError(err: unknown): string {
-  if (err && typeof err === 'object' && 'response' in err) {
-    const r = (err as { response?: { data?: { message?: string } } }).response;
-    return r?.data?.message ?? 'Unknown error';
-  }
-  return String(err);
-}
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = {
   ACTIVE: 'default',
@@ -395,8 +380,7 @@ function CreateCycleDialog({ open, onClose, annualCycles }: {
       onClose();
     },
     onError: (err: unknown) => {
-      const code = extractApiError(err);
-      setFormError(CYCLE_ERROR_MAP[code] ?? 'Failed to create cycle. Please try again.');
+      setFormError(getGatewayErrorMessage(err, 'Failed to create cycle. Please try again.'));
     },
   });
 
@@ -591,8 +575,7 @@ export default function OkrCycleManagement() {
       setActionError(null);
     },
     onError: (err: unknown) => {
-      const code = extractApiError(err);
-      setActionError(CYCLE_ERROR_MAP[code] ?? 'Action failed.');
+      setActionError(getGatewayErrorMessage(err, 'Action failed.'));
     },
   });
 
@@ -603,8 +586,7 @@ export default function OkrCycleManagement() {
       setActionError(null);
     },
     onError: (err: unknown) => {
-      const code = extractApiError(err);
-      setActionError(CYCLE_ERROR_MAP[code] ?? 'Action failed.');
+      setActionError(getGatewayErrorMessage(err, 'Action failed.'));
     },
   });
 
@@ -615,8 +597,7 @@ export default function OkrCycleManagement() {
       setActionError(null);
     },
     onError: (err: unknown) => {
-      const code = extractApiError(err);
-      setActionError(CYCLE_ERROR_MAP[code] ?? 'Could not activate objective.');
+      setActionError(getGatewayErrorMessage(err, 'Could not activate objective.'));
     },
   });
 

@@ -6,8 +6,6 @@ import type { Plugin } from "vite";
 
 const nestjsStub = path.resolve(__dirname, "src/lib/nestjs-stub.ts");
 
-// Logs every page navigation and API call hitting the Vite dev server.
-// Skips internal Vite paths (/@vite, /@fs, HMR websocket) and static assets.
 const SKIP = /\.(js|ts|jsx|tsx|css|png|svg|ico|woff2?|ttf|map|json)$/;
 function requestLogger(): Plugin {
   return {
@@ -36,12 +34,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
-      // @sentient/shared re-exports NestJS guards (server-only).
-      // Stub them so the browser bundle resolves without errors.
       "@nestjs/common": nestjsStub,
       "@nestjs/core": nestjsStub,
       "@nestjs/config": nestjsStub,
-      // jsonwebtoken uses Node.js crypto — stub it too (guards never run in browser)
       "jsonwebtoken": nestjsStub,
     },
     dedupe: ["react", "react-dom"],
@@ -49,35 +44,18 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      "/api/social": {
-        target: "http://localhost:3002",
-        changeOrigin: true,
-        rewrite: (apiPath) => apiPath.replace(/^\/api\/social/, ""),
-        configure(proxy) {
-          proxy.on("proxyReq", (_proxyReq, req) => {
-            console.log(`[proxy:social] → ${req.method} ${req.url}`);
-          });
-          proxy.on("proxyRes", (proxyRes, req) => {
-            console.log(`[proxy:social] ← ${proxyRes.statusCode} ${req.url}`);
-          });
-          proxy.on("error", (err, req) => {
-            console.error(`[proxy:social] ✗ ${req.url} — ${err.message}`);
-          });
-        },
-      },
       "/api": {
-        target: "http://localhost:3001",
+        target: "http://localhost:3004",
         changeOrigin: true,
-        rewrite: (apiPath) => apiPath.replace(/^\/api/, ""),
         configure(proxy) {
           proxy.on("proxyReq", (_proxyReq, req) => {
-            console.log(`[proxy] → ${req.method} ${req.url}`);
+            console.log(`[proxy:gateway] -> ${req.method} ${req.url}`);
           });
           proxy.on("proxyRes", (proxyRes, req) => {
-            console.log(`[proxy] ← ${proxyRes.statusCode} ${req.url}`);
+            console.log(`[proxy:gateway] <- ${proxyRes.statusCode} ${req.url}`);
           });
           proxy.on("error", (err, req) => {
-            console.error(`[proxy] ✗ ${req.url} — ${err.message}`);
+            console.error(`[proxy:gateway] x ${req.url} - ${err.message}`);
           });
         },
       },

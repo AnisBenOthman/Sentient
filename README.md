@@ -1,6 +1,6 @@
 # Sentient HRIS
 
-AI-powered HR Information System — a Turborepo monorepo with three NestJS microservices, a Next.js frontend, and PostgreSQL + pgvector.
+AI-powered HR Information System: a Turborepo monorepo with NestJS microservices, a Vite frontend, an API Gateway, and PostgreSQL + pgvector.
 
 ## Prerequisites
 
@@ -17,13 +17,14 @@ pnpm install
 # 2. Start the database
 docker compose up -d
 
-# 3. Initialize schemas and DB roles (idempotent — safe to run again)
+# 3. Initialize schemas and DB roles (idempotent, safe to run again)
 psql -U postgres -d sentient -f scripts/init-schemas.sql
 
 # 4. Configure environment files (one per service)
-cp apps/hr-core/.env.example apps/hr-core/.env      # edit DATABASE_URL, JWT_SECRET
+cp apps/hr-core/.env.example apps/hr-core/.env
 cp apps/social/.env.example apps/social/.env
 cp apps/ai-agentic/.env.example apps/ai-agentic/.env
+cp apps/api-gateway/.env.example apps/api-gateway/.env
 
 # 5. Build all packages
 pnpm build
@@ -32,12 +33,13 @@ pnpm build
 pnpm dev
 ```
 
-### Health checks
+### Health Checks
 
 ```bash
 curl http://localhost:3001/health   # HR Core
 curl http://localhost:3002/health   # Social
 curl http://localhost:3003/health   # AI Agentic
+curl http://localhost:3004/health   # API Gateway aggregate health
 curl http://localhost:3000          # Frontend
 ```
 
@@ -46,12 +48,14 @@ curl http://localhost:3000          # Frontend
 - HR Core: http://localhost:3001/api/docs
 - Social: http://localhost:3002/api/docs
 - AI Agentic: http://localhost:3003/api/docs
+- API Gateway aggregate docs: http://localhost:3004/api/docs
 
-## Turborepo filter commands
+## Turborepo Filter Commands
 
 ```bash
 # Work on a single service
 pnpm dev --filter=hr-core
+pnpm dev --filter=@sentient/api-gateway
 pnpm dev --filter=@sentient/web
 
 # Run tests for one service
@@ -61,16 +65,17 @@ pnpm test --filter=hr-core
 pnpm build --filter=@sentient/shared
 ```
 
-## Project structure
+## Project Structure
 
-```
+```text
 apps/
-  hr-core/      # NestJS :3001 — IAM, org, employees, leaves, probation
-  social/       # NestJS :3002 — announcements, events, exit surveys
-  ai-agentic/   # NestJS :3003 — LangGraph agents, RAG, governance
-  web/          # Next.js :3000 — frontend SPA
+  hr-core/      # NestJS :3001 - IAM, org, employees, leaves, probation
+  social/       # NestJS :3002 - announcements, events, exit surveys
+  ai-agentic/   # NestJS :3003 - LangGraph agents, RAG, governance
+  api-gateway/  # NestJS :3004 - public /api entry point
+  web/          # Vite :3000 - frontend SPA
 packages/
-  shared/       # @sentient/shared — enums, interfaces, DTOs, event-bus, auth types
+  shared/       # @sentient/shared - enums, interfaces, DTOs, event-bus, auth types
 scripts/
   init-schemas.sql  # Idempotent DB setup (schemas + roles + pgvector)
 ```

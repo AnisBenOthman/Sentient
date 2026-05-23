@@ -19,6 +19,7 @@ Add gateway env values to `.env.example` and local `.env` as part of implementat
 ```bash
 API_GATEWAY_PORT=3004
 API_GATEWAY_CORS_ORIGINS=http://localhost:3000
+API_GATEWAY_TRUST_PROXY=false
 API_GATEWAY_JWT_SECRET=change-me
 API_GATEWAY_UPSTREAM_TIMEOUT_MS=15000
 API_GATEWAY_DEFAULT_JSON_BODY_LIMIT_BYTES=10485760
@@ -30,6 +31,7 @@ API_GATEWAY_PUBLIC_RATE_LIMIT_MAX=30
 HR_CORE_URL=http://localhost:3001
 SOCIAL_URL=http://localhost:3002
 AI_AGENTIC_URL=http://localhost:3003
+VITE_API_GATEWAY_URL=
 ```
 
 The gateway JWT secret must match the HR Core IAM signing secret used by existing tokens.
@@ -44,7 +46,7 @@ pnpm --filter @sentient/api-gateway dev
 pnpm --filter @sentient/web dev
 ```
 
-After frontend migration, the Vite dev proxy should forward `/api/*` to `http://localhost:3004`; the browser should not call ports 3001, 3002, or 3003 directly.
+After frontend migration, the Vite dev proxy forwards `/api/*` to `http://localhost:3004`; the browser should not call ports 3001, 3002, or 3003 directly. Set `VITE_API_GATEWAY_URL=http://localhost:3004` only when bypassing the Vite dev proxy.
 
 ## Smoke Tests
 
@@ -90,7 +92,7 @@ Expected:
 ### Public signin route
 
 ```bash
-curl -i http://localhost:3004/api/hr/auth/signin \
+curl -i http://localhost:3004/api/hr/auth/login \
   -H "content-type: application/json" \
   -d "{\"email\":\"admin@example.com\",\"password\":\"password\"}"
 ```

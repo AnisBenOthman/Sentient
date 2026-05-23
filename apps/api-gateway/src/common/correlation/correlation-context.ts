@@ -6,6 +6,7 @@ export interface CorrelationContext {
   userId?: string;
   roleHints?: string[];
   routeKey?: RouteKey;
+  downstreamTarget?: string;
   startedAt: number;
 }
 
@@ -17,4 +18,3 @@ export function getCorrelationId(request: Request): string {
   const gatewayRequest = request as GatewayRequest;
   return gatewayRequest.correlation?.correlationId ?? 'unknown';
 }
-

@@ -9,13 +9,13 @@
 - Use Kong, Traefik, or Nginx only: rejected for v1 because the spec requires central JWT validation, standardized JSON envelopes, typed config, and tests inside the monorepo.
 - Use a paid gateway/SaaS: rejected by the "free open source tools" constraint.
 
-## Decision: Use an Express streaming proxy (`http-proxy-middleware` over `http-proxy`)
+## Decision: Use a Node `http`/`https` streaming proxy inside the Nest Express app
 
-**Rationale**: The gateway must pass multipart uploads, SSE, chunked responses, and AI streams without buffering. `http-proxy-middleware` is a lightweight open-source wrapper around Node's proxy primitives and fits the existing Nest Express adapter. It can rewrite `/api/hr/*` to downstream paths, preserve request streams, forward selected response headers, and attach proxy error/timeout handling.
+**Rationale**: The gateway must pass multipart uploads, SSE, chunked responses, and AI streams without buffering. The implementation uses Node's built-in proxy primitives directly so the feature stays self-contained in the current lockfile while still rewriting `/api/hr/*` to downstream paths, preserving request streams, forwarding selected response headers, and attaching proxy error/timeout handling.
 
 **Alternatives considered**:
 - Axios/fetch forwarding: rejected because naive request/response body handling tends to buffer payloads and is risky for 50 MB uploads and SSE.
-- Hand-written Node proxy: rejected because mature proxy libraries already solve connection, stream, and header edge cases.
+- `http-proxy-middleware`: accepted during planning, but replaced during implementation to avoid introducing a new dependency when the required streaming behavior is small and covered by focused e2e tests.
 - Fastify adapter: rejected to minimize framework changes across the monorepo.
 
 ## Decision: Validate JWTs centrally with `jsonwebtoken`, then forward the original `Authorization` header
@@ -36,7 +36,7 @@
 
 ## Decision: Apply rate limits at the gateway with in-memory counters for v1
 
-**Rationale**: `@nestjs/throttler` is already in the service stack and satisfies the spec's v1 no-storage requirement. The guard will key authenticated requests by JWT `sub` plus route bucket, and unauthenticated public requests by client IP plus route bucket. Per-route overrides are part of gateway route config.
+**Rationale**: A small Nest guard with in-memory counters satisfies the spec's v1 no-storage requirement without needing an extra store. The guard keys authenticated requests by JWT `sub` plus route bucket, and unauthenticated public requests by client IP plus route bucket. Per-route overrides are part of gateway route config.
 
 **Alternatives considered**:
 - Redis-backed throttling: deferred because FR-028 says optional shared cache later, not required for v1.

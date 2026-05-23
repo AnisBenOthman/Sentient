@@ -22,5 +22,22 @@ services:
       - "8025:8025"
     restart: unless-stopped
 
+  api-gateway:
+    build:
+      context: .
+      dockerfile: apps/api-gateway/Dockerfile
+    environment:
+      API_GATEWAY_PORT: 3004
+      API_GATEWAY_CORS_ORIGINS: http://localhost:3000
+      API_GATEWAY_TRUST_PROXY: "false"
+      API_GATEWAY_JWT_SECRET: ${JWT_SECRET}
+      HR_CORE_URL: http://host.docker.internal:3001
+      SOCIAL_URL: http://host.docker.internal:3002
+      AI_AGENTIC_URL: http://host.docker.internal:3003
+    ports:
+      - "3004:3004"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
 volumes:
   postgres_data:

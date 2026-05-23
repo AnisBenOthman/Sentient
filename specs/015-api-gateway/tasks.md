@@ -19,15 +19,15 @@
 
 **Purpose**: Create the API Gateway app shell, workspace wiring, and environment configuration.
 
-- [ ] T001 Create the NestJS gateway package manifest with scripts and dependencies in `apps/api-gateway/package.json`
-- [ ] T002 [P] Create gateway TypeScript configs in `apps/api-gateway/tsconfig.json` and `apps/api-gateway/tsconfig.app.json`
-- [ ] T003 [P] Create gateway Nest CLI config in `apps/api-gateway/nest-cli.json`
-- [ ] T004 [P] Create gateway Jest config in `apps/api-gateway/package.json` or `apps/api-gateway/jest.config.ts`
-- [ ] T005 Add API Gateway environment variables and defaults to `.env.example`
-- [ ] T006 Add `apps/api-gateway` workspace/package references to `pnpm-workspace.yaml` and verify Turborepo picks up the package through `turbo.json`
-- [ ] T007 Create empty gateway source entry files in `apps/api-gateway/src/main.ts` and `apps/api-gateway/src/app.module.ts`
-- [ ] T008 [P] Create gateway test support directory and upstream test server helper stub in `apps/api-gateway/src/test-support/upstream-test-server.ts`
-- [ ] T009 Update development run documentation for the gateway port in `README.md`
+- [x] T001 Create the NestJS gateway package manifest with scripts and dependencies in `apps/api-gateway/package.json`
+- [x] T002 [P] Create gateway TypeScript configs in `apps/api-gateway/tsconfig.json` and `apps/api-gateway/tsconfig.app.json`
+- [x] T003 [P] Create gateway Nest CLI config in `apps/api-gateway/nest-cli.json`
+- [x] T004 [P] Create gateway Jest config in `apps/api-gateway/package.json` or `apps/api-gateway/jest.config.ts`
+- [x] T005 Add API Gateway environment variables and defaults to `.env.example`
+- [x] T006 Add `apps/api-gateway` workspace/package references to `pnpm-workspace.yaml` and verify Turborepo picks up the package through `turbo.json`
+- [x] T007 Create empty gateway source entry files in `apps/api-gateway/src/main.ts` and `apps/api-gateway/src/app.module.ts`
+- [x] T008 [P] Create gateway test support directory and upstream test server helper stub in `apps/api-gateway/src/test-support/upstream-test-server.ts`
+- [x] T009 Update development run documentation for the gateway port in `README.md`
 
 **Checkpoint**: Gateway app shell exists and can be targeted by `pnpm --filter @sentient/api-gateway`.
 
@@ -39,16 +39,16 @@
 
 **CRITICAL**: No user story work should begin until this phase is complete.
 
-- [ ] T010 Define route, public route, rate-limit, health, and gateway config types in `apps/api-gateway/src/config/route-config.types.ts`
-- [ ] T011 Implement environment parsing and validation helpers in `apps/api-gateway/src/config/validation.ts`
-- [ ] T012 Implement gateway route configuration factory for HR, Social, and AI upstreams in `apps/api-gateway/src/config/gateway.config.ts`
-- [ ] T013 [P] Define standard error envelope interfaces and code constants in `apps/api-gateway/src/common/errors/error-envelope.ts`
-- [ ] T014 [P] Define JWT claims interface in `apps/api-gateway/src/common/auth/jwt-claims.interface.ts`
-- [ ] T015 [P] Define correlation context request augmentation in `apps/api-gateway/src/common/correlation/correlation-context.ts`
-- [ ] T016 Implement global gateway exception filter scaffold in `apps/api-gateway/src/common/errors/gateway-exception.filter.ts`
-- [ ] T017 Implement bootstrap with config, helmet, CORS, validation pipe, global filter, and port binding in `apps/api-gateway/src/main.ts`
-- [ ] T018 Wire `ConfigModule`, global providers, and initial module imports in `apps/api-gateway/src/app.module.ts`
-- [ ] T019 Add minimal app bootstrap/e2e smoke test in `apps/api-gateway/test/app.e2e-spec.ts`
+- [x] T010 Define route, public route, rate-limit, health, and gateway config types in `apps/api-gateway/src/config/route-config.types.ts`
+- [x] T011 Implement environment parsing and validation helpers in `apps/api-gateway/src/config/validation.ts`
+- [x] T012 Implement gateway route configuration factory for HR, Social, and AI upstreams in `apps/api-gateway/src/config/gateway.config.ts`
+- [x] T013 [P] Define standard error envelope interfaces and code constants in `apps/api-gateway/src/common/errors/error-envelope.ts`
+- [x] T014 [P] Define JWT claims interface in `apps/api-gateway/src/common/auth/jwt-claims.interface.ts`
+- [x] T015 [P] Define correlation context request augmentation in `apps/api-gateway/src/common/correlation/correlation-context.ts`
+- [x] T016 Implement global gateway exception filter scaffold in `apps/api-gateway/src/common/errors/gateway-exception.filter.ts`
+- [x] T017 Implement bootstrap with config, helmet, CORS, validation pipe, global filter, and port binding in `apps/api-gateway/src/main.ts`
+- [x] T018 Wire `ConfigModule`, global providers, and initial module imports in `apps/api-gateway/src/app.module.ts`
+- [x] T019 Add minimal app bootstrap/e2e smoke test in `apps/api-gateway/test/app.e2e-spec.ts`
 
 **Checkpoint**: Foundation compiles, starts, and can emit gateway-owned error envelopes.
 
@@ -62,21 +62,21 @@
 
 ### Tests for User Story 1
 
-- [ ] T020 [P] [US1] Add proxy contract/e2e tests for `/api/hr/*`, `/api/social/*`, `/api/ai/*`, response status/body preservation, and unmatched-route 404 in `apps/api-gateway/test/proxy.e2e-spec.ts`
-- [ ] T021 [P] [US1] Add frontend base-origin regression tests or type checks around API client base URLs in `apps/web/src/lib/api/client.ts`, `apps/web/src/lib/api/social.ts`, and `apps/web/src/lib/api/ai.ts`
+- [x] T020 [P] [US1] Add proxy contract/e2e tests for `/api/hr/*`, `/api/social/*`, `/api/ai/*`, response status/body preservation, and unmatched-route 404 in `apps/api-gateway/test/proxy.e2e-spec.ts`
+- [x] T021 [P] [US1] Add frontend base-origin regression tests or type checks around API client base URLs in `apps/web/src/lib/api/client.ts`, `apps/web/src/lib/api/social.ts`, and `apps/web/src/lib/api/ai.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T022 [P] [US1] Implement upstream response header allow-list policy in `apps/api-gateway/src/modules/proxy/header-policy.ts`
-- [ ] T023 [US1] Implement streaming proxy creation, prefix stripping, upstream timeout settings, and no-upstream 404 behavior in `apps/api-gateway/src/modules/proxy/proxy.service.ts`
-- [ ] T024 [US1] Implement catch-all proxy controller for `/api/hr/*`, `/api/social/*`, and `/api/ai/*` in `apps/api-gateway/src/modules/proxy/proxy.controller.ts`
-- [ ] T025 [US1] Wire proxy module exports/providers in `apps/api-gateway/src/modules/proxy/proxy.module.ts`
-- [ ] T026 [US1] Register `ProxyModule` in `apps/api-gateway/src/app.module.ts`
-- [ ] T027 [US1] Update HR API client to use the gateway base URL and `/api/hr` prefix in `apps/web/src/lib/api/client.ts`
-- [ ] T028 [US1] Update Social API client to use the gateway base URL and `/api/social` prefix in `apps/web/src/lib/api/social.ts`
-- [ ] T029 [US1] Update AI API client to use the gateway base URL and `/api/ai` prefix in `apps/web/src/lib/api/ai.ts`
-- [ ] T030 [US1] Update notification SSE client to use the gateway HR prefix in `apps/web/src/lib/notifications/sse-client.ts`
-- [ ] T031 [US1] Update Vite dev proxy to forward `/api/*` to the gateway on port 3004 in `apps/web/vite.config.ts`
+- [x] T022 [P] [US1] Implement upstream response header allow-list policy in `apps/api-gateway/src/modules/proxy/header-policy.ts`
+- [x] T023 [US1] Implement streaming proxy creation, prefix stripping, upstream timeout settings, and no-upstream 404 behavior in `apps/api-gateway/src/modules/proxy/proxy.service.ts`
+- [x] T024 [US1] Implement catch-all proxy controller for `/api/hr/*`, `/api/social/*`, and `/api/ai/*` in `apps/api-gateway/src/modules/proxy/proxy.controller.ts`
+- [x] T025 [US1] Wire proxy module exports/providers in `apps/api-gateway/src/modules/proxy/proxy.module.ts`
+- [x] T026 [US1] Register `ProxyModule` in `apps/api-gateway/src/app.module.ts`
+- [x] T027 [US1] Update HR API client to use the gateway base URL and `/api/hr` prefix in `apps/web/src/lib/api/client.ts`
+- [x] T028 [US1] Update Social API client to use the gateway base URL and `/api/social` prefix in `apps/web/src/lib/api/social.ts`
+- [x] T029 [US1] Update AI API client to use the gateway base URL and `/api/ai` prefix in `apps/web/src/lib/api/ai.ts`
+- [x] T030 [US1] Update notification SSE client to use the gateway HR prefix in `apps/web/src/lib/notifications/sse-client.ts`
+- [x] T031 [US1] Update Vite dev proxy to forward `/api/*` to the gateway on port 3004 in `apps/web/vite.config.ts`
 
 **Checkpoint**: User Story 1 is fully functional and testable independently as the MVP.
 
@@ -90,17 +90,17 @@
 
 ### Tests for User Story 2
 
-- [ ] T032 [P] [US2] Add JWT validation e2e tests for missing, malformed, expired, invalid-signature, valid-token, and public-route bypass cases in `apps/api-gateway/test/auth.e2e-spec.ts`
-- [ ] T033 [P] [US2] Add public route matcher unit tests for signin, refresh, forgot-password, health, docs, and exit-survey scoped-token patterns in `apps/api-gateway/src/common/auth/public-route.matcher.spec.ts`
+- [x] T032 [P] [US2] Add JWT validation e2e tests for missing, malformed, expired, invalid-signature, valid-token, and public-route bypass cases in `apps/api-gateway/test/auth.e2e-spec.ts`
+- [x] T033 [P] [US2] Add public route matcher unit tests for signin, refresh, forgot-password, health, docs, and exit-survey scoped-token patterns in `apps/api-gateway/src/common/auth/public-route.matcher.spec.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T034 [US2] Implement method/path public route matching in `apps/api-gateway/src/common/auth/public-route.matcher.ts`
-- [ ] T035 [US2] Implement JWT verification, auth error-code mapping, user id extraction, and original header preservation in `apps/api-gateway/src/common/auth/gateway-jwt.guard.ts`
-- [ ] T036 [US2] Register the gateway JWT guard before proxy forwarding for authenticated routes in `apps/api-gateway/src/app.module.ts`
-- [ ] T037 [US2] Add default public allow-list entries to gateway config in `apps/api-gateway/src/config/gateway.config.ts`
-- [ ] T038 [US2] Centralize frontend 401 handling through the gateway HR refresh route in `apps/web/src/lib/api/client.ts`
-- [ ] T039 [US2] Remove duplicate Social refresh handling by routing Social 401s through the shared gateway-aware auth flow in `apps/web/src/lib/api/social.ts`
+- [x] T034 [US2] Implement method/path public route matching in `apps/api-gateway/src/common/auth/public-route.matcher.ts`
+- [x] T035 [US2] Implement JWT verification, auth error-code mapping, user id extraction, and original header preservation in `apps/api-gateway/src/common/auth/gateway-jwt.guard.ts`
+- [x] T036 [US2] Register the gateway JWT guard before proxy forwarding for authenticated routes in `apps/api-gateway/src/app.module.ts`
+- [x] T037 [US2] Add default public allow-list entries to gateway config in `apps/api-gateway/src/config/gateway.config.ts`
+- [x] T038 [US2] Centralize frontend 401 handling through the gateway HR refresh route in `apps/web/src/lib/api/client.ts`
+- [x] T039 [US2] Remove duplicate Social refresh handling by routing Social 401s through the shared gateway-aware auth flow in `apps/web/src/lib/api/social.ts`
 
 **Checkpoint**: User Stories 1 and 2 work independently, with central auth rejection at the edge.
 
@@ -114,16 +114,16 @@
 
 ### Tests for User Story 3
 
-- [ ] T040 [P] [US3] Add correlation e2e tests for generated ids, preserved inbound ids, forwarded upstream ids, and response headers in `apps/api-gateway/test/correlation.e2e-spec.ts`
-- [ ] T041 [P] [US3] Add request logging tests that assert correlation id, method, path, route key, status, and latency fields in `apps/api-gateway/src/common/logging/request-logging.interceptor.spec.ts`
+- [x] T040 [P] [US3] Add correlation e2e tests for generated ids, preserved inbound ids, forwarded upstream ids, and response headers in `apps/api-gateway/test/correlation.e2e-spec.ts`
+- [x] T041 [P] [US3] Add request logging tests that assert correlation id, method, path, route key, status, and latency fields in `apps/api-gateway/src/common/logging/request-logging.interceptor.spec.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T042 [US3] Implement correlation middleware that creates request context and response headers in `apps/api-gateway/src/common/correlation/correlation.middleware.ts`
-- [ ] T043 [US3] Register correlation middleware for all routes in `apps/api-gateway/src/app.module.ts`
-- [ ] T044 [US3] Forward `x-correlation-id` from request context to upstream requests in `apps/api-gateway/src/modules/proxy/proxy.service.ts`
-- [ ] T045 [US3] Implement structured request logging interceptor in `apps/api-gateway/src/common/logging/request-logging.interceptor.ts`
-- [ ] T046 [US3] Register request logging interceptor globally in `apps/api-gateway/src/app.module.ts`
+- [x] T042 [US3] Implement correlation middleware that creates request context and response headers in `apps/api-gateway/src/common/correlation/correlation.middleware.ts`
+- [x] T043 [US3] Register correlation middleware for all routes in `apps/api-gateway/src/app.module.ts`
+- [x] T044 [US3] Forward `x-correlation-id` from request context to upstream requests in `apps/api-gateway/src/modules/proxy/proxy.service.ts`
+- [x] T045 [US3] Implement structured request logging interceptor in `apps/api-gateway/src/common/logging/request-logging.interceptor.ts`
+- [x] T046 [US3] Register request logging interceptor globally in `apps/api-gateway/src/app.module.ts`
 
 **Checkpoint**: Correlation is observable at the gateway and downstream boundaries.
 
@@ -137,15 +137,15 @@
 
 ### Tests for User Story 4
 
-- [ ] T047 [P] [US4] Add throttling e2e tests for authenticated per-user limits, public per-IP limits, route override limits, `Retry-After`, and downstream non-forwarding in `apps/api-gateway/test/throttling.e2e-spec.ts`
-- [ ] T048 [P] [US4] Add rate-limit key factory unit tests for user, IP, route key, and override key combinations in `apps/api-gateway/src/common/throttling/rate-limit-key.factory.spec.ts`
+- [x] T047 [P] [US4] Add throttling e2e tests for authenticated per-user limits, public per-IP limits, route override limits, `Retry-After`, and downstream non-forwarding in `apps/api-gateway/test/throttling.e2e-spec.ts`
+- [x] T048 [P] [US4] Add rate-limit key factory unit tests for user, IP, route key, and override key combinations in `apps/api-gateway/src/common/throttling/rate-limit-key.factory.spec.ts`
 
 ### Implementation for User Story 4
 
-- [ ] T049 [US4] Implement rate-limit key derivation in `apps/api-gateway/src/common/throttling/rate-limit-key.factory.ts`
-- [ ] T050 [US4] Implement gateway throttler guard with in-memory counters, route override lookup, and 429 envelope generation in `apps/api-gateway/src/common/throttling/gateway-throttler.guard.ts`
-- [ ] T051 [US4] Add default and override rate-limit config for signin, upload, and AI streaming routes in `apps/api-gateway/src/config/gateway.config.ts`
-- [ ] T052 [US4] Register throttling guard in the gateway request pipeline after JWT context extraction in `apps/api-gateway/src/app.module.ts`
+- [x] T049 [US4] Implement rate-limit key derivation in `apps/api-gateway/src/common/throttling/rate-limit-key.factory.ts`
+- [x] T050 [US4] Implement gateway throttler guard with in-memory counters, route override lookup, and 429 envelope generation in `apps/api-gateway/src/common/throttling/gateway-throttler.guard.ts`
+- [x] T051 [US4] Add default and override rate-limit config for signin, upload, and AI streaming routes in `apps/api-gateway/src/config/gateway.config.ts`
+- [x] T052 [US4] Register throttling guard in the gateway request pipeline after JWT context extraction in `apps/api-gateway/src/app.module.ts`
 
 **Checkpoint**: Rate limits are enforced before proxying and do not require persistent storage.
 
@@ -159,18 +159,18 @@
 
 ### Tests for User Story 5
 
-- [ ] T053 [P] [US5] Add gateway error envelope e2e tests for gateway-owned 404/413/500, upstream 502/504, and conforming downstream error preservation in `apps/api-gateway/test/errors.e2e-spec.ts`
-- [ ] T054 [P] [US5] Add upstream error mapper unit tests for conforming envelopes, non-conforming bodies, connection failures, and timeout failures in `apps/api-gateway/src/common/errors/upstream-error.mapper.spec.ts`
-- [ ] T055 [P] [US5] Add frontend gateway error extraction tests in `apps/web/src/lib/api/gateway-error.test.ts`
+- [x] T053 [P] [US5] Add gateway error envelope e2e tests for gateway-owned 404/413/500, upstream 502/504, and conforming downstream error preservation in `apps/api-gateway/test/errors.e2e-spec.ts`
+- [x] T054 [P] [US5] Add upstream error mapper unit tests for conforming envelopes, non-conforming bodies, connection failures, and timeout failures in `apps/api-gateway/src/common/errors/upstream-error.mapper.spec.ts`
+- [x] T055 [P] [US5] Add frontend gateway error extraction tests/type checks in `apps/web/src/lib/api/gateway-error.typecheck.ts`
 
 ### Implementation for User Story 5
 
-- [ ] T056 [US5] Implement upstream error classification and envelope mapping in `apps/api-gateway/src/common/errors/upstream-error.mapper.ts`
-- [ ] T057 [US5] Complete global gateway exception filter for standard envelopes and safe `details` handling in `apps/api-gateway/src/common/errors/gateway-exception.filter.ts`
-- [ ] T058 [US5] Add proxy error and timeout callbacks that emit 502/504 envelopes in `apps/api-gateway/src/modules/proxy/proxy.service.ts`
-- [ ] T059 [US5] Add request body size enforcement with 413 envelopes and upload route exceptions in `apps/api-gateway/src/modules/proxy/proxy.service.ts`
-- [ ] T060 [US5] Implement centralized frontend gateway error helper in `apps/web/src/lib/api/gateway-error.ts`
-- [ ] T061 [US5] Replace duplicated frontend service error extraction with the gateway error helper in `apps/web/src/lib/api/client.ts` and `apps/web/src/lib/api/social.ts`
+- [x] T056 [US5] Implement upstream error classification and envelope mapping in `apps/api-gateway/src/common/errors/upstream-error.mapper.ts`
+- [x] T057 [US5] Complete global gateway exception filter for standard envelopes and safe `details` handling in `apps/api-gateway/src/common/errors/gateway-exception.filter.ts`
+- [x] T058 [US5] Add proxy error and timeout callbacks that emit 502/504 envelopes in `apps/api-gateway/src/modules/proxy/proxy.service.ts`
+- [x] T059 [US5] Add request body size enforcement with 413 envelopes and upload route exceptions in `apps/api-gateway/src/modules/proxy/proxy.service.ts`
+- [x] T060 [US5] Implement centralized frontend gateway error helper in `apps/web/src/lib/api/gateway-error.ts`
+- [x] T061 [US5] Replace duplicated frontend service error extraction with the gateway error helper in `apps/web/src/lib/api/client.ts` and `apps/web/src/lib/api/social.ts`
 
 **Checkpoint**: Frontend error handling can rely on one gateway-aware envelope parser.
 
@@ -184,17 +184,17 @@
 
 ### Tests for User Story 6
 
-- [ ] T062 [P] [US6] Add health e2e tests for healthy, degraded, unreachable downstream, and correlation header cases in `apps/api-gateway/test/health.e2e-spec.ts`
-- [ ] T063 [P] [US6] Add docs aggregation tests for available and unavailable downstream OpenAPI JSON sources in `apps/api-gateway/test/docs.e2e-spec.ts`
+- [x] T062 [P] [US6] Add health e2e tests for healthy, degraded, unreachable downstream, and correlation header cases in `apps/api-gateway/test/health.e2e-spec.ts`
+- [x] T063 [P] [US6] Add docs aggregation tests for available and unavailable downstream OpenAPI JSON sources in `apps/api-gateway/test/docs.e2e-spec.ts`
 
 ### Implementation for User Story 6
 
-- [ ] T064 [US6] Implement downstream health probe service with short timeouts and safe failure messages in `apps/api-gateway/src/modules/health/downstream-health.service.ts`
-- [ ] T065 [US6] Implement public health controller returning aggregate and per-service status in `apps/api-gateway/src/modules/health/health.controller.ts`
-- [ ] T066 [US6] Wire health module in `apps/api-gateway/src/modules/health/health.module.ts` and `apps/api-gateway/src/app.module.ts`
-- [ ] T067 [US6] Implement OpenAPI aggregation service that fetches and groups downstream docs JSON in `apps/api-gateway/src/modules/docs/openapi-aggregation.service.ts`
-- [ ] T068 [US6] Implement docs controller for `/api/docs` and `/api/docs-json` in `apps/api-gateway/src/modules/docs/docs.controller.ts`
-- [ ] T069 [US6] Wire docs module and Swagger setup in `apps/api-gateway/src/modules/docs/docs.module.ts` and `apps/api-gateway/src/main.ts`
+- [x] T064 [US6] Implement downstream health probe service with short timeouts and safe failure messages in `apps/api-gateway/src/modules/health/downstream-health.service.ts`
+- [x] T065 [US6] Implement public health controller returning aggregate and per-service status in `apps/api-gateway/src/modules/health/health.controller.ts`
+- [x] T066 [US6] Wire health module in `apps/api-gateway/src/modules/health/health.module.ts` and `apps/api-gateway/src/app.module.ts`
+- [x] T067 [US6] Implement OpenAPI aggregation service that fetches and groups downstream docs JSON in `apps/api-gateway/src/modules/docs/openapi-aggregation.service.ts`
+- [x] T068 [US6] Implement docs controller for `/api/docs` and `/api/docs-json` in `apps/api-gateway/src/modules/docs/docs.controller.ts`
+- [x] T069 [US6] Wire docs module and Swagger setup in `apps/api-gateway/src/modules/docs/docs.module.ts` and `apps/api-gateway/src/main.ts`
 
 **Checkpoint**: Operators and developers can inspect gateway/downstream status and docs from one public surface.
 
@@ -204,13 +204,13 @@
 
 **Purpose**: End-to-end validation, packaging, docs, and handoff updates across all stories.
 
-- [ ] T070 [P] Add API Gateway Dockerfile following existing service patterns in `apps/api-gateway/Dockerfile`
-- [ ] T071 Update `docker-compose.yml` to include the API Gateway service and expose port 3004
-- [ ] T072 [P] Update gateway quickstart and smoke instructions in `specs/015-api-gateway/quickstart.md`
-- [ ] T073 [P] Update API Gateway planning handoff in `AGENTS.md`
-- [ ] T074 Run gateway verification commands `pnpm --filter @sentient/api-gateway type-check`, `pnpm --filter @sentient/api-gateway test`, and `pnpm --filter @sentient/api-gateway build`
-- [ ] T075 Run frontend verification command `pnpm --filter @sentient/web type-check`
-- [ ] T076 Run downstream regression tests if shared auth/error helpers changed: `pnpm --filter @sentient/hr-core test`, `pnpm --filter @sentient/social test`, and `pnpm --filter @sentient/ai-agentic test`
+- [x] T070 [P] Add API Gateway Dockerfile following existing service patterns in `apps/api-gateway/Dockerfile`
+- [x] T071 Update `docker-compose.yml` to include the API Gateway service and expose port 3004
+- [x] T072 [P] Update gateway quickstart and smoke instructions in `specs/015-api-gateway/quickstart.md`
+- [x] T073 [P] Update API Gateway planning handoff in `AGENTS.md`
+- [x] T074 Run gateway verification commands `pnpm --filter @sentient/api-gateway type-check`, `pnpm --filter @sentient/api-gateway test`, and `pnpm --filter @sentient/api-gateway build`
+- [x] T075 Run frontend verification command `pnpm --filter @sentient/web type-check`
+- [x] T076 Run downstream regression tests if shared auth/error helpers changed: `pnpm --filter @sentient/hr-core test`, `pnpm --filter @sentient/social test`, and `pnpm --filter @sentient/ai-agentic test` (not required; shared auth/error helpers unchanged)
 - [ ] T077 Execute quickstart smoke flows for health, unknown route, missing JWT, public signin, authenticated proxy, rate limit, upload, SSE, and AI streaming from `specs/015-api-gateway/quickstart.md`
 
 ---
