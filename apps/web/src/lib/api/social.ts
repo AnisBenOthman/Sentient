@@ -4,13 +4,16 @@ import { authStore } from '../auth';
 import { hrClient } from './client';
 
 export const socialClient = axios.create({
-  baseURL: (import.meta.env as Record<string, string>)['VITE_SOCIAL_URL'] ?? 'http://localhost:3002',
+  baseURL: (import.meta.env as Record<string, string>)['VITE_SOCIAL_URL'] ?? '/api/social',
   headers: { 'Content-Type': 'application/json' },
 });
 
 socialClient.interceptors.request.use((config) => {
   const token = authStore.getAccess();
   if (token) config.headers['Authorization'] = `Bearer ${token}`;
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
   return config;
 });
 
@@ -182,4 +185,115 @@ export async function pinAnnouncement(
 ): Promise<AnnouncementResponse> {
   const { data } = await socialClient.patch<AnnouncementResponse>(`/announcements/${id}/pin`, dto);
   return data;
+}
+
+// ── Documents ─────────────────────────────────────────────────────────────────
+
+export type DocumentCategory =
+  | 'INTERNAL_POLICY'
+  | 'HANDBOOK'
+  | 'REGULATION'
+  | 'TEMPLATE'
+  | 'GUIDE'
+  | 'OTHER';
+
+export const DOCUMENT_CATEGORIES: DocumentCategory[] = [
+  'INTERNAL_POLICY',
+  'HANDBOOK',
+  'REGULATION',
+  'TEMPLATE',
+  'GUIDE',
+  'OTHER',
+];
+
+export interface DocumentUploader {
+  id: string;
+  firstName: string;
+  lastName: string;
+  employeeCode: string;
+}
+
+export interface DocumentResponse {
+  id: string;
+  title: string;
+  description: string | null;
+  category: DocumentCategory;
+  mimeType: string;
+  sizeBytes: number;
+  uploadedBy: DocumentUploader | null;
+  version: number;
+  isPublic: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DocumentListResponse {
+  items: DocumentResponse[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export const DOCUMENT_ERROR_MESSAGES: Record<string, string> = {
+  MissingFile: 'No file was attached to the upload.',
+  EmptyFile: 'The uploaded file is empty.',
+  FileTooLarge: 'The file exceeds the 25 MiB size limit.',
+  UnsupportedMimeType: 'File type is not supported. Use PDF, DOCX, TXT, MD, or HTML.',
+  StorageUnavailable: 'Storage is temporarily unavailable. Please try again.',
+  DocumentNotFound: 'Document not found.',
+  DocumentFileMissing: 'The document file is no longer available on the server.',
+};
+
+function mimeToExt(mimeType: string): string {
+  const map: Record<string, string> = {
+    'application/pdf': '.pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+    'text/plain': '.txt',
+    'text/markdown': '.md',
+    'text/html': '.html',
+  };
+  return map[mimeType] ?? '';
+}
+
+export async function listDocuments(params?: {
+  page?: number;
+  pageSize?: number;
+  category?: DocumentCategory;
+  search?: string;
+}): Promise<DocumentListResponse> {
+  const { data } = await socialClient.get<DocumentListResponse>('/documents', { params });
+  return data;
+}
+
+export async function getDocument(id: string): Promise<DocumentResponse> {
+  const { data } = await socialClient.get<DocumentResponse>(`/documents/${id}`);
+  return data;
+}
+
+export async function createDocument(formData: FormData): Promise<DocumentResponse> {
+  const { data } = await socialClient.post<DocumentResponse>('/documents', formData);
+  return data;
+}
+
+export async function updateDocument(id: string, formData: FormData): Promise<DocumentResponse> {
+  const { data } = await socialClient.patch<DocumentResponse>(`/documents/${id}`, formData);
+  return data;
+}
+
+export async function deleteDocument(id: string): Promise<void> {
+  await socialClient.delete(`/documents/${id}`);
+}
+
+export async function downloadDocument(id: string, title: string, mimeType: string): Promise<void> {
+  const response = await socialClient.get<Blob>(`/documents/${id}/download`, {
+    responseType: 'blob',
+  });
+  const url = URL.createObjectURL(response.data);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = title + mimeToExt(mimeType);
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
 }

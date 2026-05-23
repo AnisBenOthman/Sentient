@@ -19,6 +19,7 @@ import {
   Target,
   BarChart2,
   Megaphone,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -44,6 +45,7 @@ const ALL_MAIN_NAV = [
   { title: "OKR Dashboard",       href: "/okr-dashboard",       icon: BarChart2,       tourId: "okr-dashboard-nav", tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "OKR Management",      href: "/okr-cycle-management", icon: Target,         tourId: undefined,            tiers: ["dept_manager", "team_lead"] as RoleTier[] },
   { title: "Announcements",       href: "/announcements",       icon: Megaphone,       tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
+  { title: "Documents",           href: "/documents",           icon: FileText,        tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "Simulation",          href: "/simulation",          icon: Sparkles,        tourId: "simulation-nav",    tiers: ["hr_admin", "dept_manager", "team_lead"]              as RoleTier[] },
 ];
 

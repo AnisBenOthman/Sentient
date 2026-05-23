@@ -131,7 +131,8 @@
       "Bash(sed -i 's/- \\\\[ \\\\] T029 /- [X] T029 /g;s/- \\\\[ \\\\] T030 /- [X] T030 /g;s/- \\\\[ \\\\] T031 /- [X] T031 /g;s/- \\\\[ \\\\] T032 /- [X] T032 /g;s/- \\\\[ \\\\] T033 /- [X] T033 /g;s/- \\\\[ \\\\] T034 /- [X] T034 /g;s/- \\\\[ \\\\] T035 /- [X] T035 /g;s/- \\\\[ \\\\] T036 /- [X] T036 /g;s/- \\\\[ \\\\] T037 /- [X] T037 /g;s/- \\\\[ \\\\] T038 /- [X] T038 /g' specs/011-okr-module/tasks.md)",
       "Bash(sed -i 's/- \\\\[ \\\\] T039 /- [X] T039 /g;s/- \\\\[ \\\\] T040 /- [X] T040 /g;s/- \\\\[ \\\\] T041 /- [X] T041 /g;s/- \\\\[ \\\\] T042 /- [X] T042 /g;s/- \\\\[ \\\\] T043 /- [X] T043 /g;s/- \\\\[ \\\\] T044 /- [X] T044 /g;s/- \\\\[ \\\\] T045 /- [X] T045 /g' specs/011-okr-module/tasks.md)",
       "PowerShell(winget install *)",
-      "PowerShell(& \"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth status)"
+      "PowerShell(& \"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth status)",
+      "Bash(gh repo *)"
     ]
   }
 }

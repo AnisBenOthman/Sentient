@@ -169,10 +169,12 @@ model Document {
   sizeBytes    BigInt
   uploadedById String
   version      Int              @default(1)
+  isPublic     Boolean          @default(true)
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
   @@index([category, createdAt(sort: Desc)])
+  @@index([isPublic, createdAt(sort: Desc)])
   @@schema("social")
   @@map("documents")
 }

@@ -10,6 +10,7 @@ import { EventBusModule } from './common/event-bus/event-bus.module';
 import { CorrelationIdMiddleware } from './common/middleware';
 import { PrismaModule } from './prisma/prisma.module';
 import { AnnouncementsModule } from './modules/announcements/announcements.module';
+import { DocumentsModule } from './modules/documents/documents.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { AnnouncementsModule } from './modules/announcements/announcements.modul
     ClientsModule,
     EventBusModule,
     AnnouncementsModule,
+    DocumentsModule,
   ],
   controllers: [AppController],
   providers: [

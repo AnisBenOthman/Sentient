@@ -14,11 +14,17 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtPayload, Roles } from '@sentient/shared';
 
+import { HrCoreCallContext } from '../../common/clients/employee-ref.interface';
 import { AnnouncementsService, AnnouncementWithAuthor } from './announcements.service';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 import { ListAnnouncementsQueryDto } from './dto/list-announcements-query.dto';
 import { PinAnnouncementDto } from './dto/pin-announcement.dto';
 import { UpdateAnnouncementDto } from './dto/update-announcement.dto';
+
+interface AuthenticatedRequest {
+  headers: Record<string, string | string[] | undefined>;
+  correlationId?: string;
+}
 
 @Controller('announcements')
 @ApiTags('Announcements')
@@ -35,9 +41,10 @@ export class AnnouncementsController {
   create(
     @CurrentUser() user: JwtPayload,
     @Body() dto: CreateAnnouncementDto,
-    @Req() req: { correlationId?: string },
+    @Req() req: AuthenticatedRequest,
   ): Promise<AnnouncementWithAuthor> {
-    return this.announcementsService.create(user, dto, req.correlationId ?? '');
+    const context = this.buildHrCoreContext(req);
+    return this.announcementsService.create(user, dto, context.correlationId ?? '', context.jwt);
   }
 
   @Get()
@@ -48,8 +55,9 @@ export class AnnouncementsController {
   findAll(
     @CurrentUser() user: JwtPayload,
     @Query() query: ListAnnouncementsQueryDto,
+    @Req() req: AuthenticatedRequest,
   ): Promise<{ items: AnnouncementWithAuthor[]; total: number }> {
-    return this.announcementsService.findAll(user, query);
+    return this.announcementsService.findAll(user, query, this.buildHrCoreContext(req));
   }
 
   @Get(':id')
@@ -60,8 +68,9 @@ export class AnnouncementsController {
   findOne(
     @CurrentUser() user: JwtPayload,
     @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
   ): Promise<AnnouncementWithAuthor> {
-    return this.announcementsService.findOne(user, id);
+    return this.announcementsService.findOne(user, id, this.buildHrCoreContext(req));
   }
 
   @Patch(':id')
@@ -75,8 +84,9 @@ export class AnnouncementsController {
     @CurrentUser() user: JwtPayload,
     @Param('id') id: string,
     @Body() dto: UpdateAnnouncementDto,
+    @Req() req: AuthenticatedRequest,
   ): Promise<AnnouncementWithAuthor> {
-    return this.announcementsService.update(user, id, dto);
+    return this.announcementsService.update(user, id, dto, this.buildHrCoreContext(req));
   }
 
   @Delete(':id')
@@ -104,7 +114,21 @@ export class AnnouncementsController {
     @CurrentUser() user: JwtPayload,
     @Param('id') id: string,
     @Body() dto: PinAnnouncementDto,
+    @Req() req: AuthenticatedRequest,
   ): Promise<AnnouncementWithAuthor> {
-    return this.announcementsService.pin(user, id, dto);
+    return this.announcementsService.pin(user, id, dto, this.buildHrCoreContext(req));
+  }
+
+  private buildHrCoreContext(req: AuthenticatedRequest): HrCoreCallContext {
+    return {
+      jwt: this.extractBearerToken(req.headers['authorization']),
+      correlationId: req.correlationId ?? '',
+    };
+  }
+
+  private extractBearerToken(header: string | string[] | undefined): string {
+    const value = Array.isArray(header) ? header[0] : header;
+    if (!value?.startsWith('Bearer ')) return '';
+    return value.slice(7);
   }
 }

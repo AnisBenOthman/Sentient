@@ -38,6 +38,7 @@ export class AnnouncementsService {
     user: JwtPayload,
     dto: CreateAnnouncementDto,
     correlationId: string,
+    jwt = '',
   ): Promise<AnnouncementWithAuthor> {
     if (dto.audience === Audience.ROLE || dto.audience === Audience.INDIVIDUAL) {
       throw new BadRequestException('UnsupportedAudienceInThisRelease');
@@ -47,7 +48,7 @@ export class AnnouncementsService {
       throw new BadRequestException('ExpiryInPast');
     }
 
-    const context: HrCoreCallContext = { jwt: '', correlationId };
+    const context: HrCoreCallContext = { jwt, correlationId };
 
     let targetDepartmentId: string | null = dto.targetDepartmentId ?? null;
     let targetTeamId: string | null = dto.targetTeamId ?? null;
@@ -123,6 +124,7 @@ export class AnnouncementsService {
   async findAll(
     user: JwtPayload,
     query: ListAnnouncementsQueryDto,
+    context: HrCoreCallContext = { jwt: '' },
   ): Promise<{ items: AnnouncementWithAuthor[]; total: number }> {
     const isHrAdmin = user.roles.includes('HR_ADMIN');
 
@@ -164,11 +166,15 @@ export class AnnouncementsService {
       take,
     });
 
-    const enriched = await this.enrichWithAuthor(items);
+    const enriched = await this.enrichWithAuthor(items, context);
     return { items: enriched, total: enriched.length };
   }
 
-  async findOne(user: JwtPayload, id: string): Promise<AnnouncementWithAuthor> {
+  async findOne(
+    user: JwtPayload,
+    id: string,
+    context: HrCoreCallContext = { jwt: '' },
+  ): Promise<AnnouncementWithAuthor> {
     const announcement = await this.prisma.announcement.findFirst({ where: { id } });
     if (!announcement) throw new NotFoundException(`Announcement ${id} not found`);
 
@@ -178,7 +184,7 @@ export class AnnouncementsService {
       }
     }
 
-    const [enriched] = await this.enrichWithAuthor([announcement]);
+    const [enriched] = await this.enrichWithAuthor([announcement], context);
     return enriched!;
   }
 
@@ -186,6 +192,7 @@ export class AnnouncementsService {
     user: JwtPayload,
     id: string,
     dto: UpdateAnnouncementDto,
+    context: HrCoreCallContext = { jwt: '' },
   ): Promise<AnnouncementWithAuthor> {
     const announcement = await this.prisma.announcement.findFirst({ where: { id } });
     if (!announcement) throw new NotFoundException(`Announcement ${id} not found`);
@@ -227,7 +234,7 @@ export class AnnouncementsService {
     }
 
     const updated = await this.prisma.announcement.update({ where: { id }, data });
-    const [enriched] = await this.enrichWithAuthor([updated]);
+    const [enriched] = await this.enrichWithAuthor([updated], context);
     return enriched!;
   }
 
@@ -248,6 +255,7 @@ export class AnnouncementsService {
     user: JwtPayload,
     id: string,
     dto: PinAnnouncementDto,
+    context: HrCoreCallContext = { jwt: '' },
   ): Promise<AnnouncementWithAuthor> {
     const announcement = await this.prisma.announcement.findFirst({ where: { id } });
     if (!announcement) throw new NotFoundException(`Announcement ${id} not found`);
@@ -261,7 +269,7 @@ export class AnnouncementsService {
       data: { pinnedUntil: dto.pinnedUntil ? new Date(dto.pinnedUntil) : null },
     });
 
-    const [enriched] = await this.enrichWithAuthor([updated]);
+    const [enriched] = await this.enrichWithAuthor([updated], context);
     return enriched!;
   }
 

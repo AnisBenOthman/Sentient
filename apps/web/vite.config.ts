@@ -49,6 +49,22 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
+      "/api/social": {
+        target: "http://localhost:3002",
+        changeOrigin: true,
+        rewrite: (apiPath) => apiPath.replace(/^\/api\/social/, ""),
+        configure(proxy) {
+          proxy.on("proxyReq", (_proxyReq, req) => {
+            console.log(`[proxy:social] → ${req.method} ${req.url}`);
+          });
+          proxy.on("proxyRes", (proxyRes, req) => {
+            console.log(`[proxy:social] ← ${proxyRes.statusCode} ${req.url}`);
+          });
+          proxy.on("error", (err, req) => {
+            console.error(`[proxy:social] ✗ ${req.url} — ${err.message}`);
+          });
+        },
+      },
       "/api": {
         target: "http://localhost:3001",
         changeOrigin: true,
