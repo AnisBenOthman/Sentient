@@ -1,6 +1,6 @@
 # Sentient Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-05-09
+Auto-generated from all feature plans. Last updated: 2026-05-23
 
 ## Persona
 
@@ -13,6 +13,7 @@ Senior Full-Stack Engineer. Write complete, production-quality code. No placehol
 
 - TypeScript 5.x — strict mode via `tsconfig.base.json` (`strict`, `noUncheckedIndexedAccess`, `noImplicitReturns`, `forceConsistentCasingInFileNames`) + NestJS 10, React 18 + Vite 7 (no SSR), Prisma 5 (multiSchema preview), @nestjs/config, @nestjs/swagger, class-validator, class-transformer, Turborepo 2.x
 - PostgreSQL 16 + pgvector — Docker Compose (`pgvector/pgvector:pg16` image); 3 schemas (`hr_core`, `social`, `ai_agent`), 4 roles
+- TypeScript 5.x strict mode + NestJS 10 API Gateway, Express streaming proxy (`http-proxy-middleware`/`http-proxy`), `jsonwebtoken`, `@nestjs/throttler`, `@nestjs/config`, `@nestjs/swagger`, stateless in-memory rate limiting (015-api-gateway)
 
 ## Project Structure
 
@@ -20,6 +21,7 @@ Senior Full-Stack Engineer. Write complete, production-quality code. No placehol
 apps/hr-core/      NestJS :3001  schema=hr_core
 apps/social/       NestJS :3002  schema=social
 apps/ai-agentic/   NestJS :3003  schema=ai_agent
+apps/api-gateway/  NestJS :3004  public frontend/API gateway
 apps/web/          React + Vite :3000
 packages/shared/   @sentient/shared — enums, interfaces, DTOs, event-bus, auth
 scripts/init-schemas.sql
@@ -47,6 +49,8 @@ See `.claude/rules/code-style.md` for full conventions. Key rules:
 - Every endpoint: `@UseGuards(SharedJwtGuard, RbacGuard)` + `@Roles(...)`. Except `/health`.
 
 ## Recent Changes
+- [codex] 015-api-gateway-tasks: Generated Spec Kit implementation tasks for API Gateway in `specs/015-api-gateway/tasks.md` with 77 dependency-ordered checklist items across setup, foundation, US1 single entry-point routing/frontend migration, US2 central JWT validation, US3 correlation, US4 edge rate limiting, US5 standard error envelopes, US6 health/docs aggregation, and final packaging/verification; format validation passed (`77` task rows, `0` invalid rows).
+- [codex] 015-api-gateway-plan: Continued Claude's API Gateway feature from `specs/015-api-gateway/spec.md`; completed Spec Kit planning artifacts (`plan.md`, `research.md`, `data-model.md`, `quickstart.md`, `contracts/gateway-api.yaml`) for a stateless NestJS gateway with streaming proxy routing, central JWT validation, correlation ids, in-memory edge rate limiting, standard error envelope handling, health/docs aggregation, and a one-base-URL frontend migration.
 - [claude] 014-documents-module: Documents module implemented end-to-end in Social — Prisma additive migration (`isPublic` flag + `(isPublic, createdAt desc)` index), `DocumentStorage` interface with `FilesystemDocumentStorage` implementation (path-traversal guard, ENOENT-tolerant delete, `StorageWriteError`/`StorageKeyNotFound`), `mime-to-extension` + `sanitizeFilename` helpers, 3 DTOs (Create/Update/ListQuery with multipart-string `isPublic` transforms), `DocumentsService` (create/findAll/findOne/download/update/remove with visibility 404-not-403, SYSTEM-JWT download bypass, version-bump only on file replace, best-effort storage cleanup, EventBus failure non-blocking, uploader enrichment with de-duplication, `prisma.$transaction([findMany, count])`), `DocumentsController` (6 endpoints + multer file-size filter translating `LIMIT_FILE_SIZE` → `FileTooLarge` 400, full Swagger), `document.uploaded` event from POST + version-bumping PATCH, `document.deleted` event from DELETE; frontend: `social.ts` extended with full documents API surface + `DOCUMENT_ERROR_MESSAGES` mapping FR-031 codes, new `documents.tsx` page (debounced search 300ms, category chips, role-gated upload/edit/delete, hidden-anchor download), route + nav entry; service unit tests + filesystem-storage unit tests + integration test (gated on `SOCIAL_INTEGRATION_DB=1`); `DocumentCategory` shared enum corrected to spec values (INTERNAL_POLICY/HANDBOOK/REGULATION/TEMPLATE/GUIDE/OTHER). Social `pnpm build` clean.
 - announcement-dev-proxy-routing: Web announcement API calls now default to `/api/social` and Vite proxies that prefix to the Social service on port 3002 with dedicated `[proxy:social]` terminal logs; Social now runs Prisma generate before dev/build and copies `src/generated/prisma` into `dist`, fixing the missing generated client crash that caused `ECONNREFUSED`; announcement controller methods now forward the caller JWT into HR Core enrichment so create/list/detail/update/pin no longer fail with a post-write `401`.
 - [claude] 013-announcements-module: Full announcements module implemented — Prisma schema migration (targetDepartmentId, targetTeamId, expiresAt + 2 indexes), DepartmentRef/TeamRef interfaces, HrCoreClient extended with getDepartmentRef/getTeamRef (TTL-cache), AnnouncementsModule wired into AppModule, all 5 DTOs (create/update/list/pin), AnnouncementsService (6 methods: create, findAll, findOne, update, remove, pin) with audience-filter logic, expiry filtering, FR-027 error codes, best-effort event emission, author enrichment de-duplication, AnnouncementsController (6 endpoints with full Swagger), 25-test unit suite, integration test (gated on SOCIAL_INTEGRATION_DB=1), contract tests; frontend: social.ts API client with 6 typed functions + extractApiError + error-code map, announcements.tsx page (pinned badges, role-gated publish/edit/pin/delete), route in App.tsx, nav item in layout.tsx; T030 (curl smoke-test) still pending running services

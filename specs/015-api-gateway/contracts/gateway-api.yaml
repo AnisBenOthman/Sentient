@@ -1,0 +1,284 @@
+openapi: 3.0.3
+info:
+  title: Sentient API Gateway
+  version: 0.1.0
+  description: Public gateway contract for browser and external traffic.
+servers:
+  - url: http://localhost:3004
+    description: Local API Gateway
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      tags: [Gateway]
+      summary: Gateway and downstream health
+      security: []
+      responses:
+        "200":
+          description: Gateway healthy or degraded with per-service status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "500":
+          description: Gateway health check failed unexpectedly.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/docs:
+    get:
+      tags: [Gateway]
+      summary: Aggregated Swagger UI
+      security: []
+      responses:
+        "200":
+          description: HTML Swagger UI or docs landing page grouped by downstream service.
+          content:
+            text/html:
+              schema:
+                type: string
+  /api/docs-json:
+    get:
+      tags: [Gateway]
+      summary: Aggregated OpenAPI document
+      security: []
+      responses:
+        "200":
+          description: Gateway-owned and downstream OpenAPI specifications grouped by service.
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/hr/{path}:
+    parameters:
+      - $ref: "#/components/parameters/ProxyPath"
+      - $ref: "#/components/parameters/CorrelationId"
+    get:
+      tags: [Proxy]
+      summary: Proxy HR Core GET request
+      responses:
+        "200":
+          description: Upstream HR Core response body and status are preserved.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "502":
+          $ref: "#/components/responses/BadGateway"
+        "504":
+          $ref: "#/components/responses/GatewayTimeout"
+    post:
+      tags: [Proxy]
+      summary: Proxy HR Core POST request
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+          multipart/form-data:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Upstream HR Core response body and status are preserved.
+        "201":
+          description: Upstream HR Core creation response is preserved.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "502":
+          $ref: "#/components/responses/BadGateway"
+        "504":
+          $ref: "#/components/responses/GatewayTimeout"
+    put:
+      tags: [Proxy]
+      summary: Proxy HR Core PUT request
+      responses:
+        "200":
+          description: Upstream HR Core response body and status are preserved.
+    patch:
+      tags: [Proxy]
+      summary: Proxy HR Core PATCH request
+      responses:
+        "200":
+          description: Upstream HR Core response body and status are preserved.
+    delete:
+      tags: [Proxy]
+      summary: Proxy HR Core DELETE request
+      responses:
+        "200":
+          description: Upstream HR Core response body and status are preserved.
+        "204":
+          description: Upstream HR Core no-content response is preserved.
+  /api/social/{path}:
+    parameters:
+      - $ref: "#/components/parameters/ProxyPath"
+      - $ref: "#/components/parameters/CorrelationId"
+    get:
+      tags: [Proxy]
+      summary: Proxy Social GET request
+      responses:
+        "200":
+          description: Upstream Social response body and status are preserved.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "502":
+          $ref: "#/components/responses/BadGateway"
+    post:
+      tags: [Proxy]
+      summary: Proxy Social POST request, including document uploads
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+          multipart/form-data:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Upstream Social response body and status are preserved.
+        "201":
+          description: Upstream Social creation response is preserved.
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+  /api/ai/{path}:
+    parameters:
+      - $ref: "#/components/parameters/ProxyPath"
+      - $ref: "#/components/parameters/CorrelationId"
+    get:
+      tags: [Proxy]
+      summary: Proxy AI Agentic GET request
+      responses:
+        "200":
+          description: Upstream AI response body and status are preserved.
+    post:
+      tags: [Proxy]
+      summary: Proxy AI Agentic POST request, including streaming conversation endpoints
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Upstream AI response body and status are preserved, including chunked/streaming responses.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    ProxyPath:
+      name: path
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Downstream path after the service prefix.
+    CorrelationId:
+      name: x-correlation-id
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Optional client-provided correlation id. Gateway generates one when absent.
+  responses:
+    Unauthorized:
+      description: Missing, malformed, expired, or invalid JWT.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    RateLimited:
+      description: Client exceeded configured rate limit.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds until retry is allowed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    PayloadTooLarge:
+      description: Request body exceeds configured route limit.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    BadGateway:
+      description: Downstream service unavailable or connection failed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    GatewayTimeout:
+      description: Downstream service timed out.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required: [code, message, correlationId]
+      properties:
+        code:
+          type: string
+          examples: [MissingAuthorization, JwtExpired, RateLimitExceeded, UpstreamUnavailable]
+        message:
+          type: string
+        correlationId:
+          type: string
+        details:
+          nullable: true
+    HealthResponse:
+      type: object
+      required: [status, gateway, downstreams, correlationId]
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded]
+        gateway:
+          type: object
+          required: [status]
+          properties:
+            status:
+              type: string
+              enum: [healthy]
+        downstreams:
+          type: array
+          items:
+            $ref: "#/components/schemas/DownstreamHealth"
+        correlationId:
+          type: string
+    DownstreamHealth:
+      type: object
+      required: [key, url, status]
+      properties:
+        key:
+          type: string
+          enum: [hr, social, ai]
+        url:
+          type: string
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        latencyMs:
+          type: number
+        error:
+          type: string
