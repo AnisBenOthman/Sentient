@@ -19,6 +19,8 @@ const publicRoutes: PublicRouteRule[] = [
   { method: '*', pathPattern: '/api/social/exit-survey-responses*', reason: 'exit survey scoped token' },
 ];
 
+export const DEFAULT_DEV_JWT_SECRET = 'change-me-in-production-minimum-32-random-characters';
+
 function buildRoute(
   key: RouteConfig['key'],
   inboundPrefix: string,
@@ -152,7 +154,7 @@ export const gatewayConfig = registerAs('gateway', (): GatewayConfig => {
     port: parsePositiveInt(process.env.API_GATEWAY_PORT, 3004, 'API_GATEWAY_PORT'),
     corsOrigins: parseCsv(process.env.API_GATEWAY_CORS_ORIGINS, ['http://localhost:3000']),
     trustProxy: parseBoolean(process.env.API_GATEWAY_TRUST_PROXY, false, 'API_GATEWAY_TRUST_PROXY'),
-    jwtSecret: process.env.API_GATEWAY_JWT_SECRET ?? process.env.JWT_SECRET ?? 'change-me',
+    jwtSecret: process.env.API_GATEWAY_JWT_SECRET ?? process.env.JWT_SECRET ?? DEFAULT_DEV_JWT_SECRET,
     defaultJsonBodyLimitBytes,
     uploadBodyLimitBytes,
     routes: [hr, social, ai],

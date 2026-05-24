@@ -117,6 +117,68 @@ export interface PinAnnouncementDto {
   pinnedUntil: string | null;
 }
 
+export type SocialEventType = 'MEETING' | 'TRAINING' | 'SOCIAL' | 'ALL_HANDS' | 'ONBOARDING' | 'OFFSITE';
+export type EventAudience = 'COMPANY' | 'DEPARTMENT' | 'TEAM' | 'ROLE' | 'INDIVIDUAL';
+export type EventReactionEmoji = '👍' | '🎉' | '💡' | '👏' | '❤️';
+
+export const EVENT_REACTION_EMOJIS: EventReactionEmoji[] = ['👍', '🎉', '💡', '👏', '❤️'];
+
+export interface EventOrganizer {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  employeeCode: string;
+  departmentId: string;
+  teamId: string | null;
+  employmentStatus: 'ACTIVE' | 'ON_LEAVE' | 'PROBATION' | 'TERMINATED';
+}
+
+export interface EventReactionSummary {
+  emoji: EventReactionEmoji;
+  count: number;
+}
+
+export interface SocialEventResponse {
+  id: string;
+  title: string;
+  description: string;
+  eventType: SocialEventType;
+  organizerId: string;
+  startAt: string;
+  endAt: string;
+  location: string | null;
+  audience: EventAudience;
+  capacity: number | null;
+  createdAt: string;
+  updatedAt: string;
+  organizer: EventOrganizer | null;
+  reactionCounts: EventReactionSummary[];
+  myReaction: EventReactionEmoji | null;
+}
+
+export interface EventListResponse {
+  items: SocialEventResponse[];
+  total: number;
+}
+
+export interface ListEventsParams {
+  page?: number;
+  pageSize?: number;
+  eventType?: SocialEventType;
+}
+
+export interface CreateEventDto {
+  title: string;
+  description: string;
+  eventType: SocialEventType;
+  startAt: string;
+  endAt: string;
+  location?: string;
+  audience: EventAudience;
+  capacity?: number;
+}
+
 // ── Error extraction ──────────────────────────────────────────────────────────
 
 // ── API functions ─────────────────────────────────────────────────────────────
@@ -155,6 +217,24 @@ export async function pinAnnouncement(
   dto: PinAnnouncementDto,
 ): Promise<AnnouncementResponse> {
   const { data } = await socialClient.patch<AnnouncementResponse>(`/announcements/${id}/pin`, dto);
+  return data;
+}
+
+export async function listEvents(params?: ListEventsParams): Promise<EventListResponse> {
+  const { data } = await socialClient.get<EventListResponse>('/events', { params });
+  return data;
+}
+
+export async function createEvent(dto: CreateEventDto): Promise<SocialEventResponse> {
+  const { data } = await socialClient.post<SocialEventResponse>('/events', dto);
+  return data;
+}
+
+export async function reactToEvent(
+  id: string,
+  emoji: EventReactionEmoji | null,
+): Promise<SocialEventResponse> {
+  const { data } = await socialClient.put<SocialEventResponse>(`/events/${id}/reaction`, { emoji });
   return data;
 }
 

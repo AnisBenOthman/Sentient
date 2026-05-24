@@ -11,6 +11,7 @@ import { CorrelationIdMiddleware } from './common/middleware';
 import { PrismaModule } from './prisma/prisma.module';
 import { AnnouncementsModule } from './modules/announcements/announcements.module';
 import { DocumentsModule } from './modules/documents/documents.module';
+import { EventsModule } from './modules/events/events.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { DocumentsModule } from './modules/documents/documents.module';
     ClientsModule,
     EventBusModule,
     AnnouncementsModule,
+    EventsModule,
     DocumentsModule,
   ],
   controllers: [AppController],

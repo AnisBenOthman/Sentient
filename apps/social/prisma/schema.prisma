@@ -137,10 +137,27 @@ model Event {
   updatedAt   DateTime  @updatedAt
 
   attendees EventAttendee[]
+  reactions EventReaction[]
 
   @@index([eventType, startAt(sort: Desc)])
   @@schema("social")
   @@map("events")
+}
+
+model EventReaction {
+  id         String   @id @default(uuid())
+  eventId    String
+  employeeId String
+  emoji      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, employeeId])
+  @@index([eventId, emoji])
+  @@schema("social")
+  @@map("event_reactions")
 }
 
 model EventAttendee {
