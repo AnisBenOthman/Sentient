@@ -32,6 +32,11 @@ apps/web/          React + Vite :3000
 packages/shared/   @sentient/shared — enums, interfaces, DTOs, event-bus, auth
 scripts/init-schemas.sql
 docker-compose.yml
+docs/diagrams/     All .drawio class/domain/use-case diagrams (flat — reference when mentioning diagrams to Claude)
+docs/benchmarks/   Competitor screenshots + benchmark-report.md
+docs/notes/        Working notes and command references
+reference/front-replit/   UI prototype — reference for "do it like front-replit" prompts
+specs/             Per-feature task lists (tasks.md) — read at session start
 ```
 
 ## Commands
