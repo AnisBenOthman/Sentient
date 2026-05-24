@@ -15,6 +15,7 @@ import {
   type Holiday,
   type BusinessUnit,
 } from "@/lib/api/hr-core";
+import { extractGatewayErrorCode, getGatewayErrorMessage } from "@/lib/api/gateway-error";
 import { useAuth } from "@/components/providers/auth-provider";
 import {
   Card,
@@ -342,15 +343,10 @@ function LeaveTypesPanel({ businessUnitId }: { businessUnitId: string | null }) 
       setDeleteError("");
     },
     onError: (err: unknown) => {
-      const msg =
-        typeof err === "object" &&
-        err !== null &&
-        "response" in err &&
-        typeof (err as { response?: { data?: { message?: string } } }).response?.data?.message === "string"
-          ? (err as { response: { data: { message: string } } }).response.data.message
-          : "Failed to deactivate leave type.";
+      const code = extractGatewayErrorCode(err);
+      const msg = getGatewayErrorMessage(err, "Failed to deactivate leave type.");
       setDeleteError(
-        msg === "LeaveTypeHasPendingRequests"
+        code === "LeaveTypeHasPendingRequests"
           ? "Cannot deactivate: there are pending leave requests for this type. Resolve them first."
           : msg,
       );

@@ -1,0 +1,50 @@
+{
+  "title": "Simulation",
+  "subtitle": "Modélisez des scénarios de promotion et estimez l'impact sur les rémunérations avant de valider les changements.",
+  "steps": {
+    "selectEmployee": "Sélectionner l'Employé",
+    "newCompensation": "Nouvelle Rémunération",
+    "roleResponsibilities": "Rôle & Responsabilités",
+    "review": "Vérifier & Soumettre"
+  },
+  "search": "Rechercher des employés…",
+  "noEmployees": "Aucun employé trouvé.",
+  "employee": {
+    "current": "Actuel",
+    "proposed": "Proposé",
+    "position": "Poste",
+    "salary": "Salaire",
+    "change": "Variation",
+    "department": "Département"
+  },
+  "compensation": {
+    "currentSalary": "Salaire Actuel",
+    "proposedSalary": "Salaire Proposé",
+    "salaryIncrease": "Augmentation",
+    "percentChange": "% Variation"
+  },
+  "role": {
+    "newPosition": "Nouveau Poste",
+    "justification": "Justification",
+    "justificationPlaceholder": "Expliquez la raison de cette promotion…"
+  },
+  "summary": {
+    "employee": "Employé",
+    "currentPosition": "Poste Actuel",
+    "proposedPosition": "Poste Proposé",
+    "salaryCurrent": "Salaire Actuel",
+    "salaryProposed": "Salaire Proposé",
+    "delta": "Écart Salarial",
+    "justification": "Justification"
+  },
+  "submit": "Soumettre la Demande de Promotion",
+  "submitting": "Envoi…",
+  "reset": "Réinitialiser",
+  "success": "Demande de promotion soumise avec succès.",
+  "errors": {
+    "noEmployee": "Veuillez sélectionner un employé.",
+    "noPosition": "Veuillez sélectionner un nouveau poste.",
+    "noSalary": "Veuillez saisir un salaire proposé.",
+    "generic": "Échec de la soumission. Veuillez réessayer."
+  }
+}

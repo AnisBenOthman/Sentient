@@ -3,6 +3,7 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RbacGuard, Roles, SharedJwtGuard } from '@sentient/shared';
 import { UserStatusGuard } from '../../iam/guards/user-status.guard';
 import { OrgChartService } from './org-chart.service';
+import { OrgChartResponse } from './org-chart.types';
 
 @Controller('org-chart')
 @UseGuards(SharedJwtGuard, UserStatusGuard, RbacGuard)
@@ -14,7 +15,7 @@ export class OrgChartController {
   @Roles('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'GLOBAL_HR_ADMIN', 'EXECUTIVE', 'SYSTEM_ADMIN', 'SYSTEM')
   @ApiOperation({ summary: 'Get full organizational hierarchy' })
   @ApiResponse({ status: 200, description: 'Org chart hierarchy' })
-  getOrgChart() {
+  getOrgChart(): Promise<OrgChartResponse> {
     return this.orgChartService.getOrgChart();
   }
 }

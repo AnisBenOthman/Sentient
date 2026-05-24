@@ -1,40 +1,81 @@
-import { Link } from "wouter";
-import { useState } from "react";
-import { Brain, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { useEffect, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { Brain, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle, AlertCircle } from "lucide-react";
+import { claimInvite } from "@/lib/api/hr-core";
+
+function validatePassword(pw: string): string | undefined {
+  if (pw.length < 8) return "Password must be at least 8 characters.";
+  if (!/[A-Z]/.test(pw)) return "Must contain at least one uppercase letter.";
+  if (!/[a-z]/.test(pw)) return "Must contain at least one lowercase letter.";
+  if (!/\d/.test(pw)) return "Must contain at least one number.";
+  if (!/[^a-zA-Z\d]/.test(pw)) return "Must contain at least one special character.";
+  return undefined;
+}
 
 export default function FirstConnection() {
+  const [, navigate] = useLocation();
+  const token = new URLSearchParams(window.location.search).get("token");
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [errors, setErrors] = useState<{ password?: string; confirmPassword?: string }>({});
+  const [errors, setErrors] = useState<{ password?: string; confirmPassword?: string; api?: string }>({});
 
-  function validate() {
-    const newErrors: { password?: string; confirmPassword?: string } = {};
-    if (password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters.";
-    }
-    if (password !== confirmPassword) {
-      newErrors.confirmPassword = "Passwords do not match.";
-    }
-    return newErrors;
-  }
+  const { mutate, isPending, isSuccess } = useMutation({
+    mutationFn: () => claimInvite(token!, password),
+    onSuccess: () => {
+      setTimeout(() => navigate("/signin"), 3000);
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      const apiMsg =
+        msg.includes("Invalid or expired") ? "This invite link is invalid or has expired. Ask your HR admin to resend the invite." :
+        msg.includes("too weak") || msg.includes("complexity") ? "Password does not meet the requirements." :
+        msg.includes("reuse") ? "You cannot reuse a previous password." :
+        "Something went wrong. Please try again.";
+      setErrors((prev) => ({ ...prev, api: apiMsg }));
+    },
+  });
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const validationErrors = validate();
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
+    const pwErr = validatePassword(password);
+    const confirmErr = password !== confirmPassword ? "Passwords do not match." : undefined;
+    if (pwErr || confirmErr) {
+      setErrors({ password: pwErr, confirmPassword: confirmErr });
       return;
     }
     setErrors({});
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setSubmitted(true);
-    }, 900);
+    mutate();
+  }
+
+  if (!token) {
+    return (
+      <div
+        className="min-h-screen w-full flex items-center justify-center p-4"
+        style={{ backgroundColor: "#faf8f5", fontFamily: "Inter, system-ui, sans-serif" }}
+      >
+        <div
+          className="bg-white rounded-[20px] p-10 w-full max-w-[420px] flex flex-col items-center gap-4"
+          style={{ boxShadow: "0 8px 40px rgba(99,102,241,0.12)" }}
+        >
+          <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
+            <AlertCircle className="w-6 h-6 text-red-500" />
+          </div>
+          <h1 className="text-xl font-bold text-[#1e1b4b]">Invalid invitation link</h1>
+          <p className="text-slate-400 text-sm text-center">
+            This link is missing a token. Please use the link from your invitation email, or ask your HR admin to resend it.
+          </p>
+          <Link href="/signin">
+            <button className="mt-2 text-sm text-[#4f46e5] hover:underline font-medium">
+              Back to Sign In
+            </button>
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -86,7 +127,7 @@ export default function FirstConnection() {
           Welcome! Create a password to activate your account.
         </p>
 
-        {submitted ? (
+        {isSuccess ? (
           <div
             className="w-full flex flex-col items-center gap-4 py-4"
             data-testid="first-connection-success"
@@ -98,7 +139,7 @@ export default function FirstConnection() {
               Your password has been set successfully.
             </p>
             <p className="text-slate-400 text-xs text-center">
-              You can now sign in with your new credentials.
+              Redirecting you to sign in…
             </p>
             <Link href="/signin">
               <button
@@ -114,6 +155,13 @@ export default function FirstConnection() {
         ) : (
           <>
             <form onSubmit={handleSubmit} className="w-full space-y-4 mb-6" data-testid="first-connection-form">
+              {errors.api && (
+                <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 px-3.5 py-3">
+                  <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                  <p className="text-red-600 text-xs leading-relaxed" data-testid="error-api">{errors.api}</p>
+                </div>
+              )}
+
               {/* New Password */}
               <div className="space-y-1.5">
                 <label htmlFor="password" className="block text-sm font-medium text-zinc-600">
@@ -130,7 +178,7 @@ export default function FirstConnection() {
                       setPassword(e.target.value);
                       if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
                     }}
-                    placeholder="Min. 8 characters"
+                    placeholder="Min. 8 chars, upper, lower, number, symbol"
                     data-testid="input-password"
                     className={`w-full h-11 px-3.5 pr-10 rounded-xl border bg-white text-zinc-900 text-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#818cf8] focus:border-transparent transition-all ${
                       errors.password ? "border-red-400" : "border-gray-200"
@@ -192,12 +240,12 @@ export default function FirstConnection() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={isPending}
                 data-testid="btn-submit-first-connection"
                 className="w-full h-11 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 mt-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed hover:bg-[#4338ca]"
                 style={{ background: "#4f46e5" }}
               >
-                {loading ? (
+                {isPending ? (
                   <>
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     Setting password…

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ClipboardCheck, ClipboardList, Lock, Plus, RefreshCw, Save, Star, UserCheck } from "lucide-react";
+import { AlertTriangle, Building2, CalendarDays, ClipboardCheck, ClipboardList, Eye, Lock, MessageSquareText, Plus, RefreshCw, Save, Star, TrendingUp, UserCheck } from "lucide-react";
 import type { PerformanceReviewDto } from "@sentient/shared";
 import {
   PerformanceRating,
@@ -16,6 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -23,14 +24,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/components/providers/auth-provider";
+import { cn } from "@/lib/utils";
 import {
   createReviewCycle,
   getEmployees,
+  getPerformanceReview,
   getPerformanceReviews,
   getReviewCycles,
   initiateReviewCycle,
@@ -74,6 +78,22 @@ const statusTone: Record<string, string> = {
   [ReviewStatus.CANCELLED]: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-200",
 };
 
+const ratingTone: Record<string, string> = {
+  [PerformanceRating.UNACCEPTABLE]: "border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200",
+  [PerformanceRating.NEEDS_IMPROVEMENT]: "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/50 dark:bg-orange-950/30 dark:text-orange-200",
+  [PerformanceRating.MEETS_EXPECTATIONS]: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-200",
+  [PerformanceRating.EXCEEDS_EXPECTATIONS]: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200",
+  [PerformanceRating.ABOVE_AND_BEYOND]: "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-200",
+};
+
+const satisfactionTone: Record<string, string> = {
+  [SatisfactionLevel.VERY_DISSATISFIED]: "border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200",
+  [SatisfactionLevel.DISSATISFIED]: "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/50 dark:bg-orange-950/30 dark:text-orange-200",
+  [SatisfactionLevel.NEUTRAL]: "border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-200",
+  [SatisfactionLevel.SATISFIED]: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-200",
+  [SatisfactionLevel.VERY_SATISFIED]: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200",
+};
+
 interface SelfReviewForm {
   environmentSatisfaction: SatisfactionLevel;
   jobSatisfaction: SatisfactionLevel;
@@ -108,6 +128,26 @@ function reviewerName(review: Pick<PerformanceReviewDto, "reviewer">): string {
 function formatDate(value: string | null): string {
   if (!value) return "Not set";
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value));
+}
+
+function formatDateTime(value: string | null): string {
+  if (!value) return "Not set";
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
+
+function enumLabel(value: string | null | undefined, labels?: Record<string, string>): string {
+  if (!value) return "Not set";
+  return labels?.[value] ?? value.replaceAll("_", " ");
+}
+
+function textValue(value: string | null | undefined): string {
+  return value?.trim() ? value : "Not provided";
+}
+
+function reviewInitials(review: PerformanceReviewDto): string {
+  const first = review.employee?.firstName?.[0] ?? "E";
+  const last = review.employee?.lastName?.[0] ?? "";
+  return `${first}${last}`.toUpperCase();
 }
 
 function hasRole(userRoles: string[] | undefined, roles: string[]): boolean {
@@ -157,6 +197,7 @@ export default function PerformanceReviews() {
   const [selfForm, setSelfForm] = useState<SelfReviewForm>(emptySelfReview);
   const [managerForm, setManagerForm] = useState<ManagerReviewForm>(emptyManagerReview);
   const [hrAction, setHrAction] = useState<HrActionForm | null>(null);
+  const [detailReviewId, setDetailReviewId] = useState<string | null>(null);
   const [filters, setFilters] = useState<PerformanceReviewQuery>({ limit: 100 });
 
   const isHr = hasRole(user?.roles, ["HR_ADMIN", "GLOBAL_HR_ADMIN"]);
@@ -171,6 +212,12 @@ export default function PerformanceReviews() {
   const reviewsQuery = useQuery({
     queryKey: ["performance-reviews", filters],
     queryFn: () => getPerformanceReviews(filters),
+  });
+
+  const detailQuery = useQuery({
+    queryKey: ["performance-review-detail", detailReviewId],
+    queryFn: () => getPerformanceReview(detailReviewId ?? ""),
+    enabled: detailReviewId !== null,
   });
 
   const employeesQuery = useQuery({
@@ -319,19 +366,25 @@ export default function PerformanceReviews() {
           )}
         </TableCell>
         <TableCell className="text-right">
-          {mode === "self" && [ReviewStatus.PENDING, ReviewStatus.IN_PROGRESS, ReviewStatus.REOPENED].includes(review.status) && (
-            <Button size="sm" onClick={() => openSelfReview(review)}>Self Review</Button>
-          )}
-          {mode === "manager" && [ReviewStatus.SUBMITTED, ReviewStatus.REOPENED].includes(review.status) && (
-            <Button size="sm" onClick={() => openManagerReview(review)}>Complete</Button>
-          )}
-          {mode === "hr" && (
-            <div className="flex justify-end gap-2">
-              <Button size="sm" variant="outline" onClick={() => setHrAction({ reviewId: review.id, action: "reopen", reason: "", reviewerId: "", salaryHistoryId: "" })}>Reopen</Button>
-              <Button size="sm" variant="outline" onClick={() => setHrAction({ reviewId: review.id, action: "reassign", reason: "", reviewerId: review.reviewerId, salaryHistoryId: "" })}>Reassign</Button>
-              <Button size="sm" variant="outline" onClick={() => setHrAction({ reviewId: review.id, action: "salary", reason: "Annual review compensation follow-up", reviewerId: "", salaryHistoryId: "" })}>Salary</Button>
-            </div>
-          )}
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button size="sm" variant="outline" onClick={() => setDetailReviewId(review.id)}>
+              <Eye className="mr-2 h-4 w-4" />
+              Details
+            </Button>
+            {mode === "self" && [ReviewStatus.PENDING, ReviewStatus.IN_PROGRESS, ReviewStatus.REOPENED].includes(review.status) && (
+              <Button size="sm" onClick={() => openSelfReview(review)}>Self Review</Button>
+            )}
+            {mode === "manager" && [ReviewStatus.SUBMITTED, ReviewStatus.REOPENED].includes(review.status) && (
+              <Button size="sm" onClick={() => openManagerReview(review)}>Complete</Button>
+            )}
+            {mode === "hr" && (
+              <>
+                <Button size="sm" variant="outline" onClick={() => setHrAction({ reviewId: review.id, action: "reopen", reason: "", reviewerId: "", salaryHistoryId: "" })}>Reopen</Button>
+                <Button size="sm" variant="outline" onClick={() => setHrAction({ reviewId: review.id, action: "reassign", reason: "", reviewerId: review.reviewerId, salaryHistoryId: "" })}>Reassign</Button>
+                <Button size="sm" variant="outline" onClick={() => setHrAction({ reviewId: review.id, action: "salary", reason: "Annual review compensation follow-up", reviewerId: "", salaryHistoryId: "" })}>Salary</Button>
+              </>
+            )}
+          </div>
         </TableCell>
       </TableRow>
     ));
@@ -572,6 +625,32 @@ export default function PerformanceReviews() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={detailReviewId !== null} onOpenChange={(open) => !open && setDetailReviewId(null)}>
+        <DialogContent className="sm:max-w-4xl overflow-hidden p-0">
+          <DialogHeader className="border-b bg-muted/30 px-6 py-5 text-left">
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Eye className="h-5 w-5 text-primary" />
+              Performance Review Details
+            </DialogTitle>
+            <DialogDescription>
+              {detailQuery.data ? `${employeeName(detailQuery.data)} reviewed by ${reviewerName(detailQuery.data)}` : "Loading review details"}
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[72vh]">
+            {detailQuery.isLoading ? (
+              <p className="px-6 py-10 text-center text-sm text-muted-foreground">Loading details...</p>
+            ) : detailQuery.data ? (
+              <ReviewDetailContent review={detailQuery.data} />
+            ) : (
+              <p className="px-6 py-10 text-center text-sm text-muted-foreground">Review details are unavailable.</p>
+            )}
+          </ScrollArea>
+          <DialogFooter className="border-t bg-muted/20 px-6 py-4">
+            <Button variant="outline" onClick={() => setDetailReviewId(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -608,6 +687,172 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div className="space-y-1.5">
       <Label>{label}</Label>
       {children}
+    </div>
+  );
+}
+
+function ReviewDetailContent({ review }: { review: PerformanceReviewDto }) {
+  return (
+    <div className="space-y-5 px-6 py-6">
+      <section className="overflow-hidden rounded-lg border bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white shadow-sm dark:border-slate-700">
+        <div className="grid gap-5 p-5 md:grid-cols-[1fr_260px]">
+          <div className="flex min-w-0 gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-lg font-semibold">
+              {reviewInitials(review)}
+            </div>
+            <div className="min-w-0 space-y-3">
+              <div>
+                <p className="text-sm text-slate-300">{review.cycle?.name ?? "Review cycle"}</p>
+                <h3 className="break-words text-2xl font-semibold leading-tight">{employeeName(review)}</h3>
+                <p className="mt-1 text-sm text-slate-300">
+                  {review.positionTitle ?? "Position not set"} with {reviewerName(review)} as reviewer
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge className={cn("border-0", statusTone[review.status])} variant="secondary">
+                  {review.status.replaceAll("_", " ")}
+                </Badge>
+                {review.ratingGap && (
+                  <Badge variant="destructive" className="gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    Rating gap
+                  </Badge>
+                )}
+                {review.overdue && <Badge className="border-red-200 bg-red-50 text-red-700" variant="outline">Overdue</Badge>}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-2 rounded-lg border border-white/10 bg-white/10 p-3">
+            <HeaderFact icon={CalendarDays} label="Due" value={formatDate(review.dueDate)} />
+            <HeaderFact icon={Building2} label="Org" value={[review.businessUnitName, review.departmentName, review.teamName].filter(Boolean).join(" / ") || "Not set"} />
+            <HeaderFact icon={TrendingUp} label="Follow-ups" value={String(review.salaryFollowUps?.length ?? 0)} />
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-3 md:grid-cols-2">
+        <RatingPanel title="Self Rating" rating={review.selfRating} subtitle={review.submittedAt ? `Submitted ${formatDateTime(review.submittedAt)}` : "Awaiting self review"} />
+        <RatingPanel title="Manager Rating" rating={review.managerRating} subtitle={review.completedAt ? `Completed ${formatDateTime(review.completedAt)}` : "Awaiting manager review"} />
+      </section>
+
+      <DetailSection title="Satisfaction Snapshot">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <SignalItem label="Work Environment" value={review.environmentSatisfaction} />
+          <SignalItem label="Job Satisfaction" value={review.jobSatisfaction} />
+          <SignalItem label="Team Relationships" value={review.relationshipSatisfaction} />
+          <SignalItem label="Work-Life Balance" value={review.workLifeBalance} />
+          <DetailItem label="Training Taken" value={review.trainingOpportunitiesTaken === null ? "Not set" : String(review.trainingOpportunitiesTaken)} />
+          <DetailItem label="Review Date" value={formatDate(review.reviewDate)} />
+        </div>
+      </DetailSection>
+
+      <DetailSection title="Narrative">
+        <div className="grid gap-3 md:grid-cols-2">
+          <CommentPanel title="Employee Comments" value={textValue(review.employeeComments)} />
+          <CommentPanel title="Manager Comments" value={textValue(review.managerComments)} />
+        </div>
+        {review.reopenReason?.trim() && (
+          <div className="mt-3">
+            <CommentPanel title="Reopen Reason" value={review.reopenReason} tone="warning" />
+          </div>
+        )}
+      </DetailSection>
+
+      <DetailSection title="Timeline">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <TimelineItem label="Submitted" value={formatDateTime(review.submittedAt)} active={review.submittedAt !== null} />
+          <TimelineItem label="Completed" value={formatDateTime(review.completedAt)} active={review.completedAt !== null} />
+          <TimelineItem label="Reopened" value={formatDateTime(review.reopenedAt)} active={review.reopenedAt !== null} />
+        </div>
+      </DetailSection>
+    </div>
+  );
+}
+
+function DetailItem({ label, value, multiline = false }: { label: string; value: string; multiline?: boolean }) {
+  return (
+    <div className="rounded-lg border bg-background p-3">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className={multiline ? "mt-2 whitespace-pre-wrap text-sm leading-6" : "mt-1 break-words text-sm font-semibold"}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-lg border bg-muted/20 p-4">
+      <div className="mb-4 flex items-center gap-2">
+        <div className="h-2 w-2 rounded-full bg-primary" />
+        <h4 className="text-sm font-semibold">{title}</h4>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function HeaderFact({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/10">
+        <Icon className="h-4 w-4 text-slate-200" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs text-slate-400">{label}</p>
+        <p className="truncate text-sm font-medium text-white">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function RatingPanel({ title, rating, subtitle }: { title: string; rating: PerformanceRating | null; subtitle: string }) {
+  return (
+    <div className={cn("rounded-lg border p-4", rating ? ratingTone[rating] : "border-border bg-background")}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-medium text-muted-foreground">{title}</p>
+          <p className="mt-1 text-lg font-semibold">{enumLabel(rating, ratingLabel)}</p>
+        </div>
+        <div className="flex h-9 w-9 items-center justify-center rounded-md border bg-background/70">
+          <Star className="h-4 w-4" />
+        </div>
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">{subtitle}</p>
+    </div>
+  );
+}
+
+function SignalItem({ label, value }: { label: string; value: SatisfactionLevel | null }) {
+  return (
+    <div className={cn("rounded-lg border p-3", value ? satisfactionTone[value] : "border-border bg-background")}>
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm font-semibold">{enumLabel(value, satisfactionLabel)}</p>
+    </div>
+  );
+}
+
+function CommentPanel({ title, value, tone = "default" }: { title: string; value: string; tone?: "default" | "warning" }) {
+  return (
+    <div className={cn("rounded-lg border bg-background p-4", tone === "warning" && "border-amber-200 bg-amber-50/70 dark:border-amber-900/50 dark:bg-amber-950/20")}>
+      <div className="mb-3 flex items-center gap-2">
+        <MessageSquareText className="h-4 w-4 text-muted-foreground" />
+        <p className="text-sm font-semibold">{title}</p>
+      </div>
+      <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{value}</p>
+    </div>
+  );
+}
+
+function TimelineItem({ label, value, active }: { label: string; value: string; active: boolean }) {
+  return (
+    <div className="rounded-lg border bg-background p-3">
+      <div className="flex items-center gap-2">
+        <span className={cn("h-2.5 w-2.5 rounded-full", active ? "bg-emerald-500" : "bg-muted-foreground/30")} />
+        <p className="text-sm font-semibold">{label}</p>
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">{value}</p>
     </div>
   );
 }

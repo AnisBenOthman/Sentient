@@ -1,0 +1,30 @@
+{
+  "greeting": {
+    "morning": "Good morning",
+    "afternoon": "Good afternoon",
+    "evening": "Good evening"
+  },
+  "welcomeBack": "Welcome back, {{name}} 👋",
+  "stats": {
+    "totalEmployees": "Total Employees",
+    "activeToday": "Active Today",
+    "onLeave": "On Leave",
+    "pendingApprovals": "Pending Approvals"
+  },
+  "quickAccess": "Quick Access",
+  "recentlyApprovedLeave": "Recently Approved Leave",
+  "links": {
+    "dashboard": { "title": "Dashboard", "desc": "Analytics, headcount trends, and payroll overview" },
+    "employees": { "title": "Employees", "desc": "Browse the employee directory and org context" },
+    "leaveRequests": { "title": "Leave Requests", "desc": "Review and approve pending time-off requests" },
+    "orgChart": { "title": "Org Chart", "desc": "Visual hierarchy by department, team, and people" },
+    "performanceReviews": { "title": "Performance Reviews", "desc": "Submit and track performance review work" },
+    "simulation": { "title": "Simulation", "desc": "Model promotion budget impact in your scope" }
+  },
+  "leave": {
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "approved": "Approved",
+    "employee": "Employee"
+  }
+}

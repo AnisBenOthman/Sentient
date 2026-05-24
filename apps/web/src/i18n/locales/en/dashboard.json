@@ -1,0 +1,76 @@
+{
+  "title": "Dashboard",
+  "scope": "Scope",
+  "period": "Period",
+  "granularity": {
+    "monthly": "Monthly",
+    "quarterly": "Quarterly",
+    "yearly": "Yearly"
+  },
+  "sections": {
+    "headcountTrend": "Headcount Trend",
+    "attritionTrend": "Attrition Trend",
+    "leaveDistribution": "Leave Distribution",
+    "contractMix": "Contract Mix",
+    "ageBands": "Age Bands",
+    "departmentBreakdown": "Department Breakdown",
+    "statusBreakdown": "Status Breakdown",
+    "pendingLeaveQueue": "Pending Leave Queue",
+    "topPerformers": "Top Performers",
+    "upcomingBirthdays": "Upcoming Birthdays",
+    "promotionRequests": "Promotion Requests",
+    "thresholdAlerts": "Threshold Alerts",
+    "keyMetrics": "Key Metrics",
+    "radarProfile": "HR Radar Profile"
+  },
+  "metrics": {
+    "headcount": "Headcount",
+    "attrition": "Attrition",
+    "averageTenure": "Avg Tenure",
+    "avgSalary": "Avg Salary",
+    "newHires": "New Hires",
+    "exits": "Exits",
+    "onLeave": "On Leave",
+    "probation": "On Probation",
+    "pendingLeave": "Pending Leave",
+    "pendingPromotion": "Pending Promotions"
+  },
+  "leaveQueue": {
+    "approve": "Approve",
+    "reject": "Reject",
+    "employee": "Employee",
+    "type": "Type",
+    "dates": "Dates",
+    "days": "Days",
+    "status": "Status",
+    "noRequests": "No pending leave requests"
+  },
+  "promotions": {
+    "approve": "Approve",
+    "reject": "Reject",
+    "employee": "Employee",
+    "currentPosition": "Current Position",
+    "proposedPosition": "Proposed Position",
+    "salaryCurrent": "Current Salary",
+    "salaryProposed": "Proposed Salary",
+    "salaryDelta": "Change",
+    "requestedBy": "Requested by",
+    "noRequests": "No pending promotion requests"
+  },
+  "alerts": {
+    "noAlerts": "No threshold alerts",
+    "warning": "Warning",
+    "critical": "Critical"
+  },
+  "chartTypes": {
+    "bar": "Bar",
+    "line": "Line",
+    "area": "Area"
+  },
+  "approve": "Approve",
+  "reject": "Reject",
+  "confirmApprove": "Confirm approval",
+  "confirmReject": "Confirm rejection",
+  "rejectReason": "Reason for rejection",
+  "noReason": "No reason provided"
+}

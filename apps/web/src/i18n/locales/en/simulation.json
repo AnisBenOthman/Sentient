@@ -1,0 +1,50 @@
+{
+  "title": "Simulation",
+  "subtitle": "Model promotion scenarios and estimate compensation impact before committing to changes.",
+  "steps": {
+    "selectEmployee": "Select Employee",
+    "newCompensation": "New Compensation",
+    "roleResponsibilities": "Role & Responsibilities",
+    "review": "Review & Submit"
+  },
+  "search": "Search employees…",
+  "noEmployees": "No employees found.",
+  "employee": {
+    "current": "Current",
+    "proposed": "Proposed",
+    "position": "Position",
+    "salary": "Salary",
+    "change": "Change",
+    "department": "Department"
+  },
+  "compensation": {
+    "currentSalary": "Current Salary",
+    "proposedSalary": "Proposed Salary",
+    "salaryIncrease": "Salary Increase",
+    "percentChange": "% Change"
+  },
+  "role": {
+    "newPosition": "New Position",
+    "justification": "Justification",
+    "justificationPlaceholder": "Explain the rationale for this promotion…"
+  },
+  "summary": {
+    "employee": "Employee",
+    "currentPosition": "Current Position",
+    "proposedPosition": "Proposed Position",
+    "salaryCurrent": "Current Salary",
+    "salaryProposed": "Proposed Salary",
+    "delta": "Salary Delta",
+    "justification": "Justification"
+  },
+  "submit": "Submit Promotion Request",
+  "submitting": "Submitting…",
+  "reset": "Reset",
+  "success": "Promotion request submitted successfully.",
+  "errors": {
+    "noEmployee": "Please select an employee.",
+    "noPosition": "Please select a new position.",
+    "noSalary": "Please enter a proposed salary.",
+    "generic": "Failed to submit. Please try again."
+  }
+}

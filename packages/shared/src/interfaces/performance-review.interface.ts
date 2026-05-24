@@ -64,6 +64,7 @@ export interface PerformanceReviewDto {
   updatedAt: string;
   ratingGap: boolean;
   overdue: boolean;
+  salaryFollowUps?: PerformanceReviewSalaryFollowUpDto[];
   employee?: PerformanceReviewPersonDto;
   reviewer?: PerformanceReviewPersonDto;
   cycle?: PerformanceReviewCycleDto;

@@ -21,8 +21,17 @@ import Positions from "@/pages/positions";
 import LeaveManagement from "@/pages/leave-management";
 import Simulation from "@/pages/simulation";
 import PerformanceReviews from "@/pages/performance-reviews";
+import OkrDashboard from "@/pages/okr-dashboard";
+import OkrCycleManagement from "@/pages/okr-cycle-management";
+import MyOkrs from "@/pages/my-okrs";
+import AnnouncementsPage from "@/pages/announcements";
+import EventsPage from "@/pages/events";
+import DocumentsPage from "@/pages/documents";
 import NotFound from "@/pages/not-found";
 import { authStore, getRoleTier, type RoleTier } from "@/lib/auth";
+import { GuidedTourProvider } from "@/components/guided-tour";
+import { GuidedTourRenderer } from "@/components/guided-tour";
+import { useAuth } from "@/components/providers/auth-provider";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -164,8 +173,69 @@ function AppRoutes() {
         </ProtectedRoute>
       </Route>
 
+      <Route path="/okr-dashboard">
+        <ProtectedRoute>
+          <Layout>
+            <OkrDashboard />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/okr-cycle-management">
+        <ProtectedRoute>
+          <RoleGatedRoute allowed={["hr_admin", "dept_manager", "team_lead"]}>
+            <Layout>
+              <OkrCycleManagement />
+            </Layout>
+          </RoleGatedRoute>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/my-okrs">
+        <ProtectedRoute>
+          <Layout>
+            <MyOkrs />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/announcements">
+        <ProtectedRoute>
+          <Layout>
+            <AnnouncementsPage />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/events">
+        <ProtectedRoute>
+          <Layout>
+            <EventsPage />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/documents">
+        <ProtectedRoute>
+          <Layout>
+            <DocumentsPage />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+
       <Route component={NotFound} />
     </Switch>
+  );
+}
+
+function AppWithTour() {
+  const { user } = useAuth();
+  return (
+    <GuidedTourProvider user={user}>
+      <NotificationsProvider>
+        <AppRoutes />
+        <GuidedTourRenderer />
+        <Toaster />
+      </NotificationsProvider>
+    </GuidedTourProvider>
   );
 }
 
@@ -174,10 +244,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
-          <NotificationsProvider>
-            <AppRoutes />
-            <Toaster />
-          </NotificationsProvider>
+          <AppWithTour />
         </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>

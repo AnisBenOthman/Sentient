@@ -39,6 +39,10 @@ export async function logout(): Promise<void> {
   await hrClient.post('/auth/logout');
 }
 
+export async function claimInvite(token: string, newPassword: string): Promise<void> {
+  await hrClient.post('/auth/invite/claim', { token, newPassword });
+}
+
 // ── Employees ─────────────────────────────────────────────────────────────
 
 export interface EmployeeNested {
@@ -62,6 +66,7 @@ export interface EmployeeProfile {
   employmentStatus: string;
   grossSalary: number | null;
   netSalary: number | null;
+  gender: string | null;
   maritalStatus: string | null;
   educationLevel: string | null;
   educationField?: string | null;
@@ -147,6 +152,7 @@ export type UpdateEmployeeDto = Partial<{
   netSalary: string;
   salaryChangeReason: string;
   salaryChangeComment: string;
+  gender: string;
   maritalStatus: string;
   educationLevel: string;
   educationField: string;
@@ -174,6 +180,10 @@ export interface CreateEmployeeDto {
   dateOfBirth?: string;
   grossSalary?: string;
   netSalary?: string;
+  gender?: string;
+  maritalStatus?: string;
+  educationLevel?: string;
+  educationField?: string;
   departmentId?: string;
   teamId?: string;
   positionId?: string;
@@ -786,6 +796,11 @@ export interface DashboardAnalytics {
     contractMix: ChartPoint[];
     ageBands: ChartPoint[];
     tenureBands: ChartPoint[];
+    educationLevels: ChartPoint[];
+    educationFields: ChartPoint[];
+    genderDistribution: ChartPoint[];
+    attritionByMaritalStatus: ChartPoint[];
+    attritionByJob: ChartPoint[];
   };
   payroll: {
     visible: boolean;
@@ -931,7 +946,7 @@ export async function rejectPromotionRequest(
 export interface OrgTeam {
   id: string;
   name: string;
-  code: string;
+  code: string | null;
   departmentId: string;
   businessUnitId: string;
   leadId: string | null;
@@ -939,6 +954,12 @@ export interface OrgTeam {
   leadVacant: boolean;
   projectFocus: string | null;
   employeeCount: number;
+  members: OrgEmployee[];
+}
+
+export interface OrgEmployeeSkill {
+  skill: string;
+  proficiency: string;
 }
 
 export interface OrgEmployee {
@@ -946,7 +967,13 @@ export interface OrgEmployee {
   firstName: string;
   lastName: string;
   email: string;
+  hireDate: string;
+  employmentStatus: string;
+  departmentId: string | null;
+  teamId: string | null;
+  managerId: string | null;
   position: { id: string; title: string } | null;
+  skills: OrgEmployeeSkill[];
 }
 
 export interface OrgDepartment {
@@ -954,14 +981,19 @@ export interface OrgDepartment {
   name: string;
   code: string;
   businessUnitId: string;
+  businessUnit: { id: string; name: string } | null;
   headId: string | null;
   head: OrgEmployee | null;
   teams: OrgTeam[];
 }
 
-// Backend returns OrgDepartment[] directly (not wrapped)
-export async function getOrgChart(): Promise<OrgDepartment[]> {
-  const { data } = await hrClient.get<OrgDepartment[]>('/org-chart');
+export interface OrgChartResponse {
+  root: OrgEmployee | null;
+  departments: OrgDepartment[];
+}
+
+export async function getOrgChart(): Promise<OrgChartResponse> {
+  const { data } = await hrClient.get<OrgChartResponse>('/org-chart');
   return data;
 }
 
@@ -1198,5 +1230,376 @@ export async function dismissAllNotifications(
   const { data } = await hrClient.delete<{ updatedCount: number }>('/notifications/dismiss-all', {
     params: category ? { category } : undefined,
   });
+  return data;
+}
+
+// ── Threshold Indicators ──────────────────────────────────────────────────
+
+export interface ThresholdIndicator {
+  id: string;
+  metricKey: string;
+  label: string;
+  warningThreshold: number | null;
+  criticalThreshold: number | null;
+  warningBelow: number | null;
+  criticalBelow: number | null;
+  isActive: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertThresholdIndicatorPayload {
+  metricKey: string;
+  label: string;
+  warningThreshold?: number | null;
+  criticalThreshold?: number | null;
+  warningBelow?: number | null;
+  criticalBelow?: number | null;
+}
+
+export interface UpdateThresholdIndicatorPayload {
+  label?: string;
+  warningThreshold?: number | null;
+  criticalThreshold?: number | null;
+  warningBelow?: number | null;
+  criticalBelow?: number | null;
+}
+
+export async function getThresholdIndicators(): Promise<ThresholdIndicator[]> {
+  const { data } = await hrClient.get<ThresholdIndicator[]>('/threshold-indicators');
+  return data;
+}
+
+export async function upsertThresholdIndicator(
+  payload: UpsertThresholdIndicatorPayload,
+): Promise<ThresholdIndicator> {
+  const { data } = await hrClient.post<ThresholdIndicator>('/threshold-indicators', payload);
+  return data;
+}
+
+export async function updateThresholdIndicator(
+  id: string,
+  payload: UpdateThresholdIndicatorPayload,
+): Promise<ThresholdIndicator> {
+  const { data } = await hrClient.patch<ThresholdIndicator>(`/threshold-indicators/${id}`, payload);
+  return data;
+}
+
+export async function deleteThresholdIndicator(id: string): Promise<void> {
+  await hrClient.delete(`/threshold-indicators/${id}`);
+}
+
+// ── OKR Types ─────────────────────────────────────────────────────────────
+
+export type OkrCycleType = 'ANNUAL' | 'QUARTERLY';
+export type OkrCycleStatus = 'DRAFT' | 'ACTIVE' | 'CLOSED';
+export type ObjectiveLevel = 'COMPANY' | 'DEPARTMENT' | 'EMPLOYEE';
+export type ObjectiveStatus = 'DRAFT' | 'ACTIVE' | 'CLOSED' | 'CANCELLED';
+export type KeyResultMetricType = 'PERCENTAGE' | 'NUMBER' | 'BOOLEAN' | 'CURRENCY';
+export type KeyResultStatus = 'ON_TRACK' | 'AT_RISK' | 'ACHIEVED' | 'CANCELLED';
+export type OkrCheckInStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface OkrCycleResponse {
+  id: string;
+  name: string;
+  type: OkrCycleType;
+  year: number;
+  quarter: number | null;
+  status: OkrCycleStatus;
+  startDate: string;
+  endDate: string;
+  parentCycleId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ObjectiveResponse {
+  id: string;
+  title: string;
+  description: string | null;
+  level: ObjectiveLevel;
+  cycleId: string;
+  parentObjectiveId: string | null;
+  ownerId: string | null;
+  departmentId: string | null;
+  status: ObjectiveStatus;
+  createdById: string;
+  closedAt: string | null;
+  cancelledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KeyResultResponse {
+  id: string;
+  objectiveId: string;
+  title: string;
+  metricType: KeyResultMetricType;
+  targetValue: string;
+  currentValue: string;
+  unit: string | null;
+  score: string;
+  assigneeIds: string[];
+  dueDate: string | null;
+  status: KeyResultStatus;
+  isAtRisk: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OkrCheckInResponse {
+  id: string;
+  keyResultId: string;
+  employeeId: string;
+  value: string;
+  score: string;
+  comment: string | null;
+  status: OkrCheckInStatus;
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+}
+
+export interface ObjectiveAlignment {
+  parent: { id: string; title: string; level: string } | null;
+  children: { id: string; title: string; level: string; ownerId: string | null }[];
+}
+
+export interface ObjectiveDetailResponse {
+  objective: ObjectiveResponse;
+  keyResults: KeyResultResponse[];
+  alignment: ObjectiveAlignment;
+}
+
+export interface OkrCycleListResponse {
+  items: OkrCycleResponse[];
+  nextCursor: string | null;
+}
+
+export interface ObjectiveListResponse {
+  items: ObjectiveResponse[];
+  nextCursor: string | null;
+}
+
+export interface DepartmentSummary {
+  departmentId: string;
+  departmentName: string;
+  objectiveCount: number;
+  krCount: number;
+  averageScore: number;
+  atRiskCount: number;
+}
+
+export interface AtRiskKr {
+  keyResultId: string;
+  title: string;
+  score: number;
+  employeeIds: string[];
+  objectiveId: string;
+}
+
+export interface TopLevelObjectiveSummary {
+  id: string;
+  title: string;
+  level: string;
+  childCount: number;
+  averageScore: number;
+}
+
+export interface OkrCycleSummary {
+  cycleId: string;
+  cycleName: string;
+  type: string;
+  departments: DepartmentSummary[];
+  atRiskKrs: AtRiskKr[];
+  topLevelObjectives: TopLevelObjectiveSummary[];
+}
+
+export interface ObjectiveWithKrs {
+  objective: ObjectiveResponse;
+  keyResults: KeyResultResponse[];
+  averageScore: number;
+}
+
+export interface AssignedKrEntry {
+  keyResult: KeyResultResponse;
+  parentObjective: { id: string; title: string; level: string };
+  latestApprovedCheckIn: object | null;
+}
+
+export interface EmployeeOkrPortfolio {
+  employeeId: string;
+  cycleId: string;
+  objectivesOwned: ObjectiveWithKrs[];
+  keyResultsAssigned: AssignedKrEntry[];
+}
+
+// ── OKR Cycle API ─────────────────────────────────────────────────────────
+
+export interface CreateOkrCyclePayload {
+  name: string;
+  type: OkrCycleType;
+  year: number;
+  quarter?: number;
+  startDate: string;
+  endDate: string;
+  parentCycleId?: string;
+}
+
+export interface OkrCycleQuery {
+  type?: OkrCycleType;
+  year?: number;
+  status?: OkrCycleStatus;
+  parentCycleId?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export async function getOkrCycles(params?: OkrCycleQuery): Promise<OkrCycleListResponse> {
+  const { data } = await hrClient.get<OkrCycleListResponse>('/okr-cycles', { params });
+  return data;
+}
+
+export async function createOkrCycle(body: CreateOkrCyclePayload): Promise<OkrCycleResponse> {
+  const { data } = await hrClient.post<OkrCycleResponse>('/okr-cycles', body);
+  return data;
+}
+
+export async function activateCycle(id: string): Promise<OkrCycleResponse> {
+  const { data } = await hrClient.patch<OkrCycleResponse>(`/okr-cycles/${id}/activate`);
+  return data;
+}
+
+export async function closeCycle(id: string): Promise<OkrCycleResponse> {
+  const { data } = await hrClient.patch<OkrCycleResponse>(`/okr-cycles/${id}/close`);
+  return data;
+}
+
+// ── Objectives API ────────────────────────────────────────────────────────
+
+export interface ObjectiveQuery {
+  cycleId?: string;
+  level?: ObjectiveLevel;
+  departmentId?: string;
+  ownerId?: string;
+  status?: ObjectiveStatus;
+  cursor?: string;
+  limit?: number;
+}
+
+export interface CreateObjectivePayload {
+  title: string;
+  description?: string;
+  level: ObjectiveLevel;
+  cycleId: string;
+  parentObjectiveId?: string;
+  ownerId?: string;
+  departmentId?: string;
+}
+
+export interface UpdateObjectivePayload {
+  title?: string;
+  description?: string;
+  status?: ObjectiveStatus;
+}
+
+export async function getObjectives(params?: ObjectiveQuery): Promise<ObjectiveListResponse> {
+  const { data } = await hrClient.get<ObjectiveListResponse>('/objectives', { params });
+  return data;
+}
+
+export async function getObjective(id: string): Promise<ObjectiveDetailResponse> {
+  const { data } = await hrClient.get<ObjectiveDetailResponse>(`/objectives/${id}`);
+  return data;
+}
+
+export async function createObjective(body: CreateObjectivePayload): Promise<ObjectiveResponse> {
+  const { data } = await hrClient.post<ObjectiveResponse>('/objectives', body);
+  return data;
+}
+
+export async function updateObjective(id: string, body: UpdateObjectivePayload): Promise<ObjectiveResponse> {
+  const { data } = await hrClient.patch<ObjectiveResponse>(`/objectives/${id}`, body);
+  return data;
+}
+
+export async function softDeleteObjective(id: string): Promise<void> {
+  await hrClient.delete(`/objectives/${id}`);
+}
+
+// ── Key Results API ───────────────────────────────────────────────────────
+
+export interface CreateKeyResultPayload {
+  objectiveId: string;
+  title: string;
+  metricType: KeyResultMetricType;
+  targetValue: string;
+  unit?: string;
+  assigneeIds?: string[];
+  dueDate?: string;
+}
+
+export interface UpdateKeyResultPayload {
+  title?: string;
+  targetValue?: string;
+  assigneeIds?: string[];
+  dueDate?: string;
+  status?: KeyResultStatus;
+}
+
+export async function getKeyResults(objectiveId: string): Promise<{ items: KeyResultResponse[] }> {
+  const { data } = await hrClient.get<{ items: KeyResultResponse[] }>(`/key-results/objective/${objectiveId}`);
+  return data;
+}
+
+export async function createKeyResult(body: CreateKeyResultPayload): Promise<KeyResultResponse> {
+  const { data } = await hrClient.post<KeyResultResponse>('/key-results', body);
+  return data;
+}
+
+export async function updateKeyResult(id: string, body: UpdateKeyResultPayload): Promise<KeyResultResponse> {
+  const { data } = await hrClient.patch<KeyResultResponse>(`/key-results/${id}`, body);
+  return data;
+}
+
+// ── Check-ins API ─────────────────────────────────────────────────────────
+
+export interface SubmitCheckInPayload {
+  keyResultId: string;
+  value: string;
+  comment?: string;
+}
+
+export async function submitCheckIn(body: SubmitCheckInPayload): Promise<OkrCheckInResponse> {
+  const { data } = await hrClient.post<OkrCheckInResponse>('/okr-check-ins', body);
+  return data;
+}
+
+export async function getCheckIns(keyResultId: string): Promise<{ items: OkrCheckInResponse[] }> {
+  const { data } = await hrClient.get<{ items: OkrCheckInResponse[] }>(`/okr-check-ins/key-result/${keyResultId}`);
+  return data;
+}
+
+export async function approveCheckIn(id: string): Promise<OkrCheckInResponse> {
+  const { data } = await hrClient.patch<OkrCheckInResponse>(`/okr-check-ins/${id}/approve`);
+  return data;
+}
+
+export async function rejectCheckIn(id: string, body: { reason: string }): Promise<OkrCheckInResponse> {
+  const { data } = await hrClient.patch<OkrCheckInResponse>(`/okr-check-ins/${id}/reject`, body);
+  return data;
+}
+
+// ── OKR Analytics API ─────────────────────────────────────────────────────
+
+export async function getOkrCycleSummary(cycleId: string): Promise<OkrCycleSummary> {
+  const { data } = await hrClient.get<OkrCycleSummary>(`/okr-analytics/cycle/${cycleId}/summary`);
+  return data;
+}
+
+export async function getEmployeeOkrPortfolio(employeeId: string, cycleId: string): Promise<EmployeeOkrPortfolio> {
+  const { data } = await hrClient.get<EmployeeOkrPortfolio>(`/okr-analytics/employee/${employeeId}/cycle/${cycleId}`);
   return data;
 }

@@ -1,0 +1,71 @@
+{
+  "title": "Employees",
+  "addEmployee": "Add Employee",
+  "searchPlaceholder": "Search employees…",
+  "filters": {
+    "allStatuses": "All Statuses",
+    "allDepartments": "All Departments",
+    "allTeams": "All Teams",
+    "allBusinessUnits": "All Business Units",
+    "status": "Status",
+    "department": "Department",
+    "team": "Team",
+    "businessUnit": "Business Unit"
+  },
+  "table": {
+    "name": "Name",
+    "position": "Position",
+    "department": "Department",
+    "team": "Team",
+    "status": "Status",
+    "hireDate": "Hire Date",
+    "actions": "Actions",
+    "noEmployees": "No employees found."
+  },
+  "status": {
+    "ACTIVE": "Active",
+    "ON_LEAVE": "On Leave",
+    "PROBATION": "Probation",
+    "TERMINATED": "Terminated",
+    "RESIGNED": "Resigned"
+  },
+  "profile": {
+    "title": "Employee Profile",
+    "personalInfo": "Personal Information",
+    "contactInfo": "Contact Information",
+    "employment": "Employment",
+    "skills": "Skills",
+    "salaryHistory": "Salary History",
+    "leaveBalance": "Leave Balance",
+    "edit": "Edit Profile",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "email": "Email",
+    "phone": "Phone",
+    "dateOfBirth": "Date of Birth",
+    "hireDate": "Hire Date",
+    "position": "Position",
+    "department": "Department",
+    "team": "Team",
+    "employmentStatus": "Employment Status",
+    "contractType": "Contract Type",
+    "currentSalary": "Current Salary",
+    "manager": "Manager",
+    "noSkills": "No skills recorded.",
+    "noSalaryHistory": "No salary history.",
+    "contractTypes": {
+      "FULL_TIME": "Full-time",
+      "PART_TIME": "Part-time",
+      "CONTRACTOR": "Contractor",
+      "INTERN": "Intern"
+    }
+  },
+  "wizard": {
+    "title": "Add Employee",
+    "step1": "Basic Info",
+    "step2": "Employment",
+    "step3": "Access & Role",
+    "submit": "Create Employee",
+    "submitting": "Creating…"
+  }
+}

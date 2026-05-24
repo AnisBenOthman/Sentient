@@ -1,0 +1,60 @@
+{
+  "title": "Positions",
+  "addPosition": "Add Position",
+  "searchPlaceholder": "Search positions…",
+  "showInactive": "Show inactive",
+  "table": {
+    "title": "Title",
+    "level": "Level",
+    "department": "Department",
+    "skills": "Skills",
+    "employees": "Employees",
+    "status": "Status",
+    "actions": "Actions",
+    "noPositions": "No positions found."
+  },
+  "levels": {
+    "JUNIOR": "Junior",
+    "MID": "Mid",
+    "SENIOR": "Senior",
+    "LEAD": "Lead",
+    "MANAGER": "Manager",
+    "DIRECTOR": "Director",
+    "VP": "VP",
+    "C_LEVEL": "C-Level"
+  },
+  "dialog": {
+    "createTitle": "Add Position",
+    "editTitle": "Edit Position",
+    "titleLabel": "Job Title",
+    "titlePlaceholder": "e.g. Senior Software Engineer",
+    "levelLabel": "Level",
+    "departmentLabel": "Department",
+    "activeLabel": "Active",
+    "submitCreate": "Create Position",
+    "submitEdit": "Save Changes",
+    "submitting": "Saving…"
+  },
+  "skills": {
+    "manageTitle": "Manage Skills — {{title}}",
+    "addSkill": "Add Skill",
+    "skill": "Skill",
+    "requirement": "Requirement",
+    "proficiency": "Min. Proficiency",
+    "actions": "Actions",
+    "noSkills": "No skills assigned.",
+    "requirement_MANDATORY": "Mandatory",
+    "requirement_PREFERRED": "Preferred",
+    "requirement_NICE_TO_HAVE": "Nice to have"
+  },
+  "deactivate": {
+    "title": "Deactivate Position",
+    "description": "Are you sure you want to deactivate \"{{title}}\"? Employees assigned to this position will keep it but it won't appear in new assignments.",
+    "confirm": "Deactivate",
+    "cancel": "Cancel"
+  },
+  "errors": {
+    "PositionAlreadyExists": "A position with this title already exists.",
+    "generic": "Failed to save position. Please try again."
+  }
+}

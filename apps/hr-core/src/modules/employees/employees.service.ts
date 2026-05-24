@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
@@ -12,6 +13,7 @@ import {
   EducationLevel,
   Employee,
   EmploymentStatus,
+  Gender,
   MaritalStatus,
   Prisma,
   SalaryChangeReason,
@@ -20,6 +22,8 @@ import {
 import { Decimal } from '../../generated/prisma/runtime/library';
 import { IEventBus, EVENT_BUS, JwtPayload, PermissionScope, ProficiencyLevel, SkillDomain, SkillRequirementLevel } from '@sentient/shared';
 import { PrismaService } from '../../prisma/prisma.service';
+import { InviteService } from '../iam/services/invite.service';
+import { UsersService } from '../iam/services/users.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { SkillsGapQueryDto } from './dto/skills-gap-query.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
@@ -97,9 +101,13 @@ const TERMINAL_STATUSES = new Set<string>([
 
 @Injectable()
 export class EmployeesService {
+  private readonly logger = new Logger(EmployeesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(EVENT_BUS) private readonly eventBus: IEventBus,
+    private readonly usersService: UsersService,
+    private readonly inviteService: InviteService,
   ) {}
 
   // ============================================================
@@ -133,6 +141,7 @@ export class EmployeesService {
         contractType: dto.contractType as ContractType,
         grossSalary: dto.grossSalary ? new Decimal(dto.grossSalary) : undefined,
         netSalary: dto.netSalary ? new Decimal(dto.netSalary) : undefined,
+        gender: dto.gender as Gender | undefined,
         maritalStatus: dto.maritalStatus as MaritalStatus | undefined,
         educationLevel: dto.educationLevel as EducationLevel | undefined,
         educationField: dto.educationField,
@@ -156,6 +165,17 @@ export class EmployeesService {
       },
       metadata: { userId: actorUserId, correlationId: randomUUID() },
     });
+
+    // Auto-provision user account and send invite email.
+    // Fire-and-forget: email failure must never roll back the employee record.
+    try {
+      const user = await this.usersService.create({ email: employee.email, employeeId: employee.id });
+      await this.inviteService.issue(user.id, employee.email);
+    } catch (err) {
+      this.logger.error(
+        `Employee ${employee.id} created but invite failed for ${employee.email}: ${String(err)}`,
+      );
+    }
 
     return employee as EmployeeProfile;
   }
@@ -611,14 +631,18 @@ export class EmployeesService {
       user.roles.includes('EXECUTIVE');
     if (isPrivileged) return {};
 
-    if (user.roles.includes('MANAGER')) {
+    if (user.roles.includes('MANAGER') || user.roles.includes('TEAM_LEAD')) {
       const departmentAssignment = user.roleAssignments.find(
-        (assignment) => assignment.roleCode === 'MANAGER' && assignment.scope === PermissionScope.DEPARTMENT,
+        (assignment) =>
+          (assignment.roleCode === 'MANAGER' || assignment.roleCode === 'TEAM_LEAD') &&
+          assignment.scope === PermissionScope.DEPARTMENT,
       );
       if (departmentAssignment?.scopeEntityId) return { departmentId: departmentAssignment.scopeEntityId };
 
       const teamAssignment = user.roleAssignments.find(
-        (assignment) => assignment.roleCode === 'MANAGER' && assignment.scope === PermissionScope.TEAM,
+        (assignment) =>
+          (assignment.roleCode === 'MANAGER' || assignment.roleCode === 'TEAM_LEAD') &&
+          assignment.scope === PermissionScope.TEAM,
       );
       if (teamAssignment?.scopeEntityId) return { teamId: teamAssignment.scopeEntityId };
 
@@ -643,7 +667,7 @@ export class EmployeesService {
       user.roles.includes('GLOBAL_HR_ADMIN') ||
       user.roles.includes('EXECUTIVE');
     if (isPrivileged) return {};
-    if (!user.roles.includes('MANAGER')) {
+    if (!user.roles.includes('MANAGER') && !user.roles.includes('TEAM_LEAD')) {
       throw new ForbiddenException('Compensation data is limited to HR and manager simulation scopes');
     }
     return this.buildProfileAccessFilter(user);
@@ -701,6 +725,7 @@ export class EmployeesService {
       ...(dto.contractType !== undefined && { contractType: dto.contractType as ContractType }),
       ...(incomingGross !== undefined && { grossSalary: incomingGross }),
       ...(incomingNet !== undefined && { netSalary: incomingNet }),
+      ...(dto.gender !== undefined && { gender: dto.gender as Gender }),
       ...(dto.maritalStatus !== undefined && { maritalStatus: dto.maritalStatus as MaritalStatus }),
       ...(dto.educationLevel !== undefined && { educationLevel: dto.educationLevel as EducationLevel }),
       ...(dto.educationField !== undefined && { educationField: dto.educationField }),

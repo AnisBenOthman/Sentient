@@ -16,6 +16,10 @@ import {
   ClipboardCheck,
   CalendarClock,
   UserRound,
+  Target,
+  BarChart2,
+  Megaphone,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -30,20 +34,27 @@ interface LayoutProps {
 }
 
 const ALL_MAIN_NAV = [
-  { title: "Home",                href: "/home",                icon: Home,            tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "My Profile",          href: "/profile",             icon: UserRound,       tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "Dashboard",           href: "/dashboard",           icon: LayoutDashboard, tiers: ["hr_admin", "dept_manager", "team_lead"]                as RoleTier[] },
-  { title: "Employees",           href: "/employees",           icon: Users,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "Leaves",              href: "/leaves",              icon: CalendarDays,    tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "Org Chart",           href: "/org-chart",           icon: GitFork,         tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "Performance Reviews", href: "/performance-reviews", icon: ClipboardCheck,  tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "Simulation",          href: "/simulation",          icon: Sparkles,        tiers: ["hr_admin", "dept_manager", "team_lead"]              as RoleTier[] },
+  { title: "Home",                href: "/home",                icon: Home,            tourId: "home-nav",          tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
+  { title: "My Profile",          href: "/profile",             icon: UserRound,       tourId: "profile-nav",       tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
+  { title: "Dashboard",           href: "/dashboard",           icon: LayoutDashboard, tourId: "dashboard-nav",     tiers: ["hr_admin", "dept_manager", "team_lead"]                as RoleTier[] },
+  { title: "Employees",           href: "/employees",           icon: Users,           tourId: "employees-nav",     tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
+  { title: "Leaves",              href: "/leaves",              icon: CalendarDays,    tourId: "leaves-nav",        tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
+  { title: "Org Chart",           href: "/org-chart",           icon: GitFork,         tourId: "org-chart-nav",     tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
+  { title: "Performance Reviews", href: "/performance-reviews", icon: ClipboardCheck,  tourId: "performance-nav",   tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
+  { title: "My OKRs",             href: "/my-okrs",             icon: Target,          tourId: "my-okrs-nav",       tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
+  { title: "OKR Dashboard",       href: "/okr-dashboard",       icon: BarChart2,       tourId: "okr-dashboard-nav", tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
+  { title: "OKR Management",      href: "/okr-cycle-management", icon: Target,         tourId: undefined,            tiers: ["dept_manager", "team_lead"] as RoleTier[] },
+  { title: "Announcements",       href: "/announcements",       icon: Megaphone,       tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
+  { title: "Events",              href: "/events",              icon: CalendarDays,    tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
+  { title: "Documents",           href: "/documents",           icon: FileText,        tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
+  { title: "Simulation",          href: "/simulation",          icon: Sparkles,        tourId: "simulation-nav",    tiers: ["hr_admin", "dept_manager", "team_lead"]              as RoleTier[] },
 ];
 
 const ALL_ADMIN_NAV = [
-  { title: "Positions",        href: "/positions",        icon: Briefcase,    tiers: ["hr_admin"] as RoleTier[] },
-  { title: "Leave Management", href: "/leave-management", icon: CalendarClock, tiers: ["hr_admin"] as RoleTier[] },
-  { title: "Settings",         href: "/settings",         icon: Settings,      tiers: ["hr_admin"] as RoleTier[] },
+  { title: "Positions",             href: "/positions",             icon: Briefcase,    tourId: "positions-nav",  tiers: ["hr_admin"] as RoleTier[] },
+  { title: "Leave Management",      href: "/leave-management",      icon: CalendarClock, tourId: "leave-mgmt-nav", tiers: ["hr_admin"] as RoleTier[] },
+  { title: "OKR Cycle Management",  href: "/okr-cycle-management",  icon: Target,        tourId: undefined,        tiers: ["hr_admin"] as RoleTier[] },
+  { title: "Settings",              href: "/settings",              icon: Settings,      tourId: undefined,        tiers: ["hr_admin"] as RoleTier[] },
 ];
 
 export function Layout({ children }: LayoutProps) {
@@ -89,7 +100,7 @@ export function Layout({ children }: LayoutProps) {
   const NavItem = ({
     item,
   }: {
-    item: { title: string; href: string; icon: React.ElementType };
+    item: { title: string; href: string; icon: React.ElementType; tourId?: string };
   }) => {
     const isActive =
       location === item.href || location.startsWith(item.href + "/");
@@ -104,6 +115,7 @@ export function Layout({ children }: LayoutProps) {
             : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 font-normal dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
         )}
         data-testid={`link-nav-${item.title.toLowerCase().replace(" ", "-")}`}
+        data-tour={item.tourId}
         title={collapsed ? item.title : undefined}
       >
         <item.icon
@@ -218,6 +230,7 @@ export function Layout({ children }: LayoutProps) {
             )}
             aria-label="Toggle dark mode"
             data-testid="button-dark-mode"
+            data-tour="dark-mode-toggle"
             title={
               collapsed ? (dark ? "Light mode" : "Dark mode") : undefined
             }
@@ -269,12 +282,15 @@ export function Layout({ children }: LayoutProps) {
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950 focus:outline-none relative">
         <div className="sticky top-0 z-20 flex h-12 justify-end border-b border-gray-200 bg-white/90 px-6 py-2 backdrop-blur dark:border-gray-800 dark:bg-gray-950/90">
-          <NotificationsBell />
+          <div data-tour="notifications-bell">
+            <NotificationsBell />
+          </div>
         </div>
         <div className="relative z-10 max-w-7xl mx-auto p-8 animate-in fade-in duration-300">
           {children}
         </div>
       </main>
+
     </div>
   );
 }

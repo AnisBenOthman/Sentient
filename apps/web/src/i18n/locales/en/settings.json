@@ -1,0 +1,34 @@
+{
+  "title": "Settings",
+  "sections": {
+    "orgStructure": "Organisation Structure",
+    "thresholds": "Dashboard Thresholds",
+    "tour": "Guided Tour"
+  },
+  "thresholds": {
+    "description": "Set warning and critical thresholds for dashboard KPIs. Alerts appear when a metric crosses these values.",
+    "metric": "Metric",
+    "warning": "Warning",
+    "critical": "Critical",
+    "unit": "Unit",
+    "actions": "Actions",
+    "noThresholds": "No thresholds configured.",
+    "addThreshold": "Add",
+    "saveThreshold": "Save",
+    "cancelEdit": "Cancel",
+    "confirmDelete": "Are you sure you want to delete this threshold?",
+    "saving": "Saving…",
+    "deleting": "Deleting…",
+    "metrics": {
+      "EMPLOYEES_EXITS": "Terminal employees",
+      "EMPLOYEES_ATTRITION_RATE": "Attrition rate",
+      "EMPLOYEES_PROBATION": "Employees on probation",
+      "LEAVE_PENDING_APPROVALS": "Pending leave approvals",
+      "PROMOTIONS_PENDING_REQUESTS": "Pending promotions"
+    }
+  },
+  "tour": {
+    "restartButton": "Restart Guided Tour",
+    "description": "Replay the guided tour to rediscover key features of the platform."
+  }
+}

@@ -8,6 +8,7 @@ import {
   ContractType,
   EducationLevel,
   EmploymentStatus,
+  Gender,
   KeyPositionRisk,
   LeaveStatus,
   MaritalStatus,
@@ -302,6 +303,22 @@ function resolveMaritalStatus(idx: number): MaritalStatus {
   return statuses[idx % statuses.length]!;
 }
 
+function resolveGender(idx: number): Gender {
+  const genders = [
+    Gender.FEMALE,
+    Gender.MALE,
+    Gender.FEMALE,
+    Gender.MALE,
+    Gender.FEMALE,
+    Gender.MALE,
+    Gender.NON_BINARY,
+    Gender.FEMALE,
+    Gender.MALE,
+    Gender.PREFER_NOT_TO_SAY,
+  ];
+  return genders[idx % genders.length]!;
+}
+
 function resolveEducationLevel(posTitle: string): EducationLevel {
   const senior = posTitle.includes("Manager") || posTitle.includes("Lead") || posTitle.includes("Partner") || posTitle.includes("Controller") || posTitle.includes("Senior");
   if (senior) return EducationLevel.MASTER;
@@ -436,6 +453,16 @@ async function seedIam(): Promise<Map<string, string>> {
     },
     {
       code: "MANAGER", name: "Manager", isSystem: true, isEditable: false,
+      permIds: [
+        ...permsFor("employee",           [PermissionAction.READ, PermissionAction.UPDATE],              PermissionScope.TEAM),
+        ...permsFor("leave_request",      [PermissionAction.READ, PermissionAction.APPROVE],             PermissionScope.TEAM),
+        ...permsFor("performance_review", [PermissionAction.CREATE, PermissionAction.READ, PermissionAction.UPDATE], PermissionScope.TEAM),
+        ...permsFor("leave_balance",      [PermissionAction.READ],                                       PermissionScope.TEAM),
+        ...permsFor("skill",              [PermissionAction.READ, PermissionAction.UPDATE],              PermissionScope.TEAM),
+      ],
+    },
+    {
+      code: "TEAM_LEAD", name: "Team Lead", isSystem: true, isEditable: false,
       permIds: [
         ...permsFor("employee",           [PermissionAction.READ, PermissionAction.UPDATE],              PermissionScope.TEAM),
         ...permsFor("leave_request",      [PermissionAction.READ, PermissionAction.APPROVE],             PermissionScope.TEAM),
@@ -581,6 +608,7 @@ async function seedFoundation(): Promise<FoundationMaps> {
 
   // -- Positions --
   const positionDefs = [
+    { title: "Chief Executive Officer",       level: PositionLevel.EXPERT,    isKey: true,  risk: KeyPositionRisk.HIGH   },
     { title: "Engineering Manager",           level: PositionLevel.SENIOR_2,  isKey: true,  risk: KeyPositionRisk.HIGH   },
     { title: "Technical Lead",                level: PositionLevel.SENIOR_2,  isKey: true,  risk: KeyPositionRisk.HIGH   },
     { title: "Software Engineer - Senior I",  level: PositionLevel.SENIOR_1,  isKey: false, risk: null },
@@ -797,6 +825,34 @@ interface BulkEmployee {
   globalIdx: number;
 }
 
+async function seedExecutiveEmployee(f: FoundationMaps): Promise<void> {
+  console.log("  -> Seeding CEO employee...");
+
+  await prisma.employee.create({
+    data: {
+      employeeCode: "EMP-0000",
+      firstName: "Amira",
+      lastName: "Benyahia",
+      email: "amira.benyahia@sentient.dev",
+      phone: "+1-202-555-0100",
+      dateOfBirth: new Date(1978, 4, 17),
+      hireDate: new Date(2018, 0, 8),
+      employmentStatus: EmploymentStatus.ACTIVE,
+      contractType: ContractType.FULL_TIME,
+      grossSalary: 185000,
+      netSalary: 126950,
+      gender: Gender.FEMALE,
+      maritalStatus: MaritalStatus.MARRIED,
+      educationLevel: EducationLevel.MASTER,
+      educationField: "Business Administration",
+      positionId: f.posMap.get("Chief Executive Officer") ?? null,
+      departmentId: null,
+      teamId: null,
+      managerId: null,
+    },
+  });
+}
+
 async function seedBulkEmployees(f: FoundationMaps): Promise<BulkEmployee[]> {
   console.log("  → Seeding 200 employees...");
 
@@ -844,6 +900,7 @@ async function seedBulkEmployees(f: FoundationMaps): Promise<BulkEmployee[]> {
           contractType: resolveContractType(slot, globalIdx),
           grossSalary: base,
           netSalary: resolveNetSalary(base, globalIdx),
+          gender: resolveGender(globalIdx),
           maritalStatus: resolveMaritalStatus(globalIdx),
           educationLevel: resolveEducationLevel(slot.positionTitle),
           educationField: resolveEducationField(slot.deptCode),
@@ -908,11 +965,40 @@ async function seedDemoUsers(employees: BulkEmployee[], roleMap: Map<string, str
   const teamLeadEmp = employees.find(e => e.buCode === "HQ" && e.teamCode === "ENG-FE"   && e.isLead)!;
   const empEmp      = employees.find(e => e.buCode === "HQ" && !e.isLead && e.employmentStatus === EmploymentStatus.ACTIVE)!;
 
-  const demos = [
-    { email: "hradmin@sentient.dev",  empId: hrAdminEmp?.id,  roles: ["HR_ADMIN", "EMPLOYEE"] },
-    { email: "manager@sentient.dev",  empId: managerEmp?.id,  roles: ["MANAGER",  "EMPLOYEE"] },
-    { email: "teamlead@sentient.dev", empId: teamLeadEmp?.id, roles: ["MANAGER",  "EMPLOYEE"] },
-    { email: "employee@sentient.dev", empId: empEmp?.id,      roles: ["EMPLOYEE"]             },
+  type RoleAssignment = { code: string; scope: PermissionScope; scopeEntityId?: string };
+
+  const demos: Array<{ email: string; empId: string | undefined; assignments: RoleAssignment[] }> = [
+    {
+      email: "hradmin@sentient.dev",
+      empId: hrAdminEmp?.id,
+      assignments: [
+        { code: "HR_ADMIN", scope: PermissionScope.GLOBAL },
+        { code: "EMPLOYEE", scope: PermissionScope.OWN },
+      ],
+    },
+    {
+      email: "manager@sentient.dev",
+      empId: managerEmp?.id,
+      assignments: [
+        { code: "MANAGER", scope: PermissionScope.DEPARTMENT, scopeEntityId: managerEmp?.departmentId },
+        { code: "EMPLOYEE", scope: PermissionScope.OWN },
+      ],
+    },
+    {
+      email: "teamlead@sentient.dev",
+      empId: teamLeadEmp?.id,
+      assignments: [
+        { code: "TEAM_LEAD", scope: PermissionScope.TEAM, scopeEntityId: teamLeadEmp?.teamId },
+        { code: "EMPLOYEE", scope: PermissionScope.OWN },
+      ],
+    },
+    {
+      email: "employee@sentient.dev",
+      empId: empEmp?.id,
+      assignments: [
+        { code: "EMPLOYEE", scope: PermissionScope.OWN },
+      ],
+    },
   ];
 
   const pwHash = await argon2.hash(DEMO_PASSWORD, { type: argon2.argon2id });
@@ -924,11 +1010,16 @@ async function seedDemoUsers(employees: BulkEmployee[], roleMap: Map<string, str
       update: {},
       create: { email: d.email, passwordHash: pwHash, status: UserStatus.ACTIVE, employeeId: d.empId },
     });
-    for (const code of d.roles) {
-      const roleId = roleMap.get(code);
+    for (const assignment of d.assignments) {
+      const roleId = roleMap.get(assignment.code);
       if (!roleId) continue;
       await prisma.userRole.createMany({
-        data: [{ userId: user.id, roleId, scope: PermissionScope.GLOBAL }],
+        data: [{
+          userId: user.id,
+          roleId,
+          scope: assignment.scope,
+          scopeEntityId: assignment.scopeEntityId ?? null,
+        }],
         skipDuplicates: true,
       });
     }
@@ -1346,7 +1437,7 @@ async function seedPerformanceReviews(
 // ============================================================
 
 async function main(): Promise<void> {
-  console.log("\n🌱 Sentient HR Core — Full Seed (200 employees, 3-year history)\n");
+  console.log("\n🌱 Sentient HR Core — Full Seed (201 employees, 3-year history)\n");
 
   console.log("Phase 0: Resetting database...");
   await resetDatabase();
@@ -1359,6 +1450,9 @@ async function main(): Promise<void> {
 
   console.log("Phase 2: Seeding position skills...");
   await seedPositionSkills(foundation.posMap, foundation.skillMap);
+
+  console.log("Phase 2b: Seeding executive root employee...");
+  await seedExecutiveEmployee(foundation);
 
   console.log("Phase 3: Seeding employees...");
   const employees = await seedBulkEmployees(foundation);

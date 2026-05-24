@@ -116,7 +116,23 @@
       "Bash(mkdir -p \"C:\\\\Users\\\\Anis\\\\Downloads\\\\Sentient\\\\.claude\\\\skills\\\\frontend-code-review\")",
       "Skill(react-vite-best-practices)",
       "Bash(Get-ChildItem -Path C:\\\\Users\\\\Anis\\\\Downloads\\\\Sentient\\\\apps -Directory)",
-      "Bash(Select-Object Name)"
+      "Bash(Select-Object Name)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Anis\\\\Downloads\\\\Sentient\\\\apps\\\\hr-core\\\\src\\\\modules\" -Directory)",
+      "Bash(command -v node)",
+      "Bash(command -v npm)",
+      "Bash(npm --version)",
+      "Bash(command -v ccusage)",
+      "Bash(ccusage --version)",
+      "Bash(ccusage statusline *)",
+      "Bash(ccusage --help)",
+      "Bash(ccusage blocks *)",
+      "Bash(sed -i 's/- \\\\[ \\\\] T011 /- [X] T011 /g;s/- \\\\[ \\\\] T012 /- [X] T012 /g;s/- \\\\[ \\\\] T013 /- [X] T013 /g;s/- \\\\[ \\\\] T014 /- [X] T014 /g;s/- \\\\[ \\\\] T015 /- [X] T015 /g;s/- \\\\[ \\\\] T016 /- [X] T016 /g;s/- \\\\[ \\\\] T017 /- [X] T017 /g;s/- \\\\[ \\\\] T018 /- [X] T018 /g;s/- \\\\[ \\\\] T019 /- [X] T019 /g;s/- \\\\[ \\\\] T020 /- [X] T020 /g' specs/011-okr-module/tasks.md)",
+      "Bash(sed -i 's/- \\\\[ \\\\] T020a /- [X] T020a /g;s/- \\\\[ \\\\] T020b /- [X] T020b /g;s/- \\\\[ \\\\] T021 /- [X] T021 /g;s/- \\\\[ \\\\] T022 /- [X] T022 /g;s/- \\\\[ \\\\] T023 /- [X] T023 /g;s/- \\\\[ \\\\] T024 /- [X] T024 /g;s/- \\\\[ \\\\] T025 /- [X] T025 /g;s/- \\\\[ \\\\] T026 /- [X] T026 /g;s/- \\\\[ \\\\] T027 /- [X] T027 /g;s/- \\\\[ \\\\] T028 /- [X] T028 /g' specs/011-okr-module/tasks.md)",
+      "Bash(sed -i 's/- \\\\[ \\\\] T029 /- [X] T029 /g;s/- \\\\[ \\\\] T030 /- [X] T030 /g;s/- \\\\[ \\\\] T031 /- [X] T031 /g;s/- \\\\[ \\\\] T032 /- [X] T032 /g;s/- \\\\[ \\\\] T033 /- [X] T033 /g;s/- \\\\[ \\\\] T034 /- [X] T034 /g;s/- \\\\[ \\\\] T035 /- [X] T035 /g;s/- \\\\[ \\\\] T036 /- [X] T036 /g;s/- \\\\[ \\\\] T037 /- [X] T037 /g;s/- \\\\[ \\\\] T038 /- [X] T038 /g' specs/011-okr-module/tasks.md)",
+      "Bash(sed -i 's/- \\\\[ \\\\] T039 /- [X] T039 /g;s/- \\\\[ \\\\] T040 /- [X] T040 /g;s/- \\\\[ \\\\] T041 /- [X] T041 /g;s/- \\\\[ \\\\] T042 /- [X] T042 /g;s/- \\\\[ \\\\] T043 /- [X] T043 /g;s/- \\\\[ \\\\] T044 /- [X] T044 /g;s/- \\\\[ \\\\] T045 /- [X] T045 /g' specs/011-okr-module/tasks.md)",
+      "PowerShell(winget install *)",
+      "PowerShell(& \"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth status)",
+      "Bash(gh repo *)"
     ]
   }
 }

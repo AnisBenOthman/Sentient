@@ -38,7 +38,7 @@ export class InviteService {
 
     await this.prisma.inviteToken.create({ data: { userId, tokenHash, expiresAt } });
 
-    const inviteUrl = `${this.frontendUrl}/auth/claim-invite?token=${rawToken}`;
+    const inviteUrl = `${this.frontendUrl}/first-connection?token=${rawToken}`;
     await this.mail.sendInvite(email, inviteUrl);
     this.audit.log(userId, SecurityEventType.INVITE_SENT);
   }

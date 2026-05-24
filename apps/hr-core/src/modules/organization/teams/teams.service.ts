@@ -73,7 +73,7 @@ export class TeamsService {
     query: TeamQueryDto,
     user: JwtPayload,
   ): Promise<CursorPage<Team>> {
-    const isManager = user.roles.includes('MANAGER');
+    const isManager = user.roles.includes('MANAGER') || user.roles.includes('TEAM_LEAD');
     const isAdminOrExec =
       user.roles.includes('HR_ADMIN') ||
       user.roles.includes('GLOBAL_HR_ADMIN') ||
@@ -126,7 +126,7 @@ export class TeamsService {
   }
 
   async findById(id: string, user: JwtPayload): Promise<TeamWithVacancy> {
-    const isManager = user.roles.includes('MANAGER');
+    const isManager = user.roles.includes('MANAGER') || user.roles.includes('TEAM_LEAD');
     const isAdminOrExec =
       user.roles.includes('HR_ADMIN') ||
       user.roles.includes('GLOBAL_HR_ADMIN') ||

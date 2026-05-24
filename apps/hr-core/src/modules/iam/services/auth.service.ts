@@ -160,4 +160,5 @@ export class AuthService {
     await this.sessions.revokeById(sessionId);
     this.audit.log(userId, SecurityEventType.LOGOUT);
   }
+
 }

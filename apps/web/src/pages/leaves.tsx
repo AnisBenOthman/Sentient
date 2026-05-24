@@ -11,6 +11,7 @@ import {
   getLeaveBalances,
   type LeaveBalance,
 } from "@/lib/api/hr-core";
+import { getGatewayErrorMessage } from "@/lib/api/gateway-error";
 import { useAuth } from "@/components/providers/auth-provider";
 import {
   Table,
@@ -65,19 +66,6 @@ function fmtDate(iso: string): string {
     month: "short",
     year: "numeric",
   });
-}
-
-function extractApiError(err: unknown): string {
-  if (
-    typeof err === "object" &&
-    err !== null &&
-    "response" in err &&
-    typeof (err as { response?: { data?: { message?: string } } }).response?.data?.message ===
-      "string"
-  ) {
-    return (err as { response: { data: { message: string } } }).response.data.message;
-  }
-  return "";
 }
 
 function LeaveBalanceCard({ balance }: { balance: LeaveBalance }) {
@@ -223,7 +211,7 @@ export default function Leaves() {
       setOpen(false);
     },
     onError: (err: unknown) => {
-      const msg = extractApiError(err);
+      const msg = getGatewayErrorMessage(err, "");
       setFormError(
         msg === "InsufficientBalance"
           ? "Insufficient leave balance for the selected type and period."
@@ -252,7 +240,7 @@ export default function Leaves() {
       setReviewError("");
     },
     onError: (err: unknown) => {
-      const msg = extractApiError(err);
+      const msg = getGatewayErrorMessage(err, "");
       setReviewError(
         msg === "RequestAlreadyDecided"
           ? "This request has already been reviewed."
@@ -270,7 +258,7 @@ export default function Leaves() {
       setRejectError("");
     },
     onError: (err: unknown) => {
-      const msg = extractApiError(err);
+      const msg = getGatewayErrorMessage(err, "");
       setRejectError(
         msg === "RequestAlreadyDecided"
           ? "This request has already been reviewed."

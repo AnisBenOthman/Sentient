@@ -14,10 +14,12 @@ import { IamModule } from './modules/iam/iam.module';
 import { UserStatusGuard } from './modules/iam/guards/user-status.guard';
 import { LeavesModule } from './modules/leaves/leaves.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { OkrsModule } from './modules/okrs/okrs.module';
 import { OrganizationModule } from './modules/organization/organization.module';
 import { PerformanceReviewsModule } from './modules/performance-reviews/performance-reviews.module';
 import { PromotionRequestsModule } from './modules/promotion-requests/promotion-requests.module';
 import { SkillsModule } from './modules/skills/skills.module';
+import { ThresholdIndicatorsModule } from './modules/threshold-indicators/threshold-indicators.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -45,8 +47,10 @@ import { PrismaModule } from './prisma/prisma.module';
     SkillsModule,
     LeavesModule,
     NotificationsModule,
+    OkrsModule,
     PerformanceReviewsModule,
     PromotionRequestsModule,
+    ThresholdIndicatorsModule,
   ],
   controllers: [AppController],
   providers: [

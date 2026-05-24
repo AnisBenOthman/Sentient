@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
@@ -45,6 +45,7 @@ async function bootstrap(): Promise<void> {
 
   const port = configService.get<number>('SOCIAL_PORT', 3002);
   await app.listen(port);
+  Logger.log(`Social service listening on port ${port}`, 'Bootstrap');
 }
 
 bootstrap();

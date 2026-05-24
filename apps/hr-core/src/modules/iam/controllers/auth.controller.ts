@@ -64,4 +64,5 @@ export class AuthController {
   async logout(@CurrentUser() user: JwtPayload): Promise<void> {
     await this.auth.logout(user.sessionId, user.sub);
   }
+
 }

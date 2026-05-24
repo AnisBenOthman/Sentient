@@ -1,0 +1,28 @@
+{
+  "title": "Organigramme",
+  "searchPlaceholder": "Rechercher par nom, poste ou équipe…",
+  "allDepartments": "Tous les Départements",
+  "department": "Département",
+  "team": "Équipe",
+  "members": "membres",
+  "member": "membre",
+  "head": "Responsable",
+  "lead": "Chef d'équipe",
+  "noEmployees": "Aucun employé dans ce département.",
+  "status": {
+    "ACTIVE": "Actif",
+    "ON_LEAVE": "En Congé",
+    "PROBATION": "Période d'Essai",
+    "TERMINATED": "Résilié",
+    "RESIGNED": "Démissionné"
+  },
+  "proficiency": {
+    "BEGINNER": "Débutant",
+    "INTERMEDIATE": "Intermédiaire",
+    "ADVANCED": "Avancé",
+    "EXPERT": "Expert"
+  },
+  "skills": "Compétences",
+  "viewProfile": "Voir le Profil",
+  "noResults": "Aucun employé ne correspond à votre recherche."
+}

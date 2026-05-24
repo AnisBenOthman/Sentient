@@ -1,0 +1,30 @@
+{
+  "greeting": {
+    "morning": "Bonjour",
+    "afternoon": "Bon après-midi",
+    "evening": "Bonsoir"
+  },
+  "welcomeBack": "Bon retour, {{name}} 👋",
+  "stats": {
+    "totalEmployees": "Total Employés",
+    "activeToday": "Actifs Aujourd'hui",
+    "onLeave": "En Congé",
+    "pendingApprovals": "Approbations en Attente"
+  },
+  "quickAccess": "Accès Rapide",
+  "recentlyApprovedLeave": "Congés Récemment Approuvés",
+  "links": {
+    "dashboard": { "title": "Tableau de Bord", "desc": "Analyses, tendances des effectifs et aperçu de la paie" },
+    "employees": { "title": "Employés", "desc": "Parcourir le répertoire des employés et le contexte organisationnel" },
+    "leaveRequests": { "title": "Demandes de Congé", "desc": "Examiner et approuver les demandes de congé en attente" },
+    "orgChart": { "title": "Organigramme", "desc": "Hiérarchie visuelle par département, équipe et personnes" },
+    "performanceReviews": { "title": "Évaluations de Performance", "desc": "Soumettre et suivre les évaluations de performance" },
+    "simulation": { "title": "Simulation", "desc": "Modéliser l'impact budgétaire des promotions dans votre périmètre" }
+  },
+  "leave": {
+    "days_one": "{{count}} jour",
+    "days_other": "{{count}} jours",
+    "approved": "Approuvé",
+    "employee": "Employé"
+  }
+}

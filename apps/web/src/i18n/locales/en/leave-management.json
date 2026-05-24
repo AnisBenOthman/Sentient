@@ -1,0 +1,74 @@
+{
+  "title": "Leave Management",
+  "tabs": {
+    "leaveTypes": "Leave Types",
+    "holidays": "Public Holidays"
+  },
+  "leaveTypes": {
+    "addType": "Add Leave Type",
+    "name": "Name",
+    "daysPerYear": "Days / Year",
+    "accrual": "Accrual",
+    "maxCarryover": "Max Carryover",
+    "requiresApproval": "Requires Approval",
+    "businessUnit": "Business Unit",
+    "status": "Status",
+    "actions": "Actions",
+    "noTypes": "No leave types found.",
+    "active": "Active",
+    "inactive": "Inactive",
+    "reactivate": "Reactivate",
+    "accrualFrequency": {
+      "MONTHLY": "Monthly",
+      "QUARTERLY": "Quarterly",
+      "ANNUALLY": "Annually",
+      "UPFRONT": "Upfront"
+    },
+    "dialog": {
+      "createTitle": "Add Leave Type",
+      "editTitle": "Edit Leave Type",
+      "nameLabel": "Name",
+      "namePlaceholder": "e.g. Annual Leave",
+      "daysLabel": "Default Days per Year",
+      "accrualLabel": "Accrual Frequency",
+      "carryoverLabel": "Max Carryover Days",
+      "approvalLabel": "Requires Approval",
+      "colorLabel": "Colour",
+      "activeLabel": "Active",
+      "businessUnitLabel": "Business Unit",
+      "submit": "Save",
+      "submitting": "Saving…"
+    },
+    "deleteConfirm": "Are you sure you want to delete this leave type? This action cannot be undone.",
+    "reactivateConfirm": "Reactivate this leave type?"
+  },
+  "holidays": {
+    "addHoliday": "Add Holiday",
+    "name": "Name",
+    "date": "Date",
+    "type": "Type",
+    "recurring": "Recurring",
+    "actions": "Actions",
+    "noHolidays": "No holidays configured.",
+    "types": {
+      "NATIONAL": "National",
+      "REGIONAL": "Regional",
+      "COMPANY": "Company"
+    },
+    "dialog": {
+      "createTitle": "Add Holiday",
+      "editTitle": "Edit Holiday",
+      "nameLabel": "Holiday Name",
+      "dateLabel": "Date",
+      "typeLabel": "Type",
+      "recurringLabel": "Recurring yearly",
+      "submit": "Save",
+      "submitting": "Saving…"
+    },
+    "deleteConfirm": "Are you sure you want to delete this holiday?"
+  },
+  "errors": {
+    "generic": "Failed to save. Please try again.",
+    "HolidayConflict": "This date is already a public holiday."
+  }
+}

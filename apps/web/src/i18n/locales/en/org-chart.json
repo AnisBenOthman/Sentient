@@ -1,0 +1,28 @@
+{
+  "title": "Org Chart",
+  "searchPlaceholder": "Search by name, role, or team…",
+  "allDepartments": "All Departments",
+  "department": "Department",
+  "team": "Team",
+  "members": "members",
+  "member": "member",
+  "head": "Head",
+  "lead": "Lead",
+  "noEmployees": "No employees in this department.",
+  "status": {
+    "ACTIVE": "Active",
+    "ON_LEAVE": "On Leave",
+    "PROBATION": "Probation",
+    "TERMINATED": "Terminated",
+    "RESIGNED": "Resigned"
+  },
+  "proficiency": {
+    "BEGINNER": "Beginner",
+    "INTERMEDIATE": "Intermediate",
+    "ADVANCED": "Advanced",
+    "EXPERT": "Expert"
+  },
+  "skills": "Skills",
+  "viewProfile": "View Profile",
+  "noResults": "No employees match your search."
+}

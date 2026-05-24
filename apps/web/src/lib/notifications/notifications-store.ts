@@ -1,7 +1,8 @@
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
-import type { NotificationCategory } from "@sentient/shared";
-import { NotificationStatus } from "@sentient/shared";
+import type { NotificationCategory, NotificationStatus } from "@sentient/shared";
 import type { NotificationListResponse, NotificationResponse } from "@/lib/api/hr-core";
+
+const READ_STATUS = "READ" as NotificationStatus;
 
 export const notificationKeys = {
   all: ["notifications"] as const,
@@ -109,7 +110,7 @@ export function markAllReadInCache(
       const items = current.items.map((item) => {
         if (item.status !== "UNREAD") return item;
         if (category !== null && item.category !== category) return item;
-        return { ...item, status: NotificationStatus.READ, readAt: new Date().toISOString() };
+        return { ...item, status: READ_STATUS, readAt: new Date().toISOString() };
       });
       return {
         ...current,

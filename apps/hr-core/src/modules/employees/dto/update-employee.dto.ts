@@ -10,7 +10,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { ContractType, EducationLevel, MaritalStatus, SalaryChangeReason } from '@sentient/shared';
+import { ContractType, EducationLevel, Gender, MaritalStatus, SalaryChangeReason } from '@sentient/shared';
 
 export class UpdateEmployeeDto {
   @ApiPropertyOptional()
@@ -74,6 +74,11 @@ export class UpdateEmployeeDto {
   @IsString()
   @MaxLength(500)
   salaryChangeComment?: string;
+
+  @ApiPropertyOptional({ enum: Gender })
+  @IsOptional()
+  @IsEnum(Gender)
+  gender?: Gender;
 
   @ApiPropertyOptional({ enum: MaritalStatus })
   @IsOptional()

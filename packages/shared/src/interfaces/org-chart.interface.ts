@@ -9,6 +9,12 @@ export interface OrgChartTeam {
   leadVacant: boolean;
   projectFocus: string | null;
   employeeCount: number;
+  members: OrgChartEmployee[];
+}
+
+export interface OrgChartEmployeeSkill {
+  skill: string;
+  proficiency: string;
 }
 
 export interface OrgChartEmployee {
@@ -16,7 +22,13 @@ export interface OrgChartEmployee {
   firstName: string;
   lastName: string;
   email: string;
+  hireDate: string | Date;
+  employmentStatus: string;
+  departmentId: string | null;
+  teamId: string | null;
+  managerId: string | null;
   position: { id: string; title: string } | null;
+  skills: OrgChartEmployeeSkill[];
 }
 
 export interface OrgChartDepartment {
@@ -24,7 +36,13 @@ export interface OrgChartDepartment {
   name: string;
   code: string;
   businessUnitId: string;
+  businessUnit: { id: string; name: string } | null;
   headId: string | null;
   head: OrgChartEmployee | null;
   teams: OrgChartTeam[];
+}
+
+export interface OrgChartResponse {
+  root: OrgChartEmployee | null;
+  departments: OrgChartDepartment[];
 }

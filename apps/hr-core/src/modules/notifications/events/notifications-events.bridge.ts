@@ -7,6 +7,7 @@ import { NotificationsService } from '../notifications.service';
 import { NotificationsSseRegistry } from '../sse/notifications-sse.registry';
 import { RoutingRule } from './routing-rules/routing-rule.interface';
 import * as leaveRules from './routing-rules/leave.rules';
+import * as okrRules from './routing-rules/okr.rules';
 import * as promotionRules from './routing-rules/promotion.rules';
 
 const SUBSCRIBED_EVENT_TYPES = [
@@ -38,6 +39,11 @@ const SUBSCRIBED_EVENT_TYPES = [
   'event.created',
   'exit_survey.sent',
   'exit_survey.completed',
+  'okr.cycle_activated',
+  'okr.checkin_submitted',
+  'okr.checkin_approved',
+  'okr.checkin_rejected',
+  'okr.checkin_reminder_due',
 ] as const;
 
 @Injectable()
@@ -51,6 +57,11 @@ export class NotificationsEventsBridge implements OnApplicationBootstrap {
     ['promotion.requested', promotionRules.onRequested],
     ['promotion.approved', promotionRules.onApproved],
     ['promotion.rejected', promotionRules.onRejected],
+    ['okr.cycle_activated', okrRules.onCycleActivated],
+    ['okr.checkin_submitted', okrRules.onCheckInSubmitted],
+    ['okr.checkin_approved', okrRules.onCheckInApproved],
+    ['okr.checkin_rejected', okrRules.onCheckInRejected],
+    ['okr.checkin_reminder_due', okrRules.onReminderDue],
   ]);
   private bootstrapped = false;
 

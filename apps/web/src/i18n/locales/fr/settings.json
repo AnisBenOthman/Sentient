@@ -1,0 +1,34 @@
+{
+  "title": "Paramètres",
+  "sections": {
+    "orgStructure": "Structure Organisationnelle",
+    "thresholds": "Seuils du Tableau de Bord",
+    "tour": "Visite Guidée"
+  },
+  "thresholds": {
+    "description": "Définissez des seuils d'avertissement et critiques pour les KPIs du tableau de bord. Des alertes s'affichent lorsqu'une métrique dépasse ces valeurs.",
+    "metric": "Métrique",
+    "warning": "Avertissement",
+    "critical": "Critique",
+    "unit": "Unité",
+    "actions": "Actions",
+    "noThresholds": "Aucun seuil configuré.",
+    "addThreshold": "Ajouter",
+    "saveThreshold": "Enregistrer",
+    "cancelEdit": "Annuler",
+    "confirmDelete": "Êtes-vous sûr de vouloir supprimer ce seuil ?",
+    "saving": "Enregistrement…",
+    "deleting": "Suppression…",
+    "metrics": {
+      "EMPLOYEES_EXITS": "Employés partis",
+      "EMPLOYEES_ATTRITION_RATE": "Taux d'attrition",
+      "EMPLOYEES_PROBATION": "Employés en période d'essai",
+      "LEAVE_PENDING_APPROVALS": "Congés en attente d'approbation",
+      "PROMOTIONS_PENDING_REQUESTS": "Promotions en attente"
+    }
+  },
+  "tour": {
+    "restartButton": "Relancer la Visite Guidée",
+    "description": "Rejouez la visite guidée pour redécouvrir les fonctionnalités clés de la plateforme."
+  }
+}

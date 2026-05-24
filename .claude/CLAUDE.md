@@ -83,7 +83,7 @@ hybrid SQL + vector queries, and single-database deployment.
 
 | Service        | Port | Schema    | Entities | Count |
 |----------------|------|-----------|----------|-------|
-| **HR Core**    | 3001 | hr_core   | User, Role, Permission, UserRole, RolePermission, Session, Employee, Department, Team, Position, Skill, EmployeeSkill, SalaryHistory, LeaveType, LeaveBalance, LeaveRequest, Complaint, PerformanceReview, Notification, Holiday, ProbationPolicy, ProbationPeriod, ProbationEvaluation, ContractAmendment | 24 |
+| **HR Core**    | 3001 | hr_core   | User, Role, Permission, UserRole, RolePermission, Session, Employee, Department, Team, Position, Skill, EmployeeSkill, SalaryHistory, LeaveType, LeaveBalance, LeaveRequest, Complaint, PerformanceReview, Notification, Holiday, ProbationPolicy, ProbationPeriod, ProbationEvaluation, ContractAmendment, OkrCycle, Objective, KeyResult, OkrCheckIn | 28 |
 | **Social**     | 3002 | social    | Announcement, Event, EventAttendee, Document, Feedback, EngagementSnapshot, ExitSurvey, ExitSurveyResponse | 8 |
 | **AI Agentic** | 3003 | ai_agent  | Conversation, Message, VectorDocument, AgentTaskLog, OrgScenario | 5 |
 
@@ -186,7 +186,7 @@ sentient/
 │   │   │   └── config/                   # Holiday, system settings
 │   │   ├── src/common/                   # Guards, decorators, interceptors, filters
 │   │   ├── src/prisma/                   # PrismaModule (hr_core schema)
-│   │   ├── prisma/schema.prisma          # hr_core schema — 24 entities
+│   │   ├── prisma/schema.prisma          # hr_core schema — 28 entities
 │   │   └── prisma/seed.ts
 │   │
 │   ├── social/                           # Microservice 2 (port 3002)
@@ -263,7 +263,9 @@ with NO database-level foreign keys across schemas. Validated at application lay
 
 Complete class diagram in `sentient-class-diagram-spec.md`.
 
-### HR Core (24 entities, schema: hr_core)
+### HR Core (28 entities, schema: hr_core)
+
+Note: `KeyResultStatusHistory` is an auxiliary audit table (FR-034) and is NOT counted in the 28.
 
 | Domain              | Entities |
 |---------------------|----------|
@@ -278,6 +280,7 @@ Complete class diagram in `sentient-class-diagram-spec.md`.
 | Complaints          | Complaint |
 | Notifications       | Notification |
 | Config              | Holiday |
+| OKRs                | OkrCycle, Objective, KeyResult, OkrCheckIn |
 
 ### Social (8 entities, schema: social)
 

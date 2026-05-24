@@ -24,10 +24,16 @@ packages/shared/dist/
 
 # Logs
 *.log
+turbo-dev.log
+turbo-dev.err.log
 pnpm-debug.log*
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# OS / shell crash dumps
+bash.exe.stackdump
+*.stackdump
 
 # Turborepo cache
 .turbo/
