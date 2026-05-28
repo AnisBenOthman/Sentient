@@ -45,6 +45,7 @@ import {
   updateObjective,
 } from '@/lib/api/hr-core';
 import { ObjectiveForm } from '@/components/okrs/objective-form';
+import { KeyResultForm } from '@/components/okrs/key-result-form';
 import { CheckInReviewQueue } from '@/components/okrs/check-in-review-queue';
 import { useAuth } from '@/components/providers/auth-provider';
 import { getGatewayErrorMessage } from '@/lib/api/gateway-error';
@@ -474,6 +475,7 @@ export default function OkrCycleManagement() {
     isHrAdmin ? 'COMPANY' : 'DEPARTMENT',
   );
   const [objectiveFormParentId, setObjectiveFormParentId] = useState<string | undefined>(undefined);
+  const [addKrForObjectiveId, setAddKrForObjectiveId] = useState<string | null>(null);
   const [collapsedObjectiveIds, setCollapsedObjectiveIds] = useState<Set<string>>(() => new Set());
   const [actionError, setActionError] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -867,6 +869,10 @@ export default function OkrCycleManagement() {
                       objective.status === 'DRAFT' &&
                       ((isHrAdmin && objective.level === 'COMPANY') ||
                         (isManager && objective.level === 'DEPARTMENT'));
+                    const canAddKr =
+                      objective.status === 'ACTIVE' &&
+                      ((isHrAdmin && objective.level !== 'EMPLOYEE') ||
+                        (isManager && objective.level === 'DEPARTMENT'));
 
                     return (
                       <TableRow key={objective.id}>
@@ -892,7 +898,7 @@ export default function OkrCycleManagement() {
                             {objective.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right space-x-2">
                           {canActivate && (
                             <Button
                               size="sm"
@@ -901,6 +907,16 @@ export default function OkrCycleManagement() {
                               disabled={activateObjectiveMutation.isPending}
                             >
                               Activate
+                            </Button>
+                          )}
+                          {canAddKr && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setAddKrForObjectiveId(objective.id)}
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Key Result
                             </Button>
                           )}
                         </TableCell>
@@ -943,6 +959,15 @@ export default function OkrCycleManagement() {
           cycleId={selectedCycle.id}
           initialLevel={objectiveFormLevel}
           initialParentObjectiveId={objectiveFormParentId}
+        />
+      )}
+
+      {selectedCycle && addKrForObjectiveId && (
+        <KeyResultForm
+          open={true}
+          onClose={() => setAddKrForObjectiveId(null)}
+          objectiveId={addKrForObjectiveId}
+          cycleEndDate={selectedCycle.endDate}
         />
       )}
     </div>

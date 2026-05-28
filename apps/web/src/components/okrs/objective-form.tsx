@@ -34,6 +34,8 @@ import {
 } from '@/lib/api/hr-core';
 import { useAuth } from '@/components/providers/auth-provider';
 import { getGatewayErrorMessage } from '@/lib/api/gateway-error';
+import { scoreObjective } from '@/lib/okr-quality';
+import { OkrQualityPanel } from './okr-quality-panel';
 
 function formatEmployeeName(employee: EmployeeProfile): string {
   const name = `${employee.firstName} ${employee.lastName}`.trim();
@@ -158,6 +160,15 @@ export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialPar
   });
 
   const watchedParent = watch('parentObjectiveId');
+  const watchedTitle = watch('title');
+  const watchedDescription = watch('description');
+
+  const qualityReport = scoreObjective({
+    title: watchedTitle,
+    description: watchedDescription,
+    level,
+    parentObjectiveId: watchedParent,
+  });
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -201,6 +212,8 @@ export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialPar
             <Label htmlFor="description">Description</Label>
             <Textarea id="description" {...register('description')} rows={3} />
           </div>
+
+          <OkrQualityPanel report={qualityReport} />
 
           {level === 'EMPLOYEE' && (isHrAdmin || isManager) && (
             <div className="space-y-1">

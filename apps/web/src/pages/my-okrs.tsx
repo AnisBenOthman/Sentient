@@ -23,6 +23,7 @@ import { ObjectiveForm } from '@/components/okrs/objective-form';
 import { CheckInForm } from '@/components/okrs/check-in-form';
 import { CheckInHistory } from '@/components/okrs/check-in-history';
 import { KrProgressBar } from '@/components/okrs/kr-progress-bar';
+import { KeyResultForm } from '@/components/okrs/key-result-form';
 import { useAuth } from '@/components/providers/auth-provider';
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -82,6 +83,7 @@ export default function MyOkrs() {
   const { user } = useAuth();
   const [selectedCycleId, setSelectedCycleId] = useState<string>('');
   const [objectiveFormOpen, setObjectiveFormOpen] = useState(false);
+  const [addKrForObjectiveId, setAddKrForObjectiveId] = useState<string | null>(null);
 
   const { data: cyclesData } = useQuery({
     queryKey: ['okr-cycles', 'active'],
@@ -91,6 +93,7 @@ export default function MyOkrs() {
   const activeCycles = cyclesData?.items ?? [];
 
   const effectiveCycleId = selectedCycleId || activeCycles[0]?.id || '';
+  const effectiveCycle = activeCycles.find((c) => c.id === effectiveCycleId) ?? null;
 
   const { data: portfolio, isLoading } = useQuery({
     queryKey: ['employee-okr-portfolio', user?.employeeId, effectiveCycleId],
@@ -157,6 +160,15 @@ export default function MyOkrs() {
                     ) : (
                       keyResults.map((kr) => <KrPanel key={kr.id} kr={kr} />)
                     )}
+                    {objective.status === 'ACTIVE' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setAddKrForObjectiveId(objective.id)}
+                      >
+                        + Add Key Result
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               ))
@@ -192,6 +204,15 @@ export default function MyOkrs() {
           onClose={() => setObjectiveFormOpen(false)}
           cycleId={effectiveCycleId}
           initialLevel="EMPLOYEE"
+        />
+      )}
+
+      {addKrForObjectiveId && (
+        <KeyResultForm
+          open={true}
+          onClose={() => setAddKrForObjectiveId(null)}
+          objectiveId={addKrForObjectiveId}
+          cycleEndDate={effectiveCycle?.endDate ?? null}
         />
       )}
     </div>
