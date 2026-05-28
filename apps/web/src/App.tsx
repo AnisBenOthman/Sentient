@@ -21,9 +21,7 @@ import Positions from "@/pages/positions";
 import LeaveManagement from "@/pages/leave-management";
 import Simulation from "@/pages/simulation";
 import PerformanceReviews from "@/pages/performance-reviews";
-import OkrDashboard from "@/pages/okr-dashboard";
-import OkrCycleManagement from "@/pages/okr-cycle-management";
-import MyOkrs from "@/pages/my-okrs";
+import OkrsPage from "@/pages/okrs";
 import AnnouncementsPage from "@/pages/announcements";
 import EventsPage from "@/pages/events";
 import DocumentsPage from "@/pages/documents";
@@ -173,29 +171,16 @@ function AppRoutes() {
         </ProtectedRoute>
       </Route>
 
-      <Route path="/okr-dashboard">
+      <Route path="/okrs">
         <ProtectedRoute>
           <Layout>
-            <OkrDashboard />
+            <OkrsPage />
           </Layout>
         </ProtectedRoute>
       </Route>
-      <Route path="/okr-cycle-management">
-        <ProtectedRoute>
-          <RoleGatedRoute allowed={["hr_admin", "dept_manager", "team_lead"]}>
-            <Layout>
-              <OkrCycleManagement />
-            </Layout>
-          </RoleGatedRoute>
-        </ProtectedRoute>
-      </Route>
-      <Route path="/my-okrs">
-        <ProtectedRoute>
-          <Layout>
-            <MyOkrs />
-          </Layout>
-        </ProtectedRoute>
-      </Route>
+      <Route path="/my-okrs"><Redirect to="/okrs?tab=my-okrs" /></Route>
+      <Route path="/okr-dashboard"><Redirect to="/okrs?tab=dashboard" /></Route>
+      <Route path="/okr-cycle-management"><Redirect to="/okrs?tab=management" /></Route>
 
       <Route path="/announcements">
         <ProtectedRoute>

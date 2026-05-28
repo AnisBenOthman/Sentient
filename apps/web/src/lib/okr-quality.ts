@@ -16,6 +16,7 @@ export interface CriterionResult {
   label: string;
   pass: boolean;
   hint: string;
+  autoPass?: boolean;
 }
 
 export interface QualityReport {
@@ -81,6 +82,7 @@ export function scoreObjective(
       label: 'Time-bound',
       pass: true,
       hint: '',
+      autoPass: true,
     },
   ];
 
@@ -148,6 +150,7 @@ export function scoreKeyResult(
       label: 'Tied to a parent objective',
       pass: true,
       hint: '',
+      autoPass: true,
     },
     {
       criterion: 'timeBound',

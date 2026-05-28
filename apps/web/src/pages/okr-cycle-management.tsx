@@ -47,6 +47,7 @@ import {
 import { ObjectiveForm } from '@/components/okrs/objective-form';
 import { KeyResultForm } from '@/components/okrs/key-result-form';
 import { CheckInReviewQueue } from '@/components/okrs/check-in-review-queue';
+import { OkrApprovalQueue } from '@/components/okrs/okr-approval-queue';
 import { useAuth } from '@/components/providers/auth-provider';
 import { getGatewayErrorMessage } from '@/lib/api/gateway-error';
 
@@ -299,25 +300,40 @@ function ObjectiveCascadeTree({
                                     No employee objectives linked yet.
                                   </p>
                                 ) : (
-                                  linkedEmployees.map((employeeObjective) => (
-                                    <div
-                                      key={employeeObjective.id}
-                                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-950"
-                                    >
-                                      <div className="flex min-w-0 items-center gap-2">
-                                        <Users className="h-4 w-4 shrink-0 text-violet-600 dark:text-violet-300" />
-                                        <span className="truncate text-sm font-medium">{employeeObjective.title}</span>
+                                  linkedEmployees.map((employeeObjective) => {
+                                    const canActivateEmployee =
+                                      employeeObjective.status === 'DRAFT' &&
+                                      (isHrAdmin || isManager);
+                                    return (
+                                      <div
+                                        key={employeeObjective.id}
+                                        className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-950"
+                                      >
+                                        <div className="flex min-w-0 items-center gap-2">
+                                          <Users className="h-4 w-4 shrink-0 text-violet-600 dark:text-violet-300" />
+                                          <span className="truncate text-sm font-medium">{employeeObjective.title}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <Badge variant="outline" className="border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300">
+                                            Employee
+                                          </Badge>
+                                          <Badge variant={STATUS_VARIANT[employeeObjective.status] ?? 'outline'}>
+                                            {employeeObjective.status}
+                                          </Badge>
+                                          {canActivateEmployee && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={() => onActivateObjective(employeeObjective.id)}
+                                              disabled={activateObjectivePending}
+                                            >
+                                              Activate
+                                            </Button>
+                                          )}
+                                        </div>
                                       </div>
-                                      <div className="flex items-center gap-2">
-                                        <Badge variant="outline" className="border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300">
-                                          Employee
-                                        </Badge>
-                                        <Badge variant={STATUS_VARIANT[employeeObjective.status] ?? 'outline'}>
-                                          {employeeObjective.status}
-                                        </Badge>
-                                      </div>
-                                    </div>
-                                  ))
+                                    );
+                                  })
                                 )}
                               </div>
                             )}
@@ -868,7 +884,8 @@ export default function OkrCycleManagement() {
                     const canActivate =
                       objective.status === 'DRAFT' &&
                       ((isHrAdmin && objective.level === 'COMPANY') ||
-                        (isManager && objective.level === 'DEPARTMENT'));
+                        (isManager && objective.level === 'DEPARTMENT') ||
+                        ((isHrAdmin || isManager) && objective.level === 'EMPLOYEE'));
                     const canAddKr =
                       objective.status === 'ACTIVE' &&
                       ((isHrAdmin && objective.level !== 'EMPLOYEE') ||
@@ -926,6 +943,22 @@ export default function OkrCycleManagement() {
                 </TableBody>
               </Table>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedCycle && (isManager || isHrAdmin) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              OKR Approvals — {selectedCycle.name}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Employee objectives awaiting your approval before they become active.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <OkrApprovalQueue cycleId={selectedCycle.id} />
           </CardContent>
         </Card>
       )}

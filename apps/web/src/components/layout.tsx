@@ -17,7 +17,6 @@ import {
   CalendarClock,
   UserRound,
   Target,
-  BarChart2,
   Megaphone,
   FileText,
 } from "lucide-react";
@@ -41,9 +40,7 @@ const ALL_MAIN_NAV = [
   { title: "Leaves",              href: "/leaves",              icon: CalendarDays,    tourId: "leaves-nav",        tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "Org Chart",           href: "/org-chart",           icon: GitFork,         tourId: "org-chart-nav",     tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "Performance Reviews", href: "/performance-reviews", icon: ClipboardCheck,  tourId: "performance-nav",   tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "My OKRs",             href: "/my-okrs",             icon: Target,          tourId: "my-okrs-nav",       tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "OKR Dashboard",       href: "/okr-dashboard",       icon: BarChart2,       tourId: "okr-dashboard-nav", tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "OKR Management",      href: "/okr-cycle-management", icon: Target,         tourId: undefined,            tiers: ["dept_manager", "team_lead"] as RoleTier[] },
+  { title: "OKRs",                 href: "/okrs",                icon: Target,          tourId: "okrs-nav",          tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "Announcements",       href: "/announcements",       icon: Megaphone,       tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "Events",              href: "/events",              icon: CalendarDays,    tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "Documents",           href: "/documents",           icon: FileText,        tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
@@ -53,12 +50,47 @@ const ALL_MAIN_NAV = [
 const ALL_ADMIN_NAV = [
   { title: "Positions",             href: "/positions",             icon: Briefcase,    tourId: "positions-nav",  tiers: ["hr_admin"] as RoleTier[] },
   { title: "Leave Management",      href: "/leave-management",      icon: CalendarClock, tourId: "leave-mgmt-nav", tiers: ["hr_admin"] as RoleTier[] },
-  { title: "OKR Cycle Management",  href: "/okr-cycle-management",  icon: Target,        tourId: undefined,        tiers: ["hr_admin"] as RoleTier[] },
   { title: "Settings",              href: "/settings",              icon: Settings,      tourId: undefined,        tiers: ["hr_admin"] as RoleTier[] },
 ];
 
-export function Layout({ children }: LayoutProps) {
+interface NavItemProps {
+  item: { title: string; href: string; icon: React.ElementType; tourId?: string };
+  collapsed: boolean;
+}
+
+function NavItem({ item, collapsed }: NavItemProps) {
   const [location] = useLocation();
+  const isActive =
+    location === item.href || location.startsWith(item.href + "/");
+  return (
+    <Link
+      href={item.href}
+      className={cn(
+        "flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors",
+        collapsed && "justify-center px-0",
+        isActive
+          ? "bg-blue-50 text-blue-700 font-medium dark:bg-blue-900/30 dark:text-blue-300"
+          : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 font-normal dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+      )}
+      data-testid={`link-nav-${item.title.toLowerCase().replace(" ", "-")}`}
+      data-tour={item.tourId}
+      title={collapsed ? item.title : undefined}
+    >
+      <item.icon
+        className={cn(
+          "flex-shrink-0",
+          collapsed ? "w-5 h-5" : "w-4 h-4",
+          isActive
+            ? "text-blue-600 dark:text-blue-400"
+            : "text-gray-400 dark:text-gray-500"
+        )}
+      />
+      {!collapsed && item.title}
+    </Link>
+  );
+}
+
+export function Layout({ children }: LayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [dark, setDark] = useState(() =>
     document.documentElement.classList.contains("dark")
@@ -96,41 +128,6 @@ export function Layout({ children }: LayoutProps) {
       document.documentElement.classList.remove("dark");
     }
   }, [dark]);
-
-  const NavItem = ({
-    item,
-  }: {
-    item: { title: string; href: string; icon: React.ElementType; tourId?: string };
-  }) => {
-    const isActive =
-      location === item.href || location.startsWith(item.href + "/");
-    return (
-      <Link
-        href={item.href}
-        className={cn(
-          "flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors",
-          collapsed && "justify-center px-0",
-          isActive
-            ? "bg-blue-50 text-blue-700 font-medium dark:bg-blue-900/30 dark:text-blue-300"
-            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 font-normal dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
-        )}
-        data-testid={`link-nav-${item.title.toLowerCase().replace(" ", "-")}`}
-        data-tour={item.tourId}
-        title={collapsed ? item.title : undefined}
-      >
-        <item.icon
-          className={cn(
-            "flex-shrink-0",
-            collapsed ? "w-5 h-5" : "w-4 h-4",
-            isActive
-              ? "text-blue-600 dark:text-blue-400"
-              : "text-gray-400 dark:text-gray-500"
-          )}
-        />
-        {!collapsed && item.title}
-      </Link>
-    );
-  };
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-950 text-foreground overflow-hidden">
@@ -197,7 +194,7 @@ export function Layout({ children }: LayoutProps) {
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
           {visibleNav.map((item) => (
-            <NavItem key={item.href} item={item} />
+            <NavItem key={item.href} item={item} collapsed={collapsed} />
           ))}
 
           {/* Admin section — only renders for tiers that have admin nav items */}
@@ -212,7 +209,7 @@ export function Layout({ children }: LayoutProps) {
                 <div className="border-t border-gray-100 dark:border-gray-800 mx-1 mb-1" />
               )}
               {visibleAdminNav.map((item) => (
-                <NavItem key={item.href} item={item} />
+                <NavItem key={item.href} item={item} collapsed={collapsed} />
               ))}
             </div>
           )}

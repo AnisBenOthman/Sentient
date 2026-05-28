@@ -97,6 +97,8 @@ export function KeyResultForm({ open, onClose, objectiveId, cycleEndDate }: KeyR
 
   const cycleEndIso = cycleEndDate ? cycleEndDate.slice(0, 10) : null;
 
+  const shouldShowPanel = (watchedAll.title ?? '').trim().length >= 3;
+
   const qualityReport = scoreKeyResult(
     {
       title: watchedAll.title,
@@ -138,6 +140,9 @@ export function KeyResultForm({ open, onClose, objectiveId, cycleEndDate }: KeyR
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Add Key Result</DialogTitle>
+          <p className="text-xs text-muted-foreground">
+            A Key Result measures how you'll know the objective is achieved — use a number, percentage, or milestone.
+          </p>
         </DialogHeader>
 
         <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
@@ -209,7 +214,7 @@ export function KeyResultForm({ open, onClose, objectiveId, cycleEndDate }: KeyR
             </div>
           </div>
 
-          <OkrQualityPanel report={qualityReport} />
+          {shouldShowPanel && <OkrQualityPanel report={qualityReport} />}
 
           {formError && <p className="text-sm text-destructive">{formError}</p>}
 

@@ -367,9 +367,17 @@ export default function PerformanceReviews() {
         </TableCell>
         <TableCell className="text-right">
           <div className="flex flex-wrap justify-end gap-2">
-            <Button size="sm" variant="outline" onClick={() => setDetailReviewId(review.id)}>
-              <Eye className="mr-2 h-4 w-4" />
-              Details
+            <Button
+              size="sm"
+              variant="outline"
+              className="group h-8 gap-1.5 border-primary/25 bg-primary/5 px-2.5 text-primary shadow-none transition-all hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus-visible:ring-primary/25 dark:border-primary/30 dark:bg-primary/10 dark:hover:bg-primary/15"
+              aria-label={`Open performance review details for ${employeeName(review)}`}
+              onClick={() => setDetailReviewId(review.id)}
+            >
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-primary/10 transition-colors group-hover:bg-primary/15">
+                <Eye className="h-3.5 w-3.5" />
+              </span>
+              <span className="text-xs font-semibold">Details</span>
             </Button>
             {mode === "self" && [ReviewStatus.PENDING, ReviewStatus.IN_PROGRESS, ReviewStatus.REOPENED].includes(review.status) && (
               <Button size="sm" onClick={() => openSelfReview(review)}>Self Review</Button>

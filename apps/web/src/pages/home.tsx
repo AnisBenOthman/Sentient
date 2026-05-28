@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { getEmployees, getEmployee, getMyLeaveRequests } from "@/lib/api/hr-core";
 import { useAuth } from "@/components/providers/auth-provider";
+import { LeaveRequestSummary } from "@/components/leave-request-summary";
 import { getRoleTier, roleLabel, type RoleTier } from "@/lib/auth";
 
 function getGreeting(): string {
@@ -260,8 +261,7 @@ export default function Home() {
                       {empName}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {req.leaveType?.name ?? "Leave"} · {req.totalDays} day{req.totalDays !== 1 ? "s" : ""} ·{" "}
-                      {req.startDate}
+                      <LeaveRequestSummary request={req} />
                     </p>
                   </div>
                 </div>

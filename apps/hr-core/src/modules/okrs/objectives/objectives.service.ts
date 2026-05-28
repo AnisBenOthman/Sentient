@@ -145,6 +145,7 @@ export class ObjectivesService {
         timestamp: new Date(),
         payload: {
           objectiveId: objective.id,
+          objectiveTitle: objective.title,
           level: 'EMPLOYEE',
           cycleId: objective.cycleId,
           ownerId: objective.ownerId,
@@ -294,6 +295,24 @@ export class ObjectivesService {
           ownerId: updated.ownerId,
           departmentId: updated.departmentId,
           finalScore: '0',
+        },
+        metadata: { userId: user.sub, correlationId: randomUUID() },
+      } satisfies DomainEvent<Record<string, unknown>>);
+    }
+
+    if (dto.status === ObjectiveStatus.ACTIVE && objective.level === PrismaObjectiveLevel.EMPLOYEE) {
+      await this.eventBus.emit<Record<string, unknown>>({
+        id: randomUUID(),
+        type: 'okr.objective_activated',
+        source: 'HR_CORE',
+        timestamp: new Date(),
+        payload: {
+          objectiveId: updated.id,
+          objectiveTitle: updated.title,
+          level: updated.level,
+          ownerId: updated.ownerId,
+          departmentId: updated.departmentId,
+          approverId: user.sub,
         },
         metadata: { userId: user.sub, correlationId: randomUUID() },
       } satisfies DomainEvent<Record<string, unknown>>);

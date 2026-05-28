@@ -85,6 +85,7 @@ export default function MyOkrs() {
   const [objectiveFormOpen, setObjectiveFormOpen] = useState(false);
   const [addKrForObjectiveId, setAddKrForObjectiveId] = useState<string | null>(null);
 
+
   const { data: cyclesData } = useQuery({
     queryKey: ['okr-cycles', 'active'],
     queryFn: () => getOkrCycles({ status: 'ACTIVE', limit: 20 }),
@@ -160,15 +161,22 @@ export default function MyOkrs() {
                     ) : (
                       keyResults.map((kr) => <KrPanel key={kr.id} kr={kr} />)
                     )}
-                    {objective.status === 'ACTIVE' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setAddKrForObjectiveId(objective.id)}
-                      >
-                        + Add Key Result
-                      </Button>
-                    )}
+                    <div className="flex gap-2">
+                      {objective.status === 'DRAFT' && (
+                        <p className="text-xs text-muted-foreground italic">
+                          Awaiting manager approval to activate.
+                        </p>
+                      )}
+                      {objective.status === 'ACTIVE' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setAddKrForObjectiveId(objective.id)}
+                        >
+                          + Add Key Result
+                        </Button>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ))
@@ -204,6 +212,7 @@ export default function MyOkrs() {
           onClose={() => setObjectiveFormOpen(false)}
           cycleId={effectiveCycleId}
           initialLevel="EMPLOYEE"
+          initialOwnerId={user?.employeeId ?? undefined}
         />
       )}
 

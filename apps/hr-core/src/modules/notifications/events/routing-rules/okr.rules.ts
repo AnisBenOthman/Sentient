@@ -153,6 +153,94 @@ export const onCheckInRejected: RoutingRule = async (event, deps) => {
   ];
 };
 
+export const onObjectiveCreated: RoutingRule = async (event, deps) => {
+  const objectiveId = asString(event.payload.objectiveId);
+  const objectiveTitle = asString(event.payload.objectiveTitle) ?? 'New objective';
+  const departmentId = asString(event.payload.departmentId);
+  const ownerId = asString(event.payload.ownerId);
+
+  if (!objectiveId || !departmentId) return [];
+
+  const ownerUser = ownerId
+    ? await deps.prisma.user.findUnique({
+        where: { id: ownerId },
+        select: { employee: { select: { firstName: true, lastName: true } } },
+      })
+    : null;
+  const ownerName = ownerUser?.employee
+    ? `${ownerUser.employee.firstName} ${ownerUser.employee.lastName}`
+    : 'An employee';
+
+  const managers = await deps.prisma.user.findMany({
+    where: {
+      status: 'ACTIVE',
+      employee: { departmentId },
+      userRoles: {
+        some: {
+          revokedAt: null,
+          role: { code: 'MANAGER' },
+        },
+      },
+    },
+    select: { id: true },
+  });
+
+  return managers
+    .filter((m) => m.id !== ownerId)
+    .map((m) =>
+      buildDraft({
+        renderers: deps.renderers,
+        recipientUserId: m.id,
+        actorUserId: ownerId ?? null,
+        category: NotificationCategory.OKR,
+        eventType: NotificationEventType.DECISION_PENDING,
+        payload: { ownerName, objectiveTitle, objectiveId },
+        referenceType: 'okr_objective',
+        referenceId: objectiveId,
+        correlationId: event.metadata.correlationId,
+      }),
+    );
+};
+
+export const onObjectiveActivated: RoutingRule = async (event, deps) => {
+  const objectiveId = asString(event.payload.objectiveId);
+  const objectiveTitle = asString(event.payload.objectiveTitle) ?? 'Objective';
+  const ownerId = asString(event.payload.ownerId);
+  const approverId = asString(event.payload.approverId);
+
+  if (!objectiveId || !ownerId) return [];
+
+  const recipientUser = await deps.prisma.user.findUnique({
+    where: { id: ownerId },
+    select: { id: true, status: true },
+  });
+  if (!recipientUser || recipientUser.status !== 'ACTIVE') return [];
+
+  const approverUser = approverId
+    ? await deps.prisma.user.findUnique({
+        where: { id: approverId },
+        select: { employee: { select: { firstName: true, lastName: true } } },
+      })
+    : null;
+  const approverName = approverUser?.employee
+    ? `${approverUser.employee.firstName} ${approverUser.employee.lastName}`
+    : 'Your manager';
+
+  return [
+    buildDraft({
+      renderers: deps.renderers,
+      recipientUserId: ownerId,
+      actorUserId: approverId ?? null,
+      category: NotificationCategory.OKR,
+      eventType: NotificationEventType.REQUEST_APPROVED,
+      payload: { approverName, objectiveTitle, objectiveId },
+      referenceType: 'okr_objective',
+      referenceId: objectiveId,
+      correlationId: event.metadata.correlationId,
+    }),
+  ];
+};
+
 export const onReminderDue: RoutingRule = async (event, deps) => {
   const userId = asString(event.payload.userId);
   const cycleId = asString(event.payload.cycleId);
