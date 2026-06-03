@@ -1,6 +1,6 @@
-# Sentient Development Guidelines
+﻿# Sentient Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-05-23
+Auto-generated from all feature plans. Last updated: 2026-06-02
 
 ## Persona
 
@@ -14,6 +14,7 @@ Senior Full-Stack Engineer. Write complete, production-quality code. No placehol
 - TypeScript 5.x — strict mode via `tsconfig.base.json` (`strict`, `noUncheckedIndexedAccess`, `noImplicitReturns`, `forceConsistentCasingInFileNames`) + NestJS 10, React 18 + Vite 7 (no SSR), Prisma 5 (multiSchema preview), @nestjs/config, @nestjs/swagger, class-validator, class-transformer, Turborepo 2.x
 - PostgreSQL 16 + pgvector — Docker Compose (`pgvector/pgvector:pg16` image); 3 schemas (`hr_core`, `social`, `ai_agent`), 4 roles
 - TypeScript 5.x strict mode + NestJS 10 API Gateway, Express-compatible Node `http`/`https` streaming proxy, `jsonwebtoken`, `@nestjs/config`, `@nestjs/swagger`, stateless in-memory rate limiting (015-api-gateway)
+- TypeScript 5.x strict mode + NestJS 10 AI Agentic scaffold, Prisma 5 multiSchema, PostgreSQL pgvector, @sentient/shared AgentContext, React 18 + Vite 7, TanStack Query v5 (016-ai-module)
 
 ## Project Structure
 
@@ -49,6 +50,8 @@ See `.claude/rules/code-style.md` for full conventions. Key rules:
 - Every endpoint: `@UseGuards(SharedJwtGuard, RbacGuard)` + `@Roles(...)`. Except `/health`.
 
 ## Recent Changes
+- [codex] 016-ai-module-tasks: Generated Spec Kit implementation tasks for the AI module scaffold in `specs/016-ai-module/tasks.md` with 98 dependency-ordered checklist items across setup, foundation, US1 supervisor-agent entry point, US2 conversation continuity/feedback/governance, US3 safe HR drafting, and final verification; format validation passed (`98` task rows, `0` invalid rows).
+- [codex] 016-ai-module-plan: Completed Spec Kit planning artifacts for the AI module scaffold on `016-ai-module`, covering a read-only supervisor-agent state machine, named domain sub-agents (OKR, Career, Analytics, Onboarding, Leave, Language, General Help, Human Escalation), clarification/final-answer nodes, conversation/audit/escalation/RAG data model, `/api/ai/conversations` contracts, quickstart, Sentient-only polite scope handling, and interpersonal-judgment escalation guardrails.
 - [codex] home-approved-leave-format-shared: Fixed the Home page Recently Approved Leave rows to use formatted leave dates instead of raw ISO timestamps by adding a shared `LeaveRequestSummary` React component and reusing it in both Home and Leaves My Requests/Team Requests tables; verification passed for Web type-check.
 - [codex] performance-review-details-action-polish: Modernized the Performance Reviews table Details action into a professional app-native primary-tint outline button with a compact icon badge, polished hover state, and accessible per-review labeling; verification passed for Web type-check.
 - [codex] social-events-emoji-reactions: Added Social event publishing and emoji reactions end-to-end with a new `event_reactions` table, Events NestJS module (`POST/GET /events`, `PUT /events/:id/reaction`), best-effort `event.created` domain emission, organizer enrichment, web Social API helpers, an Events page with publish dialog and per-user reaction toggles, and sidebar/route wiring; local migration applied; verification passed for Social/Web type-check, Social tests, and authenticated gateway `GET /api/social/events` smoke.
@@ -144,3 +147,4 @@ using the same format as existing entries. This is the handoff note for the next
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
+
