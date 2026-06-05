@@ -25,6 +25,7 @@ import OkrsPage from "@/pages/okrs";
 import AnnouncementsPage from "@/pages/announcements";
 import EventsPage from "@/pages/events";
 import DocumentsPage from "@/pages/documents";
+import AiAssistantPage from "@/pages/ai-assistant";
 import NotFound from "@/pages/not-found";
 import { authStore, getRoleTier, type RoleTier } from "@/lib/auth";
 import { GuidedTourProvider } from "@/components/guided-tour";
@@ -202,6 +203,14 @@ function AppRoutes() {
         <ProtectedRoute>
           <Layout>
             <DocumentsPage />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/ai-assistant">
+        <ProtectedRoute>
+          <Layout>
+            <AiAssistantPage />
           </Layout>
         </ProtectedRoute>
       </Route>

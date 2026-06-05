@@ -1,0 +1,7 @@
+export enum AiKnowledgeSourceType {
+  HANDBOOK = 'HANDBOOK',
+  POLICY = 'POLICY',
+  SOCIAL_DOCUMENT = 'SOCIAL_DOCUMENT',
+  FAQ = 'FAQ',
+  SYSTEM_GUIDE = 'SYSTEM_GUIDE',
+}

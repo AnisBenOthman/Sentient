@@ -60,6 +60,7 @@ $$;
 GRANT USAGE ON SCHEMA hr_core TO hr_core_svc;
 GRANT USAGE ON SCHEMA social TO social_svc;
 GRANT USAGE ON SCHEMA ai_agent TO ai_agent_svc;
+GRANT CREATE ON SCHEMA ai_agent TO ai_agent_svc;
 GRANT USAGE ON SCHEMA hr_core TO ai_analytics_readonly;
 
 -- ── 5. Table privileges on existing tables ───────────────────────────────────

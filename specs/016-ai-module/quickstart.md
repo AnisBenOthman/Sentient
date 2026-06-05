@@ -14,13 +14,13 @@ Bring up the AI Agentic scaffold and validate the supervisor-agent conversation 
 
 ```bash
 pnpm install
-pnpm --filter @sentient/ai-agentic prisma generate
+pnpm --filter @sentient/ai-agentic exec prisma generate
 ```
 
 ## 2. Apply AI Agentic Migration
 
 ```bash
-pnpm --filter @sentient/ai-agentic prisma migrate dev
+pnpm --filter @sentient/ai-agentic exec prisma migrate deploy
 ```
 
 Expected outcome:
@@ -33,6 +33,8 @@ Expected outcome:
 - `ai_agent.knowledge_items`
 - `ai_agent.vector_documents`
 - `ai_agent.human_escalations`
+
+Note: The scaffold stores embedding arrays as JSONB in `vector_documents.embedding` so local PostgreSQL installs without pgvector can run the module. A later provider-backed retrieval release can migrate that field to pgvector where the extension is available.
 
 ## 3. Start Services
 

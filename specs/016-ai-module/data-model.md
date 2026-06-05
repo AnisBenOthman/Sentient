@@ -311,7 +311,7 @@ Fields:
 - `sourceId`: string nullable
 - `chunkIndex`: integer
 - `content`: text
-- `embedding`: vector-compatible field
+- `embedding`: JSON vector-compatible field for the scaffold; may be migrated to pgvector when the runtime database has the extension available
 - `metadata`: JSON
 - `createdAt`: datetime
 

@@ -10,5 +10,372 @@ generator client {
   previewFeatures = ["multiSchema"]
 }
 
-// Models are added feature-by-feature.
-// Next: AI Agentic module (Conversation, Message, VectorDocument, AgentTaskLog, OrgScenario).
+enum AgentType {
+  HR_ASSISTANT
+  SUPERVISOR_AGENT
+  OKR_AGENT
+  LEAVE_AGENT
+  CAREER_AGENT
+  LINGUISTIC_AGENT
+  LANGUAGE_AGENT
+  ANALYTICS_AGENT
+  ENGAGEMENT_AGENT
+  ONBOARDING_COMPANION
+  ONBOARDING_AGENT
+  GENERAL_HELP_AGENT
+  HUMAN_ESCALATION_AGENT
+
+  @@schema("ai_agent")
+}
+
+enum ConversationStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+
+  @@schema("ai_agent")
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+  AGENT
+
+  @@schema("ai_agent")
+}
+
+enum AgentNodeType {
+  SUPERVISOR
+  CLARIFICATION
+  SPECIALIST
+  HUMAN_ESCALATION
+  FINAL_ANSWER
+
+  @@schema("ai_agent")
+}
+
+enum AgentRunStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  DEGRADED
+  PARTIAL
+  ESCALATED
+  REFUSED
+  OUT_OF_SCOPE
+
+  @@schema("ai_agent")
+}
+
+enum PermissionDecision {
+  ALLOWED
+  PARTIAL
+  DENIED
+  UNAVAILABLE
+
+  @@schema("ai_agent")
+}
+
+enum TaskTrigger {
+  USER_MESSAGE
+  SYSTEM
+  SCHEDULED
+  EVENT
+
+  @@schema("ai_agent")
+}
+
+enum ClarificationStatus {
+  OPEN
+  RESOLVED
+
+  @@schema("ai_agent")
+}
+
+enum HumanEscalationTargetType {
+  MANAGER
+  HR_BUSINESS_PARTNER
+  PEOPLE_TEAM
+  EMERGENCY_PROCESS
+  OTHER
+
+  @@schema("ai_agent")
+}
+
+enum HumanEscalationStatus {
+  RECORDED
+  SENT
+  CANCELLED
+  RESOLVED
+
+  @@schema("ai_agent")
+}
+
+enum FeedbackRating {
+  POSITIVE
+  NEGATIVE
+
+  @@schema("ai_agent")
+}
+
+enum KnowledgeSourceType {
+  HANDBOOK
+  POLICY
+  SOCIAL_DOCUMENT
+  FAQ
+  SYSTEM_GUIDE
+
+  @@schema("ai_agent")
+}
+
+enum KnowledgeItemStatus {
+  ACTIVE
+  STALE
+  DELETED
+
+  @@schema("ai_agent")
+}
+
+model Conversation {
+  id                 String             @id @default(uuid())
+  ownerUserId        String             @map("owner_user_id")
+  ownerEmployeeId    String?            @map("owner_employee_id")
+  title              String
+  status             ConversationStatus @default(ACTIVE)
+  lastAgentType      AgentType?         @map("last_agent_type")
+  lastMessagePreview String?            @map("last_message_preview")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  archivedAt         DateTime?          @map("archived_at")
+  deletedAt          DateTime?          @map("deleted_at")
+
+  messages            Message[]
+  taskLogs            AgentTaskLog[]
+  handoffs            AgentHandoff[]
+  nodeRuns            AgentNodeRun[]
+  clarificationRequests ClarificationRequest[]
+  humanEscalations    HumanEscalation[]
+  responseFeedback    ResponseFeedback[]
+  permissionDecisions PermissionDecisionRecord[]
+
+  @@index([ownerUserId, updatedAt])
+  @@schema("ai_agent")
+  @@map("conversations")
+}
+
+model Message {
+  id             String          @id @default(uuid())
+  conversationId String          @map("conversation_id")
+  role           MessageRole
+  content        String
+  agentType      AgentType?      @map("agent_type")
+  nodeType       AgentNodeType?  @map("node_type")
+  sourceSummary  Json?           @map("source_summary")
+  status         AgentRunStatus  @default(SUCCESS)
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  conversation Conversation       @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  feedback     ResponseFeedback[]
+
+  @@index([conversationId, createdAt])
+  @@schema("ai_agent")
+  @@map("messages")
+}
+
+model AgentTaskLog {
+  id                 String              @id @default(uuid())
+  conversationId     String?             @map("conversation_id")
+  parentLogId        String?             @map("parent_log_id")
+  agentType          AgentType           @map("agent_type")
+  nodeType           AgentNodeType       @map("node_type")
+  taskType           String              @map("task_type")
+  trigger            TaskTrigger         @default(USER_MESSAGE)
+  actorUserId        String?             @map("actor_user_id")
+  actorEmployeeId    String?             @map("actor_employee_id")
+  status             AgentRunStatus      @default(PENDING)
+  permissionDecision PermissionDecision? @map("permission_decision")
+  sourceCategories   String[]            @default([]) @map("source_categories")
+  inputSummary       String?             @map("input_summary")
+  outputSummary      String?             @map("output_summary")
+  errorCode          String?             @map("error_code")
+  errorMessage       String?             @map("error_message")
+  correlationId      String              @map("correlation_id")
+  startedAt          DateTime            @default(now()) @map("started_at")
+  finishedAt         DateTime?           @map("finished_at")
+
+  conversation              Conversation?              @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  parent                    AgentTaskLog?              @relation("AgentTaskLogChildren", fields: [parentLogId], references: [id], onDelete: SetNull)
+  children                  AgentTaskLog[]             @relation("AgentTaskLogChildren")
+  parentHandoffs            AgentHandoff[]             @relation("AgentHandoffParentLog")
+  specialistHandoffs        AgentHandoff[]             @relation("AgentHandoffSpecialistLog")
+  nodeRuns                  AgentNodeRun[]
+  clarificationRequests     ClarificationRequest[]
+  humanEscalations          HumanEscalation[]
+  permissionDecisionRecords PermissionDecisionRecord[]
+
+  @@index([conversationId, startedAt])
+  @@index([parentLogId])
+  @@schema("ai_agent")
+  @@map("agent_task_logs")
+}
+
+model AgentHandoff {
+  id                  String             @id @default(uuid())
+  conversationId      String             @map("conversation_id")
+  parentTaskLogId     String             @map("parent_task_log_id")
+  specialistTaskLogId String?            @map("specialist_task_log_id")
+  fromAgentType       AgentType          @map("from_agent_type")
+  toAgentType         AgentType          @map("to_agent_type")
+  reason              String
+  requestedIntent     String             @map("requested_intent")
+  permissionDecision  PermissionDecision @map("permission_decision")
+  status              AgentRunStatus     @default(PENDING)
+  summary             String?
+  createdAt           DateTime           @default(now()) @map("created_at")
+  completedAt         DateTime?          @map("completed_at")
+
+  conversation      Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  parentTaskLog     AgentTaskLog  @relation("AgentHandoffParentLog", fields: [parentTaskLogId], references: [id], onDelete: Cascade)
+  specialistTaskLog AgentTaskLog? @relation("AgentHandoffSpecialistLog", fields: [specialistTaskLogId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+  @@schema("ai_agent")
+  @@map("agent_handoffs")
+}
+
+model AgentNodeRun {
+  id             String         @id @default(uuid())
+  conversationId String         @map("conversation_id")
+  taskLogId      String         @map("task_log_id")
+  nodeType       AgentNodeType  @map("node_type")
+  agentType      AgentType      @map("agent_type")
+  sequence       Int
+  stateBefore    Json?          @map("state_before")
+  stateAfter     Json?          @map("state_after")
+  status         AgentRunStatus
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  taskLog      AgentTaskLog @relation(fields: [taskLogId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, sequence])
+  @@schema("ai_agent")
+  @@map("agent_node_runs")
+}
+
+model ClarificationRequest {
+  id                String              @id @default(uuid())
+  conversationId    String              @map("conversation_id")
+  taskLogId         String              @map("task_log_id")
+  question          String
+  reason            String
+  status            ClarificationStatus @default(OPEN)
+  resolvedMessageId String?             @map("resolved_message_id")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  resolvedAt        DateTime?           @map("resolved_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  taskLog      AgentTaskLog @relation(fields: [taskLogId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, status])
+  @@schema("ai_agent")
+  @@map("clarification_requests")
+}
+
+model HumanEscalation {
+  id                String                    @id @default(uuid())
+  conversationId    String                    @map("conversation_id")
+  taskLogId         String                    @map("task_log_id")
+  requestedByUserId String                    @map("requested_by_user_id")
+  targetType        HumanEscalationTargetType @map("target_type")
+  targetLabel       String                    @map("target_label")
+  reason            String
+  summaryForHuman   String                    @map("summary_for_human")
+  status            HumanEscalationStatus     @default(RECORDED)
+  createdAt         DateTime                  @default(now()) @map("created_at")
+  updatedAt         DateTime                  @updatedAt @map("updated_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  taskLog      AgentTaskLog @relation(fields: [taskLogId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@schema("ai_agent")
+  @@map("human_escalations")
+}
+
+model ResponseFeedback {
+  id             String         @id @default(uuid())
+  conversationId String         @map("conversation_id")
+  messageId      String         @map("message_id")
+  userId         String         @map("user_id")
+  rating         FeedbackRating
+  comment        String?
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message      Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([conversationId, createdAt])
+  @@schema("ai_agent")
+  @@map("response_feedback")
+}
+
+model KnowledgeItem {
+  id          String              @id @default(uuid())
+  sourceType  KnowledgeSourceType @map("source_type")
+  sourceId    String?             @map("source_id")
+  title       String
+  contentHash String              @map("content_hash")
+  status      KnowledgeItemStatus @default(ACTIVE)
+  metadata    Json                @default("{}")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  vectorDocuments VectorDocument[]
+
+  @@index([sourceType, sourceId])
+  @@schema("ai_agent")
+  @@map("knowledge_items")
+}
+
+model VectorDocument {
+  id              String              @id @default(uuid())
+  knowledgeItemId String?             @map("knowledge_item_id")
+  sourceType      KnowledgeSourceType @map("source_type")
+  sourceId        String?             @map("source_id")
+  chunkIndex      Int                 @map("chunk_index")
+  content         String
+  embedding       Json?
+  metadata        Json                @default("{}")
+  createdAt       DateTime            @default(now()) @map("created_at")
+
+  knowledgeItem KnowledgeItem? @relation(fields: [knowledgeItemId], references: [id], onDelete: SetNull)
+
+  @@index([knowledgeItemId, chunkIndex])
+  @@schema("ai_agent")
+  @@map("vector_documents")
+}
+
+model PermissionDecisionRecord {
+  id             String             @id @default(uuid())
+  conversationId String?            @map("conversation_id")
+  taskLogId      String             @map("task_log_id")
+  agentType      AgentType          @map("agent_type")
+  decision       PermissionDecision
+  resourceType   String             @map("resource_type")
+  resourceId     String?            @map("resource_id")
+  reason         String
+  createdAt      DateTime           @default(now()) @map("created_at")
+
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  taskLog      AgentTaskLog  @relation(fields: [taskLogId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([taskLogId])
+  @@schema("ai_agent")
+  @@map("permission_decisions")
+}

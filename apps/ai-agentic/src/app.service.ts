@@ -1,12 +1,11 @@
 import { Injectable } from '@nestjs/common';
+import { AiHealthResponse, AiHealthService } from './modules/agents';
 
 @Injectable()
 export class AppService {
-  getHealth(): { status: string; service: string; timestamp: string } {
-    return {
-      status: 'ok',
-      service: 'ai-agentic',
-      timestamp: new Date().toISOString(),
-    };
+  constructor(private readonly aiHealth: AiHealthService) {}
+
+  getHealth(): AiHealthResponse {
+    return this.aiHealth.getHealth();
   }
 }

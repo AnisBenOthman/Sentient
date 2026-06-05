@@ -54,6 +54,14 @@ export const OKR_ERROR_MESSAGES: Record<string, string> = {
   ReasonRequired: 'A reason is required to reject a check-in.',
 };
 
+export const AI_ERROR_MESSAGES: Record<string, string> = {
+  AiOutOfScope: 'The assistant can only help with Sentient HR and workplace context.',
+  AiSpecialistUnavailable: 'One of the assistant specialists is temporarily unavailable.',
+  AiFeedbackNotFound: 'This assistant response is not available for feedback.',
+  AiConversationNotFound: 'This AI conversation is no longer available.',
+  AiScopeRefusal: 'The assistant cannot access or reveal information outside your permissions.',
+};
+
 export const GATEWAY_ERROR_MESSAGES: Record<string, string> = {
   MissingAuthorization: 'Your session has expired. Please sign in again.',
   MalformedAuthorization: 'Your session is invalid. Please sign in again.',
@@ -68,6 +76,7 @@ export const GATEWAY_ERROR_MESSAGES: Record<string, string> = {
   ...ANNOUNCEMENT_ERROR_MESSAGES,
   ...DOCUMENT_ERROR_MESSAGES,
   ...OKR_ERROR_MESSAGES,
+  ...AI_ERROR_MESSAGES,
 };
 
 export function isGatewayErrorEnvelope(value: unknown): value is GatewayErrorEnvelope {

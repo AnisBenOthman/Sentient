@@ -19,6 +19,7 @@ import {
   Target,
   Megaphone,
   FileText,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -44,6 +45,7 @@ const ALL_MAIN_NAV = [
   { title: "Announcements",       href: "/announcements",       icon: Megaphone,       tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "Events",              href: "/events",              icon: CalendarDays,    tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "Documents",           href: "/documents",           icon: FileText,        tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
+  { title: "AI Assistant",         href: "/ai-assistant",        icon: Bot,             tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
   { title: "Simulation",          href: "/simulation",          icon: Sparkles,        tourId: "simulation-nav",    tiers: ["hr_admin", "dept_manager", "team_lead"]              as RoleTier[] },
 ];
 

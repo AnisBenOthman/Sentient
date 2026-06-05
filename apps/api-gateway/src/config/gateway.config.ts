@@ -17,6 +17,7 @@ const publicRoutes: PublicRouteRule[] = [
   { method: 'POST', pathPattern: '/api/hr/auth/invite/claim', reason: 'invite claim by scoped token' },
   { method: '*', pathPattern: '/api/social/exit-surveys/respond*', reason: 'exit survey scoped token' },
   { method: '*', pathPattern: '/api/social/exit-survey-responses*', reason: 'exit survey scoped token' },
+  { method: 'GET', pathPattern: '/api/ai/health', reason: 'ai-agentic health' },
 ];
 
 export const DEFAULT_DEV_JWT_SECRET = 'change-me-in-production-minimum-32-random-characters';
