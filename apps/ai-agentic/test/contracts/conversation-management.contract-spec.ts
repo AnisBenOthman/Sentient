@@ -1,4 +1,5 @@
-import { ConversationStatus } from '../../src/generated/prisma';
+import { BadRequestException } from '@nestjs/common';
+import { AgentRunStatus, ConversationStatus } from '../../src/generated/prisma';
 import { ActorContextFactory, AiActorContext } from '../../src/common/graph';
 import { ConversationsController } from '../../src/modules/conversations/conversations.controller';
 import { ConversationsService } from '../../src/modules/conversations/conversations.service';
@@ -67,5 +68,64 @@ describe('AI conversation management contract', () => {
     await controller.delete({} as never, 'conversation-1');
 
     expect(deleted).toBe(true);
+  });
+
+  it('defaults conversation lists to active records only', async () => {
+    let capturedWhere: unknown;
+    const service = new ConversationsService(
+      {
+        conversation: {
+          findMany: async ({ where }: { where: unknown }) => {
+            capturedWhere = where;
+            return [];
+          },
+          count: async () => 0,
+        },
+        $transaction: async (operations: Array<Promise<unknown>>) => Promise.all(operations),
+      } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    await service.list(actor, { page: 1, pageSize: 20 });
+
+    expect(JSON.stringify(capturedWhere)).toContain(`"status":"${ConversationStatus.ACTIVE}"`);
+  });
+
+  it('does not allow messages to be sent to archived conversations', async () => {
+    const service = new ConversationsService(
+      {
+        conversation: {
+          findFirst: async () => ({
+            id: 'conversation-1',
+            ownerUserId: actor.userId,
+            ownerEmployeeId: actor.employeeId,
+            title: 'Archived',
+            status: ConversationStatus.ARCHIVED,
+          }),
+        },
+        message: {
+          create: async () => {
+            throw new Error('message should not be created');
+          },
+        },
+      } as never,
+      {
+        executeTurn: async () => ({
+          finalAnswer: { content: '', sourceContext: [], status: AgentRunStatus.SUCCESS },
+          routing: { status: AgentRunStatus.SUCCESS, nodes: [] },
+        }),
+      } as never,
+      {} as never,
+      {} as never,
+    );
+
+    try {
+      await service.sendMessage('conversation-1', actor, { message: 'follow up' });
+      throw new Error('Expected archived conversation send to fail');
+    } catch (error: unknown) {
+      expect(error instanceof BadRequestException).toBe(true);
+    }
   });
 });

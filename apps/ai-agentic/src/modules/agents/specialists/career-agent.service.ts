@@ -1,18 +1,25 @@
 import { Injectable } from '@nestjs/common';
 import { AgentType } from '../../../generated/prisma';
+import { HrCoreAiClient } from '../../../common/clients';
 import { SpecialistAgent, SpecialistInput, SpecialistResult } from '../../../common/graph';
-import { deterministicResult } from './specialist-response.helpers';
+import { downstreamResult } from './specialist-response.helpers';
 
 @Injectable()
 export class CareerAgentService implements SpecialistAgent {
   readonly agentType = AgentType.CAREER_AGENT;
 
+  constructor(private readonly hrCore: HrCoreAiClient) {}
+
   async execute(input: SpecialistInput): Promise<SpecialistResult> {
+    const context = await this.hrCore.getSkillsContext({
+      jwt: input.actorContext.jwt,
+      correlationId: input.actorContext.correlationId,
+    });
     const lower = input.normalizedIntent.toLowerCase();
     const content = input.isDraftRequest
       ? this.draftContent(lower)
       : 'Career support can cover growth paths, skill gaps, review preparation, learning focus, and next-step planning using only accessible Sentient context.';
-    return deterministicResult(input, this.agentType, 'Career guidance prepared.', content, 'CAREER', 'Career and development context', {
+    return downstreamResult(input, this.agentType, context, 'Career guidance prepared.', content, {
       draftLabel: 'Career draft',
     });
   }

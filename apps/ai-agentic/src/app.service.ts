@@ -5,7 +5,7 @@ import { AiHealthResponse, AiHealthService } from './modules/agents';
 export class AppService {
   constructor(private readonly aiHealth: AiHealthService) {}
 
-  getHealth(): AiHealthResponse {
+  getHealth(): Promise<AiHealthResponse> {
     return this.aiHealth.getHealth();
   }
 }

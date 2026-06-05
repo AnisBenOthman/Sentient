@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   AgentNodeType,
   AgentRunStatus,
@@ -42,7 +42,7 @@ export class ConversationsService {
       data: {
         ownerUserId: actor.userId,
         ownerEmployeeId: actor.employeeId,
-        title: this.titles.titleFrom(dto.message),
+        title: this.titles.initialTitle(),
         lastMessagePreview: this.titles.previewFrom(dto.message),
       },
     });
@@ -56,7 +56,6 @@ export class ConversationsService {
     dto: CreateMessageDto,
   ): Promise<ConversationTurnResponse> {
     const conversation = await this.findOwnedConversation(conversationId, actor.userId);
-    await this.contextBuilder.build(conversation.id);
     return this.executeTurn(conversation, actor, dto.message);
   }
 
@@ -68,7 +67,7 @@ export class ConversationsService {
     const where: Prisma.ConversationWhereInput = {
       ownerUserId: actor.userId,
       deletedAt: null,
-      status: query.status ?? { not: ConversationStatus.DELETED },
+      status: query.status ?? ConversationStatus.ACTIVE,
     };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.conversation.findMany({
@@ -132,6 +131,9 @@ export class ConversationsService {
     actor: AiActorContext,
     message: string,
   ): Promise<ConversationTurnResponse> {
+    if (conversation.status === ConversationStatus.ARCHIVED) {
+      throw new BadRequestException('Archived conversations must be restored before sending messages.');
+    }
     const userMessage = await this.prisma.message.create({
       data: {
         conversationId: conversation.id,
@@ -140,11 +142,20 @@ export class ConversationsService {
         status: AgentRunStatus.SUCCESS,
       },
     });
+    const conversationContext = await this.contextBuilder.build(conversation.id);
     const supervisorResult = await this.supervisor.executeTurn({
       conversationId: conversation.id,
       userMessageId: userMessage.id,
       userMessage: message,
       actor,
+      conversationContext: {
+        recentMessages: conversationContext.recentMessages.map((recentMessage) => ({
+          id: recentMessage.id,
+          role: recentMessage.role,
+          content: recentMessage.content,
+        })),
+        priorHandoffAgents: conversationContext.priorHandoffAgents,
+      },
     });
     const assistantMessage = await this.prisma.message.create({
       data: {
@@ -162,6 +173,9 @@ export class ConversationsService {
       data: {
         lastAgentType: AgentType.SUPERVISOR_AGENT,
         lastMessagePreview: this.titles.previewFrom(supervisorResult.finalAnswer.content),
+        title: conversation.title === this.titles.initialTitle()
+          ? this.titles.titleFrom(supervisorResult.finalAnswer.content)
+          : conversation.title,
       },
     });
 
@@ -179,6 +193,7 @@ export class ConversationsService {
         id,
         ownerUserId: userId,
         deletedAt: null,
+        status: { not: ConversationStatus.DELETED },
       },
     });
     if (!conversation) throw new NotFoundException('Conversation not found');

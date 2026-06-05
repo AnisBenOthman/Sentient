@@ -17,6 +17,21 @@ describe('AgentGuardrailService', () => {
     expect(result.message).toContain('outside my Sentient scope');
   });
 
+  it('refuses unrelated prompts even when they do not use a known keyword', () => {
+    const result = service.evaluate('Who is the president of France?');
+
+    expect(result.allowed).toBe(false);
+    expect(result.classification).toBe('OUT_OF_SCOPE');
+    expect(result.declinedTopics).toContain('Unrelated topic');
+  });
+
+  it('allows simple greetings so the supervisor can clarify within Sentient', () => {
+    const result = service.evaluate('hello');
+
+    expect(result.allowed).toBe(true);
+    expect(result.classification).toBe('SENTIENT');
+  });
+
   it('narrows mixed Sentient and unrelated prompts', () => {
     const result = service.evaluate('Summarize my leave balance and explain cryptocurrency investing.');
 
@@ -51,5 +66,13 @@ describe('AgentGuardrailService', () => {
     expect(result.shouldEscalate).toBe(true);
     expect(result.message).toContain('manager');
     expect(result.message).toContain('People team');
+  });
+
+  it('routes coworker blame or rudeness judgments to human support', () => {
+    const result = service.evaluate('Was my coworker rude to me yesterday?');
+
+    expect(result.allowed).toBe(false);
+    expect(result.classification).toBe('INTERPERSONAL_JUDGMENT');
+    expect(result.shouldEscalate).toBe(true);
   });
 });

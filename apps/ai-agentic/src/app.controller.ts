@@ -13,7 +13,7 @@ export class AppController {
   @Public()
   @ApiOperation({ summary: 'Service health check' })
   @ApiOkResponse({ description: 'Supervisor and specialist health roster' })
-  getHealth(): AiHealthResponse {
+  getHealth(): Promise<AiHealthResponse> {
     return this.appService.getHealth();
   }
 }

@@ -25,6 +25,15 @@ const SENTIENT_TERMS = [
   'workforce',
   'profile',
   'notification',
+  'rewrite',
+  'reword',
+  'phrase',
+  'tone',
+  'grammar',
+  'email draft',
+  'self-review',
+  'self review',
+  'feedback',
 ];
 
 const OFF_TOPIC_TERMS = [
@@ -51,8 +60,13 @@ const UNAUTHORIZED_PATTERNS = [
 
 const INTERPERSONAL_PATTERNS = [
   /what do you think about .*person/i,
+  /what do you think about that person/i,
   /what do you think about .*colleague/i,
+  /what do you think about .*coworker/i,
   /judge .* behavior/i,
+  /judge .* behaviour/i,
+  /was .* rude/i,
+  /was .* wrong/i,
   /didn'?t appreciate .* behaviour/i,
   /didn'?t appreciate .* behavior/i,
   /is .* toxic/i,
@@ -80,6 +94,7 @@ const UNSAFE_ADVICE_PATTERNS = [
 ];
 
 const IMMEDIATE_SAFETY_PATTERNS = [/immediate danger/i, /urgent safety/i, /emergency/i, /physical threat/i];
+const GREETING_PATTERNS = [/^\s*(hi|hello|hey|good morning|good afternoon|good evening)\s*[!.]?\s*$/i];
 
 @Injectable()
 export class AgentGuardrailService {
@@ -140,7 +155,21 @@ export class AgentGuardrailService {
       };
     }
 
-    if (!hasSentientTopic && offTopicTerms.length > 0) {
+    if (GREETING_PATTERNS.some((pattern) => pattern.test(message))) {
+      return {
+        classification: 'SENTIENT',
+        allowed: true,
+        status: AgentRunStatus.SUCCESS,
+        message: 'Greeting is allowed in the Sentient assistant context.',
+        shouldEscalate: false,
+        requiresClarification: false,
+        allowedAgents: [],
+        declinedTopics: [],
+        sensitivity: 'LOW',
+      };
+    }
+
+    if (!hasSentientTopic) {
       return {
         classification: 'OUT_OF_SCOPE',
         allowed: false,
@@ -149,7 +178,7 @@ export class AgentGuardrailService {
         shouldEscalate: false,
         requiresClarification: false,
         allowedAgents: [],
-        declinedTopics: offTopicTerms,
+        declinedTopics: offTopicTerms.length > 0 ? offTopicTerms : ['Unrelated topic'],
         sensitivity: 'LOW',
       };
     }

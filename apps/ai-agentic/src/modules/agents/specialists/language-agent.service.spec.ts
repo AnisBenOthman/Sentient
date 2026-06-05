@@ -17,6 +17,10 @@ const baseInput: SpecialistInput = {
     businessUnitId: null,
     correlationId: 'corr-1',
   },
+  conversationContext: {
+    recentMessages: [],
+    priorHandoffAgents: [],
+  },
   sourceHints: [],
   isDraftRequest: true,
   constraints: {

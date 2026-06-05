@@ -26,12 +26,22 @@ export interface PermissionDecisionSummary {
   reason: string;
 }
 
+export interface ConversationTurnContext {
+  recentMessages: Array<{
+    id: string;
+    role: string;
+    content: string;
+  }>;
+  priorHandoffAgents: string[];
+}
+
 export interface SpecialistInput {
   conversationId: string;
   parentTaskLogId: string;
   userMessage: string;
   normalizedIntent: string;
   actorContext: AiActorContext;
+  conversationContext: ConversationTurnContext;
   sourceHints: string[];
   isDraftRequest: boolean;
   constraints: {

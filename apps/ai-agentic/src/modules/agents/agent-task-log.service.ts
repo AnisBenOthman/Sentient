@@ -26,6 +26,7 @@ export interface FinishTaskLogInput {
   status: AgentRunStatus;
   outputSummary?: string | null;
   permissionDecision?: PermissionDecision | null;
+  sourceCategories?: string[];
   errorCode?: string | null;
   errorMessage?: string | null;
 }
@@ -60,6 +61,7 @@ export class AgentTaskLogService {
         status: input.status,
         outputSummary: input.outputSummary ?? null,
         permissionDecision: input.permissionDecision ?? null,
+        ...(input.sourceCategories ? { sourceCategories: input.sourceCategories } : {}),
         errorCode: input.errorCode ?? null,
         errorMessage: input.errorMessage ?? null,
         finishedAt: new Date(),

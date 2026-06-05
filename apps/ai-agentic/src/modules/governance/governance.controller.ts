@@ -1,6 +1,7 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '@sentient/shared';
+import { AgentActivityQueryDto } from './dto/agent-activity-query.dto';
 import { GovernanceActivityResponse, GovernanceService } from './governance.service';
 
 @ApiTags('AI Governance')
@@ -13,7 +14,7 @@ export class GovernanceController {
   @Roles('HR_ADMIN', 'EXECUTIVE', 'SYSTEM_ADMIN')
   @ApiOperation({ summary: 'Aggregate supervisor and specialist activity' })
   @ApiOkResponse({ description: 'Aggregate usage and safety metrics' })
-  getActivity(): Promise<GovernanceActivityResponse> {
-    return this.governance.getActivity();
+  getActivity(@Query() query: AgentActivityQueryDto): Promise<GovernanceActivityResponse> {
+    return this.governance.getActivity(query);
   }
 }

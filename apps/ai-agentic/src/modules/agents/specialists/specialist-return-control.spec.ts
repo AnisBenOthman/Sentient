@@ -1,4 +1,5 @@
-import { AgentRunStatus, AgentType } from '../../../generated/prisma';
+import { AgentRunStatus, AgentType, PermissionDecision } from '../../../generated/prisma';
+import { HrCoreAiClient, SocialAiClient } from '../../../common/clients';
 import { SpecialistInput } from '../../../common/graph';
 import { KnowledgeRepository } from '../../knowledge';
 import { AnalyticsAgentService } from './analytics-agent.service';
@@ -24,6 +25,10 @@ const input: SpecialistInput = {
     businessUnitId: null,
     correlationId: 'corr-1',
   },
+  conversationContext: {
+    recentMessages: [],
+    priorHandoffAgents: [],
+  },
   sourceHints: [],
   isDraftRequest: false,
   constraints: {
@@ -38,14 +43,31 @@ describe('specialist agents return structured control to supervisor', () => {
     const knowledge = {
       searchApproved: async () => [],
     } as unknown as KnowledgeRepository;
+    const downstream = {
+      data: { id: 'context-1' },
+      permissionDecision: PermissionDecision.ALLOWED,
+      degradedReason: null,
+      sourceType: 'TEST_CONTEXT',
+      sourceTitle: 'Test context',
+    };
+    const hrCore = {
+      getLeaveContext: async () => downstream,
+      getOkrContext: async () => downstream,
+      getSkillsContext: async () => downstream,
+      getDashboardContext: async () => downstream,
+    } as unknown as HrCoreAiClient;
+    const social = {
+      getOnboardingContext: async () => downstream,
+      getPolicyKnowledge: async () => downstream,
+    } as unknown as SocialAiClient;
     const agents = [
-      new LeaveAgentService(),
-      new OkrAgentService(),
-      new CareerAgentService(),
-      new AnalyticsAgentService(),
-      new OnboardingAgentService(),
+      new LeaveAgentService(hrCore),
+      new OkrAgentService(hrCore),
+      new CareerAgentService(hrCore),
+      new AnalyticsAgentService(hrCore),
+      new OnboardingAgentService(social),
       new LanguageAgentService(),
-      new GeneralHelpAgentService(knowledge),
+      new GeneralHelpAgentService(knowledge, social),
     ];
 
     for (const agent of agents) {
