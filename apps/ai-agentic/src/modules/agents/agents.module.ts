@@ -25,6 +25,7 @@ import { LeaveAgentService } from './specialists/leave-agent.service';
 import { OkrAgentService } from './specialists/okr-agent.service';
 import { OnboardingAgentService } from './specialists/onboarding-agent.service';
 import { SupervisorAgentService } from './supervisor-agent.service';
+import { SupervisorLangGraphRunnerService } from './supervisor-langgraph-runner.service';
 import { SupervisorIntentClassifierService } from './supervisor-intent-classifier.service';
 
 @Module({
@@ -55,6 +56,7 @@ import { SupervisorIntentClassifierService } from './supervisor-intent-classifie
     PermissionDecisionService,
     SocialAiClient,
     SupervisorAgentService,
+    SupervisorLangGraphRunnerService,
     SupervisorIntentClassifierService,
   ],
   exports: [
@@ -82,6 +84,7 @@ import { SupervisorIntentClassifierService } from './supervisor-intent-classifie
     PermissionDecisionService,
     SocialAiClient,
     SupervisorAgentService,
+    SupervisorLangGraphRunnerService,
     SupervisorIntentClassifierService,
   ],
 })

@@ -4,6 +4,8 @@
 
 This contract defines how the Supervisor Agent, clarification node, specialist agents, Human Escalation Agent, and Final Answer node exchange state inside the AI module scaffold.
 
+The runtime orchestration layer is LangGraph.js inside the NestJS `apps/ai-agentic` service. NestJS owns API, auth, RBAC, persistence, and dependency injection; LangGraph owns the internal node transitions for each conversation turn.
+
 ## Agent Nodes
 
 | Node | Type | Responsibility | Returns Control To |
@@ -19,6 +21,24 @@ This contract defines how the Supervisor Agent, clarification node, specialist a
 | General Help Agent | `SPECIALIST` | Answers FAQs and policy/handbook questions from approved knowledge | Supervisor Agent |
 | Human Escalation Agent | `HUMAN_ESCALATION` | Records human handoff target and safe summary | Supervisor Agent |
 | Final Answer | `FINAL_ANSWER` | Applies final tone, scope, privacy, source, and safety checks | End turn |
+
+## Runtime Graph
+
+```text
+START
+  -> supervisor
+  -> humanEscalation | clarification | specialists | finalAnswer
+  -> finalAnswer
+  -> END
+```
+
+Implementation notes:
+
+- `SupervisorLangGraphRunnerService` compiles the LangGraph graph.
+- `SupervisorAgentService` remains the stable NestJS facade used by conversations/controllers.
+- Specialist services remain NestJS providers and are invoked from the LangGraph `specialists` node.
+- Audit records are still written through `AgentTaskLog`, `AgentNodeRun`, `AgentHandoff`, and `PermissionDecisionRecord`.
+- The launch graph keeps specialist execution sequential inside the `specialists` node so current audit sequencing and permission handling remain deterministic.
 
 ## Graph State
 
@@ -53,7 +73,9 @@ type SpecialistInput = {
   userMessage: string;
   normalizedIntent: string;
   actorContext: AgentContext;
+  conversationContext: ConversationTurnContext;
   sourceHints: string[];
+  isDraftRequest: boolean;
   constraints: {
     sentientOnly: true;
     readOnlyOfficialRecords: true;

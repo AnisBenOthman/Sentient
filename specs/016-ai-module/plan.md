@@ -5,18 +5,18 @@
 
 ## Summary
 
-Scaffold the Sentient AI module as a role-scoped supervisor-agent system inside `apps/ai-agentic`. The first implementation slice creates the persistence model, state-machine orchestration layer, named specialist-agent registry, conversation APIs, audit trail, human-escalation records, General Help RAG document contracts, and a web AI assistant entry point routed through the existing API Gateway. The scaffold is read-only for official HR records: agents may answer, draft, clarify, refuse, or escalate, but they do not mutate HR Core or Social records.
+Scaffold the Sentient AI module as a role-scoped supervisor-agent system inside `apps/ai-agentic`. The implementation uses NestJS for API/auth/audit boundaries and LangGraph.js for the internal supervisor-agent workflow. It creates the persistence model, graph orchestration layer, named specialist-agent registry, conversation APIs, audit trail, human-escalation records, General Help RAG document contracts, and a web AI assistant entry point routed through the existing API Gateway. The scaffold is read-only for official HR records: agents may answer, draft, clarify, refuse, or escalate, but they do not mutate HR Core or Social records.
 
 ## Technical Context
 
 **Language/Version**: TypeScript 5.x strict mode  
-**Primary Dependencies**: NestJS 10, Prisma 5 multiSchema, PostgreSQL pgvector, class-validator, class-transformer, @nestjs/swagger, @nestjs/config, @nestjs/throttler, @sentient/shared, React 18 + Vite 7, TanStack Query v5, wouter, Tailwind CSS v4, shadcn/ui  
+**Primary Dependencies**: NestJS 10, LangGraph.js (`@langchain/langgraph`), Prisma 5 multiSchema, PostgreSQL pgvector, class-validator, class-transformer, @nestjs/swagger, @nestjs/config, @nestjs/throttler, @sentient/shared, React 18 + Vite 7, TanStack Query v5, wouter, Tailwind CSS v4, shadcn/ui  
 **Storage**: PostgreSQL 16 schema `ai_agent`; vector-capable knowledge rows for handbook/policy content; no cross-schema foreign keys  
 **Testing**: Jest unit and integration tests for AI Agentic, contract tests for API shape and downstream clients, Web type-check, Gateway proxy smoke for `/api/ai/conversations`  
 **Target Platform**: Local Windows/Linux development, Node 20+, existing Docker Compose PostgreSQL with pgvector  
 **Project Type**: Web application with NestJS AI Agentic service, API Gateway proxy, and React SPA page  
 **Performance Goals**: First visible assistant response or polite limitation within 15 seconds for 90% of launch prompts; routing decision within 2 seconds for deterministic scaffold paths  
-**Constraints**: Sentient-only scope, user-token forwarding for user-initiated context, no autonomous official-record mutation, specialist agents return control to supervisor before final answer, all assistant activity audit logged with correlation id  
+**Constraints**: Sentient-only scope, user-token forwarding for user-initiated context, no autonomous official-record mutation, specialist agents return control to supervisor before final answer, all assistant activity audit logged with correlation id, LangGraph nodes remain wrapped by NestJS services for dependency injection and repository access  
 **Scale/Scope**: One supervisor, eight named specialist agents, one conversation surface, three launch user tiers (employee, manager, HR admin), scaffolded RAG knowledge surface for policy/handbook content
 
 ## Constitution Check
@@ -83,7 +83,7 @@ packages/shared/src/
 └── auth/agent-context.interface.ts
 ```
 
-**Structure Decision**: Use the existing monorepo shape. AI persistence and orchestration live in `apps/ai-agentic`; the browser talks through the existing `/api/ai` gateway prefix; shared enums/interfaces are extended only where needed for cross-app contracts. HR Core and Social remain data owners; AI Agentic receives context through scoped REST clients and event-driven knowledge ingestion.
+**Structure Decision**: Use the existing monorepo shape. AI persistence, public API, auth, RBAC, audit, and governance live in `apps/ai-agentic`; LangGraph.js owns the internal supervisor workflow through `SupervisorLangGraphRunnerService`. The browser talks through the existing `/api/ai` gateway prefix; shared enums/interfaces are extended only where needed for cross-app contracts. HR Core and Social remain data owners; AI Agentic receives context through scoped REST clients and event-driven knowledge ingestion.
 
 ## Complexity Tracking
 
@@ -91,7 +91,7 @@ No constitution violations or complexity exceptions.
 
 ## Phase 0 Research Complete
 
-See [research.md](./research.md). Decisions cover state-machine implementation, deterministic scaffold scope, user-token permission model, specialist registry, General Help RAG, human escalation, and frontend/API routing.
+See [research.md](./research.md). Decisions cover LangGraph.js state-machine implementation inside NestJS, deterministic scaffold scope, user-token permission model, specialist registry, General Help RAG, human escalation, and frontend/API routing.
 
 ## Phase 1 Design Complete
 

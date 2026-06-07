@@ -77,9 +77,9 @@ describe('AI conversation API contract', () => {
     expect(result.routing.nodes[0]?.agentType).toBe(AgentType.SUPERVISOR_AGENT);
   });
 
-  it('returns AI health with roster availability', () => {
+  it('returns AI health with roster availability', async () => {
     const controller = new AppController({
-      getHealth: () => ({
+      getHealth: async () => ({
         service: 'ai-agentic',
         status: 'healthy',
         agents: [],
@@ -88,6 +88,8 @@ describe('AI conversation API contract', () => {
       }),
     } as unknown as AppService);
 
-    expect(controller.getHealth().service).toBe('ai-agentic');
+    const result = await controller.getHealth();
+
+    expect(result.service).toBe('ai-agentic');
   });
 });
