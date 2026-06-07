@@ -51,7 +51,7 @@ export class ConversationResponseMapper {
       content: message.content,
       agentType: message.agentType,
       status: message.status,
-      sourceContext: this.parseSourceContext(message.sourceSummary),
+      sourceContext: ConversationResponseMapper.parseSourceContext(message.sourceSummary),
       createdAt: message.createdAt.toISOString(),
     };
   }
@@ -63,9 +63,9 @@ export class ConversationResponseMapper {
     routing: RoutingTrace,
   ): ConversationTurnResponse {
     return {
-      conversation: this.toSummary(conversation),
-      userMessage: this.toMessage(userMessage),
-      assistantMessage: this.toMessage(assistantMessage),
+      conversation: ConversationResponseMapper.toSummary(conversation),
+      userMessage: ConversationResponseMapper.toMessage(userMessage),
+      assistantMessage: ConversationResponseMapper.toMessage(assistantMessage),
       routing: {
         status: routing.status ?? AgentRunStatus.SUCCESS,
         nodes: routing.nodes,

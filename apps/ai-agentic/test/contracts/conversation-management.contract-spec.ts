@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { AgentRunStatus, ConversationStatus } from '../../src/generated/prisma';
+import { AgentRunStatus, ConversationStatus, MessageRole } from '../../src/generated/prisma';
 import { ActorContextFactory, AiActorContext } from '../../src/common/graph';
 import { ConversationsController } from '../../src/modules/conversations/conversations.controller';
 import { ConversationsService } from '../../src/modules/conversations/conversations.service';
@@ -45,6 +45,56 @@ describe('AI conversation management contract', () => {
     const result = await controller.detail({} as never, 'conversation-1');
 
     expect(result.conversation.id).toBe('conversation-1');
+  });
+
+  it('maps persisted conversation detail messages without losing mapper context', async () => {
+    const createdAt = new Date('2026-06-07T12:43:30.943Z');
+    const updatedAt = new Date('2026-06-07T12:43:30.932Z');
+    const service = new ConversationsService(
+      {
+        conversation: {
+          findFirst: async () => ({
+            id: 'conversation-1',
+            ownerUserId: actor.userId,
+            ownerEmployeeId: actor.employeeId,
+            title: 'Sentient AI conversation',
+            status: ConversationStatus.ACTIVE,
+            lastAgentType: null,
+            lastMessagePreview: 'hi',
+            createdAt: updatedAt,
+            updatedAt,
+            archivedAt: null,
+            deletedAt: null,
+          }),
+        },
+        message: {
+          findMany: async () => [
+            {
+              id: 'message-1',
+              conversationId: 'conversation-1',
+              role: MessageRole.USER,
+              content: 'hi',
+              agentType: null,
+              nodeType: null,
+              sourceSummary: null,
+              status: AgentRunStatus.SUCCESS,
+              createdAt,
+            },
+          ],
+        },
+      } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    const result = await service.detail('conversation-1', actor);
+
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]?.id).toBe('message-1');
+    expect(result.messages[0]?.content).toBe('hi');
+    expect(result.messages[0]?.sourceContext).toEqual([]);
+    expect(result.messages[0]?.createdAt).toBe(createdAt.toISOString());
   });
 
   it('archives or restores conversations', async () => {
