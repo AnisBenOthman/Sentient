@@ -1,24 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { AgentType } from '../../generated/prisma';
-
-export interface SupervisorIntentClassification {
-  normalizedIntent: string;
-  requiredAgents: AgentType[];
-  requiresClarification: boolean;
-  clarificationReason: string | null;
-  isDraftIntent: boolean;
-  draftCategory: DraftIntentCategory | null;
-  isHumanEscalationIntent: boolean;
-}
-
-export type DraftIntentCategory =
-  | 'OBJECTIVE'
-  | 'SELF_REVIEW'
-  | 'MANAGER_FEEDBACK'
-  | 'HR_ANNOUNCEMENT'
-  | 'POLICY_SUMMARY'
-  | 'WORKFORCE_INSIGHT'
-  | 'PHRASE_REWRITE';
+import {
+  DraftIntentCategory,
+  IntentClassifier,
+  SupervisorIntentClassification,
+} from './intent-classifier.types';
 
 interface KeywordRoute {
   agentType: AgentType;
@@ -64,12 +50,18 @@ const CLARIFICATION_PATTERNS = [
   /^help$/i,
 ];
 const ESCALATION_KEYWORDS = ['manager', 'people team', 'hrbp', 'human', 'escalate', 'support'];
+const GREETING_PATTERNS = [
+  /^\s*(hi|hello|hey|good morning|good afternoon|good evening)\s*[!.]?\s*$/i,
+  /^\s*(how\s+are\s+(you|u)|how\s+r\s+u|h[oa]w'?re\s+(you|u)|h[oa]w\s+are\s+(you|u))\s*[?!.]?\s*$/i,
+  /^\s*(what'?s\s+up|how'?s\s+it\s+going|how'?s\s+your\s+day)\s*[?!.]?\s*$/i,
+];
 
 @Injectable()
-export class SupervisorIntentClassifierService {
-  classify(message: string): SupervisorIntentClassification {
+export class SupervisorIntentClassifierService implements IntentClassifier {
+  async classify(message: string): Promise<SupervisorIntentClassification> {
     const normalizedIntent = message.trim().replace(/\s+/g, ' ');
     const lower = normalizedIntent.toLowerCase();
+    const isGreeting = GREETING_PATTERNS.some((pattern) => pattern.test(normalizedIntent));
     const requiredAgents = ROUTES
       .filter((route) => route.keywords.some((keyword) => lower.includes(keyword)))
       .map((route) => route.agentType);
@@ -79,8 +71,9 @@ export class SupervisorIntentClassifierService {
     const draftCategory = isDraftIntent ? this.classifyDraftCategory(lower) : null;
     const isHumanEscalationIntent = ESCALATION_KEYWORDS.some((keyword) => lower.includes(keyword));
     const requiresClarification =
-      uniqueAgents.length === 0 ||
-      CLARIFICATION_PATTERNS.some((pattern) => pattern.test(normalizedIntent));
+      !isGreeting &&
+      (uniqueAgents.length === 0 ||
+        CLARIFICATION_PATTERNS.some((pattern) => pattern.test(normalizedIntent)));
 
     return {
       normalizedIntent,
@@ -92,7 +85,16 @@ export class SupervisorIntentClassifierService {
       isDraftIntent,
       draftCategory,
       isHumanEscalationIntent,
+      isGreeting,
+      confidence: this.confidence(isGreeting, uniqueAgents.length, requiresClarification),
+      source: 'rules',
     };
+  }
+
+  private confidence(isGreeting: boolean, routeCount: number, requiresClarification: boolean): number {
+    if (isGreeting) return 1;
+    if (routeCount > 0 && !requiresClarification) return 0.85;
+    return 0.35;
   }
 
   private classifyDraftCategory(lower: string): DraftIntentCategory | null {

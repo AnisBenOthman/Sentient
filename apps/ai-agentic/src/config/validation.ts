@@ -33,3 +33,15 @@ export function parseHttpUrl(value: string | undefined, fallback: string, name: 
 
   return url.toString().replace(/\/$/, '');
 }
+
+export function parseOptionalString(value: string | undefined): string | null {
+  const raw = value?.trim();
+  return raw && raw.length > 0 ? raw : null;
+}
+
+export function parseBoolean(value: string | undefined, fallback: boolean, name: string): boolean {
+  const raw = (value ?? String(fallback)).trim().toLowerCase();
+  if (raw === 'true' || raw === '1' || raw === 'yes') return true;
+  if (raw === 'false' || raw === '0' || raw === 'no') return false;
+  throw new Error(`${name} must be a boolean`);
+}

@@ -5,6 +5,7 @@ export type ScopeClassification =
   | 'MIXED'
   | 'OUT_OF_SCOPE'
   | 'UNAUTHORIZED_DATA'
+  | 'UNSAFE_SYSTEM_ACTION'
   | 'UNSAFE_ADVICE'
   | 'INTERPERSONAL_JUDGMENT'
   | 'WORKPLACE_CONFLICT'

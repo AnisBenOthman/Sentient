@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ActorContextFactory } from '../../common/graph';
 import { AgentGuardrailService, DraftPolicyService, FinalAnswerPolicyService } from '../../common/safety';
+import { AiAgenticConfig } from '../../config';
 import {
   HrCoreAiClient,
   HttpJsonClient,
@@ -12,7 +14,10 @@ import { AgentNodeRunService } from './agent-node-run.service';
 import { AgentRegistryService } from './agent-registry.service';
 import { AgentTaskLogService } from './agent-task-log.service';
 import { AiHealthService } from './ai-health.service';
+import { GeminiIntentClassifierService } from './gemini-intent-classifier.service';
+import { GreetingAgentService } from './greeting-agent.service';
 import { HumanEscalationRecorderService } from './human-escalation-recorder.service';
+import { INTENT_CLASSIFIER, IntentClassifier } from './intent-classifier.types';
 import { ClarificationNodeService } from './nodes/clarification-node.service';
 import { FinalAnswerNodeService } from './nodes/final-answer-node.service';
 import { PermissionDecisionService } from './permission-decision.service';
@@ -44,7 +49,9 @@ import { SupervisorIntentClassifierService } from './supervisor-intent-classifie
     DraftPolicyService,
     FinalAnswerPolicyService,
     FinalAnswerNodeService,
+    GeminiIntentClassifierService,
     GeneralHelpAgentService,
+    GreetingAgentService,
     HrCoreAiClient,
     HttpJsonClient,
     HumanEscalationAgentService,
@@ -58,6 +65,18 @@ import { SupervisorIntentClassifierService } from './supervisor-intent-classifie
     SupervisorAgentService,
     SupervisorLangGraphRunnerService,
     SupervisorIntentClassifierService,
+    {
+      provide: INTENT_CLASSIFIER,
+      inject: [ConfigService, SupervisorIntentClassifierService, GeminiIntentClassifierService],
+      useFactory: (
+        config: ConfigService,
+        rulesClassifier: SupervisorIntentClassifierService,
+        geminiClassifier: GeminiIntentClassifierService,
+      ): IntentClassifier => {
+        const aiConfig = config.get<AiAgenticConfig>('aiAgentic');
+        return aiConfig?.intentClassifierProvider === 'gemini' ? geminiClassifier : rulesClassifier;
+      },
+    },
   ],
   exports: [
     ActorContextFactory,
@@ -73,7 +92,9 @@ import { SupervisorIntentClassifierService } from './supervisor-intent-classifie
     DraftPolicyService,
     FinalAnswerPolicyService,
     FinalAnswerNodeService,
+    GeminiIntentClassifierService,
     GeneralHelpAgentService,
+    GreetingAgentService,
     HrCoreAiClient,
     HumanEscalationAgentService,
     HumanEscalationRecorderService,
@@ -86,6 +107,7 @@ import { SupervisorIntentClassifierService } from './supervisor-intent-classifie
     SupervisorAgentService,
     SupervisorLangGraphRunnerService,
     SupervisorIntentClassifierService,
+    INTENT_CLASSIFIER,
   ],
 })
 export class AgentsModule {}

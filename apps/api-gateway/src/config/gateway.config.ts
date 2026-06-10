@@ -49,6 +49,11 @@ export const gatewayConfig = registerAs('gateway', (): GatewayConfig => {
     15_000,
     'API_GATEWAY_UPSTREAM_TIMEOUT_MS',
   );
+  const aiTimeoutMs = parsePositiveInt(
+    process.env.API_GATEWAY_AI_UPSTREAM_TIMEOUT_MS,
+    60_000,
+    'API_GATEWAY_AI_UPSTREAM_TIMEOUT_MS',
+  );
   const defaultJsonBodyLimitBytes = parsePositiveInt(
     process.env.API_GATEWAY_DEFAULT_JSON_BODY_LIMIT_BYTES,
     10 * 1024 * 1024,
@@ -136,7 +141,7 @@ export const gatewayConfig = registerAs('gateway', (): GatewayConfig => {
     'ai',
     '/api/ai',
     parseHttpUrl(process.env.AI_AGENTIC_URL, 'http://localhost:3003', 'AI_AGENTIC_URL'),
-    timeoutMs * 2,
+    aiTimeoutMs,
     defaultJsonBodyLimitBytes,
     authenticatedRateLimit,
   );

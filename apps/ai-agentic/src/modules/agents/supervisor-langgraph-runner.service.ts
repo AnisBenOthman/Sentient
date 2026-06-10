@@ -1,7 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AgentNodeType, AgentRunStatus, AgentTaskLog, AgentType, PermissionDecision } from '../../generated/prisma';
 import { RoutingTrace } from '../../common/dto';
 import { AgentGuardrailService, SafetyPolicyResult } from '../../common/safety';
+import { AiAgenticConfig } from '../../config';
 import {
   FinalAnswerResult,
   HumanEscalationResult,
@@ -20,9 +22,11 @@ import {
   ExecuteConversationTurnResult,
 } from './supervisor-agent.service';
 import {
+  INTENT_CLASSIFIER,
+  IntentClassifier,
   SupervisorIntentClassification,
-  SupervisorIntentClassifierService,
-} from './supervisor-intent-classifier.service';
+} from './intent-classifier.types';
+import { GreetingAgentService } from './greeting-agent.service';
 import { AnalyticsAgentService } from './specialists/analytics-agent.service';
 import { CareerAgentService } from './specialists/career-agent.service';
 import { GeneralHelpAgentService } from './specialists/general-help-agent.service';
@@ -62,12 +66,14 @@ function requireLangGraphForJest(): LangGraphModule {
 
 @Injectable()
 export class SupervisorLangGraphRunnerService {
+  private readonly logger = new Logger(SupervisorLangGraphRunnerService.name);
   private readonly specialists: Record<AgentType, SpecialistAgent | undefined>;
   private graph: CompiledSupervisorGraph | null = null;
 
   constructor(
     private readonly guardrails: AgentGuardrailService,
-    private readonly classifier: SupervisorIntentClassifierService,
+    @Inject(INTENT_CLASSIFIER) private readonly classifier: IntentClassifier,
+    private readonly greetingAgent: GreetingAgentService,
     private readonly taskLogs: AgentTaskLogService,
     private readonly handoffs: AgentHandoffService,
     private readonly nodeRuns: AgentNodeRunService,
@@ -82,6 +88,7 @@ export class SupervisorLangGraphRunnerService {
     private readonly languageAgent: LanguageAgentService,
     private readonly generalHelpAgent: GeneralHelpAgentService,
     private readonly humanEscalationAgent: HumanEscalationAgentService,
+    private readonly config?: ConfigService,
   ) {
     this.specialists = {
       [AgentType.LEAVE_AGENT]: leaveAgent,
@@ -101,6 +108,18 @@ export class SupervisorLangGraphRunnerService {
   }
 
   async execute(input: ExecuteConversationTurnInput): Promise<ExecuteConversationTurnResult> {
+    this.logTrace('turn.start', {
+      conversationId: input.conversationId,
+      userMessageId: input.userMessageId,
+      correlationId: input.actor.correlationId,
+      userId: input.actor.userId,
+      employeeId: input.actor.employeeId,
+      roles: input.actor.roles,
+      userMessage: input.userMessage,
+      recentMessageCount: input.conversationContext.recentMessages.length,
+      priorHandoffAgents: input.conversationContext.priorHandoffAgents,
+    });
+
     const graph = await this.getGraph();
     const state = await graph.invoke({
       input,
@@ -193,11 +212,38 @@ export class SupervisorLangGraphRunnerService {
       },
     });
 
+    const safety = this.guardrails.evaluate(state.input.userMessage);
+    const classification = await this.classifier.classify(state.input.userMessage);
+    this.logTrace('supervisor.classified', {
+      safety: {
+        classification: safety.classification,
+        allowed: safety.allowed,
+        status: safety.status,
+        shouldEscalate: safety.shouldEscalate,
+        requiresClarification: safety.requiresClarification,
+        allowedAgents: safety.allowedAgents,
+        declinedTopics: safety.declinedTopics,
+        sensitivity: safety.sensitivity,
+      },
+      intent: {
+        source: classification.source,
+        normalizedIntent: classification.normalizedIntent,
+        requiredAgents: classification.requiredAgents,
+        requiresClarification: classification.requiresClarification,
+        clarificationReason: classification.clarificationReason,
+        isDraftIntent: classification.isDraftIntent,
+        draftCategory: classification.draftCategory,
+        isHumanEscalationIntent: classification.isHumanEscalationIntent,
+        isGreeting: classification.isGreeting,
+        confidence: classification.confidence,
+      },
+    });
+
     return {
       parentLog,
       sequence: state.sequence + 1,
-      safety: this.guardrails.evaluate(state.input.userMessage),
-      classification: this.classifier.classify(state.input.userMessage),
+      safety,
+      classification,
       routingNodes: [
         ...state.routingNodes,
         {
@@ -211,12 +257,15 @@ export class SupervisorLangGraphRunnerService {
   }
 
   private routeAfterSupervisor(state: LangGraphState): SupervisorRoute {
-    if (!state.safety || !state.classification) return 'finalAnswerNode';
-    if (state.safety.shouldEscalate) return 'humanEscalationNode';
-    if (!state.safety.allowed) return 'finalAnswerNode';
-    if (state.classification.requiresClarification) return 'clarificationNode';
-    if (state.classification.requiredAgents.length > 0) return 'specialistsNode';
-    return 'finalAnswerNode';
+    const route = this.resolveSupervisorRoute(state);
+    this.logTrace('supervisor.route', {
+      route,
+      classifierSource: state.classification?.source ?? null,
+      requiredAgents: state.classification?.requiredAgents ?? [],
+      safetyClassification: state.safety?.classification ?? null,
+      reason: this.routeReason(state, route),
+    });
+    return route;
   }
 
   private async humanEscalationNode(state: LangGraphState): Promise<LangGraphUpdate> {
@@ -241,6 +290,11 @@ export class SupervisorLangGraphRunnerService {
       agentType: AgentType.HUMAN_ESCALATION_AGENT,
       status: AgentRunStatus.ESCALATED,
       sequence: state.sequence,
+    });
+    this.logTrace('humanEscalation.completed', {
+      status: escalationResult.status,
+      summary: escalationResult.summary,
+      target: escalationResult.escalation,
     });
 
     return {
@@ -276,6 +330,11 @@ export class SupervisorLangGraphRunnerService {
       status: AgentRunStatus.SUCCESS,
       sequence: state.sequence,
     });
+    this.logTrace('clarification.asked', {
+      reason: classification.clarificationReason,
+      question: clarification.question,
+      summary: clarification.summary,
+    });
 
     return {
       sequence: state.sequence + 1,
@@ -298,6 +357,12 @@ export class SupervisorLangGraphRunnerService {
     const specialistResults: SpecialistResult[] = [];
     const routingNodes = [...state.routingNodes];
     let sequence = state.sequence;
+    this.logTrace('specialists.route', {
+      agents: classification.requiredAgents,
+      normalizedIntent: classification.normalizedIntent,
+      isDraftIntent: classification.isDraftIntent,
+      draftCategory: classification.draftCategory,
+    });
 
     for (const agentType of classification.requiredAgents) {
       const result = await this.executeSpecialist(
@@ -336,14 +401,16 @@ export class SupervisorLangGraphRunnerService {
     const parentLog = this.requireParentLog(state);
     const safety = this.requireSafety(state);
     const classification = this.requireClassification(state);
-    const finalAnswer = this.finalAnswerNode.compose({
-      guardrailMessage: safety.allowed ? (safety.classification === 'MIXED' ? safety.message : null) : safety.message,
-      clarificationQuestion: state.clarificationQuestion,
-      specialistResults: state.specialistResults,
-      escalation: state.escalation,
-      declinedTopics: safety.declinedTopics,
-      isDraft: classification.isDraftIntent,
-    });
+    const finalAnswer = classification.isGreeting
+      ? this.greetingAgent.compose()
+      : this.finalAnswerNode.compose({
+          guardrailMessage: safety.allowed ? (safety.classification === 'MIXED' ? safety.message : null) : safety.message,
+          clarificationQuestion: state.clarificationQuestion,
+          specialistResults: state.specialistResults,
+          escalation: state.escalation,
+          declinedTopics: safety.declinedTopics,
+          isDraft: classification.isDraftIntent,
+        });
     await this.nodeRuns.record({
       conversationId: state.input.conversationId,
       taskLogId: parentLog.id,
@@ -359,6 +426,12 @@ export class SupervisorLangGraphRunnerService {
       permissionDecision: state.specialistResults.some((result) => result.permissionDecision === PermissionDecision.DENIED)
         ? PermissionDecision.PARTIAL
         : PermissionDecision.ALLOWED,
+    });
+    this.logTrace('finalAnswer.completed', {
+      status: finalAnswer.status,
+      routingSummary: finalAnswer.routingSummary,
+      sourceContext: finalAnswer.sourceContext,
+      content: finalAnswer.content,
     });
 
     return {
@@ -384,6 +457,10 @@ export class SupervisorLangGraphRunnerService {
   ): Promise<SpecialistResult> {
     const specialist = this.specialists[agentType];
     if (!specialist) {
+      this.logTrace('specialist.unavailable', {
+        agentType,
+        normalizedIntent,
+      });
       return {
         agentType,
         status: AgentRunStatus.DEGRADED,
@@ -394,6 +471,11 @@ export class SupervisorLangGraphRunnerService {
       };
     }
 
+    this.logTrace('specialist.start', {
+      agentType,
+      normalizedIntent,
+      isDraftRequest,
+    });
     const handoff = await this.handoffs.create({
       conversationId: input.conversationId,
       parentTaskLogId,
@@ -428,6 +510,16 @@ export class SupervisorLangGraphRunnerService {
       reason: result.summary,
     });
     await this.handoffs.complete(handoff.id, childLog.id, result.status, result.summary);
+    this.logTrace('specialist.completed', {
+      agentType,
+      status: result.status,
+      summary: result.summary,
+      permissionDecision: result.permissionDecision,
+      sourceContext: result.sourceContext,
+      recommendedNextStep: result.recommendedNextStep ?? null,
+      draftLabel: result.draftLabel ?? null,
+      userVisibleContent: result.userVisibleContent,
+    });
     return result;
   }
 
@@ -471,5 +563,37 @@ export class SupervisorLangGraphRunnerService {
 
   private sourceCategories(results: SpecialistResult[]): string[] {
     return [...new Set(results.flatMap((result) => result.sourceContext.map((source) => source.sourceType)))];
+  }
+
+  private resolveSupervisorRoute(state: LangGraphState): SupervisorRoute {
+    if (!state.safety || !state.classification) return 'finalAnswerNode';
+    if (state.safety.shouldEscalate) return 'humanEscalationNode';
+    if (!state.safety.allowed) return 'finalAnswerNode';
+    if (state.classification.isGreeting) return 'finalAnswerNode';
+    if (state.classification.requiresClarification) return 'clarificationNode';
+    if (state.classification.requiredAgents.length > 0) return 'specialistsNode';
+    return 'finalAnswerNode';
+  }
+
+  private routeReason(state: LangGraphState, route: SupervisorRoute): string {
+    if (!state.safety || !state.classification) return 'Missing supervisor state; finishing safely.';
+    if (state.safety.shouldEscalate && route === 'humanEscalationNode') return 'Guardrail requested human escalation.';
+    if (!state.safety.allowed && route === 'finalAnswerNode') return 'Guardrail refused the request before specialist routing.';
+    if (state.classification.isGreeting && route === 'finalAnswerNode') return 'Greeting handled directly by supervisor.';
+    if (state.classification.requiresClarification && route === 'clarificationNode') return 'Classifier requested clarification.';
+    if (state.classification.requiredAgents.length > 0 && route === 'specialistsNode') return 'Classifier selected specialist agents.';
+    return 'No specialist route selected; finishing with supervisor response.';
+  }
+
+  private logTrace(event: string, payload: Record<string, unknown>): void {
+    if (!this.debugLogsEnabled()) return;
+    this.logger.log(`AI process ${event}:\n${JSON.stringify(payload, null, 2)}`);
+  }
+
+  private debugLogsEnabled(): boolean {
+    const configured = this.config?.get<AiAgenticConfig>('aiAgentic')?.intentClassifierDebugLogs;
+    if (typeof configured === 'boolean') return configured;
+    const raw = process.env.AI_AGENT_INTENT_DEBUG_LOGS?.trim().toLowerCase();
+    return raw === 'true' || raw === '1' || raw === 'yes';
   }
 }

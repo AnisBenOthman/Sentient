@@ -31,6 +31,14 @@ describe('SupervisorLangGraphRunnerService', () => {
       new AgentGuardrailService(),
       new SupervisorIntentClassifierService(),
       {
+        compose: () => ({
+          status: AgentRunStatus.SUCCESS,
+          content: 'Hi. How can I help you with Sentient today?',
+          sourceContext: [],
+          routingSummary: 'Greeting handled.',
+        }),
+      } as never,
+      {
         start: async () => parentLog,
         finish: async (_id: string, input: { status: AgentRunStatus }) => ({ ...parentLog, status: input.status }),
       } as never,
@@ -87,5 +95,92 @@ describe('SupervisorLangGraphRunnerService', () => {
       AgentNodeType.FINAL_ANSWER,
     ]);
     expect(nodeStatuses).toEqual([AgentRunStatus.SUCCESS, AgentRunStatus.OUT_OF_SCOPE]);
+  });
+
+  it('answers simple greetings without clarification', async () => {
+    const parentLog = {
+      id: 'task-1',
+      conversationId: 'conversation-1',
+      parentLogId: null,
+      agentType: AgentType.SUPERVISOR_AGENT,
+      nodeType: AgentNodeType.SUPERVISOR,
+      taskType: 'supervisor_turn',
+      trigger: TaskTrigger.USER_MESSAGE,
+      actorUserId: 'user-1',
+      actorEmployeeId: 'employee-1',
+      status: AgentRunStatus.RUNNING,
+      permissionDecision: null,
+      sourceCategories: [],
+      inputSummary: 'hello',
+      outputSummary: null,
+      errorCode: null,
+      errorMessage: null,
+      correlationId: 'corr-1',
+      startedAt: new Date(0),
+      finishedAt: null,
+    } satisfies AgentTaskLog;
+    const runner = new SupervisorLangGraphRunnerService(
+      new AgentGuardrailService(),
+      new SupervisorIntentClassifierService(),
+      {
+        compose: () => ({
+          status: AgentRunStatus.SUCCESS,
+          content:
+            'Hi. How can I help you with Sentient today? I can help with leave, OKRs, career growth, analytics, onboarding, policy, or workplace wording.',
+          sourceContext: [],
+          routingSummary: 'Greeting handled.',
+        }),
+      } as never,
+      {
+        start: async () => parentLog,
+        finish: async (_id: string, input: { status: AgentRunStatus }) => ({ ...parentLog, status: input.status }),
+      } as never,
+      {} as never,
+      {
+        record: async () => ({}),
+      } as never,
+      {} as never,
+      {} as never,
+      {
+        compose: () => {
+          throw new Error('Final answer composer should not handle greeting content.');
+        },
+      } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    const result = await runner.execute({
+      conversationId: 'conversation-1',
+      userMessageId: 'message-1',
+      userMessage: 'hello',
+      actor: {
+        jwt: 'token',
+        userId: 'user-1',
+        employeeId: 'employee-1',
+        roles: ['EMPLOYEE'],
+        departmentId: null,
+        teamId: null,
+        businessUnitId: null,
+        correlationId: 'corr-1',
+      },
+      conversationContext: {
+        recentMessages: [],
+        priorHandoffAgents: [],
+      },
+    });
+
+    expect(result.finalAnswer.status).toBe(AgentRunStatus.SUCCESS);
+    expect(result.finalAnswer.content).toContain('How can I help you with Sentient today?');
+    expect(result.routing.nodes.map((node) => node.nodeType)).toEqual([
+      AgentNodeType.SUPERVISOR,
+      AgentNodeType.FINAL_ANSWER,
+    ]);
   });
 });

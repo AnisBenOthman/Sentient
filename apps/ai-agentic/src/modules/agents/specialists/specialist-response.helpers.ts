@@ -39,9 +39,12 @@ export function downstreamResult(
     ? AgentRunStatus.SUCCESS
     : AgentRunStatus.DEGRADED;
   const sourceReference = downstream.data?.id ?? `${downstream.sourceType.toLowerCase()}:scoped`;
+  const degradedContent = downstream.permissionDecision === PermissionDecision.DENIED
+    ? 'I could not access the requested Sentient records with your current permissions.'
+    : `I could not access ${downstream.sourceTitle.toLowerCase()} right now.`;
   const visibleContent = downstream.permissionDecision === PermissionDecision.ALLOWED
     ? `${continuityPrefix}${allowedContent}`
-    : `${continuityPrefix}${downstream.degradedReason ?? `${downstream.sourceTitle} is unavailable.`} I can still provide general Sentient guidance without exposing restricted or missing records.`;
+    : `${continuityPrefix}${degradedContent} I can still provide general Sentient guidance without exposing restricted records.`;
 
   return {
     agentType,

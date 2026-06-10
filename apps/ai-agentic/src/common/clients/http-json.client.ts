@@ -35,7 +35,9 @@ export class HttpJsonClient {
         return {
           data: null,
           permissionDecision: response.status === 403 ? PermissionDecision.DENIED : PermissionDecision.UNAVAILABLE,
-          degradedReason: response.status === 403 ? 'Caller is not allowed to access this context.' : 'Context was not found.',
+          degradedReason: response.status === 403
+            ? 'Caller is not allowed to access this context.'
+            : 'Requested context is unavailable.',
           sourceType,
           sourceTitle,
         };

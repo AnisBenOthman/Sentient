@@ -14,8 +14,8 @@ describe('draft routing', () => {
   ];
 
   for (const item of cases) {
-    it(`routes ${item.prompt}`, () => {
-      const result = classifier.classify(item.prompt);
+    it(`routes ${item.prompt}`, async () => {
+      const result = await classifier.classify(item.prompt);
 
       expect(result.isDraftIntent).toBe(true);
       expect(result.draftCategory).toBe(item.category);

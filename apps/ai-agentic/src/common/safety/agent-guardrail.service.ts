@@ -54,6 +54,8 @@ const UNAUTHORIZED_PATTERNS = [
   /someone else.*salary/i,
   /colleague.*salary/i,
   /other employee.*performance/i,
+  /(?:another employee|someone else|colleague|coworker|my manager|manager's|my direct report|team member).*(?:leave balance|leave history|last leave|leave request)/i,
+  /(?:leave balance|leave history|last leave|leave request).*?(?:another employee|someone else|colleague|coworker|my manager|manager's|my direct report|team member)/i,
   /private profile/i,
   /show me .* salary/i,
 ];
@@ -93,8 +95,23 @@ const UNSAFE_ADVICE_PATTERNS = [
   /payroll decision/i,
 ];
 
+const UNSAFE_SYSTEM_ACTION_PATTERNS = [
+  /\b(drop|truncate|alter)\s+(table|database|schema)\b/i,
+  /\bdelete\s+from\b/i,
+  /\bunion\s+select\b/i,
+  /;\s*(drop|delete|truncate|alter)\b/i,
+  /\b(run|execute)\s+(sql|shell|cmd|powershell|bash|terminal|command)\b/i,
+  /\b(ignore|bypass|override)\s+.*\binstructions?\b/i,
+  /\b(show|print|dump|exfiltrate)\s+(all\s+)?(?:\w+\s+){0,3}(secrets?|api keys?|tokens?|jwt tokens?|passwords?|env|environment variables?)\b/i,
+  /\b(rm\s+-rf|sudo|chmod\s+777)\b/i,
+];
+
 const IMMEDIATE_SAFETY_PATTERNS = [/immediate danger/i, /urgent safety/i, /emergency/i, /physical threat/i];
-const GREETING_PATTERNS = [/^\s*(hi|hello|hey|good morning|good afternoon|good evening)\s*[!.]?\s*$/i];
+const GREETING_PATTERNS = [
+  /^\s*(hi|hello|hey|good morning|good afternoon|good evening)\s*[!.]?\s*$/i,
+  /^\s*(how\s+are\s+(you|u)|how\s+r\s+u|h[oa]w'?re\s+(you|u)|h[oa]w\s+are\s+(you|u))\s*[?!.]?\s*$/i,
+  /^\s*(what'?s\s+up|how'?s\s+it\s+going|how'?s\s+your\s+day)\s*[?!.]?\s*$/i,
+];
 
 @Injectable()
 export class AgentGuardrailService {
@@ -109,6 +126,20 @@ export class AgentGuardrailService {
         'I am sorry you are dealing with this. If there is immediate risk, please seek urgent local help or use the company emergency process now. I can also help you prepare a neutral summary for your manager or People team.',
         'HIGH',
       );
+    }
+
+    if (UNSAFE_SYSTEM_ACTION_PATTERNS.some((pattern) => pattern.test(message))) {
+      return {
+        classification: 'UNSAFE_SYSTEM_ACTION',
+        allowed: false,
+        status: AgentRunStatus.REFUSED,
+        message: 'I cannot run, generate, or help execute destructive database commands, system commands, prompt-injection instructions, or attempts to expose secrets. I can help with safe Sentient workflow questions and approved read-only summaries.',
+        shouldEscalate: false,
+        requiresClarification: false,
+        allowedAgents: [],
+        declinedTopics: ['Unsafe system or data operation'],
+        sensitivity: 'HIGH',
+      };
     }
 
     if (INTERPERSONAL_PATTERNS.some((pattern) => pattern.test(message))) {
