@@ -15,12 +15,12 @@ packages/shared/dist/
 
 # Environment files — NEVER commit these
 .env
+.env.example
 .env.local
 .env.development
 .env.test
 .env.production
 .env*.local
-!.env.example
 
 # Logs
 *.log
