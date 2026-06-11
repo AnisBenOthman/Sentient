@@ -1,5 +1,5 @@
 import { registerAs } from '@nestjs/config';
-import { parseBoolean, parseHttpUrl, parseNonEmptyString, parseOptionalString, parsePositiveInt } from './validation';
+import { parseBoolean, parseHttpUrl, parseNonEmptyString, parseOptionalString, parsePositiveInt, parseRatio } from './validation';
 import type { IntentClassifierProvider } from '../modules/agents/intent-classifier.types';
 
 export interface AiAgenticConfig {
@@ -9,6 +9,7 @@ export interface AiAgenticConfig {
   socialUrl: string;
   intentClassifierProvider: IntentClassifierProvider;
   intentClassifierTimeoutMs: number;
+  intentConfidenceThreshold: number;
   geminiApiKey: string | null;
   geminiApiUrl: string;
   geminiModel: string;
@@ -40,6 +41,11 @@ export const aiAgenticConfig = registerAs('aiAgentic', (): AiAgenticConfig => ({
     process.env.AI_AGENT_INTENT_TIMEOUT_MS,
     3_000,
     'AI_AGENT_INTENT_TIMEOUT_MS',
+  ),
+  intentConfidenceThreshold: parseRatio(
+    process.env.AI_AGENT_INTENT_CONFIDENCE_THRESHOLD,
+    0.4,
+    'AI_AGENT_INTENT_CONFIDENCE_THRESHOLD',
   ),
   geminiApiKey: parseOptionalString(process.env.GEMINI_API_KEY),
   geminiApiUrl: parseHttpUrl(

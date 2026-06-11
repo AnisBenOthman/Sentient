@@ -31,6 +31,58 @@ export interface LeaveAiContext extends DownstreamSummary {
   requestHistoryUnavailable?: boolean;
 }
 
+/** Mirrors HR Core RequestsService.TeamCalendarEntry (dates serialize to ISO strings). */
+export interface TeamCalendarEntryContext {
+  employeeId: string;
+  employeeName: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface TeamLeaveAiContext extends DownstreamSummary {
+  entries: TeamCalendarEntryContext[];
+  windowStart: string;
+  windowEnd: string;
+}
+
+/** Mirrors HR Core ObjectiveResponseDto (subset the assistant summarizes). */
+export interface OkrObjectiveContext {
+  id: string;
+  title: string;
+  level?: string | null;
+  status?: string | null;
+  ownerId?: string | null;
+}
+
+export interface OkrAiContext extends DownstreamSummary {
+  objectives: OkrObjectiveContext[];
+}
+
+interface ObjectiveListResponse {
+  items?: OkrObjectiveContext[];
+  nextCursor?: string | null;
+}
+
+/** Mirrors HR Core AnalyticsService.DashboardAnalytics (subset the assistant summarizes). */
+export interface DashboardAiContext extends DownstreamSummary {
+  employees?: {
+    total?: number;
+    active?: number;
+    onLeave?: number;
+    probation?: number;
+  } | null;
+  leave?: {
+    pendingApprovals?: number;
+  } | null;
+  skills?: {
+    averageScore?: number | null;
+    skillsTracked?: number;
+    topSkill?: string | null;
+  } | null;
+}
+
+const TEAM_COVERAGE_WINDOW_DAYS = 30;
+
 @Injectable()
 export class HrCoreAiClient {
   constructor(
@@ -63,24 +115,89 @@ export class HrCoreAiClient {
     return this.getLeaveBalanceAndHistory(`/leave-balances?${query.toString()}`, context);
   }
 
-  getOkrContext(context: DownstreamRequestContext): Promise<DownstreamResult<DownstreamSummary>> {
-    return this.get('/okrs/my-okrs', context, 'OKR', 'OKR context');
+  /**
+   * WHY: Manager and HR-admin team-coverage questions (FR-008) use HR Core's
+   * team-calendar endpoint, which already strips private fields (no reason) and
+   * enforces TEAM/GLOBAL scope server-side — a 403 degrades gracefully here.
+   */
+  async getTeamLeaveContext(context: DownstreamRequestContext): Promise<DownstreamResult<TeamLeaveAiContext>> {
+    const windowStart = new Date();
+    const windowEnd = new Date(windowStart.getTime() + TEAM_COVERAGE_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+    const from = windowStart.toISOString().slice(0, 10);
+    const to = windowEnd.toISOString().slice(0, 10);
+    const query = new URLSearchParams({ from, to });
+    const result = await this.get<TeamCalendarEntryContext[]>(
+      `/leave-requests/team-calendar?${query.toString()}`,
+      context,
+      'LEAVE_COVERAGE',
+      'Team leave coverage',
+    );
+
+    if (result.permissionDecision !== PermissionDecision.ALLOWED) {
+      return { ...result, data: null };
+    }
+
+    return {
+      ...result,
+      data: {
+        id: 'leave:team-coverage',
+        entries: Array.isArray(result.data) ? result.data : [],
+        windowStart: from,
+        windowEnd: to,
+      },
+    };
+  }
+
+  /** WHY: HR Core has no /okrs/my-okrs route; objectives are owner-filtered via /objectives. */
+  async getOkrContext(
+    ownerUserId: string | null,
+    context: DownstreamRequestContext,
+  ): Promise<DownstreamResult<OkrAiContext>> {
+    const path = ownerUserId
+      ? `/objectives?${new URLSearchParams({ ownerId: ownerUserId }).toString()}`
+      : '/objectives';
+    const result = await this.get<ObjectiveListResponse>(path, context, 'OKR', 'OKR context');
+
+    if (result.permissionDecision !== PermissionDecision.ALLOWED) {
+      return { ...result, data: null };
+    }
+
+    const items = result.data?.items;
+    return {
+      ...result,
+      data: {
+        id: 'okr:objectives',
+        objectives: Array.isArray(items) ? items : [],
+      },
+    };
   }
 
   getPerformanceContext(context: DownstreamRequestContext): Promise<DownstreamResult<DownstreamSummary>> {
-    return this.get('/performance-reviews/my-reviews', context, 'PERFORMANCE', 'Performance review context');
+    return this.get('/performance-reviews', context, 'PERFORMANCE', 'Performance review context');
   }
 
-  getSkillsContext(context: DownstreamRequestContext): Promise<DownstreamResult<DownstreamSummary>> {
-    return this.get('/skills/my-skills', context, 'SKILLS', 'Skills context');
+  getSkillsContext(
+    employeeId: string | null,
+    context: DownstreamRequestContext,
+  ): Promise<DownstreamResult<DownstreamSummary>> {
+    if (!employeeId) {
+      return Promise.resolve({
+        data: null,
+        permissionDecision: PermissionDecision.UNAVAILABLE,
+        degradedReason: 'Caller is not linked to an employee record.',
+        sourceType: 'SKILLS',
+        sourceTitle: 'Skills context',
+      });
+    }
+    return this.get(`/employees/${encodeURIComponent(employeeId)}/skills`, context, 'SKILLS', 'Skills context');
   }
 
   getNotificationsContext(context: DownstreamRequestContext): Promise<DownstreamResult<DownstreamSummary>> {
     return this.get('/notifications', context, 'NOTIFICATIONS', 'Notifications');
   }
 
-  getDashboardContext(context: DownstreamRequestContext): Promise<DownstreamResult<DownstreamSummary>> {
-    return this.get('/dashboard/analytics', context, 'DASHBOARD', 'Dashboard analytics');
+  getDashboardContext(context: DownstreamRequestContext): Promise<DownstreamResult<DashboardAiContext>> {
+    return this.get<DashboardAiContext>('/analytics/dashboard', context, 'DASHBOARD', 'Dashboard analytics');
   }
 
   private async getLeaveBalanceAndHistory(

@@ -5,7 +5,7 @@ import { SafetyPolicyResult } from './safety.types';
 const SENTIENT_TERMS = [
   'sentient',
   'hr',
-  'people',
+  'people team',
   'employee',
   'manager',
   'team',
@@ -36,6 +36,20 @@ const SENTIENT_TERMS = [
   'feedback',
 ];
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * WHY: Substring matching previously classified almost any English sentence as
+ * Sentient-scoped ('hr' matched inside "three"/"chrome", 'team' inside "steam"),
+ * which made the polite out-of-scope branch unreachable (SC-011). Whole-word
+ * matching keeps the scope gate meaningful.
+ */
+const SENTIENT_TERM_PATTERNS = SENTIENT_TERMS.map(
+  (term) => new RegExp(`\\b${escapeRegExp(term)}\\b`, 'i'),
+);
+
 const OFF_TOPIC_TERMS = [
   'world cup',
   'movie',
@@ -54,11 +68,22 @@ const UNAUTHORIZED_PATTERNS = [
   /someone else.*salary/i,
   /colleague.*salary/i,
   /other employee.*performance/i,
-  /(?:another employee|someone else|colleague|coworker|my manager|manager's|my direct report|team member).*(?:leave balance|leave history|last leave|leave request)/i,
-  /(?:leave balance|leave history|last leave|leave request).*?(?:another employee|someone else|colleague|coworker|my manager|manager's|my direct report|team member)/i,
   /private profile/i,
   /show me .* salary/i,
 ];
+
+/**
+ * WHY: Individual third-party leave records stay private for regular employees,
+ * but managers and HR admins are entitled to team-scoped leave coverage (FR-008).
+ * These patterns are only enforced for callers without that scope; privileged
+ * callers are routed to the team-coverage path where HR Core RBAC still applies.
+ */
+const THIRD_PARTY_LEAVE_PATTERNS = [
+  /(?:another employee|someone else|colleague|coworker|my manager|manager's|my direct report|team member).*(?:leave balance|leave history|last leave|leave request)/i,
+  /(?:leave balance|leave history|last leave|leave request).*?(?:another employee|someone else|colleague|coworker|my manager|manager's|my direct report|team member)/i,
+];
+
+const TEAM_LEAVE_SCOPE_ROLES = ['MANAGER', 'HR_ADMIN'];
 
 const INTERPERSONAL_PATTERNS = [
   /what do you think about .*person/i,
@@ -75,15 +100,21 @@ const INTERPERSONAL_PATTERNS = [
   /is .* unprofessional/i,
 ];
 
+/**
+ * WHY: Bare /conflict/ and /incident/ escalated harmless operational wording
+ * ("scheduling conflict with my leave dates") as workplace incidents. Each
+ * pattern now requires interpersonal or safety context within the same clause.
+ */
 const CONFLICT_PATTERNS = [
   /harass/i,
   /discriminat/i,
-  /conflict/i,
-  /incident/i,
-  /unsafe/i,
-  /threat/i,
   /bully/i,
-  /discomfort/i,
+  /\b(workplace|interpersonal)\s+(conflict|incident)\b/i,
+  /\b(conflict|incident|argument|altercation)\b[^.!?]*\b(coworker|colleague|manager|teammate|team member)\b/i,
+  /\b(coworker|colleague|manager|teammate|team member)\b[^.!?]*\b(conflict|incident|threat|threaten)\b/i,
+  /\b(feel|felt|feeling)\s+(unsafe|uncomfortable|threatened)\b/i,
+  /\bunsafe\s+(at work|work(place| environment)?)\b/i,
+  /\bdiscomfort\b/i,
 ];
 
 const UNSAFE_ADVICE_PATTERNS = [
@@ -113,12 +144,18 @@ const GREETING_PATTERNS = [
   /^\s*(what'?s\s+up|how'?s\s+it\s+going|how'?s\s+your\s+day)\s*[?!.]?\s*$/i,
 ];
 
+export interface GuardrailActor {
+  roles?: readonly string[];
+}
+
 @Injectable()
 export class AgentGuardrailService {
-  evaluate(message: string): SafetyPolicyResult {
+  evaluate(message: string, actor?: GuardrailActor): SafetyPolicyResult {
     const lower = message.toLowerCase();
-    const hasSentientTopic = SENTIENT_TERMS.some((term) => lower.includes(term));
+    const hasSentientTopic = SENTIENT_TERM_PATTERNS.some((pattern) => pattern.test(message));
     const offTopicTerms = OFF_TOPIC_TERMS.filter((term) => lower.includes(term));
+    const hasTeamLeaveScope =
+      actor?.roles?.some((role) => TEAM_LEAVE_SCOPE_ROLES.includes(role)) ?? false;
 
     if (IMMEDIATE_SAFETY_PATTERNS.some((pattern) => pattern.test(message))) {
       return this.escalationResult(
@@ -158,7 +195,10 @@ export class AgentGuardrailService {
       );
     }
 
-    if (UNAUTHORIZED_PATTERNS.some((pattern) => pattern.test(message))) {
+    const unauthorizedPatterns = hasTeamLeaveScope
+      ? UNAUTHORIZED_PATTERNS
+      : [...UNAUTHORIZED_PATTERNS, ...THIRD_PARTY_LEAVE_PATTERNS];
+    if (unauthorizedPatterns.some((pattern) => pattern.test(message))) {
       return {
         classification: 'UNAUTHORIZED_DATA',
         allowed: false,
@@ -239,6 +279,22 @@ export class AgentGuardrailService {
       declinedTopics: [],
       sensitivity: 'LOW',
     };
+  }
+
+  /**
+   * WHY: The final-answer node re-checks composed output (FR-034). Exposing the
+   * same pattern sets keeps the input guardrail and the output backstop in sync
+   * instead of maintaining two diverging regex libraries.
+   */
+  matchesUnauthorizedData(text: string): boolean {
+    return (
+      UNAUTHORIZED_PATTERNS.some((pattern) => pattern.test(text)) ||
+      THIRD_PARTY_LEAVE_PATTERNS.some((pattern) => pattern.test(text))
+    );
+  }
+
+  matchesInterpersonalJudgment(text: string): boolean {
+    return INTERPERSONAL_PATTERNS.some((pattern) => pattern.test(text));
   }
 
   private escalationResult(

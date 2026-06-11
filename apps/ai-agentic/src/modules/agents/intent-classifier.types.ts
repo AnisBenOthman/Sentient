@@ -1,4 +1,5 @@
 import { AgentType } from '../../generated/prisma';
+import { ConversationTurnContext } from '../../common/graph';
 
 export const INTENT_CLASSIFIER = Symbol('INTENT_CLASSIFIER');
 
@@ -28,5 +29,10 @@ export interface SupervisorIntentClassification {
 }
 
 export interface IntentClassifier {
-  classify(message: string): Promise<SupervisorIntentClassification>;
+  /**
+   * WHY: Follow-up questions ("what about last year?") only make sense with the
+   * prior messages and prior specialist handoffs (FR-013), so classifiers accept
+   * the conversation context in addition to the current message.
+   */
+  classify(message: string, context?: ConversationTurnContext): Promise<SupervisorIntentClassification>;
 }

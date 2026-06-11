@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AgentNodeType, AgentRunStatus, AgentTaskLog, AgentType, PermissionDecision } from '../../generated/prisma';
 import { RoutingTrace } from '../../common/dto';
-import { AgentGuardrailService, SafetyPolicyResult } from '../../common/safety';
+import { AgentGuardrailService, DraftPolicyService, SafetyPolicyResult } from '../../common/safety';
 import { AiAgenticConfig } from '../../config';
 import {
   FinalAnswerResult,
@@ -51,6 +51,7 @@ interface SupervisorGraphState {
   clarificationQuestion: string | null;
   escalation: HumanEscalationResult | null;
   finalAnswer: FinalAnswerResult | null;
+  draftBlock: string | null;
 }
 
 type LangGraphState = SupervisorGraphState;
@@ -72,6 +73,7 @@ export class SupervisorLangGraphRunnerService {
 
   constructor(
     private readonly guardrails: AgentGuardrailService,
+    private readonly draftPolicy: DraftPolicyService,
     @Inject(INTENT_CLASSIFIER) private readonly classifier: IntentClassifier,
     private readonly greetingAgent: GreetingAgentService,
     private readonly taskLogs: AgentTaskLogService,
@@ -132,6 +134,7 @@ export class SupervisorLangGraphRunnerService {
       clarificationQuestion: null,
       escalation: null,
       finalAnswer: null,
+      draftBlock: null,
     });
 
     if (!state.finalAnswer) {
@@ -169,6 +172,7 @@ export class SupervisorLangGraphRunnerService {
       clarificationQuestion: langGraph.Annotation<string | null>(),
       escalation: langGraph.Annotation<HumanEscalationResult | null>(),
       finalAnswer: langGraph.Annotation<FinalAnswerResult | null>(),
+      draftBlock: langGraph.Annotation<string | null>(),
     });
 
     return new langGraph.StateGraph(graphAnnotation)
@@ -212,8 +216,46 @@ export class SupervisorLangGraphRunnerService {
       },
     });
 
-    const safety = this.guardrails.evaluate(state.input.userMessage);
-    const classification = await this.classifier.classify(state.input.userMessage);
+    const safety = this.guardrails.evaluate(state.input.userMessage, state.input.actor);
+    let classification = await this.classifier.classify(
+      state.input.userMessage,
+      state.input.conversationContext,
+    );
+
+    /**
+     * WHY: A low-confidence classification routed to specialists anyway, which
+     * contradicts the "ask when not confident" edge case. Below the configured
+     * threshold the supervisor asks one focused clarification instead.
+     */
+    const confidenceThreshold = this.confidenceThreshold();
+    if (
+      !classification.isGreeting &&
+      !classification.isHumanEscalationIntent &&
+      !classification.requiresClarification &&
+      classification.confidence < confidenceThreshold
+    ) {
+      classification = {
+        ...classification,
+        requiredAgents: [],
+        requiresClarification: true,
+        clarificationReason: 'The request could not be routed confidently; one more detail is needed.',
+      };
+    }
+
+    let draftBlock: string | null = null;
+    if (classification.isDraftIntent) {
+      const draftPolicy = this.draftPolicy.evaluate(
+        classification.requiredAgents[0] ?? AgentType.SUPERVISOR_AGENT,
+        state.input.userMessage,
+      );
+      if (!draftPolicy.allowed) {
+        draftBlock = `I can help prepare a draft, but I cannot submit, approve, publish, or otherwise change official Sentient records. ${draftPolicy.humanReviewReminder}`;
+        this.logTrace('supervisor.draftBlocked', {
+          blockedReason: draftPolicy.blockedReason,
+        });
+      }
+    }
+
     this.logTrace('supervisor.classified', {
       safety: {
         classification: safety.classification,
@@ -244,6 +286,7 @@ export class SupervisorLangGraphRunnerService {
       sequence: state.sequence + 1,
       safety,
       classification,
+      draftBlock,
       routingNodes: [
         ...state.routingNodes,
         {
@@ -278,9 +321,13 @@ export class SupervisorLangGraphRunnerService {
       classification.normalizedIntent,
       classification.isDraftIntent,
     );
+    // WHY: classifier-detected escalations ("let me talk to HR") reach this node
+    // with a benign safety classification; the reason must reflect the user
+    // request rather than a guardrail category.
+    const escalationReason = safety.shouldEscalate ? safety.classification : 'USER_REQUESTED_HUMAN_SUPPORT';
     const escalationResult = await this.humanEscalationAgent.record(
       specialistInput,
-      safety.classification,
+      escalationReason,
       safety.classification === 'IMMEDIATE_SAFETY_RISK',
     );
     await this.nodeRuns.record({
@@ -364,7 +411,7 @@ export class SupervisorLangGraphRunnerService {
       draftCategory: classification.draftCategory,
     });
 
-    for (const agentType of classification.requiredAgents) {
+    for (const agentType of this.runnableSpecialists(classification)) {
       const result = await this.executeSpecialist(
         state.input,
         parentLog.id,
@@ -405,11 +452,13 @@ export class SupervisorLangGraphRunnerService {
       ? this.greetingAgent.compose()
       : this.finalAnswerNode.compose({
           guardrailMessage: safety.allowed ? (safety.classification === 'MIXED' ? safety.message : null) : safety.message,
+          guardrailStatus: safety.allowed ? null : safety.status,
+          policyRefusalMessage: state.draftBlock,
           clarificationQuestion: state.clarificationQuestion,
           specialistResults: state.specialistResults,
           escalation: state.escalation,
           declinedTopics: safety.declinedTopics,
-          isDraft: classification.isDraftIntent,
+          isDraft: classification.isDraftIntent && !state.draftBlock,
         });
     await this.nodeRuns.record({
       conversationId: state.input.conversationId,
@@ -423,7 +472,13 @@ export class SupervisorLangGraphRunnerService {
       status: finalAnswer.status,
       outputSummary: finalAnswer.content,
       sourceCategories: this.sourceCategories(state.specialistResults),
-      permissionDecision: state.specialistResults.some((result) => result.permissionDecision === PermissionDecision.DENIED)
+      // WHY: UNAVAILABLE children previously rolled up as ALLOWED, hiding
+      // partially-served turns from the governance metrics.
+      permissionDecision: state.specialistResults.some(
+        (result) =>
+          result.permissionDecision === PermissionDecision.DENIED ||
+          result.permissionDecision === PermissionDecision.UNAVAILABLE,
+      )
         ? PermissionDecision.PARTIAL
         : PermissionDecision.ALLOWED,
     });
@@ -570,9 +625,28 @@ export class SupervisorLangGraphRunnerService {
     if (state.safety.shouldEscalate) return 'humanEscalationNode';
     if (!state.safety.allowed) return 'finalAnswerNode';
     if (state.classification.isGreeting) return 'finalAnswerNode';
+    if (state.draftBlock) return 'finalAnswerNode';
+    /**
+     * WHY: The classifier can request a human handoff (FR-043), but no runnable
+     * specialist exists for HUMAN_ESCALATION_AGENT — routing it through the
+     * specialists map produced a dead-end "agent not available" reply with no
+     * recorded handoff. Escalation intents go to the escalation node directly.
+     */
+    if (this.classifierRequestsEscalation(state.classification)) return 'humanEscalationNode';
     if (state.classification.requiresClarification) return 'clarificationNode';
-    if (state.classification.requiredAgents.length > 0) return 'specialistsNode';
+    if (this.runnableSpecialists(state.classification).length > 0) return 'specialistsNode';
     return 'finalAnswerNode';
+  }
+
+  private classifierRequestsEscalation(classification: SupervisorIntentClassification): boolean {
+    return (
+      classification.isHumanEscalationIntent ||
+      classification.requiredAgents.includes(AgentType.HUMAN_ESCALATION_AGENT)
+    );
+  }
+
+  private runnableSpecialists(classification: SupervisorIntentClassification): AgentType[] {
+    return classification.requiredAgents.filter((agentType) => agentType !== AgentType.HUMAN_ESCALATION_AGENT);
   }
 
   private routeReason(state: LangGraphState, route: SupervisorRoute): string {
@@ -580,9 +654,15 @@ export class SupervisorLangGraphRunnerService {
     if (state.safety.shouldEscalate && route === 'humanEscalationNode') return 'Guardrail requested human escalation.';
     if (!state.safety.allowed && route === 'finalAnswerNode') return 'Guardrail refused the request before specialist routing.';
     if (state.classification.isGreeting && route === 'finalAnswerNode') return 'Greeting handled directly by supervisor.';
+    if (state.draftBlock && route === 'finalAnswerNode') return 'Draft policy blocked a mutation-phrased draft request.';
+    if (route === 'humanEscalationNode') return 'Classifier identified an explicit human-support request.';
     if (state.classification.requiresClarification && route === 'clarificationNode') return 'Classifier requested clarification.';
     if (state.classification.requiredAgents.length > 0 && route === 'specialistsNode') return 'Classifier selected specialist agents.';
     return 'No specialist route selected; finishing with supervisor response.';
+  }
+
+  private confidenceThreshold(): number {
+    return this.config?.get<AiAgenticConfig>('aiAgentic')?.intentConfidenceThreshold ?? 0.4;
   }
 
   private logTrace(event: string, payload: Record<string, unknown>): void {

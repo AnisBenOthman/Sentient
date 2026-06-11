@@ -11,7 +11,7 @@ export class CareerAgentService implements SpecialistAgent {
   constructor(private readonly hrCore: HrCoreAiClient) {}
 
   async execute(input: SpecialistInput): Promise<SpecialistResult> {
-    const context = await this.hrCore.getSkillsContext({
+    const context = await this.hrCore.getSkillsContext(input.actorContext.employeeId, {
       jwt: input.actorContext.jwt,
       correlationId: input.actorContext.correlationId,
     });

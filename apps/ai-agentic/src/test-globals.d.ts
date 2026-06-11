@@ -7,6 +7,8 @@ interface JestExpectation {
   toEqual(expected: unknown): void;
   toContain(expected: unknown): void;
   toBeDefined(): void;
+  toBeGreaterThan(expected: number): void;
+  toBeGreaterThanOrEqual(expected: number): void;
   not: {
     toContain(expected: unknown): void;
   };

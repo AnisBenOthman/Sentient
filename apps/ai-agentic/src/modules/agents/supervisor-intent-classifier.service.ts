@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AgentType } from '../../generated/prisma';
+import { ConversationTurnContext } from '../../common/graph';
 import {
   DraftIntentCategory,
   IntentClassifier,
@@ -49,16 +50,40 @@ const CLARIFICATION_PATTERNS = [
   /can you help me with (it|this|my request)/i,
   /^help$/i,
 ];
-const ESCALATION_KEYWORDS = ['manager', 'people team', 'hrbp', 'human', 'escalate', 'support'];
+
+/**
+ * WHY: The old single-keyword list ('manager', 'support', 'human') flagged most
+ * ordinary HR questions as escalation intents. Escalation now requires an
+ * explicit request to reach a person, so the supervisor can route on it safely.
+ */
+const ESCALATION_PATTERNS = [
+  /\b(talk|speak|connect)\s+(to|with)\s+(a\s+|an\s+|the\s+)?(human|someone|person|people team|hrbp|hr\b)/i,
+  /\bescalate\b/i,
+  /\bhuman support\b/i,
+  /\bhrbp\b/i,
+  /\breach\s+(out\s+to\s+)?(hr|the\s+people team)\b/i,
+  /\bcontact\s+(hr|the\s+people team|my\s+hr business partner)\b/i,
+];
+
+const FOLLOW_UP_PATTERNS = [
+  /^\s*(and|also|what about|how about|what else|same|then|again)\b/i,
+  /\b(what about|how about)\b/i,
+];
+
 const GREETING_PATTERNS = [
   /^\s*(hi|hello|hey|good morning|good afternoon|good evening)\s*[!.]?\s*$/i,
   /^\s*(how\s+are\s+(you|u)|how\s+r\s+u|h[oa]w'?re\s+(you|u)|h[oa]w\s+are\s+(you|u))\s*[?!.]?\s*$/i,
   /^\s*(what'?s\s+up|how'?s\s+it\s+going|how'?s\s+your\s+day)\s*[?!.]?\s*$/i,
 ];
 
+const AGENT_TYPE_VALUES = new Set<string>(Object.values(AgentType));
+
 @Injectable()
 export class SupervisorIntentClassifierService implements IntentClassifier {
-  async classify(message: string): Promise<SupervisorIntentClassification> {
+  async classify(
+    message: string,
+    context?: ConversationTurnContext,
+  ): Promise<SupervisorIntentClassification> {
     const normalizedIntent = message.trim().replace(/\s+/g, ' ');
     const lower = normalizedIntent.toLowerCase();
     const isGreeting = GREETING_PATTERNS.some((pattern) => pattern.test(normalizedIntent));
@@ -66,12 +91,27 @@ export class SupervisorIntentClassifierService implements IntentClassifier {
       .filter((route) => route.keywords.some((keyword) => lower.includes(keyword)))
       .map((route) => route.agentType);
 
-    const uniqueAgents = [...new Set(requiredAgents)];
+    let uniqueAgents = [...new Set(requiredAgents)];
+    let followUpRoute = false;
+    /**
+     * WHY: A short follow-up such as "and what about last year?" carries no
+     * domain keyword. Reusing the most recent specialist handoff keeps the
+     * conversation flowing (FR-013) instead of forcing a generic clarification.
+     */
+    if (uniqueAgents.length === 0 && !isGreeting && this.isFollowUp(normalizedIntent, context)) {
+      const lastHandoffAgent = context?.priorHandoffAgents.find((agent) => AGENT_TYPE_VALUES.has(agent));
+      if (lastHandoffAgent) {
+        uniqueAgents = [lastHandoffAgent as AgentType];
+        followUpRoute = true;
+      }
+    }
+
     const isDraftIntent = DRAFT_KEYWORDS.some((keyword) => lower.includes(keyword));
     const draftCategory = isDraftIntent ? this.classifyDraftCategory(lower) : null;
-    const isHumanEscalationIntent = ESCALATION_KEYWORDS.some((keyword) => lower.includes(keyword));
+    const isHumanEscalationIntent = ESCALATION_PATTERNS.some((pattern) => pattern.test(normalizedIntent));
     const requiresClarification =
       !isGreeting &&
+      !isHumanEscalationIntent &&
       (uniqueAgents.length === 0 ||
         CLARIFICATION_PATTERNS.some((pattern) => pattern.test(normalizedIntent)));
 
@@ -86,13 +126,25 @@ export class SupervisorIntentClassifierService implements IntentClassifier {
       draftCategory,
       isHumanEscalationIntent,
       isGreeting,
-      confidence: this.confidence(isGreeting, uniqueAgents.length, requiresClarification),
+      confidence: this.confidence(isGreeting, uniqueAgents.length, requiresClarification, followUpRoute),
       source: 'rules',
     };
   }
 
-  private confidence(isGreeting: boolean, routeCount: number, requiresClarification: boolean): number {
+  private isFollowUp(message: string, context?: ConversationTurnContext): boolean {
+    if (!context || context.priorHandoffAgents.length === 0) return false;
+    if (context.recentMessages.length === 0) return false;
+    return FOLLOW_UP_PATTERNS.some((pattern) => pattern.test(message)) || message.length <= 40;
+  }
+
+  private confidence(
+    isGreeting: boolean,
+    routeCount: number,
+    requiresClarification: boolean,
+    followUpRoute: boolean,
+  ): number {
     if (isGreeting) return 1;
+    if (followUpRoute) return 0.6;
     if (routeCount > 0 && !requiresClarification) return 0.85;
     return 0.35;
   }

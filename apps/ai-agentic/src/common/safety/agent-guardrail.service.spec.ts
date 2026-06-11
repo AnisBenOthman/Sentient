@@ -25,6 +25,29 @@ describe('AgentGuardrailService', () => {
     expect(result.declinedTopics).toContain('Unrelated topic');
   });
 
+  // WHY: substring matching used to treat "three"/"Chrome" as the Sentient term "hr".
+  const substringBypassPrompts = [
+    'Who won the World Cup three years ago?',
+    'How do I fix my Chrome browser?',
+    'What are the three best bitcoin strategies?',
+  ];
+
+  for (const message of substringBypassPrompts) {
+    it(`stays out-of-scope for substring-collision prompt: ${message}`, () => {
+      const result = service.evaluate(message);
+
+      expect(result.allowed).toBe(false);
+      expect(result.classification).toBe('OUT_OF_SCOPE');
+    });
+  }
+
+  it('still recognizes whole-word Sentient topics', () => {
+    const result = service.evaluate('What does the HR handbook say about leave carryover?');
+
+    expect(result.allowed).toBe(true);
+    expect(result.classification).toBe('SENTIENT');
+  });
+
   it('allows simple greetings so the supervisor can clarify within Sentient', () => {
     const result = service.evaluate('hello');
 
@@ -63,6 +86,48 @@ describe('AgentGuardrailService', () => {
     expect(result.classification).toBe('UNAUTHORIZED_DATA');
     expect(result.status).toBe(AgentRunStatus.REFUSED);
     expect(result.declinedTopics).toContain('Unauthorized private employee data');
+  });
+
+  it('allows manager-scoped team leave questions for managers (FR-008)', () => {
+    const result = service.evaluate(
+      'Show the leave balance overview for my team members so I can plan coverage.',
+      { roles: ['MANAGER', 'EMPLOYEE'] },
+    );
+
+    expect(result.allowed).toBe(true);
+    expect(result.classification).toBe('SENTIENT');
+  });
+
+  it('still refuses team-member leave prompts for employees without team scope', () => {
+    const result = service.evaluate(
+      'Show the leave balance overview for my team members so I can plan coverage.',
+      { roles: ['EMPLOYEE'] },
+    );
+
+    expect(result.allowed).toBe(false);
+    expect(result.classification).toBe('UNAUTHORIZED_DATA');
+  });
+
+  it('still refuses third-party salary prompts for managers', () => {
+    const result = service.evaluate("Show me another employee's salary.", { roles: ['MANAGER'] });
+
+    expect(result.allowed).toBe(false);
+    expect(result.classification).toBe('UNAUTHORIZED_DATA');
+  });
+
+  it('does not escalate harmless operational conflict wording', () => {
+    const result = service.evaluate('There is a scheduling conflict between my leave dates and the sprint.');
+
+    expect(result.allowed).toBe(true);
+    expect(result.classification).toBe('SENTIENT');
+  });
+
+  it('escalates interpersonal conflict wording to human support', () => {
+    const result = service.evaluate('I have a conflict with my coworker and I do not know what to do.');
+
+    expect(result.allowed).toBe(false);
+    expect(result.classification).toBe('WORKPLACE_CONFLICT');
+    expect(result.shouldEscalate).toBe(true);
   });
 
   const unsafeSystemPrompts = [

@@ -9,6 +9,7 @@ import {
 } from '../../generated/prisma';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AiActorContext } from '../../common/graph';
+import { redactSensitiveText } from '../../common/safety';
 
 export interface StartTaskLogInput {
   conversationId?: string | null;
@@ -48,7 +49,9 @@ export class AgentTaskLogService {
         actorEmployeeId: input.actor?.employeeId ?? null,
         status: AgentRunStatus.RUNNING,
         sourceCategories: input.sourceCategories ?? [],
-        inputSummary: input.inputSummary ?? null,
+        // WHY: FR-023 — governance reviewers see these summaries; emails and
+        // long identifiers are masked while keeping the audit text readable.
+        inputSummary: input.inputSummary ? redactSensitiveText(input.inputSummary) : null,
         correlationId: input.actor?.correlationId ?? 'system',
       },
     });
@@ -59,7 +62,7 @@ export class AgentTaskLogService {
       where: { id },
       data: {
         status: input.status,
-        outputSummary: input.outputSummary ?? null,
+        outputSummary: input.outputSummary ? redactSensitiveText(input.outputSummary) : null,
         permissionDecision: input.permissionDecision ?? null,
         ...(input.sourceCategories ? { sourceCategories: input.sourceCategories } : {}),
         errorCode: input.errorCode ?? null,

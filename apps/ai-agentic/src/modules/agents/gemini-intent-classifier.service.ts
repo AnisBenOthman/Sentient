@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AgentType } from '../../generated/prisma';
+import { ConversationTurnContext } from '../../common/graph';
 import { AiAgenticConfig } from '../../config';
 import {
   DraftIntentCategory,
@@ -50,8 +51,11 @@ export class GeminiIntentClassifierService implements IntentClassifier {
     private readonly fallback: SupervisorIntentClassifierService,
   ) {}
 
-  async classify(message: string): Promise<SupervisorIntentClassification> {
-    const fallbackClassification = await this.fallback.classify(message);
+  async classify(
+    message: string,
+    context?: ConversationTurnContext,
+  ): Promise<SupervisorIntentClassification> {
+    const fallbackClassification = await this.fallback.classify(message, context);
     if (fallbackClassification.isGreeting) return fallbackClassification;
 
     const aiConfig = this.config.get<AiAgenticConfig>('aiAgentic');
@@ -59,7 +63,7 @@ export class GeminiIntentClassifierService implements IntentClassifier {
     if (!aiConfig || !apiKey) return fallbackClassification;
 
     try {
-      const payload = await this.callGemini(message, aiConfig, apiKey);
+      const payload = await this.callGemini(message, aiConfig, apiKey, context);
       return this.toClassification(message, payload);
     } catch {
       return fallbackClassification;
@@ -70,10 +74,11 @@ export class GeminiIntentClassifierService implements IntentClassifier {
     message: string,
     config: AiAgenticConfig,
     apiKey: string,
+    context?: ConversationTurnContext,
   ): Promise<GeminiIntentPayload> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), config.intentClassifierTimeoutMs);
-    const prompt = this.prompt(message);
+    const prompt = this.prompt(message, context);
     this.logDebug(config, 'prompt', prompt);
 
     try {
@@ -109,17 +114,36 @@ export class GeminiIntentClassifierService implements IntentClassifier {
     }
   }
 
-  private prompt(message: string): string {
-    return [
+  private prompt(message: string, context?: ConversationTurnContext): string {
+    const lines = [
       'Classify this Sentient HR assistant user message.',
       'Return JSON only, no markdown.',
       'Allowed requiredAgents values: LEAVE_AGENT, OKR_AGENT, CAREER_AGENT, ANALYTICS_AGENT, ONBOARDING_AGENT, LANGUAGE_AGENT, GENERAL_HELP_AGENT, HUMAN_ESCALATION_AGENT.',
       'Allowed draftCategory values: OBJECTIVE, SELF_REVIEW, MANAGER_FEEDBACK, HR_ANNOUNCEMENT, POLICY_SUMMARY, WORKFORCE_INSIGHT, PHRASE_REWRITE, or null.',
       'Set isGreeting true for short standalone greetings or small talk such as hello, hi, hey, good morning, how are you, how are u, how is it going, or what is up.',
       'Set requiresClarification true only when the message has a real business request but not enough routing detail.',
+      'Set isHumanEscalationIntent true only when the user explicitly asks to reach a human, HR person, manager, HRBP, or People team.',
+      'If the message is a follow-up to the recent conversation, resolve it against that context before classifying.',
+      'Set confidence between 0 and 1 reflecting how sure you are about requiredAgents.',
       'Schema: {"requiredAgents":[],"requiresClarification":false,"clarificationReason":null,"isDraftIntent":false,"draftCategory":null,"isHumanEscalationIntent":false,"isGreeting":false,"confidence":0.0}',
-      `Message: ${message}`,
-    ].join('\n');
+    ];
+    const recentMessages = context?.recentMessages.slice(-4) ?? [];
+    if (recentMessages.length > 0) {
+      lines.push('Recent conversation (oldest first):');
+      for (const recent of recentMessages) {
+        lines.push(`${recent.role}: ${this.truncate(recent.content, 200)}`);
+      }
+    }
+    if (context && context.priorHandoffAgents.length > 0) {
+      lines.push(`Previously consulted specialists: ${context.priorHandoffAgents.join(', ')}`);
+    }
+    lines.push(`Message: ${message}`);
+    return lines.join('\n');
+  }
+
+  private truncate(value: string, maxLength: number): string {
+    const normalized = value.replace(/\s+/g, ' ').trim();
+    return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 3)}...` : normalized;
   }
 
   private toClassification(message: string, payload: GeminiIntentPayload): SupervisorIntentClassification {
@@ -127,7 +151,10 @@ export class GeminiIntentClassifierService implements IntentClassifier {
     const isGreeting = payload.isGreeting === true;
     const requiredAgents = this.validAgents(payload.requiredAgents ?? []);
     const requiresClarification = isGreeting ? false : payload.requiresClarification === true;
-    const confidence = typeof payload.confidence === 'number' ? Math.max(0, Math.min(1, payload.confidence)) : 0.5;
+    // WHY: A missing confidence means the model did not commit to its routing.
+    // Defaulting to 0 keeps it below the clarification threshold instead of
+    // silently passing as "probably fine" (0.5).
+    const confidence = typeof payload.confidence === 'number' ? Math.max(0, Math.min(1, payload.confidence)) : 0;
 
     return {
       normalizedIntent,

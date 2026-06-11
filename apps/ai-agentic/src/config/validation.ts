@@ -39,6 +39,17 @@ export function parseOptionalString(value: string | undefined): string | null {
   return raw && raw.length > 0 ? raw : null;
 }
 
+export function parseRatio(value: string | undefined, fallback: number, name: string): number {
+  const raw = value ?? String(fallback);
+  const parsed = Number(raw);
+
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
+    throw new Error(`${name} must be a number between 0 and 1`);
+  }
+
+  return parsed;
+}
+
 export function parseBoolean(value: string | undefined, fallback: boolean, name: string): boolean {
   const raw = (value ?? String(fallback)).trim().toLowerCase();
   if (raw === 'true' || raw === '1' || raw === 'yes') return true;
