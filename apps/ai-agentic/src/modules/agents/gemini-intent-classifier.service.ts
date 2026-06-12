@@ -64,7 +64,17 @@ export class GeminiIntentClassifierService implements IntentClassifier {
 
     try {
       const payload = await this.callGemini(message, aiConfig, apiKey, context);
-      return this.toClassification(message, payload);
+      const classification = this.toClassification(message, payload);
+      if (this.shouldForceHolidayCalendarToLeave(message, fallbackClassification, classification)) {
+        return {
+          ...classification,
+          requiredAgents: [AgentType.LEAVE_AGENT],
+          requiresClarification: false,
+          clarificationReason: null,
+          confidence: Math.max(classification.confidence, fallbackClassification.confidence, 0.85),
+        };
+      }
+      return classification;
     } catch {
       return fallbackClassification;
     }
@@ -123,6 +133,7 @@ export class GeminiIntentClassifierService implements IntentClassifier {
       'Set isGreeting true for short standalone greetings or small talk such as hello, hi, hey, good morning, how are you, how are u, how is it going, or what is up.',
       'Set requiresClarification true only when the message has a real business request but not enough routing detail.',
       'Set isHumanEscalationIntent true only when the user explicitly asks to reach a human, HR person, manager, HRBP, or People team.',
+      'Route bank/public/company/national/official holiday calendar questions to LEAVE_AGENT, not GENERAL_HELP_AGENT.',
       'If the message is a follow-up to the recent conversation, resolve it against that context before classifying.',
       'Set confidence between 0 and 1 reflecting how sure you are about requiredAgents.',
       'Schema: {"requiredAgents":[],"requiresClarification":false,"clarificationReason":null,"isDraftIntent":false,"draftCategory":null,"isHumanEscalationIntent":false,"isGreeting":false,"confidence":0.0}',
@@ -174,6 +185,29 @@ export class GeminiIntentClassifierService implements IntentClassifier {
 
   private validAgents(values: string[]): AgentType[] {
     return [...new Set(values.filter((value) => AGENT_TYPES.has(value)))].map((value) => value as AgentType);
+  }
+
+  private shouldForceHolidayCalendarToLeave(
+    message: string,
+    fallbackClassification: SupervisorIntentClassification,
+    classification: SupervisorIntentClassification,
+  ): boolean {
+    if (!this.requestsHolidayCalendar(message)) return false;
+    if (!fallbackClassification.requiredAgents.includes(AgentType.LEAVE_AGENT)) return false;
+    return (
+      classification.requiredAgents.length === 0 ||
+      classification.requiredAgents.every((agentType) => agentType === AgentType.GENERAL_HELP_AGENT)
+    );
+  }
+
+  private requestsHolidayCalendar(message: string): boolean {
+    const text = message.toLowerCase();
+    if (/\b(bank|public|company|national|official)\s+holidays?\b/.test(text)) return true;
+    return (
+      /\bholidays?\b/.test(text) &&
+      /\b(calendar|list|dates?|when|which|upcoming|next|country|this year)\b/.test(text) &&
+      !/\b(balance|remaining|left|book|request|take)\b/.test(text)
+    );
   }
 
   private validDraftCategory(value: string | null | undefined): DraftIntentCategory | null {

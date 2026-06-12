@@ -14,7 +14,7 @@ export class HolidayQueryDto {
   @IsUUID()
   businessUnitId?: string;
 
-  @ApiPropertyOptional({ description: 'Calendar year; recurring holidays are always included' })
+  @ApiPropertyOptional({ description: 'Calendar year; yearless recurring holiday templates are included' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

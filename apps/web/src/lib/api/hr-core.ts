@@ -277,6 +277,7 @@ export interface BusinessUnit {
   id: string;
   name: string;
   address: string;
+  currency: string;
   isActive: boolean;
   createdAt: string;
 }
@@ -288,14 +289,14 @@ export async function getBusinessUnits(): Promise<BusinessUnit[]> {
   return Array.isArray(data) ? data : data.data;
 }
 
-export async function createBusinessUnit(dto: { name: string; address: string }): Promise<BusinessUnit> {
+export async function createBusinessUnit(dto: { name: string; address: string; currency: string }): Promise<BusinessUnit> {
   const { data } = await hrClient.post<BusinessUnit>('/business-units', dto);
   return data;
 }
 
 export async function updateBusinessUnit(
   id: string,
-  dto: Partial<{ name: string; address: string; isActive: boolean }>,
+  dto: Partial<{ name: string; address: string; currency: string; isActive: boolean }>,
 ): Promise<BusinessUnit> {
   const { data } = await hrClient.patch<BusinessUnit>(`/business-units/${id}`, dto);
   return data;

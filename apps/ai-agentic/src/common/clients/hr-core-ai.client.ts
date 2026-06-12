@@ -45,6 +45,22 @@ export interface TeamLeaveAiContext extends DownstreamSummary {
   windowEnd: string;
 }
 
+/** Per-employee aggregation over a historical leave window. */
+export interface AbsenceSummaryEntry {
+  employeeId: string;
+  employeeName: string;
+  /** Number of distinct approved-leave periods in the window. */
+  spells: number;
+  /** Approximate total calendar days (inclusive start→end). */
+  calendarDays: number;
+}
+
+export interface TeamAbsenceSummaryContext extends DownstreamSummary {
+  entries: AbsenceSummaryEntry[];
+  windowStart: string;
+  windowEnd: string;
+}
+
 /** Mirrors HR Core Holiday (dates serialize to ISO strings). */
 export interface HolidayContext {
   id: string;
@@ -160,6 +176,69 @@ export class HrCoreAiClient {
         windowEnd: to,
       },
     };
+  }
+
+  /**
+   * WHY: Absence-frequency questions ("who is always absent") need a historical
+   * window, not the forward-looking team-calendar window. This method queries the
+   * past 365 days and aggregates per employee so the caller never receives raw
+   * individual rows — just spell counts and calendar day totals, ranked descending.
+   * HR Core's scope filter (TEAM/GLOBAL via JWT claims) is enforced server-side.
+   */
+  async getTeamAbsenceSummaryContext(context: DownstreamRequestContext): Promise<DownstreamResult<TeamAbsenceSummaryContext>> {
+    const windowEnd = new Date();
+    const windowStart = new Date(windowEnd.getTime() - 365 * 24 * 60 * 60 * 1000);
+    const from = windowStart.toISOString().slice(0, 10);
+    const to = windowEnd.toISOString().slice(0, 10);
+    const query = new URLSearchParams({ from, to });
+
+    const result = await this.get<TeamCalendarEntryContext[]>(
+      `/leave-requests/team-calendar?${query.toString()}`,
+      context,
+      'LEAVE_ABSENCE_SUMMARY',
+      'Team absence summary',
+    );
+
+    if (result.permissionDecision !== PermissionDecision.ALLOWED) {
+      return { ...result, data: null };
+    }
+
+    const rawEntries = Array.isArray(result.data) ? result.data : [];
+    const byEmployee = new Map<string, AbsenceSummaryEntry>();
+    for (const entry of rawEntries) {
+      const days = HrCoreAiClient.calendarDaysBetween(entry.startDate, entry.endDate);
+      const existing = byEmployee.get(entry.employeeId);
+      if (existing) {
+        existing.spells += 1;
+        existing.calendarDays += days;
+      } else {
+        byEmployee.set(entry.employeeId, {
+          employeeId: entry.employeeId,
+          employeeName: entry.employeeName,
+          spells: 1,
+          calendarDays: days,
+        });
+      }
+    }
+
+    const sortedEntries = [...byEmployee.values()].sort(
+      (a, b) => b.spells - a.spells || b.calendarDays - a.calendarDays,
+    );
+
+    return {
+      ...result,
+      data: {
+        id: 'leave:absence-summary',
+        entries: sortedEntries,
+        windowStart: from,
+        windowEnd: to,
+      },
+    };
+  }
+
+  private static calendarDaysBetween(startDate: string, endDate: string): number {
+    const msPerDay = 1000 * 60 * 60 * 24;
+    return Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / msPerDay) + 1);
   }
 
   /**

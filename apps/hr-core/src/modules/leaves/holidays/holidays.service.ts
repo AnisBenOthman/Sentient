@@ -13,7 +13,7 @@ export class HolidaysService {
     const holidays = await this.prisma.holiday.findMany({
       where: {
         businessUnitId,
-        OR: [{ year }, { isRecurring: true }],
+        OR: [{ year }, { isRecurring: true, year: null }],
       },
       select: { date: true },
     });
@@ -25,7 +25,9 @@ export class HolidaysService {
     return this.prisma.holiday.findMany({
       where: {
         ...(query.businessUnitId ? { businessUnitId: query.businessUnitId } : {}),
-        ...(query.year !== undefined ? { OR: [{ year: query.year }, { isRecurring: true }] } : {}),
+        ...(query.year !== undefined
+          ? { OR: [{ year: query.year }, { isRecurring: true, year: null }] }
+          : {}),
       },
       orderBy: { date: 'asc' },
     });

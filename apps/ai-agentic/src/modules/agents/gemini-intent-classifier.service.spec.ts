@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { AgentType } from '../../generated/prisma';
 import { GeminiIntentClassifierService } from './gemini-intent-classifier.service';
 import { SupervisorIntentClassifierService } from './supervisor-intent-classifier.service';
 
@@ -145,6 +146,54 @@ describe('GeminiIntentClassifierService', () => {
       expect(capturedBody).toContain('Recent conversation');
       expect(capturedBody).toContain('What is my leave balance?');
       expect(capturedBody).toContain('Previously consulted specialists: LEAVE_AGENT');
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it('keeps holiday calendar prompts on the Leave Agent when Gemini returns general help', async () => {
+    const config = {
+      get: () => ({
+        geminiApiKey: 'test-key',
+        geminiApiUrl: 'https://generativelanguage.googleapis.com/v1beta',
+        geminiModel: 'gemini-2.5-flash-lite',
+        intentClassifierTimeoutMs: 3000,
+        intentClassifierDebugLogs: false,
+      }),
+    } as unknown as ConfigService;
+    const originalFetch = global.fetch;
+    global.fetch = (async () => ({
+      ok: true,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    requiredAgents: ['GENERAL_HELP_AGENT'],
+                    requiresClarification: false,
+                    isDraftIntent: false,
+                    isHumanEscalationIntent: false,
+                    isGreeting: false,
+                    confidence: 0.9,
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    })) as unknown as typeof fetch;
+    const service = new GeminiIntentClassifierService(config, new SupervisorIntentClassifierService());
+
+    try {
+      const result = await service.classify('bank holidays in my country');
+
+      expect(result.source).toBe('gemini');
+      expect(result.requiresClarification).toBe(false);
+      expect(result.requiredAgents).toEqual([AgentType.LEAVE_AGENT]);
+      expect(result.confidence).toBe(0.9);
     } finally {
       global.fetch = originalFetch;
     }
