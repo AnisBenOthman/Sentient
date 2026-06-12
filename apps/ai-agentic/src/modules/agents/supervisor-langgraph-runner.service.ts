@@ -216,7 +216,7 @@ export class SupervisorLangGraphRunnerService {
       },
     });
 
-    const safety = this.guardrails.evaluate(state.input.userMessage, state.input.actor);
+    let safety = this.guardrails.evaluate(state.input.userMessage, state.input.actor);
     let classification = await this.classifier.classify(
       state.input.userMessage,
       state.input.conversationContext,
@@ -239,6 +239,44 @@ export class SupervisorLangGraphRunnerService {
         requiredAgents: [],
         requiresClarification: true,
         clarificationReason: 'The request could not be routed confidently; one more detail is needed.',
+      };
+    }
+
+    /**
+     * WHY: The guardrail scope gate is a static keyword list and cannot keep up
+     * with real HR vocabulary ("bank holidays in my country" carried no listed
+     * term and was refused even though the LLM classifier routed it to the
+     * Leave Agent at 0.9 confidence). When the Gemini classifier — which sees
+     * the conversation context — confidently selects a specialist or an
+     * escalation, that judgment outranks the keyword gate. Only the benign
+     * OUT_OF_SCOPE verdict is overridable; hard safety refusals (unauthorized
+     * data, unsafe actions, conflict escalations) are never bypassed.
+     */
+    if (
+      safety.classification === 'OUT_OF_SCOPE' &&
+      classification.source === 'gemini' &&
+      !classification.requiresClarification &&
+      classification.confidence >= this.scopeOverrideThreshold() &&
+      (this.runnableSpecialists(classification).length > 0 ||
+        this.classifierRequestsEscalation(classification))
+    ) {
+      this.logTrace('supervisor.scopeOverride', {
+        guardrailClassification: safety.classification,
+        classifierSource: classification.source,
+        confidence: classification.confidence,
+        requiredAgents: classification.requiredAgents,
+        isHumanEscalationIntent: classification.isHumanEscalationIntent,
+      });
+      safety = {
+        classification: 'SENTIENT',
+        allowed: true,
+        status: AgentRunStatus.SUCCESS,
+        message: 'Scope allowed by confident intent classification.',
+        shouldEscalate: false,
+        requiresClarification: false,
+        allowedAgents: [],
+        declinedTopics: [],
+        sensitivity: 'LOW',
       };
     }
 
@@ -663,6 +701,10 @@ export class SupervisorLangGraphRunnerService {
 
   private confidenceThreshold(): number {
     return this.config?.get<AiAgenticConfig>('aiAgentic')?.intentConfidenceThreshold ?? 0.4;
+  }
+
+  private scopeOverrideThreshold(): number {
+    return this.config?.get<AiAgenticConfig>('aiAgentic')?.intentScopeOverrideThreshold ?? 0.7;
   }
 
   private logTrace(event: string, payload: Record<string, unknown>): void {

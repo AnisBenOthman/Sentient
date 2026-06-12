@@ -17,8 +17,9 @@ import { RbacGuard, Roles, SharedJwtGuard } from '@sentient/shared';
 import { Holiday } from '../../../generated/prisma';
 import { UserStatusGuard } from '../../iam/guards/user-status.guard';
 import { CreateHolidayDto } from '../dto/create-holiday.dto';
+import { HolidayQueryDto } from '../dto/holiday-query.dto';
 import { UpdateHolidayDto } from '../dto/update-holiday.dto';
-import { HolidayQueryDto, HolidaysService } from './holidays.service';
+import { HolidaysService } from './holidays.service';
 
 @Controller('holidays')
 @UseGuards(SharedJwtGuard, UserStatusGuard, RbacGuard)

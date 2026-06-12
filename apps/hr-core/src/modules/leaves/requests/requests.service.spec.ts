@@ -48,7 +48,7 @@ function makeEmployee(buId: string | null = 'bu-1') {
 }
 
 function makeLeaveType(requiresApproval = true, buId = 'bu-1') {
-  return { id: 'lt-1', businessUnitId: buId, name: 'Annual', defaultDaysPerYear: new Decimal(24), accrualFrequency: 'MONTHLY', maxCarryoverDays: new Decimal(5), requiresApproval, color: null, createdAt: new Date(), updatedAt: new Date() };
+  return { id: 'lt-1', businessUnitId: buId, name: 'Annual', defaultDaysPerYear: new Decimal(24), accrualFrequency: 'MONTHLY', maxCarryoverDays: new Decimal(5), requiresApproval, color: null, isActive: true, createdAt: new Date(), updatedAt: new Date() };
 }
 
 describe('RequestsService', () => {

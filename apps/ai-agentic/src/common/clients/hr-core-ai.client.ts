@@ -45,6 +45,20 @@ export interface TeamLeaveAiContext extends DownstreamSummary {
   windowEnd: string;
 }
 
+/** Mirrors HR Core Holiday (dates serialize to ISO strings). */
+export interface HolidayContext {
+  id: string;
+  name: string;
+  date: string;
+  isRecurring: boolean;
+  year?: number | null;
+}
+
+export interface HolidayAiContext extends DownstreamSummary {
+  holidays: HolidayContext[];
+  year: number;
+}
+
 /** Mirrors HR Core ObjectiveResponseDto (subset the assistant summarizes). */
 export interface OkrObjectiveContext {
   id: string;
@@ -144,6 +158,40 @@ export class HrCoreAiClient {
         entries: Array.isArray(result.data) ? result.data : [],
         windowStart: from,
         windowEnd: to,
+      },
+    };
+  }
+
+  /**
+   * WHY: "bank holidays in my country" routes to the Leave Agent, which needs
+   * real Holiday rows rather than a generic answer. The actor's business unit
+   * scopes the list when known; HR Core includes recurring holidays for the
+   * requested year.
+   */
+  async getHolidaysContext(
+    businessUnitId: string | null,
+    context: DownstreamRequestContext,
+  ): Promise<DownstreamResult<HolidayAiContext>> {
+    const year = new Date().getUTCFullYear();
+    const query = new URLSearchParams({ year: String(year) });
+    if (businessUnitId) query.set('businessUnitId', businessUnitId);
+    const result = await this.get<HolidayContext[]>(
+      `/holidays?${query.toString()}`,
+      context,
+      'HOLIDAYS',
+      'Company holidays',
+    );
+
+    if (result.permissionDecision !== PermissionDecision.ALLOWED) {
+      return { ...result, data: null };
+    }
+
+    return {
+      ...result,
+      data: {
+        id: 'leave:holidays',
+        holidays: Array.isArray(result.data) ? result.data : [],
+        year,
       },
     };
   }

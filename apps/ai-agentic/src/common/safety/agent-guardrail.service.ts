@@ -11,6 +11,7 @@ const SENTIENT_TERMS = [
   'team',
   'leave',
   'okr',
+  'okrs',
   'objective',
   'career',
   'skill',
@@ -34,6 +35,29 @@ const SENTIENT_TERMS = [
   'self-review',
   'self review',
   'feedback',
+  'holiday',
+  'vacation',
+  'time off',
+  'day off',
+  'days off',
+  'pto',
+  'sick',
+  'absence',
+  'salary',
+  'payslip',
+  'payroll',
+  'compensation',
+  'bonus',
+  'benefit',
+  'probation',
+  'contract',
+  'promotion',
+  'overtime',
+  'remote work',
+  'work from home',
+  'resignation',
+  'termination',
+  'notice period',
 ];
 
 function escapeRegExp(value: string): string {
@@ -44,10 +68,13 @@ function escapeRegExp(value: string): string {
  * WHY: Substring matching previously classified almost any English sentence as
  * Sentient-scoped ('hr' matched inside "three"/"chrome", 'team' inside "steam"),
  * which made the polite out-of-scope branch unreachable (SC-011). Whole-word
- * matching keeps the scope gate meaningful.
+ * matching keeps the scope gate meaningful. Terms longer than three characters
+ * accept an optional plural so "bank holidays"/"objectives" still match, while
+ * short acronyms ('hr', 'okr', 'pto') stay exact to avoid collisions like "hrs".
  */
 const SENTIENT_TERM_PATTERNS = SENTIENT_TERMS.map(
-  (term) => new RegExp(`\\b${escapeRegExp(term)}\\b`, 'i'),
+  (term) =>
+    new RegExp(term.length > 3 ? `\\b${escapeRegExp(term)}s?\\b` : `\\b${escapeRegExp(term)}\\b`, 'i'),
 );
 
 const OFF_TOPIC_TERMS = [

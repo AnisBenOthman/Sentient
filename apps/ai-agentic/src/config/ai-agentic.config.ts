@@ -10,6 +10,7 @@ export interface AiAgenticConfig {
   intentClassifierProvider: IntentClassifierProvider;
   intentClassifierTimeoutMs: number;
   intentConfidenceThreshold: number;
+  intentScopeOverrideThreshold: number;
   geminiApiKey: string | null;
   geminiApiUrl: string;
   geminiModel: string;
@@ -46,6 +47,11 @@ export const aiAgenticConfig = registerAs('aiAgentic', (): AiAgenticConfig => ({
     process.env.AI_AGENT_INTENT_CONFIDENCE_THRESHOLD,
     0.4,
     'AI_AGENT_INTENT_CONFIDENCE_THRESHOLD',
+  ),
+  intentScopeOverrideThreshold: parseRatio(
+    process.env.AI_AGENT_SCOPE_OVERRIDE_THRESHOLD,
+    0.7,
+    'AI_AGENT_SCOPE_OVERRIDE_THRESHOLD',
   ),
   geminiApiKey: parseOptionalString(process.env.GEMINI_API_KEY),
   geminiApiUrl: parseHttpUrl(

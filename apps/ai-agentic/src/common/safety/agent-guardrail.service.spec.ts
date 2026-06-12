@@ -48,6 +48,27 @@ describe('AgentGuardrailService', () => {
     expect(result.classification).toBe('SENTIENT');
   });
 
+  // WHY: "bank holidays in my country" was refused as out-of-scope even though
+  // holidays are an HR Core entity and the intent classifier routed it to the
+  // Leave Agent — the keyword list was missing everyday HR vocabulary.
+  const hrVocabularyPrompts = [
+    'bank holidays in my country',
+    'How much vacation do I have left?',
+    'my current salary',
+    'Can I take a sick day tomorrow?',
+    'When does my probation end?',
+    'What are my objectives for this quarter?',
+  ];
+
+  for (const message of hrVocabularyPrompts) {
+    it(`recognizes HR vocabulary as in-scope: ${message}`, () => {
+      const result = service.evaluate(message);
+
+      expect(result.allowed).toBe(true);
+      expect(result.classification).toBe('SENTIENT');
+    });
+  }
+
   it('allows simple greetings so the supervisor can clarify within Sentient', () => {
     const result = service.evaluate('hello');
 

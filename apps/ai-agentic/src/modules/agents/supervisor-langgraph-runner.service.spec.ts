@@ -185,6 +185,109 @@ describe('SupervisorLangGraphRunnerService', () => {
     expect(result.finalAnswer.content).toContain('outside your Sentient permissions');
   });
 
+  // WHY: the keyword scope gate refused "bank holidays in my country" even though
+  // Gemini routed it to the Leave Agent at 0.9 confidence. A confident LLM
+  // classification overrides the OUT_OF_SCOPE keyword verdict.
+  it('lets a confident gemini classification override the keyword out-of-scope gate', async () => {
+    const runner = createRunner({
+      parentLog: buildParentLog('scope override'),
+      classifier: {
+        classify: async () => ({
+          normalizedIntent: 'How many RTT rest entitlements can I use this year?',
+          requiredAgents: [AgentType.LEAVE_AGENT],
+          requiresClarification: false,
+          clarificationReason: null,
+          isDraftIntent: false,
+          draftCategory: null,
+          isHumanEscalationIntent: false,
+          isGreeting: false,
+          confidence: 0.9,
+          source: 'gemini',
+        }),
+      },
+      leaveAgent: {
+        execute: async () => ({
+          agentType: AgentType.LEAVE_AGENT,
+          status: AgentRunStatus.SUCCESS,
+          summary: 'Answered the entitlement question.',
+          userVisibleContent: 'You can use 8 RTT rest entitlements this year.',
+          sourceContext: [],
+          permissionDecision: PermissionDecision.ALLOWED,
+        }),
+      },
+    });
+
+    const result = await runner.execute(turnInput('How many RTT rest entitlements can I use this year?'));
+
+    expect(result.finalAnswer.status).toBe(AgentRunStatus.SUCCESS);
+    expect(result.finalAnswer.content).toContain('8 RTT rest entitlements');
+    expect(result.routing.nodes.map((node) => node.nodeType)).toEqual([
+      AgentNodeType.SUPERVISOR,
+      AgentNodeType.SPECIALIST,
+      AgentNodeType.FINAL_ANSWER,
+    ]);
+  });
+
+  it('does not let the rules classifier override the out-of-scope gate', async () => {
+    const runner = createRunner({
+      parentLog: buildParentLog('rules no override'),
+      classifier: {
+        classify: async () => ({
+          normalizedIntent: 'How many RTT rest entitlements can I use this year?',
+          requiredAgents: [AgentType.LEAVE_AGENT],
+          requiresClarification: false,
+          clarificationReason: null,
+          isDraftIntent: false,
+          draftCategory: null,
+          isHumanEscalationIntent: false,
+          isGreeting: false,
+          confidence: 0.9,
+          source: 'rules',
+        }),
+      },
+      leaveAgent: {
+        execute: async () => {
+          throw new Error('Out-of-scope turns must not reach specialists without an LLM override.');
+        },
+      },
+    });
+
+    const result = await runner.execute(turnInput('How many RTT rest entitlements can I use this year?'));
+
+    expect(result.finalAnswer.status).toBe(AgentRunStatus.OUT_OF_SCOPE);
+    expect(result.finalAnswer.content).toContain('outside my Sentient scope');
+  });
+
+  it('never lets a confident classification override hard guardrail refusals', async () => {
+    const runner = createRunner({
+      parentLog: buildParentLog('hard refusal'),
+      classifier: {
+        classify: async () => ({
+          normalizedIntent: "Show me another employee's salary.",
+          requiredAgents: [AgentType.LEAVE_AGENT],
+          requiresClarification: false,
+          clarificationReason: null,
+          isDraftIntent: false,
+          draftCategory: null,
+          isHumanEscalationIntent: false,
+          isGreeting: false,
+          confidence: 0.95,
+          source: 'gemini',
+        }),
+      },
+      leaveAgent: {
+        execute: async () => {
+          throw new Error('Unauthorized-data refusals must never reach specialists.');
+        },
+      },
+    });
+
+    const result = await runner.execute(turnInput("Show me another employee's salary."));
+
+    expect(result.finalAnswer.status).toBe(AgentRunStatus.REFUSED);
+    expect(result.finalAnswer.content).toContain('outside your Sentient permissions');
+  });
+
   it('routes classifier-detected human-support requests to the escalation node', async () => {
     const nextStep = 'Please contact your manager for support.';
     let recordedReason: string | null = null;

@@ -2,12 +2,8 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { Holiday, Prisma } from '../../../generated/prisma';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateHolidayDto } from '../dto/create-holiday.dto';
+import { HolidayQueryDto } from '../dto/holiday-query.dto';
 import { UpdateHolidayDto } from '../dto/update-holiday.dto';
-
-export interface HolidayQueryDto {
-  businessUnitId?: string;
-  year?: number;
-}
 
 @Injectable()
 export class HolidaysService {

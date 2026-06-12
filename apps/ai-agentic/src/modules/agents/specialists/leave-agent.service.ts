@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AgentRunStatus, AgentType, PermissionDecision } from '../../../generated/prisma';
 import {
+  HolidayAiContext,
   HrCoreAiClient,
   LeaveAiContext,
   LeaveBalanceContext,
@@ -27,6 +28,25 @@ export class LeaveAgentService implements SpecialistAgent {
 
   async execute(input: SpecialistInput): Promise<SpecialistResult> {
     const hasTeamLeaveScope = this.hasTeamLeaveScope(input);
+
+    /**
+     * WHY: "bank holidays in my country" is a calendar question, not a balance
+     * question. Holidays are public read-only data every role may list, so this
+     * branch runs before the privacy checks and answers from real Holiday rows.
+     */
+    if (this.requestsHolidayCalendar(input)) {
+      const holidays = await this.hrCore.getHolidaysContext(input.actorContext.businessUnitId, {
+        jwt: input.actorContext.jwt,
+        correlationId: input.actorContext.correlationId,
+      });
+      return downstreamResult(
+        input,
+        this.agentType,
+        holidays,
+        'Company holiday calendar prepared.',
+        this.describeHolidays(holidays.data),
+      );
+    }
 
     /**
      * WHY: FR-008 — managers and HR admins are entitled to team-level leave
@@ -113,6 +133,26 @@ export class LeaveAgentService implements SpecialistAgent {
     return lines.join('\n');
   }
 
+  private describeHolidays(context: HolidayAiContext | null): string {
+    if (!context) {
+      return 'I could not read the company holiday calendar right now; you can check it in the Leaves module.';
+    }
+    const holidays = Array.isArray(context.holidays) ? context.holidays : [];
+    if (holidays.length === 0) {
+      return `No company holidays are configured for ${context.year} yet. HR admins maintain the holiday calendar in the Leaves module.`;
+    }
+
+    const shown = holidays.slice(0, 15);
+    const lines = [`Company holidays for ${context.year} (${holidays.length}):`];
+    for (const holiday of shown) {
+      lines.push(`- ${holiday.name}: ${this.formatDate(holiday.date)}${holiday.isRecurring ? ' (recurring annually)' : ''}`);
+    }
+    if (holidays.length > shown.length) {
+      lines.push(`...and ${holidays.length - shown.length} more in the Leaves module calendar.`);
+    }
+    return lines.join('\n');
+  }
+
   private describeTeamCoverage(context: TeamLeaveAiContext | null): string {
     if (!context) {
       return 'I could not read team leave coverage right now, but you can check the team calendar in the Leaves module.';
@@ -194,6 +234,22 @@ export class LeaveAgentService implements SpecialistAgent {
 
   private hasTeamLeaveScope(input: SpecialistInput): boolean {
     return input.actorContext.roles.some((role) => TEAM_LEAVE_SCOPE_ROLES.includes(role));
+  }
+
+  /**
+   * WHY: "holiday" alone is ambiguous — British English uses it for personal
+   * leave ("how much holiday do I have left?"), which must stay on the balance
+   * path. Qualified forms (bank/public/company holidays) or calendar phrasing
+   * without balance words mark a holiday-calendar question.
+   */
+  private requestsHolidayCalendar(input: SpecialistInput): boolean {
+    const text = `${input.normalizedIntent} ${input.userMessage}`.toLowerCase();
+    if (/\b(bank|public|company|national|official)\s+holidays?\b/.test(text)) return true;
+    return (
+      /\bholidays?\b/.test(text) &&
+      /\b(calendar|list|dates?|when|which|upcoming|next|country|this year)\b/.test(text) &&
+      !/\b(balance|remaining|left|book|request|take)\b/.test(text)
+    );
   }
 
   private requestsTeamCoverage(input: SpecialistInput): boolean {

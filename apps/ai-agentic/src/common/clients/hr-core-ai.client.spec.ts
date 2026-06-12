@@ -79,6 +79,43 @@ describe('HrCoreAiClient', () => {
     expect(result.data?.recentRequests.length).toBe(1);
   });
 
+  it('requests current-year holidays scoped to the actor business unit', async () => {
+    const config = {
+      get: (): string => 'http://hr-core.local',
+    } as unknown as ConfigService;
+    const calls: HttpCall[] = [];
+    const http = {
+      get: async <TData>(
+        baseUrl: string,
+        path: string,
+        requestContext: DownstreamRequestContext,
+        sourceType: string,
+        sourceTitle: string,
+      ): Promise<DownstreamResult<TData>> => {
+        calls.push({ baseUrl, path, context: requestContext, sourceType, sourceTitle });
+        return {
+          data: [
+            { id: 'h-1', name: 'Independence Day', date: '2026-07-05T00:00:00.000Z', isRecurring: true },
+          ] as TData,
+          permissionDecision: PermissionDecision.ALLOWED,
+          degradedReason: null,
+          sourceType,
+          sourceTitle,
+        };
+      },
+    } as unknown as HttpJsonClient;
+    const client = new HrCoreAiClient(config, http);
+
+    const result = await client.getHolidaysContext('bu-1', context);
+
+    const expectedYear = new Date().getUTCFullYear();
+    expect(calls.length).toBe(1);
+    expect(calls[0]?.path).toBe(`/holidays?year=${expectedYear}&businessUnitId=bu-1`);
+    expect(calls[0]?.sourceType).toBe('HOLIDAYS');
+    expect(result.data?.year).toBe(expectedYear);
+    expect(result.data?.holidays.length).toBe(1);
+  });
+
   it('degrades leave context without a linked employee id', async () => {
     const config = {
       get: (): string => 'http://hr-core.local',

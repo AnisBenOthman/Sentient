@@ -113,6 +113,81 @@ describe('LeaveAgentService manager team coverage (FR-008)', () => {
   });
 });
 
+describe('LeaveAgentService holiday calendar', () => {
+  it('answers bank-holiday questions from real Holiday rows', async () => {
+    let holidayCalls = 0;
+    const hrCore = {
+      getHolidaysContext: async () => {
+        holidayCalls += 1;
+        return {
+          data: {
+            id: 'leave:holidays',
+            year: 2026,
+            holidays: [
+              { id: 'h-1', name: 'Independence Day', date: '2026-07-05T00:00:00.000Z', isRecurring: true },
+              { id: 'h-2', name: 'Revolution Day', date: '2026-11-01T00:00:00.000Z', isRecurring: true },
+            ],
+          },
+          permissionDecision: PermissionDecision.ALLOWED,
+          degradedReason: null,
+          sourceType: 'HOLIDAYS',
+          sourceTitle: 'Company holidays',
+        };
+      },
+      getLeaveContext: async () => {
+        throw new Error('Holiday calendar questions must not read individual balances.');
+      },
+    } as unknown as HrCoreAiClient;
+    const agent = new LeaveAgentService(hrCore);
+
+    const result = await agent.execute(buildInput('bank holidays in my country', ['EMPLOYEE']));
+
+    expect(holidayCalls).toBe(1);
+    expect(result.status).toBe(AgentRunStatus.SUCCESS);
+    expect(result.userVisibleContent).toContain('Independence Day');
+    expect(result.userVisibleContent).toContain('2026-07-05');
+  });
+
+  it('keeps British-English holiday balance questions on the balance path', async () => {
+    const hrCore = {
+      getHolidaysContext: async () => {
+        throw new Error('Balance questions must not read the holiday calendar.');
+      },
+      getLeaveContext: async () => ({
+        data: { id: 'leave:current-year', balances: [], recentRequests: [] },
+        permissionDecision: PermissionDecision.ALLOWED,
+        degradedReason: null,
+        sourceType: 'LEAVE',
+        sourceTitle: 'Leave balance and history',
+      }),
+    } as unknown as HrCoreAiClient;
+    const agent = new LeaveAgentService(hrCore);
+
+    const result = await agent.execute(buildInput('How much holiday do I have left?', ['EMPLOYEE']));
+
+    expect(result.status).toBe(AgentRunStatus.SUCCESS);
+    expect(result.userVisibleContent).toContain('leave context');
+  });
+
+  it('says when no holidays are configured instead of failing', async () => {
+    const hrCore = {
+      getHolidaysContext: async () => ({
+        data: { id: 'leave:holidays', year: 2026, holidays: [] },
+        permissionDecision: PermissionDecision.ALLOWED,
+        degradedReason: null,
+        sourceType: 'HOLIDAYS',
+        sourceTitle: 'Company holidays',
+      }),
+    } as unknown as HrCoreAiClient;
+    const agent = new LeaveAgentService(hrCore);
+
+    const result = await agent.execute(buildInput('Which public holidays do we have this year?', ['EMPLOYEE']));
+
+    expect(result.status).toBe(AgentRunStatus.SUCCESS);
+    expect(result.userVisibleContent).toContain('No company holidays are configured for 2026');
+  });
+});
+
 describe('LeaveAgentService named-individual targeting', () => {
   it('refuses named third-party leave questions instead of answering with own records', async () => {
     let ownCalls = 0;
