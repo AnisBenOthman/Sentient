@@ -28,6 +28,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { getEmployee } from "@/lib/api/hr-core";
 import { getRoleTier, roleTierLabel, type RoleTier } from "@/lib/auth";
 import { NotificationsBell } from "@/components/notifications/notifications-bell";
+import { FloatingAiAssistant } from "@/components/ai/floating-ai-assistant";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -94,6 +95,7 @@ function NavItem({ item, collapsed }: NavItemProps) {
 
 export function Layout({ children }: LayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [location] = useLocation();
   const [dark, setDark] = useState(() =>
     document.documentElement.classList.contains("dark")
   );
@@ -122,6 +124,7 @@ export function Layout({ children }: LayoutProps) {
     : "?";
 
   const roleDisplay = roleTierLabel(roleTier);
+  const showFloatingAssistant = location !== "/ai-assistant";
 
   useEffect(() => {
     if (dark) {
@@ -289,6 +292,7 @@ export function Layout({ children }: LayoutProps) {
           {children}
         </div>
       </main>
+      {showFloatingAssistant && <FloatingAiAssistant />}
 
     </div>
   );
