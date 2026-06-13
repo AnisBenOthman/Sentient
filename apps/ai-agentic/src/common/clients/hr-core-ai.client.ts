@@ -100,6 +100,10 @@ export interface DashboardAiContext extends DownstreamSummary {
     active?: number;
     onLeave?: number;
     probation?: number;
+    /** Count of employees with TERMINAL employment status (used for EMPLOYEES_EXITS threshold). */
+    terminal?: number;
+    /** Attrition rate as a percentage, e.g. 5.2 means 5.2% (not 0.052). */
+    attritionRate?: number | null;
   } | null;
   leave?: {
     pendingApprovals?: number;
@@ -111,7 +115,86 @@ export interface DashboardAiContext extends DownstreamSummary {
   } | null;
 }
 
+/** One HR Core ThresholdIndicator row (active thresholds only). */
+export interface ThresholdConfig {
+  id: string;
+  metricKey: string;
+  label: string;
+  /** Alert when value >= this (null = not configured). */
+  warningThreshold: number | null;
+  /** Alert when value >= this (null = not configured). */
+  criticalThreshold: number | null;
+  /** Alert when value <= this (null = not configured). */
+  warningBelow: number | null;
+  /** Alert when value <= this (null = not configured). */
+  criticalBelow: number | null;
+}
+
+export interface KpiAlert {
+  metricKey: string;
+  label: string;
+  currentValue: number;
+  severity: 'CRITICAL' | 'WARNING';
+  /** The threshold value that was crossed. */
+  threshold: number;
+  /** ABOVE = high-is-bad metric crossed upward; BELOW = low-is-bad metric crossed downward. */
+  direction: 'ABOVE' | 'BELOW';
+}
+
+export interface KpiAlertContext extends DownstreamSummary {
+  alerts: KpiAlert[];
+  /** How many configured thresholds had a current value to compare against. */
+  checkedCount: number;
+  /** Threshold labels that could not be checked (no current value in dashboard analytics). */
+  uncheckedMetrics: string[];
+}
+
 const TEAM_COVERAGE_WINDOW_DAYS = 30;
+
+/**
+ * Raw shape needed for threshold evaluation — a superset of DashboardAiContext
+ * that includes fields the KPI alert logic requires but the AI summary omits.
+ */
+interface DashboardKpiRaw {
+  employees?: {
+    terminal?: number;
+    attritionRate?: number | null;
+    probation?: number;
+    [key: string]: unknown;
+  } | null;
+  leave?: {
+    pendingApprovals?: number;
+    [key: string]: unknown;
+  } | null;
+  [key: string]: unknown;
+}
+
+interface ThresholdBreachResult {
+  severity: 'CRITICAL' | 'WARNING';
+  threshold: number;
+  direction: 'ABOVE' | 'BELOW';
+}
+
+/**
+ * WHY: Critical threshold is checked before warning so a metric that crosses
+ * both only gets the highest-severity label. Above-threshold checks run before
+ * below-threshold checks — a metric cannot be both types simultaneously.
+ */
+function evaluateThreshold(value: number, config: ThresholdConfig): ThresholdBreachResult | null {
+  if (config.criticalThreshold != null && value >= config.criticalThreshold) {
+    return { severity: 'CRITICAL', threshold: config.criticalThreshold, direction: 'ABOVE' };
+  }
+  if (config.warningThreshold != null && value >= config.warningThreshold) {
+    return { severity: 'WARNING', threshold: config.warningThreshold, direction: 'ABOVE' };
+  }
+  if (config.criticalBelow != null && value <= config.criticalBelow) {
+    return { severity: 'CRITICAL', threshold: config.criticalBelow, direction: 'BELOW' };
+  }
+  if (config.warningBelow != null && value <= config.warningBelow) {
+    return { severity: 'WARNING', threshold: config.warningBelow, direction: 'BELOW' };
+  }
+  return null;
+}
 
 @Injectable()
 export class HrCoreAiClient {
@@ -325,6 +408,78 @@ export class HrCoreAiClient {
 
   getDashboardContext(context: DownstreamRequestContext): Promise<DownstreamResult<DashboardAiContext>> {
     return this.get<DashboardAiContext>('/analytics/dashboard', context, 'DASHBOARD', 'Dashboard analytics');
+  }
+
+  /**
+   * WHY: KPI threshold alerts require two separate fetches — active threshold config
+   * from /threshold-indicators plus current metric values from /analytics/dashboard.
+   * Comparison is done here (not in Gemini) so the LLM receives a pre-computed
+   * alert list rather than raw numbers it might misinterpret.
+   * PROMOTIONS_PENDING_REQUESTS has no corresponding field in dashboard analytics
+   * (the endpoint only exposes total historical promotions, not pending) so it is
+   * flagged as unchecked.
+   */
+  async getKpiAlertsContext(context: DownstreamRequestContext): Promise<DownstreamResult<KpiAlertContext>> {
+    const [thresholdsResult, dashboardResult] = await Promise.all([
+      this.get<ThresholdConfig[]>('/threshold-indicators', context, 'KPI_THRESHOLDS', 'KPI thresholds'),
+      this.get<DashboardKpiRaw>('/analytics/dashboard', context, 'DASHBOARD', 'Dashboard analytics'),
+    ]);
+
+    if (thresholdsResult.permissionDecision !== PermissionDecision.ALLOWED) {
+      return { ...thresholdsResult, data: null };
+    }
+    if (dashboardResult.permissionDecision !== PermissionDecision.ALLOWED) {
+      return { ...dashboardResult, data: null };
+    }
+
+    const thresholds = Array.isArray(thresholdsResult.data) ? thresholdsResult.data : [];
+    const dash = dashboardResult.data;
+
+    const metricValues: Record<string, number | null> = {
+      EMPLOYEES_EXITS: dash?.employees?.terminal ?? null,
+      EMPLOYEES_ATTRITION_RATE: dash?.employees?.attritionRate ?? null,
+      EMPLOYEES_PROBATION: dash?.employees?.probation ?? null,
+      LEAVE_PENDING_APPROVALS: dash?.leave?.pendingApprovals ?? null,
+      // Dashboard analytics exposes only total historical promotions, not pending
+      PROMOTIONS_PENDING_REQUESTS: null,
+    };
+
+    const alerts: KpiAlert[] = [];
+    const uncheckedMetrics: string[] = [];
+    let checkedCount = 0;
+
+    for (const threshold of thresholds) {
+      const currentValue = metricValues[threshold.metricKey] ?? null;
+      if (currentValue === null) {
+        uncheckedMetrics.push(threshold.label);
+        continue;
+      }
+      checkedCount += 1;
+      const breach = evaluateThreshold(currentValue, threshold);
+      if (breach) {
+        alerts.push({
+          metricKey: threshold.metricKey,
+          label: threshold.label,
+          currentValue,
+          severity: breach.severity,
+          threshold: breach.threshold,
+          direction: breach.direction,
+        });
+      }
+    }
+
+    return {
+      data: {
+        id: 'kpi:threshold-alerts',
+        alerts,
+        checkedCount,
+        uncheckedMetrics,
+      },
+      permissionDecision: PermissionDecision.ALLOWED,
+      degradedReason: null,
+      sourceType: 'KPI_THRESHOLDS',
+      sourceTitle: 'KPI threshold alerts',
+    };
   }
 
   private async getLeaveBalanceAndHistory(

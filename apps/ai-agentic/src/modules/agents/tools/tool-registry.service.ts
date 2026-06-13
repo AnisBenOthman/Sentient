@@ -133,6 +133,14 @@ export class ToolRegistryService {
         },
         run: async (_args) => toolOutput(await this.hrCore.getTeamAbsenceSummaryContext(context)),
       },
+      {
+        declaration: {
+          name: 'get_kpi_threshold_alerts',
+          description:
+            'Check which dashboard KPI cards have crossed their configured warning or critical thresholds. Returns alerts with the metric name, current value, severity (WARNING or CRITICAL), and the threshold that was crossed. Use this when asked about KPI risk, dashboard alerts, which metrics are critical, or which cards are in a warning or critical state.',
+        },
+        run: async (_args) => toolOutput(await this.hrCore.getKpiAlertsContext(context)),
+      },
     ];
   }
 

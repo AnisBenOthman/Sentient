@@ -1,6 +1,6 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { AgentRunStatus, AgentType, PermissionDecision } from '../../../generated/prisma';
-import { DashboardAiContext, DownstreamRequestContext, HrCoreAiClient, TeamAbsenceSummaryContext } from '../../../common/clients';
+import { DashboardAiContext, DownstreamRequestContext, HrCoreAiClient, KpiAlertContext, TeamAbsenceSummaryContext } from '../../../common/clients';
 import { SpecialistAgent, SpecialistInput, SpecialistResult } from '../../../common/graph';
 import {
   CONVERSATIONAL_STYLE,
@@ -15,11 +15,15 @@ import { downstreamResult } from './specialist-response.helpers';
 const ABSENCE_INTENT_PATTERN =
   /\b(absent|absence|absences|absentee|always\s+(out|off|away|missing)|frequently\s+(out|off|away)|most\s+(absent|leave|days\s+off)|who.{0,30}miss|miss.{0,20}most|attendance|time\s+off\s+most|days\s+off\s+most|keep\s+(taking|having)\s+leave)\b/i;
 
+const KPI_RISK_PATTERN =
+  /\b(kpi|kpis|threshold|thresholds|alert|alerts|critical|warning|dashboard\s+card|metric|metrics|risk)\b/i;
+
 const ANALYTICS_SYSTEM_PROMPT = `${SENTIENT_IDENTITY}
 
 You are the Sentient HR analytics assistant. Use the provided tools to answer workforce metrics questions with real data:
 - Call get_workforce_dashboard for headcount, pending leave approvals, or skills metrics.
 - Call get_team_absence_summary for questions about who is frequently absent, who takes the most leave, or absence frequency.
+- Call get_kpi_threshold_alerts for questions about KPI risk, dashboard alerts, which metrics are in a critical or warning state, or which dashboard cards are red or orange.
 The tools calculate the numbers — your job is to narrate and interpret results clearly. For absence data, always note it reflects only approved, recorded leave — not unplanned absences or no-shows.
 
 ${CONVERSATIONAL_STYLE}`;
@@ -57,6 +61,9 @@ export class AnalyticsAgentService implements SpecialistAgent {
 
     if (ABSENCE_INTENT_PATTERN.test(input.normalizedIntent)) {
       return this.handleAbsenceSummaryQuery(input);
+    }
+    if (KPI_RISK_PATTERN.test(input.normalizedIntent)) {
+      return this.handleKpiRiskQuery(input);
     }
     return this.handleDashboardQuery(input);
   }
@@ -108,6 +115,17 @@ export class AnalyticsAgentService implements SpecialistAgent {
     });
   }
 
+  private async handleKpiRiskQuery(input: SpecialistInput): Promise<SpecialistResult> {
+    const context = await this.hrCore.getKpiAlertsContext({
+      jwt: input.actorContext.jwt,
+      correlationId: input.actorContext.correlationId,
+    });
+    const content = this.describeKpiAlerts(context.data);
+    return downstreamResult(input, this.agentType, context, 'KPI threshold assessment prepared.', content, {
+      draftLabel: undefined,
+    });
+  }
+
   /**
    * WHY: FR-038 requires interpreting the caller's scoped workforce stats, not
    * describing what analytics could do. HR Core already scope-filters the
@@ -143,6 +161,53 @@ export class AnalyticsAgentService implements SpecialistAgent {
       return 'The dashboard responded but no headline metrics were available for your scope. Open the Dashboard module for the full charts, or narrow your question to headcount, leave, or skills.';
     }
     lines.push('Open the Dashboard module for trends and charts; I can explain any specific metric.');
+    return lines.join('\n');
+  }
+
+  private describeKpiAlerts(context: KpiAlertContext | null): string {
+    if (!context) {
+      return 'I could not retrieve your KPI threshold configuration right now. You can open the Dashboard and Settings modules to review configured thresholds and current values.';
+    }
+    if (context.checkedCount === 0 && context.alerts.length === 0) {
+      return 'No KPI thresholds have been configured yet. Your HR admin can set warning and critical thresholds for each dashboard metric in Settings → Dashboard Alert Thresholds.';
+    }
+    const criticalAlerts = context.alerts.filter((a) => a.severity === 'CRITICAL');
+    const warningAlerts = context.alerts.filter((a) => a.severity === 'WARNING');
+
+    if (criticalAlerts.length === 0 && warningAlerts.length === 0) {
+      const uncheckedNote = context.uncheckedMetrics.length > 0
+        ? ` (${context.uncheckedMetrics.join(', ')} ${context.uncheckedMetrics.length === 1 ? 'has' : 'have'} no current data available)`
+        : '';
+      return `All ${context.checkedCount} monitored KPI${context.checkedCount === 1 ? '' : 's'} are within their configured thresholds${uncheckedNote}. Open the Dashboard module to review current metric values.`;
+    }
+
+    const lines: string[] = [];
+
+    if (criticalAlerts.length > 0) {
+      lines.push(`${criticalAlerts.length} critical KPI alert${criticalAlerts.length === 1 ? '' : 's'}:`);
+      for (const alert of criticalAlerts) {
+        const direction = alert.direction === 'ABOVE' ? `≥ ${alert.threshold}` : `≤ ${alert.threshold}`;
+        lines.push(`  - ${alert.label}: current value is ${alert.currentValue} (critical threshold is ${direction})`);
+      }
+    }
+
+    if (warningAlerts.length > 0) {
+      if (lines.length > 0) lines.push('');
+      lines.push(`${warningAlerts.length} warning KPI alert${warningAlerts.length === 1 ? '' : 's'}:`);
+      for (const alert of warningAlerts) {
+        const direction = alert.direction === 'ABOVE' ? `≥ ${alert.threshold}` : `≤ ${alert.threshold}`;
+        lines.push(`  - ${alert.label}: current value is ${alert.currentValue} (warning threshold is ${direction})`);
+      }
+    }
+
+    if (context.uncheckedMetrics.length > 0) {
+      lines.push('');
+      lines.push(`No current data available for: ${context.uncheckedMetrics.join(', ')}.`);
+    }
+
+    lines.push('');
+    lines.push('Open the Dashboard module for full metric charts and trend details, or review threshold settings in Settings → Dashboard Alert Thresholds.');
+
     return lines.join('\n');
   }
 

@@ -213,28 +213,39 @@ export class GeminiToolCallerService {
     enableSearch: boolean,
     thinkingLevel: string,
   ): Promise<GeminiApiResponse | null> {
+    const url = `${config.geminiApiUrl}/models/${encodeURIComponent(config.geminiModel)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const requestBody = JSON.stringify({
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents,
+      tools: buildToolsArray(functionDeclarations, enableSearch),
+      toolConfig: { functionCallingConfig: { mode } },
+      /**
+       * WHY: Gemini 3.x docs say "strongly recommend not changing default
+       * values" for temperature/top_p/top_k — their reasoning capabilities
+       * are optimized for defaults. thinking_level controls reasoning depth
+       * without interfering with the generation distribution.
+       */
+      generationConfig: resolveThinkingConfig(thinkingLevel),
+    });
+    const fetchOptions = { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal, body: requestBody } as const;
+
     try {
-      const resp = await fetch(
-        `${config.geminiApiUrl}/models/${encodeURIComponent(config.geminiModel)}:generateContent?key=${encodeURIComponent(apiKey)}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal,
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            contents,
-            tools: buildToolsArray(functionDeclarations, enableSearch),
-            toolConfig: { functionCallingConfig: { mode } },
-            /**
-             * WHY: Gemini 3.x docs say "strongly recommend not changing default
-             * values" for temperature/top_p/top_k — their reasoning capabilities
-             * are optimized for defaults. thinking_level controls reasoning depth
-             * without interfering with the generation distribution.
-             */
-            generationConfig: resolveThinkingConfig(thinkingLevel),
-          }),
-        },
-      );
+      const resp = await fetch(url, fetchOptions);
+      /**
+       * WHY: 429 is a transient rate limit. One retry after a short backoff
+       * recovers most cases without hammering the API or bloating the code.
+       * The body string is pre-built so the retry can reuse it verbatim.
+       */
+      if (resp.status === 429) {
+        await new Promise((resolve) => setTimeout(resolve, 1_500));
+        if (signal.aborted) return null;
+        const retry = await fetch(url, { ...fetchOptions, body: requestBody });
+        if (!retry.ok) {
+          this.logger.warn(`Gemini API returned ${retry.status} (after 429 retry)`);
+          return null;
+        }
+        return (await retry.json()) as GeminiApiResponse;
+      }
       if (!resp.ok) {
         this.logger.warn(`Gemini API returned ${resp.status}`);
         return null;

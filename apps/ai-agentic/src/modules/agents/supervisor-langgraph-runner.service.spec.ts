@@ -124,7 +124,7 @@ describe('SupervisorLangGraphRunnerService', () => {
     const nodeStatuses: AgentRunStatus[] = [];
     const runner = createRunner({
       nodeStatuses,
-      parentLog: buildParentLog('Who is the president of France?'),
+      parentLog: buildParentLog('Who won the World Cup?'),
       finalAnswerNode: {
         compose: (input: { guardrailMessage: string | null }) => ({
           status: AgentRunStatus.OUT_OF_SCOPE,
@@ -135,7 +135,7 @@ describe('SupervisorLangGraphRunnerService', () => {
       },
     });
 
-    const result = await runner.execute(turnInput('Who is the president of France?'));
+    const result = await runner.execute(turnInput('Who won the World Cup?'));
 
     expect(result.finalAnswer.status).toBe(AgentRunStatus.OUT_OF_SCOPE);
     expect(result.routing.nodes.map((node) => node.nodeType)).toEqual([
@@ -229,11 +229,15 @@ describe('SupervisorLangGraphRunnerService', () => {
   });
 
   it('does not let the rules classifier override the out-of-scope gate', async () => {
+    // "What are the best bitcoin investment strategies?" has an explicit off-topic
+    // term ("bitcoin") and no HR term — guardrail fires OUT_OF_SCOPE. A rules
+    // classifier with confidence 0.9 must NOT be able to route to a specialist;
+    // only a Gemini classification can override a benign OUT_OF_SCOPE verdict.
     const runner = createRunner({
       parentLog: buildParentLog('rules no override'),
       classifier: {
         classify: async () => ({
-          normalizedIntent: 'How many RTT rest entitlements can I use this year?',
+          normalizedIntent: 'What are the best bitcoin investment strategies?',
           requiredAgents: [AgentType.LEAVE_AGENT],
           requiresClarification: false,
           clarificationReason: null,
@@ -252,7 +256,7 @@ describe('SupervisorLangGraphRunnerService', () => {
       },
     });
 
-    const result = await runner.execute(turnInput('How many RTT rest entitlements can I use this year?'));
+    const result = await runner.execute(turnInput('What are the best bitcoin investment strategies?'));
 
     expect(result.finalAnswer.status).toBe(AgentRunStatus.OUT_OF_SCOPE);
     expect(result.finalAnswer.content).toContain('outside my Sentient scope');

@@ -19,7 +19,7 @@ const ROUTES: KeywordRoute[] = [
   },
   {
     agentType: AgentType.OKR_AGENT,
-    keywords: ['okr', 'objective', 'key result', 'goal', 'progress', 'risk', 'focus'],
+    keywords: ['okr', 'objective', 'key result', 'goal', 'progress', 'at risk', 'focus'],
   },
   {
     agentType: AgentType.CAREER_AGENT,
@@ -27,7 +27,7 @@ const ROUTES: KeywordRoute[] = [
   },
   {
     agentType: AgentType.ANALYTICS_AGENT,
-    keywords: ['dashboard', 'analytics', 'stat', 'trend', 'metric', 'workforce', 'headcount', 'team coverage'],
+    keywords: ['dashboard', 'analytics', 'stat', 'trend', 'metric', 'workforce', 'headcount', 'team coverage', 'kpi', 'kpis', 'threshold', 'alert'],
   },
   {
     agentType: AgentType.ONBOARDING_AGENT,

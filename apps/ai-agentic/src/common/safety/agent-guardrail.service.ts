@@ -58,6 +58,11 @@ const SENTIENT_TERMS = [
   'resignation',
   'termination',
   'notice period',
+  'kpi',
+  'kpis',
+  'threshold',
+  'metric',
+  'alert',
 ];
 
 function escapeRegExp(value: string): string {
@@ -88,6 +93,12 @@ const OFF_TOPIC_TERMS = [
   'weather',
   'laptop repair',
   'celebrity',
+  'sports score',
+  'stock price',
+  'stock market',
+  'cooking',
+  'tourist',
+  'travel destination',
 ];
 
 const UNAUTHORIZED_PATTERNS = [
@@ -266,7 +277,17 @@ export class AgentGuardrailService {
       };
     }
 
-    if (!hasSentientTopic) {
+    /**
+     * WHY: The old "block unless we recognise an HR keyword" approach required
+     * an ever-growing SENTIENT_TERMS list and kept firing OUT_OF_SCOPE for
+     * legitimate HR questions (e.g. "kpi digits", "critical risk", "coverage").
+     * The hard patterns above (UNSAFE_SYSTEM_ACTION, INTERPERSONAL, CONFLICT,
+     * UNAUTHORIZED_DATA, UNSAFE_ADVICE) are the real safety layer.
+     * For the generic scope gate we now use "deny only if we recognise it as
+     * explicitly off-topic" — everything else reaches a specialist which will
+     * naturally respond "I can't help with that" for non-HR questions.
+     */
+    if (offTopicTerms.length > 0 && !hasSentientTopic) {
       return {
         classification: 'OUT_OF_SCOPE',
         allowed: false,
@@ -275,12 +296,12 @@ export class AgentGuardrailService {
         shouldEscalate: false,
         requiresClarification: false,
         allowedAgents: [],
-        declinedTopics: offTopicTerms.length > 0 ? offTopicTerms : ['Unrelated topic'],
+        declinedTopics: offTopicTerms,
         sensitivity: 'LOW',
       };
     }
 
-    if (hasSentientTopic && offTopicTerms.length > 0) {
+    if (offTopicTerms.length > 0) {
       return {
         classification: 'MIXED',
         allowed: true,

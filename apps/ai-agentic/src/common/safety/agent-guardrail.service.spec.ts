@@ -17,29 +17,41 @@ describe('AgentGuardrailService', () => {
     expect(result.message).toContain('outside my Sentient scope');
   });
 
-  it('refuses unrelated prompts even when they do not use a known keyword', () => {
-    const result = service.evaluate('Who is the president of France?');
+  it('refuses messages that contain an explicit off-topic term and no HR term', () => {
+    const result = service.evaluate('What are the best movie recommendations for the weekend?');
 
     expect(result.allowed).toBe(false);
     expect(result.classification).toBe('OUT_OF_SCOPE');
-    expect(result.declinedTopics).toContain('Unrelated topic');
+    expect(result.declinedTopics.length).toBeGreaterThan(0);
   });
 
-  // WHY: substring matching used to treat "three"/"Chrome" as the Sentient term "hr".
-  const substringBypassPrompts = [
+  // WHY: The guardrail now uses "deny only if explicitly off-topic" instead of
+  // "allow only if recognised as HR". Ambiguous messages without a known off-topic
+  // term (e.g. "Chrome browser", "president of France") are passed through to the
+  // intent classifier, which either routes them to a specialist or asks for
+  // clarification — a better outcome than a hard block on legitimate HR phrasing.
+  const stillBlockedOffTopicPrompts = [
     'Who won the World Cup three years ago?',
-    'How do I fix my Chrome browser?',
     'What are the three best bitcoin strategies?',
   ];
 
-  for (const message of substringBypassPrompts) {
-    it(`stays out-of-scope for substring-collision prompt: ${message}`, () => {
+  for (const message of stillBlockedOffTopicPrompts) {
+    it(`blocks known off-topic prompts even with incidental collisions: ${message}`, () => {
       const result = service.evaluate(message);
 
       expect(result.allowed).toBe(false);
       expect(result.classification).toBe('OUT_OF_SCOPE');
     });
   }
+
+  it('passes ambiguous messages to the intent classifier rather than hard-blocking them', () => {
+    // "Chrome browser" contains no off-topic term and no HR term.
+    // Old keyword gate would block it. New approach: let the intent classifier
+    // handle it — it will ask for clarification if no route is found.
+    const result = service.evaluate('How do I fix my Chrome browser?');
+
+    expect(result.allowed).toBe(true);
+  });
 
   it('still recognizes whole-word Sentient topics', () => {
     const result = service.evaluate('What does the HR handbook say about leave carryover?');
