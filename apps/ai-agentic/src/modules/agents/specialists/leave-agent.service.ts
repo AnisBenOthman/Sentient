@@ -13,22 +13,27 @@ import { SpecialistAgent, SpecialistInput, SpecialistResult } from '../../../com
 import {
   CONVERSATIONAL_STYLE,
   DRAFT_MODE_DIRECTIVE,
+  FEW_SHOT_LEAVE_EXAMPLES,
+  GeminiCallOptions,
   GeminiToolCallerService,
   GeminiToolCallOutcome,
+  SENTIENT_IDENTITY,
   ToolRegistryService,
 } from '../tools';
 import { downstreamResult } from './specialist-response.helpers';
 
 const TEAM_LEAVE_SCOPE_ROLES = ['MANAGER', 'HR_ADMIN'];
 
-const LEAVE_SYSTEM_PROMPT = `You are the Sentient HR leave assistant. Use the provided tools to answer leave questions accurately:
+const LEAVE_SYSTEM_PROMPT = `${SENTIENT_IDENTITY}
+
+You are the Sentient HR leave assistant. Use the provided tools to answer leave questions accurately:
 - Call get_my_leave_balance for balance, remaining days, or recent leave history questions.
 - Call get_holidays for public/bank/company holiday calendar questions.
 - Call get_team_leave_calendar (when available) for team coverage and who is on leave.
 - Call get_team_absence_summary (when available) for who takes the most leave or absence frequency.
 Call only the tools relevant to the question.
 Leave records are read-only here — direct the user to the Leaves module for booking or changes.
-
+${FEW_SHOT_LEAVE_EXAMPLES}
 ${CONVERSATIONAL_STYLE}`;
 
 /** Capitalized sentence starters that must not be mistaken for a person's name. */
@@ -86,11 +91,13 @@ export class LeaveAgentService implements SpecialistAgent {
       const systemPrompt = input.isDraftRequest
         ? `${LEAVE_SYSTEM_PROMPT}\n\n${DRAFT_MODE_DIRECTIVE}`
         : LEAVE_SYSTEM_PROMPT;
+      const callOptions: GeminiCallOptions = { thinkingLevel: 'medium' };
       const outcome = await this.geminiToolCaller.call(
         systemPrompt,
         input.userMessage,
         tools,
         input.conversationContext.recentMessages,
+        callOptions,
       );
       if (outcome) return this.toToolCallerResult(input, outcome);
     }

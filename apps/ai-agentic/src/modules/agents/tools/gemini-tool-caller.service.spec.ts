@@ -12,7 +12,7 @@ interface CapturedRequest {
   systemInstruction?: { parts: Array<{ text: string }> };
   contents: Array<{ role: string; parts: CapturedPart[] }>;
   toolConfig?: { functionCallingConfig: { mode: string } };
-  generationConfig?: { temperature: number };
+  generationConfig?: { thinkingConfig?: { thinking_level?: string } };
 }
 
 function buildConfig(): ConfigService {
@@ -22,6 +22,7 @@ function buildConfig(): ConfigService {
       geminiApiUrl: 'https://generativelanguage.googleapis.com/v1beta',
       geminiModel: 'gemini-2.5-flash-lite',
       downstreamTimeoutMs: 8_000,
+      geminiThinkingLevel: 'medium',
     }),
   } as unknown as ConfigService;
 }
@@ -95,7 +96,7 @@ describe('GeminiToolCallerService', () => {
       expect(request.contents[0]?.role).toBe('user');
       expect(request.contents[1]?.role).toBe('model');
       expect(request.contents[2]?.parts[0]?.text).toBe('How many days do I have left?');
-      expect(request.generationConfig?.temperature).toBe(0.4);
+      expect(request.generationConfig?.thinkingConfig).toBeDefined();
     } finally {
       global.fetch = originalFetch;
     }

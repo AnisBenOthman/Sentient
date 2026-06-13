@@ -1,24 +1,22 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AiAgenticConfig } from '../../../config';
-import { AgentTool, ConversationHistoryMessage, GeminiToolCallOutcome } from './agent-tool.types';
+import { AgentTool, ConversationHistoryMessage, GeminiCallOptions, GeminiToolCallOutcome } from './agent-tool.types';
 
 const MAX_TOOL_ROUNDS = 5;
-
-/**
- * WHY: 0 made every answer deterministic and dry — the "static" feel the product
- * is moving away from. 0.4 keeps tool selection reliable while letting the
- * narration vary naturally like a chat assistant.
- */
-const ANSWER_TEMPERATURE = 0.4;
 
 /** Defensive cap per history turn so long prior answers cannot bloat the prompt. */
 const MAX_HISTORY_CHARS = 4_000;
 
 interface GeminiPart {
   text?: string;
-  functionCall?: { name: string; args: Record<string, unknown> };
-  functionResponse?: { name: string; response: Record<string, unknown> };
+  /**
+   * WHY: Gemini 3.x returns an `id` on every functionCall part. The matching
+   * functionResponse must echo the same id or the API rejects the next request
+   * with a part-count mismatch error.
+   */
+  functionCall?: { id?: string; name: string; args: Record<string, unknown> };
+  functionResponse?: { id?: string; name: string; response: Record<string, unknown> };
 }
 
 interface GeminiContent {
@@ -56,10 +54,19 @@ export class GeminiToolCallerService {
     userMessage: string,
     tools: AgentTool[],
     history: ConversationHistoryMessage[] = [],
+    options: GeminiCallOptions = {},
   ): Promise<GeminiToolCallOutcome | null> {
     const aiConfig = this.config?.get<AiAgenticConfig>('aiAgentic');
     const apiKey = aiConfig?.geminiApiKey;
     if (!aiConfig || !apiKey || tools.length === 0) return null;
+
+    /**
+     * WHY: Per-call thinkingLevel overrides the server-wide default so analytics
+     * can use 'high' while leave balance checks stay at 'medium'. enableSearch
+     * appends the built-in Google Search tool for the general-help agent.
+     */
+    const thinkingLevel = options.thinkingLevel ?? aiConfig.geminiThinkingLevel;
+    const enableSearch = options.enableSearch ?? false;
 
     const toolMap = new Map(tools.map((t) => [t.declaration.name, t]));
     const functionDeclarations = tools.map((t) => t.declaration);
@@ -86,7 +93,7 @@ export class GeminiToolCallerService {
          */
         const mode = round === 0 ? 'ANY' : 'AUTO';
         const raw = await this.fetchGemini(
-          systemPrompt, contents, functionDeclarations, aiConfig, apiKey, controller.signal, mode,
+          systemPrompt, contents, functionDeclarations, aiConfig, apiKey, controller.signal, mode, enableSearch, thinkingLevel,
         );
         if (!raw) return null;
 
@@ -101,6 +108,7 @@ export class GeminiToolCallerService {
            * (parallel calling). History must replay the model turn verbatim and
            * answer every call in one user turn, otherwise the next request fails
            * with a functionCall/functionResponse part-count mismatch.
+           * For Gemini 3.x, each functionResponse must echo back the functionCall id.
            */
           contents.push({ role: 'model', parts });
           const responseParts: GeminiPart[] = [];
@@ -110,7 +118,11 @@ export class GeminiToolCallerService {
             if (ran.failed) anyToolFailed = true;
             toolsUsed.push(fnCall.name);
             responseParts.push({
-              functionResponse: { name: fnCall.name, response: { result: ran.output as Record<string, unknown> } },
+              functionResponse: {
+                id: fnCall.id,
+                name: fnCall.name,
+                response: { result: ran.output as Record<string, unknown> },
+              },
             });
           }
           contents.push({ role: 'user', parts: responseParts });
@@ -128,7 +140,7 @@ export class GeminiToolCallerService {
        * calling disabled forces a text synthesis from the results gathered so far.
        */
       const final = await this.fetchGemini(
-        systemPrompt, contents, functionDeclarations, aiConfig, apiKey, controller.signal, 'NONE',
+        systemPrompt, contents, functionDeclarations, aiConfig, apiKey, controller.signal, 'NONE', enableSearch, thinkingLevel,
       );
       const finalAnswer = final ? this.extractText(final) : null;
       return finalAnswer ? { answer: finalAnswer, anyToolDenied, anyToolFailed, toolsUsed } : null;
@@ -198,6 +210,8 @@ export class GeminiToolCallerService {
     apiKey: string,
     signal: AbortSignal,
     mode: 'ANY' | 'AUTO' | 'NONE',
+    enableSearch: boolean,
+    thinkingLevel: string,
   ): Promise<GeminiApiResponse | null> {
     try {
       const resp = await fetch(
@@ -209,9 +223,15 @@ export class GeminiToolCallerService {
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: systemPrompt }] },
             contents,
-            tools: [{ functionDeclarations }],
+            tools: buildToolsArray(functionDeclarations, enableSearch),
             toolConfig: { functionCallingConfig: { mode } },
-            generationConfig: { temperature: ANSWER_TEMPERATURE },
+            /**
+             * WHY: Gemini 3.x docs say "strongly recommend not changing default
+             * values" for temperature/top_p/top_k — their reasoning capabilities
+             * are optimized for defaults. thinking_level controls reasoning depth
+             * without interfering with the generation distribution.
+             */
+            generationConfig: resolveThinkingConfig(thinkingLevel),
           }),
         },
       );
@@ -224,6 +244,30 @@ export class GeminiToolCallerService {
       return null;
     }
   }
+}
+
+/**
+ * WHY: Google Search is a Gemini built-in tool added alongside custom function
+ * declarations so the general-help agent can ground answers in real-time web
+ * content when no internal knowledge document covers the question.
+ */
+function buildToolsArray(functionDeclarations: unknown[], enableSearch: boolean): unknown[] {
+  const arr: unknown[] = [{ functionDeclarations }];
+  if (enableSearch) arr.push({ googleSearch: {} });
+  return arr;
+}
+
+/**
+ * WHY: Gemini 3.x uses thinking_level (low/medium/high) to control reasoning
+ * depth. Temperature is intentionally omitted — 3.x defaults are optimal and
+ * overriding them degrades quality. 'none' means no thinking config at all
+ * (useful for simple lookups where reasoning adds latency without benefit).
+ */
+function resolveThinkingConfig(level: string | undefined): Record<string, unknown> {
+  if (!level || level === 'none') return {};
+  const valid = new Set(['low', 'medium', 'high']);
+  if (!valid.has(level)) return {};
+  return { thinkingConfig: { thinking_level: level } };
 }
 
 function isFlagged(result: unknown, flag: 'denied' | 'unavailable'): boolean {

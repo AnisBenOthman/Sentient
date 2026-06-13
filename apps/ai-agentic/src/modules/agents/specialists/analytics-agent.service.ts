@@ -7,6 +7,7 @@ import {
   DRAFT_MODE_DIRECTIVE,
   GeminiToolCallerService,
   GeminiToolCallOutcome,
+  SENTIENT_IDENTITY,
   ToolRegistryService,
 } from '../tools';
 import { downstreamResult } from './specialist-response.helpers';
@@ -14,7 +15,9 @@ import { downstreamResult } from './specialist-response.helpers';
 const ABSENCE_INTENT_PATTERN =
   /\b(absent|absence|absences|absentee|always\s+(out|off|away|missing)|frequently\s+(out|off|away)|most\s+(absent|leave|days\s+off)|who.{0,30}miss|miss.{0,20}most|attendance|time\s+off\s+most|days\s+off\s+most|keep\s+(taking|having)\s+leave)\b/i;
 
-const ANALYTICS_SYSTEM_PROMPT = `You are the Sentient HR analytics assistant. Use the provided tools to answer workforce metrics questions with real data:
+const ANALYTICS_SYSTEM_PROMPT = `${SENTIENT_IDENTITY}
+
+You are the Sentient HR analytics assistant. Use the provided tools to answer workforce metrics questions with real data:
 - Call get_workforce_dashboard for headcount, pending leave approvals, or skills metrics.
 - Call get_team_absence_summary for questions about who is frequently absent, who takes the most leave, or absence frequency.
 The tools calculate the numbers — your job is to narrate and interpret results clearly. For absence data, always note it reflects only approved, recorded leave — not unplanned absences or no-shows.
@@ -47,6 +50,7 @@ export class AnalyticsAgentService implements SpecialistAgent {
         input.userMessage,
         tools,
         input.conversationContext.recentMessages,
+        { thinkingLevel: 'high' },
       );
       if (outcome) return this.toToolCallerResult(input, outcome);
     }

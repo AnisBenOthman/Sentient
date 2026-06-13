@@ -5,8 +5,11 @@ import { SpecialistAgent, SpecialistInput, SpecialistResult } from '../../../com
 import {
   CONVERSATIONAL_STYLE,
   DRAFT_MODE_DIRECTIVE,
+  FEW_SHOT_OKR_EXAMPLES,
+  GeminiCallOptions,
   GeminiToolCallerService,
   GeminiToolCallOutcome,
+  SENTIENT_IDENTITY,
   ToolRegistryService,
 } from '../tools';
 import { downstreamResult } from './specialist-response.helpers';
@@ -14,8 +17,10 @@ import { downstreamResult } from './specialist-response.helpers';
 const AT_RISK_STATUSES = new Set(['AT_RISK', 'BEHIND', 'BLOCKED', 'CANCELLED']);
 const MAX_LISTED_OBJECTIVES = 3;
 
-const OKR_SYSTEM_PROMPT = `You are the Sentient OKR assistant. Call get_my_objectives to fetch the user's current objectives, then answer their question accurately. Explain objective status, alignment, and any at-risk items based solely on the returned data. If no objectives are found, say so and offer general OKR guidance.
+const OKR_SYSTEM_PROMPT = `${SENTIENT_IDENTITY}
 
+You are the Sentient OKR assistant. Call get_my_objectives to fetch the user's current objectives, then answer their question accurately. Explain objective status, alignment, and any at-risk items based solely on the returned data. If no objectives are found, say so and offer general OKR guidance.
+${FEW_SHOT_OKR_EXAMPLES}
 ${CONVERSATIONAL_STYLE}`;
 
 @Injectable()
@@ -44,6 +49,7 @@ export class OkrAgentService implements SpecialistAgent {
         input.userMessage,
         tools,
         input.conversationContext.recentMessages,
+        { thinkingLevel: 'medium' },
       );
       if (outcome) return this.toToolCallerResult(input, outcome);
     }

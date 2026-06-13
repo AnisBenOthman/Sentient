@@ -7,11 +7,14 @@ import {
   DRAFT_MODE_DIRECTIVE,
   GeminiToolCallerService,
   GeminiToolCallOutcome,
+  SENTIENT_IDENTITY,
   ToolRegistryService,
 } from '../tools';
 import { downstreamResult } from './specialist-response.helpers';
 
-const ONBOARDING_SYSTEM_PROMPT = `You are the Sentient onboarding companion. Call get_onboarding_guides to find relevant orientation materials from the company's document library. Help new employees and their managers navigate the onboarding process using the actual company guides. If no guides are found, offer general first-week guidance.
+const ONBOARDING_SYSTEM_PROMPT = `${SENTIENT_IDENTITY}
+
+You are the Sentient onboarding companion. Call get_onboarding_guides to find relevant orientation materials from the company's document library. Help new employees and their managers navigate the onboarding process using the actual company guides. If no guides are found, offer general first-week guidance.
 
 ${CONVERSATIONAL_STYLE}`;
 
@@ -41,6 +44,7 @@ export class OnboardingAgentService implements SpecialistAgent {
         input.userMessage,
         tools,
         input.conversationContext.recentMessages,
+        { thinkingLevel: 'medium' },
       );
       if (outcome) return this.toToolCallerResult(input, outcome);
     }

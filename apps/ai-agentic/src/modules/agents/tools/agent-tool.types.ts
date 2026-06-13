@@ -45,3 +45,17 @@ export interface GeminiToolCallOutcome {
   /** Names of the tools Gemini actually invoked, in call order (for governance trails). */
   toolsUsed: string[];
 }
+
+/**
+ * Per-call overrides forwarded to the Gemini 3.x REST API.
+ * WHY: thinking_level controls the model's reasoning depth per specialist —
+ * analytics queries benefit from 'high' while simple balance reads can use 'low'.
+ * enableSearch adds the built-in Google Search grounding tool so the general-help
+ * agent can answer questions not covered by internal knowledge documents.
+ */
+export interface GeminiCallOptions {
+  /** Override the server-wide GEMINI_THINKING_LEVEL for this specific call. */
+  thinkingLevel?: 'low' | 'medium' | 'high' | 'none';
+  /** Append the Gemini built-in googleSearch tool for real-time grounding. */
+  enableSearch?: boolean;
+}

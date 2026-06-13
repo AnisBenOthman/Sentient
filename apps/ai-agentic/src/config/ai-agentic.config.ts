@@ -14,6 +14,7 @@ export interface AiAgenticConfig {
   geminiApiKey: string | null;
   geminiApiUrl: string;
   geminiModel: string;
+  geminiThinkingLevel: string;
   intentClassifierDebugLogs: boolean;
   requestTimeoutMs: number;
   downstreamTimeoutMs: number;
@@ -60,6 +61,7 @@ export const aiAgenticConfig = registerAs('aiAgentic', (): AiAgenticConfig => ({
     'GEMINI_API_URL',
   ),
   geminiModel: parseNonEmptyString(process.env.GEMINI_MODEL, 'gemini-2.5-flash-lite', 'GEMINI_MODEL'),
+  geminiThinkingLevel: parseNonEmptyString(process.env.GEMINI_THINKING_LEVEL, 'medium', 'GEMINI_THINKING_LEVEL'),
   intentClassifierDebugLogs: parseBoolean(
     process.env.AI_AGENT_INTENT_DEBUG_LOGS,
     false,

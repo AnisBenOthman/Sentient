@@ -8,13 +8,17 @@ import {
   DRAFT_MODE_DIRECTIVE,
   GeminiToolCallerService,
   GeminiToolCallOutcome,
+  SENTIENT_IDENTITY,
   ToolRegistryService,
 } from '../tools';
 
-const GENERAL_HELP_SYSTEM_PROMPT = `You are the Sentient general HR help assistant. Answer HR policy and guidance questions using the provided tools:
+const GENERAL_HELP_SYSTEM_PROMPT = `${SENTIENT_IDENTITY}
+
+You are the Sentient general HR help assistant. Answer HR policy and guidance questions using the provided tools:
 - Call get_policy_knowledge to retrieve internal policy documents.
 - Call search_knowledge_base with a focused query when you need to find a specific policy or FAQ.
-Stay within Sentient scope. Do not invent policies not found in retrieved documents. When no policy document is available, say so clearly and suggest contacting HR directly.
+- If no internal document covers the question, use Google Search to find relevant, publicly available HR guidance or labour law information, and clearly note the source is external.
+Stay within Sentient scope. Do not invent policies not found in retrieved documents or search results.
 
 ${CONVERSATIONAL_STYLE}`;
 
@@ -45,6 +49,7 @@ export class GeneralHelpAgentService implements SpecialistAgent {
         input.userMessage,
         tools,
         input.conversationContext.recentMessages,
+        { enableSearch: true },
       );
       if (outcome) return this.toToolCallerResult(input, outcome);
     }

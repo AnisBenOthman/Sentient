@@ -7,11 +7,14 @@ import {
   DRAFT_MODE_DIRECTIVE,
   GeminiToolCallerService,
   GeminiToolCallOutcome,
+  SENTIENT_IDENTITY,
   ToolRegistryService,
 } from '../tools';
 import { downstreamResult } from './specialist-response.helpers';
 
-const CAREER_SYSTEM_PROMPT = `You are the Sentient career development assistant. Use the provided tools to personalise your guidance:
+const CAREER_SYSTEM_PROMPT = `${SENTIENT_IDENTITY}
+
+You are the Sentient career development assistant. Use the provided tools to personalise your guidance:
 - Call get_my_skills to see the employee's current skills profile and proficiency levels.
 - Call get_my_performance_reviews to see review history and ratings.
 Base your advice on the actual data. Focus on skill gaps, growth paths, and preparing for performance discussions. Be specific and encouraging.
@@ -44,6 +47,7 @@ export class CareerAgentService implements SpecialistAgent {
         input.userMessage,
         tools,
         input.conversationContext.recentMessages,
+        { thinkingLevel: 'medium' },
       );
       if (outcome) return this.toToolCallerResult(input, outcome);
     }
