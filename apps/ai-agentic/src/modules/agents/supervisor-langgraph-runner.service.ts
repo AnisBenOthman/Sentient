@@ -497,6 +497,7 @@ export class SupervisorLangGraphRunnerService {
           escalation: state.escalation,
           declinedTopics: safety.declinedTopics,
           isDraft: classification.isDraftIntent && !state.draftBlock,
+          hasTeamLeaveScope: this.guardrails.hasTeamLeaveScope(state.input.actor.roles),
         });
     await this.nodeRuns.record({
       conversationId: state.input.conversationId,

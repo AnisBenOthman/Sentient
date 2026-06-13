@@ -205,7 +205,10 @@ export default function OrgStructureCard() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => updateBuMut.mutate({ id: bu.id, dto: { name: editingBuName, currency: editingBuCurrency } })}
+                      onClick={() => {
+                        if (!/^[A-Z]{3}$/.test(editingBuCurrency)) return;
+                        updateBuMut.mutate({ id: bu.id, dto: { name: editingBuName, currency: editingBuCurrency } });
+                      }}
                       data-testid={`button-save-bu-${bu.id}`}
                     >
                       <Check className="h-4 w-4" />

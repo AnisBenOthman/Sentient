@@ -1,8 +1,22 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { AgentRunStatus, AgentType, PermissionDecision } from '../../../generated/prisma';
-import { SocialAiClient } from '../../../common/clients';
+import { DownstreamRequestContext, SocialAiClient } from '../../../common/clients';
 import { SpecialistAgent, SpecialistInput, SpecialistResult } from '../../../common/graph';
 import { KnowledgeRepository } from '../../knowledge';
+import {
+  CONVERSATIONAL_STYLE,
+  DRAFT_MODE_DIRECTIVE,
+  GeminiToolCallerService,
+  GeminiToolCallOutcome,
+  ToolRegistryService,
+} from '../tools';
+
+const GENERAL_HELP_SYSTEM_PROMPT = `You are the Sentient general HR help assistant. Answer HR policy and guidance questions using the provided tools:
+- Call get_policy_knowledge to retrieve internal policy documents.
+- Call search_knowledge_base with a focused query when you need to find a specific policy or FAQ.
+Stay within Sentient scope. Do not invent policies not found in retrieved documents. When no policy document is available, say so clearly and suggest contacting HR directly.
+
+${CONVERSATIONAL_STYLE}`;
 
 @Injectable()
 export class GeneralHelpAgentService implements SpecialistAgent {
@@ -11,15 +25,33 @@ export class GeneralHelpAgentService implements SpecialistAgent {
   constructor(
     private readonly knowledgeRepository: KnowledgeRepository,
     private readonly social: SocialAiClient,
+    @Optional() private readonly geminiToolCaller?: GeminiToolCallerService,
+    @Optional() private readonly toolRegistry?: ToolRegistryService,
   ) {}
 
   async execute(input: SpecialistInput): Promise<SpecialistResult> {
+    const reqContext: DownstreamRequestContext = {
+      jwt: input.actorContext.jwt,
+      correlationId: input.actorContext.correlationId,
+    };
+
+    if (this.geminiToolCaller && this.toolRegistry) {
+      const tools = this.toolRegistry.getGeneralHelpTools(reqContext);
+      const systemPrompt = input.isDraftRequest
+        ? `${GENERAL_HELP_SYSTEM_PROMPT}\n\n${DRAFT_MODE_DIRECTIVE}`
+        : GENERAL_HELP_SYSTEM_PROMPT;
+      const outcome = await this.geminiToolCaller.call(
+        systemPrompt,
+        input.userMessage,
+        tools,
+        input.conversationContext.recentMessages,
+      );
+      if (outcome) return this.toToolCallerResult(input, outcome);
+    }
+
     const [matches, policyContext] = await Promise.all([
       this.knowledgeRepository.searchApproved(input.normalizedIntent, 3),
-      this.social.getPolicyKnowledge({
-        jwt: input.actorContext.jwt,
-        correlationId: input.actorContext.correlationId,
-      }),
+      this.social.getPolicyKnowledge(reqContext),
     ]);
     const sourceText = matches.length > 0
       ? `I found ${matches.length} approved knowledge source(s) that can support this answer.`
@@ -51,6 +83,27 @@ export class GeneralHelpAgentService implements SpecialistAgent {
         },
       ],
       permissionDecision: policyContext.permissionDecision,
+      draftLabel: input.isDraftRequest ? 'Policy or announcement draft' : undefined,
+    };
+  }
+
+  private toToolCallerResult(input: SpecialistInput, outcome: GeminiToolCallOutcome): SpecialistResult {
+    const limited = outcome.anyToolDenied || outcome.anyToolFailed;
+    return {
+      agentType: this.agentType,
+      status: limited ? AgentRunStatus.DEGRADED : AgentRunStatus.SUCCESS,
+      summary: limited ? 'General help prepared with limited data access.' : 'General help knowledge checked.',
+      userVisibleContent: outcome.answer,
+      sourceContext: [{
+        sourceType: 'POLICY',
+        title: 'Policy knowledge',
+        referenceId: `policy:${outcome.toolsUsed.join('+') || 'scoped'}`,
+      }],
+      permissionDecision: outcome.anyToolDenied
+        ? PermissionDecision.DENIED
+        : outcome.anyToolFailed
+          ? PermissionDecision.PARTIAL
+          : PermissionDecision.ALLOWED,
       draftLabel: input.isDraftRequest ? 'Policy or announcement draft' : undefined,
     };
   }

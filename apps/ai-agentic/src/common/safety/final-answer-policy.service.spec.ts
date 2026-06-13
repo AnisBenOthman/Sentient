@@ -38,6 +38,33 @@ describe('FinalAnswerPolicyService', () => {
     expect(result.content).toBe(refusal);
   });
 
+  it('sweeps a third-party leave answer for callers without team leave scope', () => {
+    const answer = 'Your team member Alice has an approved leave request from 2026-06-15 to 2026-06-19.';
+    const result = service.review(answer, { status: AgentRunStatus.SUCCESS });
+
+    expect(result.status).toBe(AgentRunStatus.REFUSED);
+    expect(result.warnings).toContain('Unauthorized data reference removed from final answer.');
+  });
+
+  it('lets a manager team-leave answer through when the caller has team leave scope', () => {
+    const answer = 'Your team member Alice has an approved leave request from 2026-06-15 to 2026-06-19.';
+    const result = service.review(answer, { status: AgentRunStatus.SUCCESS, hasTeamLeaveScope: true });
+
+    expect(result.status).toBe(AgentRunStatus.SUCCESS);
+    expect(result.content).toContain('Alice');
+    expect(result.content).toContain('2026-06-15');
+  });
+
+  it('still blocks salary leakage even for callers with team leave scope', () => {
+    const result = service.review("Sure - another employee's salary is 58000 this year.", {
+      status: AgentRunStatus.SUCCESS,
+      hasTeamLeaveScope: true,
+    });
+
+    expect(result.status).toBe(AgentRunStatus.REFUSED);
+    expect(result.content).not.toContain('58000');
+  });
+
   it('redacts emails and long identifiers', () => {
     const result = service.review('Contact alice.martin@sentient.dev or call 0612345678 about leave.', {
       status: AgentRunStatus.SUCCESS,

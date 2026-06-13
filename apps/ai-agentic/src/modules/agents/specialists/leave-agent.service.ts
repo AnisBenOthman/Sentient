@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { AgentRunStatus, AgentType, PermissionDecision } from '../../../generated/prisma';
 import {
+  DownstreamRequestContext,
   HolidayAiContext,
   HrCoreAiClient,
   LeaveAiContext,
@@ -9,9 +10,26 @@ import {
   TeamLeaveAiContext,
 } from '../../../common/clients';
 import { SpecialistAgent, SpecialistInput, SpecialistResult } from '../../../common/graph';
+import {
+  CONVERSATIONAL_STYLE,
+  DRAFT_MODE_DIRECTIVE,
+  GeminiToolCallerService,
+  GeminiToolCallOutcome,
+  ToolRegistryService,
+} from '../tools';
 import { downstreamResult } from './specialist-response.helpers';
 
 const TEAM_LEAVE_SCOPE_ROLES = ['MANAGER', 'HR_ADMIN'];
+
+const LEAVE_SYSTEM_PROMPT = `You are the Sentient HR leave assistant. Use the provided tools to answer leave questions accurately:
+- Call get_my_leave_balance for balance, remaining days, or recent leave history questions.
+- Call get_holidays for public/bank/company holiday calendar questions.
+- Call get_team_leave_calendar (when available) for team coverage and who is on leave.
+- Call get_team_absence_summary (when available) for who takes the most leave or absence frequency.
+Call only the tools relevant to the question.
+Leave records are read-only here — direct the user to the Leaves module for booking or changes.
+
+${CONVERSATIONAL_STYLE}`;
 
 /** Capitalized sentence starters that must not be mistaken for a person's name. */
 const NAME_STOPWORDS = new Set([
@@ -24,56 +42,27 @@ const NAME_STOPWORDS = new Set([
 export class LeaveAgentService implements SpecialistAgent {
   readonly agentType = AgentType.LEAVE_AGENT;
 
-  constructor(private readonly hrCore: HrCoreAiClient) {}
+  constructor(
+    private readonly hrCore: HrCoreAiClient,
+    @Optional() private readonly geminiToolCaller?: GeminiToolCallerService,
+    @Optional() private readonly toolRegistry?: ToolRegistryService,
+  ) {}
 
   async execute(input: SpecialistInput): Promise<SpecialistResult> {
     const hasTeamLeaveScope = this.hasTeamLeaveScope(input);
+    const reqContext: DownstreamRequestContext = {
+      jwt: input.actorContext.jwt,
+      correlationId: input.actorContext.correlationId,
+    };
 
     /**
-     * WHY: "bank holidays in my country" is a calendar question, not a balance
-     * question. Holidays are public read-only data every role may list, so this
-     * branch runs before the privacy checks and answers from real Holiday rows.
+     * WHY: FR-008 team scope guard runs before tool calling so we never attempt
+     * a team tool call for callers without manager privileges.
      */
-    if (this.requestsHolidayCalendar(input)) {
-      const holidays = await this.hrCore.getHolidaysContext(input.actorContext.businessUnitId, {
-        jwt: input.actorContext.jwt,
-        correlationId: input.actorContext.correlationId,
-      });
-      return downstreamResult(
-        input,
-        this.agentType,
-        holidays,
-        'Company holiday calendar prepared.',
-        this.describeHolidays(holidays.data),
-      );
-    }
-
-    /**
-     * WHY: FR-008 — managers and HR admins are entitled to team-level leave
-     * coverage. HR Core's team-calendar endpoint enforces the real scope, so a
-     * caller whose JWT lacks it degrades gracefully instead of leaking data.
-     */
-    if (this.requestsTeamCoverage(input)) {
-      if (!hasTeamLeaveScope) {
-        return this.refusal(
-          'Team leave coverage refused because the caller lacks manager scope.',
-          'Team leave coverage is available to managers and HR admins. I can help with your own leave balance and history instead.',
-        );
-      }
-      const coverage = await this.hrCore.getTeamLeaveContext({
-        jwt: input.actorContext.jwt,
-        correlationId: input.actorContext.correlationId,
-      });
-      const content = input.isDraftRequest
-        ? 'Draft team coverage note: list who is on approved leave in the window, name the coverage owner for each absence, and flag overlaps for review before sharing.'
-        : this.describeTeamCoverage(coverage.data);
-      return downstreamResult(
-        input,
-        this.agentType,
-        coverage,
-        'Team leave coverage prepared.',
-        content,
-        { draftLabel: 'Team coverage draft' },
+    if (this.requestsTeamCoverage(input) && !hasTeamLeaveScope) {
+      return this.refusal(
+        'Team leave coverage refused because the caller lacks manager scope.',
+        'Team leave coverage is available to managers and HR admins. I can help with your own leave balance and history instead.',
       );
     }
 
@@ -87,24 +76,78 @@ export class LeaveAgentService implements SpecialistAgent {
       );
     }
 
-    const context = await this.hrCore.getLeaveContext(
-      input.actorContext.employeeId,
-      {
-        jwt: input.actorContext.jwt,
-        correlationId: input.actorContext.correlationId,
-      },
-    );
+    if (this.geminiToolCaller && this.toolRegistry) {
+      const tools = this.toolRegistry.getLeaveTools(
+        reqContext,
+        input.actorContext.employeeId,
+        input.actorContext.businessUnitId,
+        hasTeamLeaveScope,
+      );
+      const systemPrompt = input.isDraftRequest
+        ? `${LEAVE_SYSTEM_PROMPT}\n\n${DRAFT_MODE_DIRECTIVE}`
+        : LEAVE_SYSTEM_PROMPT;
+      const outcome = await this.geminiToolCaller.call(
+        systemPrompt,
+        input.userMessage,
+        tools,
+        input.conversationContext.recentMessages,
+      );
+      if (outcome) return this.toToolCallerResult(input, outcome);
+    }
+
+    /**
+     * WHY: Fallback deterministic path preserves existing routing for holiday
+     * calendar, team coverage, and own-balance questions when Gemini is unavailable.
+     */
+    if (this.requestsHolidayCalendar(input)) {
+      const holidays = await this.hrCore.getHolidaysContext(input.actorContext.businessUnitId, reqContext);
+      return downstreamResult(
+        input,
+        this.agentType,
+        holidays,
+        'Company holiday calendar prepared.',
+        this.describeHolidays(holidays.data),
+      );
+    }
+
+    if (this.requestsTeamCoverage(input)) {
+      const coverage = await this.hrCore.getTeamLeaveContext(reqContext);
+      const content = input.isDraftRequest
+        ? 'Draft team coverage note: list who is on approved leave in the window, name the coverage owner for each absence, and flag overlaps for review before sharing.'
+        : this.describeTeamCoverage(coverage.data);
+      return downstreamResult(input, this.agentType, coverage, 'Team leave coverage prepared.', content, {
+        draftLabel: 'Team coverage draft',
+      });
+    }
+
+    const context = await this.hrCore.getLeaveContext(input.actorContext.employeeId, reqContext);
     const content = input.isDraftRequest
       ? 'Draft leave request: dates, leave type, coverage plan, and manager note should be reviewed in the Leaves module before submission.'
       : this.describeLeaveContext(context.data);
-    return downstreamResult(
-      input,
-      this.agentType,
-      context,
-      'Leave context prepared.',
-      content,
-      { draftLabel: 'Leave request draft' },
-    );
+    return downstreamResult(input, this.agentType, context, 'Leave context prepared.', content, {
+      draftLabel: 'Leave request draft',
+    });
+  }
+
+  private toToolCallerResult(input: SpecialistInput, outcome: GeminiToolCallOutcome): SpecialistResult {
+    const limited = outcome.anyToolDenied || outcome.anyToolFailed;
+    return {
+      agentType: this.agentType,
+      status: limited ? AgentRunStatus.DEGRADED : AgentRunStatus.SUCCESS,
+      summary: limited ? 'Leave guidance prepared with limited data access.' : 'Leave context prepared.',
+      userVisibleContent: outcome.answer,
+      sourceContext: [{
+        sourceType: 'LEAVE',
+        title: 'Leave context',
+        referenceId: `leave:${outcome.toolsUsed.join('+') || 'tool-caller'}`,
+      }],
+      permissionDecision: outcome.anyToolDenied
+        ? PermissionDecision.DENIED
+        : outcome.anyToolFailed
+          ? PermissionDecision.PARTIAL
+          : PermissionDecision.ALLOWED,
+      draftLabel: input.isDraftRequest ? 'Leave request draft' : undefined,
+    };
   }
 
   private refusal(summary: string, userVisibleContent: string): SpecialistResult {

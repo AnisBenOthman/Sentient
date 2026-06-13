@@ -181,8 +181,7 @@ export class AgentGuardrailService {
     const lower = message.toLowerCase();
     const hasSentientTopic = SENTIENT_TERM_PATTERNS.some((pattern) => pattern.test(message));
     const offTopicTerms = OFF_TOPIC_TERMS.filter((term) => lower.includes(term));
-    const hasTeamLeaveScope =
-      actor?.roles?.some((role) => TEAM_LEAVE_SCOPE_ROLES.includes(role)) ?? false;
+    const hasTeamLeaveScope = this.hasTeamLeaveScope(actor?.roles);
 
     if (IMMEDIATE_SAFETY_PATTERNS.some((pattern) => pattern.test(message))) {
       return this.escalationResult(
@@ -312,12 +311,21 @@ export class AgentGuardrailService {
    * WHY: The final-answer node re-checks composed output (FR-034). Exposing the
    * same pattern sets keeps the input guardrail and the output backstop in sync
    * instead of maintaining two diverging regex libraries.
+   *
+   * Third-party leave patterns are skippable because managers and HR admins are
+   * entitled to team leave answers: a generated sentence like "team member X has
+   * a leave request next week" is a correct answer for them, not a leak. The
+   * input gate already applies the same role-based distinction.
    */
-  matchesUnauthorizedData(text: string): boolean {
-    return (
-      UNAUTHORIZED_PATTERNS.some((pattern) => pattern.test(text)) ||
-      THIRD_PARTY_LEAVE_PATTERNS.some((pattern) => pattern.test(text))
-    );
+  matchesUnauthorizedData(text: string, options?: { includeThirdPartyLeavePatterns?: boolean }): boolean {
+    if (UNAUTHORIZED_PATTERNS.some((pattern) => pattern.test(text))) return true;
+    if (options?.includeThirdPartyLeavePatterns === false) return false;
+    return THIRD_PARTY_LEAVE_PATTERNS.some((pattern) => pattern.test(text));
+  }
+
+  /** WHY: Single source of truth for the manager/HR-admin team-leave entitlement check. */
+  hasTeamLeaveScope(roles: readonly string[] | undefined): boolean {
+    return roles?.some((role) => TEAM_LEAVE_SCOPE_ROLES.includes(role)) ?? false;
   }
 
   matchesInterpersonalJudgment(text: string): boolean {

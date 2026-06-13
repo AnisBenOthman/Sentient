@@ -1,23 +1,81 @@
-import { Injectable } from '@nestjs/common';
-import { AgentType } from '../../../generated/prisma';
-import { DashboardAiContext, HrCoreAiClient, TeamAbsenceSummaryContext } from '../../../common/clients';
+import { Injectable, Optional } from '@nestjs/common';
+import { AgentRunStatus, AgentType, PermissionDecision } from '../../../generated/prisma';
+import { DashboardAiContext, DownstreamRequestContext, HrCoreAiClient, TeamAbsenceSummaryContext } from '../../../common/clients';
 import { SpecialistAgent, SpecialistInput, SpecialistResult } from '../../../common/graph';
+import {
+  CONVERSATIONAL_STYLE,
+  DRAFT_MODE_DIRECTIVE,
+  GeminiToolCallerService,
+  GeminiToolCallOutcome,
+  ToolRegistryService,
+} from '../tools';
 import { downstreamResult } from './specialist-response.helpers';
 
 const ABSENCE_INTENT_PATTERN =
   /\b(absent|absence|absences|absentee|always\s+(out|off|away|missing)|frequently\s+(out|off|away)|most\s+(absent|leave|days\s+off)|who.{0,30}miss|miss.{0,20}most|attendance|time\s+off\s+most|days\s+off\s+most|keep\s+(taking|having)\s+leave)\b/i;
 
+const ANALYTICS_SYSTEM_PROMPT = `You are the Sentient HR analytics assistant. Use the provided tools to answer workforce metrics questions with real data:
+- Call get_workforce_dashboard for headcount, pending leave approvals, or skills metrics.
+- Call get_team_absence_summary for questions about who is frequently absent, who takes the most leave, or absence frequency.
+The tools calculate the numbers — your job is to narrate and interpret results clearly. For absence data, always note it reflects only approved, recorded leave — not unplanned absences or no-shows.
+
+${CONVERSATIONAL_STYLE}`;
+
 @Injectable()
 export class AnalyticsAgentService implements SpecialistAgent {
   readonly agentType = AgentType.ANALYTICS_AGENT;
 
-  constructor(private readonly hrCore: HrCoreAiClient) {}
+  constructor(
+    private readonly hrCore: HrCoreAiClient,
+    @Optional() private readonly geminiToolCaller?: GeminiToolCallerService,
+    @Optional() private readonly toolRegistry?: ToolRegistryService,
+  ) {}
 
   async execute(input: SpecialistInput): Promise<SpecialistResult> {
+    const reqContext: DownstreamRequestContext = {
+      jwt: input.actorContext.jwt,
+      correlationId: input.actorContext.correlationId,
+    };
+
+    if (this.geminiToolCaller && this.toolRegistry) {
+      const tools = this.toolRegistry.getAnalyticsTools(reqContext);
+      const systemPrompt = input.isDraftRequest
+        ? `${ANALYTICS_SYSTEM_PROMPT}\n\n${DRAFT_MODE_DIRECTIVE}`
+        : ANALYTICS_SYSTEM_PROMPT;
+      const outcome = await this.geminiToolCaller.call(
+        systemPrompt,
+        input.userMessage,
+        tools,
+        input.conversationContext.recentMessages,
+      );
+      if (outcome) return this.toToolCallerResult(input, outcome);
+    }
+
     if (ABSENCE_INTENT_PATTERN.test(input.normalizedIntent)) {
       return this.handleAbsenceSummaryQuery(input);
     }
     return this.handleDashboardQuery(input);
+  }
+
+  private toToolCallerResult(input: SpecialistInput, outcome: GeminiToolCallOutcome): SpecialistResult {
+    const limited = outcome.anyToolDenied || outcome.anyToolFailed;
+    return {
+      agentType: this.agentType,
+      status: limited ? AgentRunStatus.DEGRADED : AgentRunStatus.SUCCESS,
+      summary: limited ? 'Analytics prepared with limited data access.' : 'Analytics explanation prepared.',
+      userVisibleContent: outcome.answer,
+      sourceContext: [{
+        sourceType: 'ANALYTICS',
+        title: 'Workforce analytics',
+        referenceId: `analytics:${outcome.toolsUsed.join('+') || 'dashboard'}`,
+      }],
+      permissionDecision: outcome.anyToolDenied
+        ? PermissionDecision.DENIED
+        : outcome.anyToolFailed
+          ? PermissionDecision.PARTIAL
+          : PermissionDecision.ALLOWED,
+      draftLabel: input.isDraftRequest ? 'Workforce insight draft' : undefined,
+    };
   }
 
   private async handleDashboardQuery(input: SpecialistInput): Promise<SpecialistResult> {

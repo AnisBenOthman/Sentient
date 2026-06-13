@@ -32,6 +32,8 @@ import { OnboardingAgentService } from './specialists/onboarding-agent.service';
 import { SupervisorAgentService } from './supervisor-agent.service';
 import { SupervisorLangGraphRunnerService } from './supervisor-langgraph-runner.service';
 import { SupervisorIntentClassifierService } from './supervisor-intent-classifier.service';
+import { GeminiToolCallerService } from './tools/gemini-tool-caller.service';
+import { ToolRegistryService } from './tools/tool-registry.service';
 
 @Module({
   imports: [KnowledgeModule],
@@ -50,6 +52,7 @@ import { SupervisorIntentClassifierService } from './supervisor-intent-classifie
     FinalAnswerPolicyService,
     FinalAnswerNodeService,
     GeminiIntentClassifierService,
+    GeminiToolCallerService,
     GeneralHelpAgentService,
     GreetingAgentService,
     HrCoreAiClient,
@@ -65,6 +68,7 @@ import { SupervisorIntentClassifierService } from './supervisor-intent-classifie
     SupervisorAgentService,
     SupervisorLangGraphRunnerService,
     SupervisorIntentClassifierService,
+    ToolRegistryService,
     {
       provide: INTENT_CLASSIFIER,
       inject: [ConfigService, SupervisorIntentClassifierService, GeminiIntentClassifierService],
@@ -93,6 +97,7 @@ import { SupervisorIntentClassifierService } from './supervisor-intent-classifie
     FinalAnswerPolicyService,
     FinalAnswerNodeService,
     GeminiIntentClassifierService,
+    GeminiToolCallerService,
     GeneralHelpAgentService,
     GreetingAgentService,
     HrCoreAiClient,
@@ -107,6 +112,7 @@ import { SupervisorIntentClassifierService } from './supervisor-intent-classifie
     SupervisorAgentService,
     SupervisorLangGraphRunnerService,
     SupervisorIntentClassifierService,
+    ToolRegistryService,
     INTENT_CLASSIFIER,
   ],
 })

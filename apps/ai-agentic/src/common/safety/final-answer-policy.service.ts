@@ -20,13 +20,19 @@ export class FinalAnswerPolicyService {
    * sweeps content that claims to be a normal answer — refusal and escalation
    * messages legitimately mention the sensitive topics they decline.
    */
-  review(content: string, options?: { isDraft?: boolean; status?: AgentRunStatus }): FinalAnswerPolicyResult {
+  review(
+    content: string,
+    options?: { isDraft?: boolean; status?: AgentRunStatus; hasTeamLeaveScope?: boolean },
+  ): FinalAnswerPolicyResult {
     const warnings: string[] = [];
     let status = options?.status ?? AgentRunStatus.SUCCESS;
     let nextContent = content.trim();
 
     if (!REFUSAL_LIKE_STATUSES.includes(status)) {
-      if (this.guardrails.matchesUnauthorizedData(nextContent)) {
+      const unauthorized = this.guardrails.matchesUnauthorizedData(nextContent, {
+        includeThirdPartyLeavePatterns: options?.hasTeamLeaveScope !== true,
+      });
+      if (unauthorized) {
         nextContent =
           'I cannot share private employee information that is outside your Sentient permissions. I can help with your own records or with summaries you are authorized to view.';
         status = AgentRunStatus.REFUSED;

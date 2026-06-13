@@ -15,6 +15,12 @@ interface ComposeInput {
   escalation?: HumanEscalationResult | null;
   declinedTopics?: string[];
   isDraft: boolean;
+  /**
+   * WHY: The output backstop must mirror the input gate's role awareness —
+   * managers and HR admins legitimately receive team leave answers, so their
+   * composed output must not be swept by third-party leave patterns.
+   */
+  hasTeamLeaveScope?: boolean;
 }
 
 const FAILED_SPECIALIST_STATUSES: AgentRunStatus[] = [
@@ -44,7 +50,11 @@ export class FinalAnswerNodeService {
 
     const rawContent = contentParts.join('\n\n');
     const status = this.statusFrom(input);
-    const reviewed = this.finalPolicy.review(rawContent, { isDraft: input.isDraft, status });
+    const reviewed = this.finalPolicy.review(rawContent, {
+      isDraft: input.isDraft,
+      status,
+      hasTeamLeaveScope: input.hasTeamLeaveScope,
+    });
 
     return {
       status: reviewed.status,
