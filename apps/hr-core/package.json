@@ -3,8 +3,10 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "prebuild": "prisma generate --schema prisma/schema.prisma",
     "build": "nest build",
     "dev": "npx kill-port 3001 && nest start --watch",
+    "predev": "prisma generate --schema prisma/schema.prisma",
     "start": "nest start",
     "start:prod": "node dist/main",
     "test": "jest",
