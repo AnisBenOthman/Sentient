@@ -49,6 +49,10 @@ export interface DashboardAnalytics {
     visible: boolean;
     totalCost: number | null;
     averageSalary: number | null;
+    // WHY: null means the scoped employees span more than one BusinessUnit
+    // currency (or none resolve to a BU at all) — totalCost/averageSalary are
+    // still computed, but the caller must not label them with a guessed currency.
+    currency: string | null;
     costByDepartment: ChartPoint[];
     costTrendByTeam: SeriesPoint[];
   };
@@ -87,8 +91,22 @@ export interface DashboardAnalytics {
 
 type EmployeeRow = Prisma.EmployeeGetPayload<{
   include: {
-    department: { select: { id: true; name: true; businessUnitId: true } };
-    team: { select: { id: true; name: true; businessUnitId: true } };
+    department: {
+      select: {
+        id: true;
+        name: true;
+        businessUnitId: true;
+        businessUnit: { select: { currency: true } };
+      };
+    };
+    team: {
+      select: {
+        id: true;
+        name: true;
+        businessUnitId: true;
+        businessUnit: { select: { currency: true } };
+      };
+    };
     position: { select: { id: true; title: true } };
   };
 }>;
@@ -184,8 +202,22 @@ export class AnalyticsService {
       this.prisma.employee.findMany({
         where: employeeWhere,
         include: {
-          department: { select: { id: true, name: true, businessUnitId: true } },
-          team: { select: { id: true, name: true, businessUnitId: true } },
+          department: {
+            select: {
+              id: true,
+              name: true,
+              businessUnitId: true,
+              businessUnit: { select: { currency: true } },
+            },
+          },
+          team: {
+            select: {
+              id: true,
+              name: true,
+              businessUnitId: true,
+              businessUnit: { select: { currency: true } },
+            },
+          },
           position: { select: { id: true, title: true } },
         },
       }),
@@ -343,6 +375,7 @@ export class AnalyticsService {
         visible: false,
         totalCost: null,
         averageSalary: null,
+        currency: null,
         costByDepartment: [],
         costTrendByTeam: [],
       };
@@ -362,6 +395,7 @@ export class AnalyticsService {
       visible: true,
       totalCost,
       averageSalary: visibleEmployees.length > 0 ? Math.round(totalCost / visibleEmployees.length) : null,
+      currency: this.resolveSharedCurrency(visibleEmployees),
       costByDepartment: this.sortPoints(
         this.sumBy(
           visibleEmployees,
@@ -687,6 +721,23 @@ export class AnalyticsService {
 
   private sortPoints(points: ChartPoint[]): ChartPoint[] {
     return points.sort((a, b) => b.value - a.value);
+  }
+
+  private resolveEmployeeCurrency(employee: EmployeeRow): string | null {
+    return employee.department?.businessUnit?.currency ?? employee.team?.businessUnit?.currency ?? null;
+  }
+
+  /**
+   * WHY: totalCost/averageSalary are a raw sum across the scoped employees.
+   * That sum is only meaningful if every one of them resolves to the same
+   * BusinessUnit currency. Returns that shared currency, or null when the
+   * set is empty, mixed, or unresolvable — callers must not guess a symbol
+   * for a null result.
+   */
+  private resolveSharedCurrency(employees: EmployeeRow[]): string | null {
+    const distinct = new Set(employees.map((employee) => this.resolveEmployeeCurrency(employee)));
+    if (distinct.size !== 1) return null;
+    return distinct.values().next().value ?? null;
   }
 
   private decimalToNumber(value: Decimal | number | string | null): number {

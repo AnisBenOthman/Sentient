@@ -79,17 +79,19 @@ export interface EmployeeProfile {
     id: string;
     name: string;
     businessUnitId?: string;
-    businessUnit?: { id: string; name: string } | null;
+    businessUnit?: { id: string; name: string; currency?: string } | null;
   } | null;
   team: {
     id: string;
     name: string;
     businessUnitId?: string;
-    businessUnit?: { id: string; name: string } | null;
+    businessUnit?: { id: string; name: string; currency?: string } | null;
   } | null;
   position: { id: string; title: string } | null;
   manager: { id: string; firstName: string; lastName: string } | null;
   salaryHistory?: SalaryHistoryEntry[];
+  /** Resolved from department (falling back to team) business unit at read time. Null = no BU assigned yet. */
+  currency: string | null;
 }
 
 export interface PaginatedEmployees {
@@ -372,6 +374,8 @@ export interface SalaryHistoryEntry {
   netAfter: number | null;
   reason: string | null;
   changedByName: string | null;
+  /** Employee's current department/team business unit currency. Null = unresolved. */
+  currency: string | null;
 }
 
 interface ApiSalaryHistoryEntry {
@@ -383,6 +387,7 @@ interface ApiSalaryHistoryEntry {
   newNetSalary: number | string | null;
   reason: string | null;
   changedById: string | null;
+  currency: string | null;
 }
 
 function toNullableNumber(value: number | string | null): number | null {
@@ -404,6 +409,7 @@ export async function getSalaryHistory(employeeId: string): Promise<SalaryHistor
     netAfter: toNullableNumber(entry.newNetSalary),
     reason: entry.reason,
     changedByName: entry.changedById,
+    currency: entry.currency,
   }));
 }
 
@@ -807,6 +813,8 @@ export interface DashboardAnalytics {
     visible: boolean;
     totalCost: number | null;
     averageSalary: number | null;
+    /** Shared BusinessUnit currency across the scoped employees. Null = mixed/unresolved — never guess a symbol. */
+    currency: string | null;
     costByDepartment: ChartPoint[];
     costTrendByTeam: SeriesPoint[];
   };

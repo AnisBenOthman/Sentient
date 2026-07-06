@@ -34,14 +34,16 @@ function employeeRow(
     contractType: ContractType;
     dateOfBirth: Date | null;
     hireDate: Date;
+    currency: string;
   }> = {},
 ): Prisma.EmployeeGetPayload<{
   include: {
-    department: { select: { id: true; name: true; businessUnitId: true } };
-    team: { select: { id: true; name: true; businessUnitId: true } };
+    department: { select: { id: true; name: true; businessUnitId: true; businessUnit: { select: { currency: true } } } };
+    team: { select: { id: true; name: true; businessUnitId: true; businessUnit: { select: { currency: true } } } };
     position: { select: { id: true; title: true } };
   };
 }> {
+  const currency = overrides.currency ?? 'USD';
   return {
     id,
     employeeCode: id.toUpperCase(),
@@ -66,8 +68,8 @@ function employeeRow(
     createdAt: new Date('2024-01-01T00:00:00.000Z'),
     updatedAt: new Date('2024-01-01T00:00:00.000Z'),
     deletedAt: null,
-    department: { id: 'dept-finance', name: 'Finance', businessUnitId: 'bu-hq' },
-    team: { id: 'team-accounting', name: 'Accounting', businessUnitId: 'bu-hq' },
+    department: { id: 'dept-finance', name: 'Finance', businessUnitId: 'bu-hq', businessUnit: { currency } },
+    team: { id: 'team-accounting', name: 'Accounting', businessUnitId: 'bu-hq', businessUnit: { currency } },
     position: { id: 'pos-analyst', title: 'Finance Analyst' },
   };
 }
@@ -116,6 +118,7 @@ describe('AnalyticsService', () => {
     const analytics = await service.getDashboard({ departmentId: 'dept-finance' }, hrUser);
 
     expect(analytics.payroll.totalCost).toBe(1000);
+    expect(analytics.payroll.currency).toBe('USD');
     expect(mockPrisma.salaryHistory.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -241,5 +244,30 @@ describe('AnalyticsService', () => {
         },
       }),
     );
+  });
+
+  describe('payroll currency resolution', () => {
+    it('returns null when scoped employees span more than one business unit currency', async () => {
+      mockPrisma.employee.findMany.mockResolvedValue([
+        employeeRow('emp-dz', EmploymentStatus.ACTIVE, '1000', { currency: 'DZD' }),
+        employeeRow('emp-us', EmploymentStatus.ACTIVE, '1000', { currency: 'USD' }),
+      ]);
+
+      const analytics = await service.getDashboard({}, hrUser);
+
+      expect(analytics.payroll.currency).toBeNull();
+      expect(analytics.payroll.totalCost).toBe(2000);
+    });
+
+    it('resolves the shared currency when all scoped employees share one business unit', async () => {
+      mockPrisma.employee.findMany.mockResolvedValue([
+        employeeRow('emp-a', EmploymentStatus.ACTIVE, '1000', { currency: 'DZD' }),
+        employeeRow('emp-b', EmploymentStatus.ACTIVE, '2000', { currency: 'DZD' }),
+      ]);
+
+      const analytics = await service.getDashboard({}, hrUser);
+
+      expect(analytics.payroll.currency).toBe('DZD');
+    });
   });
 });

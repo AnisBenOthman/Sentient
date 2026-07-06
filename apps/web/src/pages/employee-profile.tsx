@@ -256,10 +256,16 @@ function formatDate(value: string | null | undefined): string {
   });
 }
 
-function formatMoney(value: number | null): string {
-  return value == null
-    ? "N/A"
-    : value.toLocaleString("en-US", { style: "currency", currency: "DZD" });
+// WHY: currency is resolved server-side from the employee's department/team
+// business unit. `undefined` (arg omitted) preserves the historical DZD
+// default for call sites that don't carry a resolved employee; an explicit
+// `null` means "known to be unresolved" and must not guess a currency.
+const LEGACY_DEFAULT_CURRENCY = "DZD";
+
+function formatMoney(value: number | null, currency?: string | null): string {
+  if (value == null) return "N/A";
+  if (currency === null) return value.toLocaleString("en-US");
+  return value.toLocaleString("en-US", { style: "currency", currency: currency ?? LEGACY_DEFAULT_CURRENCY });
 }
 
 function formatPercent(value: number | null): string {
@@ -874,8 +880,8 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                     </>
                   ) : (
                     <>
-                      <InfoRow icon={DollarSign} label="Gross Salary" value={formatMoney(emp.grossSalary)} />
-                      <InfoRow icon={DollarSign} label="Net Salary" value={formatMoney(emp.netSalary)} />
+                      <InfoRow icon={DollarSign} label="Gross Salary" value={formatMoney(emp.grossSalary, emp.currency)} />
+                      <InfoRow icon={DollarSign} label="Net Salary" value={formatMoney(emp.netSalary, emp.currency)} />
                     </>
                   )}
                 </CardContent>
@@ -1003,10 +1009,10 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                     {sortedSalaryHistory.map((entry) => (
                       <TableRow key={entry.id}>
                         <TableCell>{formatDate(entry.effectiveDate)}</TableCell>
-                        <TableCell>{entry.grossBefore?.toLocaleString() ?? "N/A"}</TableCell>
-                        <TableCell className="font-semibold">{entry.grossAfter?.toLocaleString() ?? "N/A"}</TableCell>
-                        <TableCell>{entry.netBefore?.toLocaleString() ?? "N/A"}</TableCell>
-                        <TableCell className="font-semibold">{entry.netAfter?.toLocaleString() ?? "N/A"}</TableCell>
+                        <TableCell>{formatMoney(entry.grossBefore, entry.currency)}</TableCell>
+                        <TableCell className="font-semibold">{formatMoney(entry.grossAfter, entry.currency)}</TableCell>
+                        <TableCell>{formatMoney(entry.netBefore, entry.currency)}</TableCell>
+                        <TableCell className="font-semibold">{formatMoney(entry.netAfter, entry.currency)}</TableCell>
                         <TableCell>{entry.reason ?? "N/A"}</TableCell>
                       </TableRow>
                     ))}
