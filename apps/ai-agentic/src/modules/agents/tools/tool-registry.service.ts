@@ -173,7 +173,7 @@ export class ToolRegistryService {
           description:
             'Search the approved knowledge base for articles matching a query. Useful for finding specific policy answers, FAQs, or guidance on a topic.',
           parameters: {
-            type: 'OBJECT',
+            type: 'object',
             properties: {
               query: { type: 'string', description: 'The search query, e.g. "parental leave policy" or "remote work guidelines"' },
             },

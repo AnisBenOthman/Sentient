@@ -3,6 +3,7 @@ import { AgentRunStatus, AgentType, PermissionDecision } from '../../../generate
 import {
   DownstreamRequestContext,
   HolidayAiContext,
+  HolidayContext,
   HrCoreAiClient,
   LeaveAiContext,
   LeaveBalanceContext,
@@ -15,12 +16,11 @@ import {
   DRAFT_MODE_DIRECTIVE,
   FEW_SHOT_LEAVE_EXAMPLES,
   GeminiCallOptions,
-  GeminiToolCallerService,
-  GeminiToolCallOutcome,
+  LlmFallbackOrchestratorService,
   SENTIENT_IDENTITY,
   ToolRegistryService,
 } from '../tools';
-import { downstreamResult } from './specialist-response.helpers';
+import { downstreamResult, toolCallerResult } from './specialist-response.helpers';
 
 const TEAM_LEAVE_SCOPE_ROLES = ['MANAGER', 'HR_ADMIN'];
 
@@ -49,7 +49,7 @@ export class LeaveAgentService implements SpecialistAgent {
 
   constructor(
     private readonly hrCore: HrCoreAiClient,
-    @Optional() private readonly geminiToolCaller?: GeminiToolCallerService,
+    @Optional() private readonly llmCaller?: LlmFallbackOrchestratorService,
     @Optional() private readonly toolRegistry?: ToolRegistryService,
   ) {}
 
@@ -81,7 +81,7 @@ export class LeaveAgentService implements SpecialistAgent {
       );
     }
 
-    if (this.geminiToolCaller && this.toolRegistry) {
+    if (this.llmCaller && this.toolRegistry) {
       const tools = this.toolRegistry.getLeaveTools(
         reqContext,
         input.actorContext.employeeId,
@@ -92,14 +92,24 @@ export class LeaveAgentService implements SpecialistAgent {
         ? `${LEAVE_SYSTEM_PROMPT}\n\n${DRAFT_MODE_DIRECTIVE}`
         : LEAVE_SYSTEM_PROMPT;
       const callOptions: GeminiCallOptions = { thinkingLevel: 'medium' };
-      const outcome = await this.geminiToolCaller.call(
+      const outcome = await this.llmCaller.call(
         systemPrompt,
         input.userMessage,
         tools,
         input.conversationContext.recentMessages,
         callOptions,
       );
-      if (outcome) return this.toToolCallerResult(input, outcome);
+      if (outcome) {
+        return toolCallerResult(input, this.agentType, outcome, {
+          sourceType: 'LEAVE',
+          title: 'Leave context',
+          referencePrefix: 'leave',
+          referenceFallback: 'tool-caller',
+          successSummary: 'Leave context prepared.',
+          limitedSummary: 'Leave guidance prepared with limited data access.',
+          draftLabel: 'Leave request draft',
+        });
+      }
     }
 
     /**
@@ -113,7 +123,8 @@ export class LeaveAgentService implements SpecialistAgent {
         this.agentType,
         holidays,
         'Company holiday calendar prepared.',
-        this.describeHolidays(holidays.data),
+        this.describeHolidays(holidays.data, input),
+        { suppressContinuityPrefix: this.wantsHolidayDateOnly(input) },
       );
     }
 
@@ -134,27 +145,6 @@ export class LeaveAgentService implements SpecialistAgent {
     return downstreamResult(input, this.agentType, context, 'Leave context prepared.', content, {
       draftLabel: 'Leave request draft',
     });
-  }
-
-  private toToolCallerResult(input: SpecialistInput, outcome: GeminiToolCallOutcome): SpecialistResult {
-    const limited = outcome.anyToolDenied || outcome.anyToolFailed;
-    return {
-      agentType: this.agentType,
-      status: limited ? AgentRunStatus.DEGRADED : AgentRunStatus.SUCCESS,
-      summary: limited ? 'Leave guidance prepared with limited data access.' : 'Leave context prepared.',
-      userVisibleContent: outcome.answer,
-      sourceContext: [{
-        sourceType: 'LEAVE',
-        title: 'Leave context',
-        referenceId: `leave:${outcome.toolsUsed.join('+') || 'tool-caller'}`,
-      }],
-      permissionDecision: outcome.anyToolDenied
-        ? PermissionDecision.DENIED
-        : outcome.anyToolFailed
-          ? PermissionDecision.PARTIAL
-          : PermissionDecision.ALLOWED,
-      draftLabel: input.isDraftRequest ? 'Leave request draft' : undefined,
-    };
   }
 
   private refusal(summary: string, userVisibleContent: string): SpecialistResult {
@@ -183,13 +173,23 @@ export class LeaveAgentService implements SpecialistAgent {
     return lines.join('\n');
   }
 
-  private describeHolidays(context: HolidayAiContext | null): string {
+  private describeHolidays(context: HolidayAiContext | null, input: SpecialistInput): string {
     if (!context) {
       return 'I could not read the company holiday calendar right now; you can check it in the Leaves module.';
     }
     const holidays = Array.isArray(context.holidays) ? context.holidays : [];
     if (holidays.length === 0) {
       return `No company holidays are configured for ${context.year} yet. HR admins maintain the holiday calendar in the Leaves module.`;
+    }
+
+    if (this.wantsNextHoliday(input)) {
+      const nextHoliday = this.nextHoliday(holidays);
+      if (!nextHoliday) {
+        return `No upcoming company holidays are configured for the rest of ${context.year}.`;
+      }
+      const date = this.formatDate(nextHoliday.date);
+      if (this.wantsHolidayDateOnly(input)) return date;
+      return `Next company holiday: ${nextHoliday.name} on ${date}.`;
     }
 
     const shown = holidays.slice(0, 15);
@@ -277,6 +277,21 @@ export class LeaveAgentService implements SpecialistAgent {
     return date.toISOString().slice(0, 10);
   }
 
+  private nextHoliday(holidays: HolidayContext[]): HolidayContext | null {
+    const now = new Date();
+    const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const upcoming = holidays
+      .filter((holiday) => this.dayValue(holiday.date) >= today)
+      .sort((left, right) => this.dayValue(left.date) - this.dayValue(right.date));
+    return upcoming[0] ?? null;
+  }
+
+  private dayValue(value: string): number {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 0;
+    return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  }
+
   private timeValue(value: string): number {
     const time = new Date(value).getTime();
     return Number.isNaN(time) ? 0 : time;
@@ -293,13 +308,49 @@ export class LeaveAgentService implements SpecialistAgent {
    * without balance words mark a holiday-calendar question.
    */
   private requestsHolidayCalendar(input: SpecialistInput): boolean {
-    const text = `${input.normalizedIntent} ${input.userMessage}`.toLowerCase();
+    const text = this.currentRequestText(input);
+    if (this.textRequestsHolidayCalendar(text)) return true;
+    return this.isHolidayCalendarFollowUp(input, text);
+  }
+
+  private textRequestsHolidayCalendar(text: string): boolean {
     if (/\b(bank|public|company|national|official)\s+holidays?\b/.test(text)) return true;
     return (
       /\bholidays?\b/.test(text) &&
       /\b(calendar|list|dates?|when|which|upcoming|next|country|this year)\b/.test(text) &&
       !/\b(balance|remaining|left|book|request|take)\b/.test(text)
     );
+  }
+
+  private isHolidayCalendarFollowUp(input: SpecialistInput, text: string): boolean {
+    if (/\b(balance|remaining|left|book|request|take)\b/.test(text)) return false;
+    if (!/\b(next|date|when|which|only|just|one)\b/.test(text)) return false;
+
+    const currentMessage = input.userMessage.trim().toLowerCase();
+    return input.conversationContext.recentMessages.some((message) => {
+      const content = message.content.trim().toLowerCase();
+      if (content === currentMessage) return false;
+      return this.textRequestsHolidayCalendar(content) || /^company holidays for\b/.test(content);
+    });
+  }
+
+  private wantsNextHoliday(input: SpecialistInput): boolean {
+    const text = this.currentRequestText(input);
+    if (/\bnext\b/.test(text)) return true;
+    return this.isHolidayCalendarFollowUp(input, text) && /\b(date|when|one)\b/.test(text);
+  }
+
+  private wantsHolidayDateOnly(input: SpecialistInput): boolean {
+    const text = this.currentRequestText(input);
+    return (
+      /\b(only|just)\b/.test(text) &&
+      /\b(date|day)\b/.test(text) &&
+      this.wantsNextHoliday(input)
+    );
+  }
+
+  private currentRequestText(input: SpecialistInput): string {
+    return `${input.normalizedIntent} ${input.userMessage}`.toLowerCase();
   }
 
   private requestsTeamCoverage(input: SpecialistInput): boolean {

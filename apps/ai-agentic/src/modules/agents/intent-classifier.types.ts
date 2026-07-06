@@ -3,7 +3,7 @@ import { ConversationTurnContext } from '../../common/graph';
 
 export const INTENT_CLASSIFIER = Symbol('INTENT_CLASSIFIER');
 
-export type IntentClassifierProvider = 'rules' | 'gemini';
+export type IntentClassifierProvider = 'rules' | 'gemini' | 'openrouter' | 'groq';
 export type IntentClassificationSource = IntentClassifierProvider;
 
 export type DraftIntentCategory =

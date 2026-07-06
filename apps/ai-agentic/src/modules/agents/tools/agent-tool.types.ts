@@ -1,15 +1,22 @@
-/** Gemini function declaration parameter, matching the v1beta REST API schema format. */
+/** Tool declaration parameter, in neutral JSON Schema casing (lowercase types). */
 export interface GeminiFunctionParameter {
   type: string;
   description: string;
   enum?: string[];
 }
 
+/**
+ * WHY: This shape is provider-neutral JSON Schema (`type: 'object'`, lowercase) so
+ * ToolRegistryService's declarations work unchanged for Gemini, OpenRouter, and Grok.
+ * Gemini's REST API expects its uppercase `'OBJECT'` Type enum, so GeminiToolCallerService
+ * is the only place that casing difference is bridged — every other adapter consumes
+ * this shape as-is.
+ */
 export interface GeminiFunctionDeclaration {
   name: string;
   description: string;
   parameters?: {
-    type: 'OBJECT';
+    type: 'object';
     properties: Record<string, GeminiFunctionParameter>;
     required?: string[];
   };
@@ -44,6 +51,15 @@ export interface GeminiToolCallOutcome {
   anyToolFailed: boolean;
   /** Names of the tools Gemini actually invoked, in call order (for governance trails). */
   toolsUsed: string[];
+  /** Which LLM provider produced this answer ('GEMINI' | 'OPENROUTER' | 'GROK'). */
+  providerUsed: string;
+  /**
+   * WHY: Set by LlmFallbackOrchestratorService when this answer came from a
+   * non-primary provider (the configured one failed for an infrastructure
+   * reason). Specialists surface this as a DEGRADED result so governance shows
+   * the resilience layer kicked in — never silent, never SUCCESS-masquerading.
+   */
+  usedFallbackProvider?: boolean;
 }
 
 /**

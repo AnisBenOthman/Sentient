@@ -1,34 +1,20 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { GoogleGenAI, Content, Part, FunctionCallingConfigMode } from '@google/genai';
 import { AiAgenticConfig } from '../../../config';
-import { AgentTool, ConversationHistoryMessage, GeminiCallOptions, GeminiToolCallOutcome } from './agent-tool.types';
+import {
+  AgentTool,
+  ConversationHistoryMessage,
+  GeminiCallOptions,
+  GeminiFunctionDeclaration,
+  GeminiToolCallOutcome,
+} from './agent-tool.types';
+import { LlmToolCallerAdapter } from './llm-tool-caller.interface';
 
 const MAX_TOOL_ROUNDS = 5;
 
 /** Defensive cap per history turn so long prior answers cannot bloat the prompt. */
 const MAX_HISTORY_CHARS = 4_000;
-
-interface GeminiPart {
-  text?: string;
-  /**
-   * WHY: Gemini 3.x returns an `id` on every functionCall part. The matching
-   * functionResponse must echo the same id or the API rejects the next request
-   * with a part-count mismatch error.
-   */
-  functionCall?: { id?: string; name: string; args: Record<string, unknown> };
-  functionResponse?: { id?: string; name: string; response: Record<string, unknown> };
-}
-
-interface GeminiContent {
-  role: string;
-  parts: GeminiPart[];
-}
-
-interface GeminiApiResponse {
-  candidates?: Array<{
-    content?: { role?: string; parts?: GeminiPart[] };
-  }>;
-}
 
 interface ToolRunResult {
   output: unknown;
@@ -37,17 +23,23 @@ interface ToolRunResult {
 }
 
 /**
- * Runs a multi-turn Gemini function-calling loop.
- * WHY: Specialists used to hard-code one method per question type (regex routing).
- * This service lets Gemini pick the right tool(s) from a per-agent set at runtime,
- * making agents flexible without new code per question pattern.
+ * Runs a multi-turn Gemini function-calling loop using the official @google/genai SDK.
+ * WHY: Replaces the raw-fetch implementation to get proper SDK type safety, automatic
+ * retries, and correct auth handling — the SDK passes the API key as a query param
+ * exactly as the generativelanguage.googleapis.com REST endpoint expects.
  * Returns null when Gemini is unavailable so every caller falls back gracefully.
  */
 @Injectable()
-export class GeminiToolCallerService {
+export class GeminiToolCallerService implements LlmToolCallerAdapter {
   private readonly logger = new Logger(GeminiToolCallerService.name);
+  readonly providerName = 'GEMINI';
 
   constructor(@Optional() private readonly config?: ConfigService) {}
+
+  isConfigured(): boolean {
+    const aiConfig = this.config?.get<AiAgenticConfig>('aiAgentic');
+    return Boolean(aiConfig?.geminiApiKey);
+  }
 
   async call(
     systemPrompt: string,
@@ -60,67 +52,76 @@ export class GeminiToolCallerService {
     const apiKey = aiConfig?.geminiApiKey;
     if (!aiConfig || !apiKey || tools.length === 0) return null;
 
-    /**
-     * WHY: Per-call thinkingLevel overrides the server-wide default so analytics
-     * can use 'high' while leave balance checks stay at 'medium'. enableSearch
-     * appends the built-in Google Search tool for the general-help agent.
-     */
     const thinkingLevel = options.thinkingLevel ?? aiConfig.geminiThinkingLevel;
     const enableSearch = options.enableSearch ?? false;
 
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: { timeout: (aiConfig.downstreamTimeoutMs ?? 8_000) * MAX_TOOL_ROUNDS },
+    });
+
     const toolMap = new Map(tools.map((t) => [t.declaration.name, t]));
-    const functionDeclarations = tools.map((t) => t.declaration);
-    const contents: GeminiContent[] = [
-      ...this.historyContents(history, userMessage),
+    const functionDeclarations = tools.map((t) => toSdkDeclaration(t.declaration));
+
+    const sdkTools: object[] = [{ functionDeclarations }];
+    if (enableSearch) sdkTools.push({ googleSearch: {} });
+
+    const contents: Content[] = [
+      ...this.buildHistoryContents(history, userMessage),
       { role: 'user', parts: [{ text: userMessage }] },
     ];
 
     let anyToolDenied = false;
     let anyToolFailed = false;
     const toolsUsed: string[] = [];
-    const controller = new AbortController();
-    const totalTimeoutMs = (aiConfig.downstreamTimeoutMs ?? 8_000) * MAX_TOOL_ROUNDS;
-    const timer = setTimeout(() => controller.abort(), totalTimeoutMs);
 
     try {
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
         /**
-         * WHY: weaker models (e.g. gemini-flash-lite) under-call tools in AUTO
-         * mode and answer from nothing — the "static / hallucinated" failure.
-         * The request is already routed to a data specialist, so forcing a tool
-         * call on the first round guarantees the answer is grounded in real data.
-         * Later rounds use AUTO so the model can stop and synthesize.
+         * WHY: Force a tool call on round 0 (ANY mode) so weaker models don't skip
+         * tools and answer from nothing. Later rounds use AUTO so the model can stop
+         * and synthesize once it has enough data.
          */
-        const mode = round === 0 ? 'ANY' : 'AUTO';
-        const raw = await this.fetchGemini(
-          systemPrompt, contents, functionDeclarations, aiConfig, apiKey, controller.signal, mode, enableSearch, thinkingLevel,
-        );
-        if (!raw) return null;
+        const mode = round === 0 ? FunctionCallingConfigMode.ANY : FunctionCallingConfigMode.AUTO;
 
-        const parts = raw.candidates?.[0]?.content?.parts ?? [];
-        const functionCalls = parts
-          .map((part) => part.functionCall)
-          .filter((fnCall): fnCall is NonNullable<GeminiPart['functionCall']> => fnCall != null);
+        const response = await ai.models.generateContent({
+          model: aiConfig.geminiModel,
+          contents,
+          config: {
+            systemInstruction: systemPrompt,
+            tools: sdkTools,
+            toolConfig: { functionCallingConfig: { mode } },
+            ...resolveThinkingConfig(thinkingLevel),
+          },
+        });
+
+        const candidateContent = response.candidates?.[0]?.content;
+        const parts: Part[] = candidateContent?.parts ?? [];
+        const functionCalls = parts.filter(
+          (p): p is Part & { functionCall: NonNullable<Part['functionCall']> } =>
+            p.functionCall != null,
+        );
 
         if (functionCalls.length > 0) {
           /**
-           * WHY: Gemini can return several functionCall parts in one turn
-           * (parallel calling). History must replay the model turn verbatim and
-           * answer every call in one user turn, otherwise the next request fails
-           * with a functionCall/functionResponse part-count mismatch.
-           * For Gemini 3.x, each functionResponse must echo back the functionCall id.
+           * WHY: Gemini can return several functionCall parts in one turn (parallel
+           * calling). History must replay the model turn verbatim and answer every
+           * call in one user turn — otherwise the next request fails with a
+           * functionCall/functionResponse part-count mismatch.
            */
-          contents.push({ role: 'model', parts });
-          const responseParts: GeminiPart[] = [];
-          for (const fnCall of functionCalls) {
-            const ran = await this.runTool(toolMap, fnCall.name, fnCall.args);
+          if (candidateContent) contents.push(candidateContent);
+
+          const responseParts: Part[] = [];
+          for (const part of functionCalls) {
+            const { name, args, id } = part.functionCall;
+            const ran = await this.runTool(toolMap, name ?? '', (args as Record<string, unknown>) ?? {});
             if (ran.denied) anyToolDenied = true;
             if (ran.failed) anyToolFailed = true;
-            toolsUsed.push(fnCall.name);
+            toolsUsed.push(name ?? '');
             responseParts.push({
               functionResponse: {
-                id: fnCall.id,
-                name: fnCall.name,
+                id,
+                name: name ?? '',
                 response: { result: ran.output as Record<string, unknown> },
               },
             });
@@ -129,39 +130,49 @@ export class GeminiToolCallerService {
           continue;
         }
 
-        const answer = this.extractText(raw);
-        if (answer) return { answer, anyToolDenied, anyToolFailed, toolsUsed };
+        const answer = response.text?.trim();
+        if (answer) {
+          return { answer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName };
+        }
         return null;
       }
 
       /**
-       * WHY: Exhausting tool rounds used to return null, throwing away every
-       * Gemini and downstream call already made. One final request with function
-       * calling disabled forces a text synthesis from the results gathered so far.
+       * WHY: Exhausting tool rounds used to discard everything gathered.
+       * One final NONE-mode request forces text synthesis from the accumulated
+       * tool results instead of wasting every downstream call already made.
        */
-      const final = await this.fetchGemini(
-        systemPrompt, contents, functionDeclarations, aiConfig, apiKey, controller.signal, 'NONE', enableSearch, thinkingLevel,
-      );
-      const finalAnswer = final ? this.extractText(final) : null;
-      return finalAnswer ? { answer: finalAnswer, anyToolDenied, anyToolFailed, toolsUsed } : null;
+      const finalResponse = await ai.models.generateContent({
+        model: aiConfig.geminiModel,
+        contents,
+        config: {
+          systemInstruction: systemPrompt,
+          tools: sdkTools,
+          toolConfig: { functionCallingConfig: { mode: FunctionCallingConfigMode.NONE } },
+          ...resolveThinkingConfig(thinkingLevel),
+        },
+      });
+
+      const finalAnswer = finalResponse.text?.trim();
+      return finalAnswer
+        ? { answer: finalAnswer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName }
+        : null;
     } catch (err: unknown) {
-      this.logger.warn(`Gemini tool call failed: ${err instanceof Error ? err.message : 'unknown'}`);
+      this.logger.warn(`Gemini SDK call failed: ${err instanceof Error ? err.message : 'unknown'}`);
       return null;
-    } finally {
-      clearTimeout(timer);
     }
   }
 
   /**
-   * WHY: Follow-up questions ("what about August?", "and my sick days?") only
-   * resolve when Gemini sees the prior turns. The current user message is
-   * persisted before the turn executes, so it arrives duplicated as the last
-   * history entry — drop it to avoid sending the question twice.
+   * WHY: Follow-up questions only resolve when Gemini sees prior turns.
+   * The current user message is persisted before the turn executes, so it
+   * arrives duplicated as the last history entry — drop it to avoid sending
+   * the question twice.
    */
-  private historyContents(history: ConversationHistoryMessage[], currentUserMessage: string): GeminiContent[] {
-    const turns = history.filter((message) => {
-      const role = message.role.toUpperCase();
-      return (role === 'USER' || role === 'ASSISTANT') && message.content.trim().length > 0;
+  private buildHistoryContents(history: ConversationHistoryMessage[], currentUserMessage: string): Content[] {
+    const turns = history.filter((m) => {
+      const role = m.role.toUpperCase();
+      return (role === 'USER' || role === 'ASSISTANT') && m.content.trim().length > 0;
     });
 
     const last = turns[turns.length - 1];
@@ -169,9 +180,9 @@ export class GeminiToolCallerService {
       turns.pop();
     }
 
-    return turns.map((message) => ({
-      role: message.role.toUpperCase() === 'USER' ? 'user' : 'model',
-      parts: [{ text: message.content.slice(0, MAX_HISTORY_CHARS) }],
+    return turns.map((m) => ({
+      role: m.role.toUpperCase() === 'USER' ? 'user' : 'model',
+      parts: [{ text: m.content.slice(0, MAX_HISTORY_CHARS) }],
     }));
   }
 
@@ -195,90 +206,36 @@ export class GeminiToolCallerService {
       };
     }
   }
-
-  private extractText(response: GeminiApiResponse): string | null {
-    const parts = response.candidates?.[0]?.content?.parts ?? [];
-    const textPart = parts.find((part) => typeof part.text === 'string' && (part.text ?? '').trim().length > 0);
-    return textPart?.text ? textPart.text.trim() : null;
-  }
-
-  private async fetchGemini(
-    systemPrompt: string,
-    contents: GeminiContent[],
-    functionDeclarations: unknown[],
-    config: AiAgenticConfig,
-    apiKey: string,
-    signal: AbortSignal,
-    mode: 'ANY' | 'AUTO' | 'NONE',
-    enableSearch: boolean,
-    thinkingLevel: string,
-  ): Promise<GeminiApiResponse | null> {
-    const url = `${config.geminiApiUrl}/models/${encodeURIComponent(config.geminiModel)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-    const requestBody = JSON.stringify({
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents,
-      tools: buildToolsArray(functionDeclarations, enableSearch),
-      toolConfig: { functionCallingConfig: { mode } },
-      /**
-       * WHY: Gemini 3.x docs say "strongly recommend not changing default
-       * values" for temperature/top_p/top_k — their reasoning capabilities
-       * are optimized for defaults. thinking_level controls reasoning depth
-       * without interfering with the generation distribution.
-       */
-      generationConfig: resolveThinkingConfig(thinkingLevel),
-    });
-    const fetchOptions = { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal, body: requestBody } as const;
-
-    try {
-      const resp = await fetch(url, fetchOptions);
-      /**
-       * WHY: 429 is a transient rate limit. One retry after a short backoff
-       * recovers most cases without hammering the API or bloating the code.
-       * The body string is pre-built so the retry can reuse it verbatim.
-       */
-      if (resp.status === 429) {
-        await new Promise((resolve) => setTimeout(resolve, 1_500));
-        if (signal.aborted) return null;
-        const retry = await fetch(url, { ...fetchOptions, body: requestBody });
-        if (!retry.ok) {
-          this.logger.warn(`Gemini API returned ${retry.status} (after 429 retry)`);
-          return null;
-        }
-        return (await retry.json()) as GeminiApiResponse;
-      }
-      if (!resp.ok) {
-        this.logger.warn(`Gemini API returned ${resp.status}`);
-        return null;
-      }
-      return (await resp.json()) as GeminiApiResponse;
-    } catch {
-      return null;
-    }
-  }
 }
 
 /**
- * WHY: Google Search is a Gemini built-in tool added alongside custom function
- * declarations so the general-help agent can ground answers in real-time web
- * content when no internal knowledge document covers the question.
+ * WHY: The SDK's FunctionDeclaration.parameters expects uppercase 'OBJECT' for the
+ * type field (matching the Gemini REST API schema). Our AgentTool declarations use
+ * lowercase 'object' (neutral JSON Schema) shared with the OpenAI-compatible adapters,
+ * so this is the one place that bridges the difference.
  */
-function buildToolsArray(functionDeclarations: unknown[], enableSearch: boolean): unknown[] {
-  const arr: unknown[] = [{ functionDeclarations }];
-  if (enableSearch) arr.push({ googleSearch: {} });
-  return arr;
+function toSdkDeclaration(declaration: GeminiFunctionDeclaration): object {
+  if (!declaration.parameters) {
+    return { name: declaration.name, description: declaration.description };
+  }
+  return {
+    name: declaration.name,
+    description: declaration.description,
+    parameters: { ...declaration.parameters, type: 'OBJECT' },
+  };
 }
 
 /**
- * WHY: Gemini 3.x uses thinking_level (low/medium/high) to control reasoning
- * depth. Temperature is intentionally omitted — 3.x defaults are optimal and
- * overriding them degrades quality. 'none' means no thinking config at all
- * (useful for simple lookups where reasoning adds latency without benefit).
+ * WHY: Gemini 2.5 uses thinkingBudget (token count) to control reasoning depth.
+ * 'none' or missing → no thinking config (fast lookups).
+ * low/medium/high → increasing token budgets for progressively deeper reasoning.
  */
 function resolveThinkingConfig(level: string | undefined): Record<string, unknown> {
   if (!level || level === 'none') return {};
-  const valid = new Set(['low', 'medium', 'high']);
-  if (!valid.has(level)) return {};
-  return { thinkingConfig: { thinking_level: level } };
+  const budgets: Record<string, number> = { low: 1024, medium: 4096, high: 8192 };
+  const budget = budgets[level];
+  if (budget === undefined) return {};
+  return { thinkingConfig: { thinkingBudget: budget } };
 }
 
 function isFlagged(result: unknown, flag: 'denied' | 'unavailable'): boolean {

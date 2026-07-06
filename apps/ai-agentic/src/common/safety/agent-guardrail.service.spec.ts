@@ -95,6 +95,13 @@ describe('AgentGuardrailService', () => {
     expect(result.classification).toBe('SENTIENT');
   });
 
+  it('allows French greetings so the supervisor can answer directly', () => {
+    const result = service.evaluate('bonjour');
+
+    expect(result.allowed).toBe(true);
+    expect(result.classification).toBe('SENTIENT');
+  });
+
   it('narrows mixed Sentient and unrelated prompts', () => {
     const result = service.evaluate('Summarize my leave balance and explain cryptocurrency investing.');
 

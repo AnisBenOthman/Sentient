@@ -132,7 +132,8 @@
       "Bash(sed -i 's/- \\\\[ \\\\] T039 /- [X] T039 /g;s/- \\\\[ \\\\] T040 /- [X] T040 /g;s/- \\\\[ \\\\] T041 /- [X] T041 /g;s/- \\\\[ \\\\] T042 /- [X] T042 /g;s/- \\\\[ \\\\] T043 /- [X] T043 /g;s/- \\\\[ \\\\] T044 /- [X] T044 /g;s/- \\\\[ \\\\] T045 /- [X] T045 /g' specs/011-okr-module/tasks.md)",
       "PowerShell(winget install *)",
       "PowerShell(& \"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth status)",
-      "Bash(gh repo *)"
+      "Bash(gh repo *)",
+      "WebSearch"
     ]
   }
 }

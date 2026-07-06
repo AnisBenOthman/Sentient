@@ -1,16 +1,15 @@
 import { Injectable, Optional } from '@nestjs/common';
-import { AgentRunStatus, AgentType, PermissionDecision } from '../../../generated/prisma';
+import { AgentType } from '../../../generated/prisma';
 import { DownstreamRequestContext, SocialAiClient } from '../../../common/clients';
 import { SpecialistAgent, SpecialistInput, SpecialistResult } from '../../../common/graph';
 import {
   CONVERSATIONAL_STYLE,
   DRAFT_MODE_DIRECTIVE,
-  GeminiToolCallerService,
-  GeminiToolCallOutcome,
+  LlmFallbackOrchestratorService,
   SENTIENT_IDENTITY,
   ToolRegistryService,
 } from '../tools';
-import { downstreamResult } from './specialist-response.helpers';
+import { downstreamResult, toolCallerResult } from './specialist-response.helpers';
 
 const ONBOARDING_SYSTEM_PROMPT = `${SENTIENT_IDENTITY}
 
@@ -24,7 +23,7 @@ export class OnboardingAgentService implements SpecialistAgent {
 
   constructor(
     private readonly social: SocialAiClient,
-    @Optional() private readonly geminiToolCaller?: GeminiToolCallerService,
+    @Optional() private readonly llmCaller?: LlmFallbackOrchestratorService,
     @Optional() private readonly toolRegistry?: ToolRegistryService,
   ) {}
 
@@ -34,19 +33,29 @@ export class OnboardingAgentService implements SpecialistAgent {
       correlationId: input.actorContext.correlationId,
     };
 
-    if (this.geminiToolCaller && this.toolRegistry) {
+    if (this.llmCaller && this.toolRegistry) {
       const tools = this.toolRegistry.getOnboardingTools(reqContext);
       const systemPrompt = input.isDraftRequest
         ? `${ONBOARDING_SYSTEM_PROMPT}\n\n${DRAFT_MODE_DIRECTIVE}`
         : ONBOARDING_SYSTEM_PROMPT;
-      const outcome = await this.geminiToolCaller.call(
+      const outcome = await this.llmCaller.call(
         systemPrompt,
         input.userMessage,
         tools,
         input.conversationContext.recentMessages,
         { thinkingLevel: 'medium' },
       );
-      if (outcome) return this.toToolCallerResult(input, outcome);
+      if (outcome) {
+        return toolCallerResult(input, this.agentType, outcome, {
+          sourceType: 'ONBOARDING',
+          title: 'Onboarding guides',
+          referencePrefix: 'onboarding',
+          referenceFallback: 'guides',
+          successSummary: 'Onboarding guidance prepared.',
+          limitedSummary: 'Onboarding guidance prepared with limited data access.',
+          draftLabel: 'Onboarding draft',
+        });
+      }
     }
 
     const context = await this.social.getOnboardingContext(reqContext);
@@ -57,26 +66,5 @@ export class OnboardingAgentService implements SpecialistAgent {
       'Onboarding guidance prepared.',
       'For onboarding, I can welcome new hires, outline first-week steps, and explain manager or HR onboarding progress where you have access. This scaffold does not change onboarding records.',
     );
-  }
-
-  private toToolCallerResult(input: SpecialistInput, outcome: GeminiToolCallOutcome): SpecialistResult {
-    const limited = outcome.anyToolDenied || outcome.anyToolFailed;
-    return {
-      agentType: this.agentType,
-      status: limited ? AgentRunStatus.DEGRADED : AgentRunStatus.SUCCESS,
-      summary: limited ? 'Onboarding guidance prepared with limited data access.' : 'Onboarding guidance prepared.',
-      userVisibleContent: outcome.answer,
-      sourceContext: [{
-        sourceType: 'ONBOARDING',
-        title: 'Onboarding guides',
-        referenceId: `onboarding:${outcome.toolsUsed.join('+') || 'guides'}`,
-      }],
-      permissionDecision: outcome.anyToolDenied
-        ? PermissionDecision.DENIED
-        : outcome.anyToolFailed
-          ? PermissionDecision.PARTIAL
-          : PermissionDecision.ALLOWED,
-      draftLabel: input.isDraftRequest ? 'Onboarding draft' : undefined,
-    };
   }
 }

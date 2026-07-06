@@ -56,3 +56,16 @@ export function parseBoolean(value: string | undefined, fallback: boolean, name:
   if (raw === 'false' || raw === '0' || raw === 'no') return false;
   throw new Error(`${name} must be a boolean`);
 }
+
+/**
+ * WHY: AI_AGENT_LLM_PROVIDER_ORDER is a comma-separated provider priority list
+ * (e.g. "GEMINI,OPENROUTER,GROK"). Entries are uppercased so config and the
+ * provider-name constants used by LlmFallbackOrchestratorService always match.
+ */
+export function parseStringList(value: string | undefined, fallback: string[], name: string): string[] {
+  const raw = (value ?? fallback.join(',')).trim();
+  if (raw.length === 0) throw new Error(`${name} must not be empty`);
+  const items = raw.split(',').map((item) => item.trim().toUpperCase()).filter((item) => item.length > 0);
+  if (items.length === 0) throw new Error(`${name} must contain at least one entry`);
+  return items;
+}

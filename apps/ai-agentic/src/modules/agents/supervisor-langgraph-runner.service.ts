@@ -487,7 +487,7 @@ export class SupervisorLangGraphRunnerService {
     const safety = this.requireSafety(state);
     const classification = this.requireClassification(state);
     const finalAnswer = classification.isGreeting
-      ? this.greetingAgent.compose()
+      ? this.greetingAgent.compose(state.input.userMessage)
       : this.finalAnswerNode.compose({
           guardrailMessage: safety.allowed ? (safety.classification === 'MIXED' ? safety.message : null) : safety.message,
           guardrailStatus: safety.allowed ? null : safety.status,

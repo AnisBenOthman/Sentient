@@ -1,18 +1,16 @@
 import { Injectable, Optional } from '@nestjs/common';
-import { AgentRunStatus, AgentType, PermissionDecision } from '../../../generated/prisma';
+import { AgentType } from '../../../generated/prisma';
 import { DownstreamRequestContext, HrCoreAiClient, OkrAiContext, OkrObjectiveContext } from '../../../common/clients';
 import { SpecialistAgent, SpecialistInput, SpecialistResult } from '../../../common/graph';
 import {
   CONVERSATIONAL_STYLE,
   DRAFT_MODE_DIRECTIVE,
   FEW_SHOT_OKR_EXAMPLES,
-  GeminiCallOptions,
-  GeminiToolCallerService,
-  GeminiToolCallOutcome,
+  LlmFallbackOrchestratorService,
   SENTIENT_IDENTITY,
   ToolRegistryService,
 } from '../tools';
-import { downstreamResult } from './specialist-response.helpers';
+import { downstreamResult, toolCallerResult } from './specialist-response.helpers';
 
 const AT_RISK_STATUSES = new Set(['AT_RISK', 'BEHIND', 'BLOCKED', 'CANCELLED']);
 const MAX_LISTED_OBJECTIVES = 3;
@@ -29,7 +27,7 @@ export class OkrAgentService implements SpecialistAgent {
 
   constructor(
     private readonly hrCore: HrCoreAiClient,
-    @Optional() private readonly geminiToolCaller?: GeminiToolCallerService,
+    @Optional() private readonly llmCaller?: LlmFallbackOrchestratorService,
     @Optional() private readonly toolRegistry?: ToolRegistryService,
   ) {}
 
@@ -39,19 +37,29 @@ export class OkrAgentService implements SpecialistAgent {
       correlationId: input.actorContext.correlationId,
     };
 
-    if (this.geminiToolCaller && this.toolRegistry) {
+    if (this.llmCaller && this.toolRegistry) {
       const tools = this.toolRegistry.getOkrTools(reqContext, input.actorContext.userId);
       const systemPrompt = input.isDraftRequest
         ? `${OKR_SYSTEM_PROMPT}\n\n${DRAFT_MODE_DIRECTIVE}`
         : OKR_SYSTEM_PROMPT;
-      const outcome = await this.geminiToolCaller.call(
+      const outcome = await this.llmCaller.call(
         systemPrompt,
         input.userMessage,
         tools,
         input.conversationContext.recentMessages,
         { thinkingLevel: 'medium' },
       );
-      if (outcome) return this.toToolCallerResult(input, outcome);
+      if (outcome) {
+        return toolCallerResult(input, this.agentType, outcome, {
+          sourceType: 'OKR',
+          title: 'OKR context',
+          referencePrefix: 'okr',
+          referenceFallback: 'objectives',
+          successSummary: 'OKR guidance prepared.',
+          limitedSummary: 'OKR guidance prepared with limited data access.',
+          draftLabel: 'OKR draft',
+        });
+      }
     }
 
     const context = await this.hrCore.getOkrContext(input.actorContext.userId, reqContext);
@@ -61,27 +69,6 @@ export class OkrAgentService implements SpecialistAgent {
     return downstreamResult(input, this.agentType, context, 'OKR guidance prepared.', content, {
       draftLabel: 'OKR draft',
     });
-  }
-
-  private toToolCallerResult(input: SpecialistInput, outcome: GeminiToolCallOutcome): SpecialistResult {
-    const limited = outcome.anyToolDenied || outcome.anyToolFailed;
-    return {
-      agentType: this.agentType,
-      status: limited ? AgentRunStatus.DEGRADED : AgentRunStatus.SUCCESS,
-      summary: limited ? 'OKR guidance prepared with limited data access.' : 'OKR guidance prepared.',
-      userVisibleContent: outcome.answer,
-      sourceContext: [{
-        sourceType: 'OKR',
-        title: 'OKR context',
-        referenceId: `okr:${outcome.toolsUsed.join('+') || 'objectives'}`,
-      }],
-      permissionDecision: outcome.anyToolDenied
-        ? PermissionDecision.DENIED
-        : outcome.anyToolFailed
-          ? PermissionDecision.PARTIAL
-          : PermissionDecision.ALLOWED,
-      draftLabel: input.isDraftRequest ? 'OKR draft' : undefined,
-    };
   }
 
   /**

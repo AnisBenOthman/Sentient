@@ -15,7 +15,7 @@ interface KeywordRoute {
 const ROUTES: KeywordRoute[] = [
   {
     agentType: AgentType.LEAVE_AGENT,
-    keywords: ['leave', 'vacation', 'absence', 'balance', 'pto', 'holiday', 'time off'],
+    keywords: ['leave', 'vacation', 'absence', 'balance', 'pto', 'holiday', 'time off','jour férié','bank holiday','public holiday','congé','congé payé','congé maladie','congé parental','congé maternité','congé paternité','congé sabbatique'],
   },
   {
     agentType: AgentType.OKR_AGENT,
@@ -27,7 +27,16 @@ const ROUTES: KeywordRoute[] = [
   },
   {
     agentType: AgentType.ANALYTICS_AGENT,
-    keywords: ['dashboard', 'analytics', 'stat', 'trend', 'metric', 'workforce', 'headcount', 'team coverage', 'kpi', 'kpis', 'threshold', 'alert'],
+    keywords: [
+      'dashboard', 'analytics', 'stat', 'trend', 'metric', 'workforce', 'headcount',
+      'team coverage', 'kpi', 'kpis', 'threshold', 'alert',
+      // Natural HR questions that imply analytics
+      'how many people', 'how many employees', 'how many staff', 'how many members',
+      'team size', 'team count', 'team members', 'people in my team', 'staff in',
+      'employees in', 'number of employees', 'number of people', 'report to me',
+      'who reports', 'average age', 'average salary', 'turnover', 'attrition',
+      'absence rate', 'on leave today', 'currently on leave',
+    ],
   },
   {
     agentType: AgentType.ONBOARDING_AGENT,
@@ -74,6 +83,8 @@ const GREETING_PATTERNS = [
   /^\s*(hi|hello|hey|good morning|good afternoon|good evening)\s*[!.]?\s*$/i,
   /^\s*(how\s+are\s+(you|u)|how\s+r\s+u|h[oa]w'?re\s+(you|u)|h[oa]w\s+are\s+(you|u))\s*[?!.]?\s*$/i,
   /^\s*(what'?s\s+up|how'?s\s+it\s+going|how'?s\s+your\s+day)\s*[?!.]?\s*$/i,
+  /^\s*(bonjour|bonsoir|salut|coucou)\s*[!.]?\s*$/i,
+  /^\s*((?:ca|\u00e7a)\s+va|comment\s+(?:ca|\u00e7a)\s+va|comment\s+allez-vous|comment\s+vas-tu)\s*[?!.]?\s*$/i,
 ];
 
 const AGENT_TYPE_VALUES = new Set<string>(Object.values(AgentType));

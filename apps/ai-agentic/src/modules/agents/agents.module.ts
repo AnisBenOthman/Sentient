@@ -33,6 +33,14 @@ import { SupervisorAgentService } from './supervisor-agent.service';
 import { SupervisorLangGraphRunnerService } from './supervisor-langgraph-runner.service';
 import { SupervisorIntentClassifierService } from './supervisor-intent-classifier.service';
 import { GeminiToolCallerService } from './tools/gemini-tool-caller.service';
+import { LlmFallbackOrchestratorService } from './tools/llm-fallback-orchestrator.service';
+import { LlmToolCallerAdapter } from './tools/llm-tool-caller.interface';
+import {
+  GROK_TOOL_CALLER,
+  GROQ_TOOL_CALLER,
+  OPENROUTER_TOOL_CALLER,
+  OpenAiCompatibleToolCallerService,
+} from './tools/openai-compatible-tool-caller.service';
 import { ToolRegistryService } from './tools/tool-registry.service';
 
 @Module({
@@ -61,6 +69,7 @@ import { ToolRegistryService } from './tools/tool-registry.service';
     HumanEscalationRecorderService,
     LanguageAgentService,
     LeaveAgentService,
+    LlmFallbackOrchestratorService,
     OkrAgentService,
     OnboardingAgentService,
     PermissionDecisionService,
@@ -70,6 +79,24 @@ import { ToolRegistryService } from './tools/tool-registry.service';
     SupervisorIntentClassifierService,
     ToolRegistryService,
     {
+      provide: OPENROUTER_TOOL_CALLER,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService): LlmToolCallerAdapter =>
+        new OpenAiCompatibleToolCallerService(config, 'OPENROUTER'),
+    },
+    {
+      provide: GROQ_TOOL_CALLER,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService): LlmToolCallerAdapter =>
+        new OpenAiCompatibleToolCallerService(config, 'GROQ'),
+    },
+    {
+      provide: GROK_TOOL_CALLER,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService): LlmToolCallerAdapter =>
+        new OpenAiCompatibleToolCallerService(config, 'GROK'),
+    },
+    {
       provide: INTENT_CLASSIFIER,
       inject: [ConfigService, SupervisorIntentClassifierService, GeminiIntentClassifierService],
       useFactory: (
@@ -78,7 +105,11 @@ import { ToolRegistryService } from './tools/tool-registry.service';
         geminiClassifier: GeminiIntentClassifierService,
       ): IntentClassifier => {
         const aiConfig = config.get<AiAgenticConfig>('aiAgentic');
-        return aiConfig?.intentClassifierProvider === 'gemini' ? geminiClassifier : rulesClassifier;
+        return aiConfig?.intentClassifierProvider === 'gemini' ||
+          aiConfig?.intentClassifierProvider === 'openrouter' ||
+          aiConfig?.intentClassifierProvider === 'groq'
+          ? geminiClassifier
+          : rulesClassifier;
       },
     },
   ],
@@ -105,6 +136,7 @@ import { ToolRegistryService } from './tools/tool-registry.service';
     HumanEscalationRecorderService,
     LanguageAgentService,
     LeaveAgentService,
+    LlmFallbackOrchestratorService,
     OkrAgentService,
     OnboardingAgentService,
     PermissionDecisionService,

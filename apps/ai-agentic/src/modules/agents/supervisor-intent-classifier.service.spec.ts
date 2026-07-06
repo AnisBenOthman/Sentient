@@ -49,6 +49,14 @@ describe('SupervisorIntentClassifierService', () => {
     expect(result.requiredAgents).toEqual([]);
   });
 
+  it('marks French greetings without asking for clarification', async () => {
+    const result = await service.classify('bonjour');
+
+    expect(result.isGreeting).toBe(true);
+    expect(result.requiresClarification).toBe(false);
+    expect(result.requiredAgents).toEqual([]);
+  });
+
   it('asks for clarification when no safe route is obvious', async () => {
     const result = await service.classify('Can you help me with my objective?');
 

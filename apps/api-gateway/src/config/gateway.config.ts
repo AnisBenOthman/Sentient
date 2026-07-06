@@ -160,6 +160,11 @@ export const gatewayConfig = registerAs('gateway', (): GatewayConfig => {
     port: parsePositiveInt(process.env.API_GATEWAY_PORT, 3004, 'API_GATEWAY_PORT'),
     corsOrigins: parseCsv(process.env.API_GATEWAY_CORS_ORIGINS, ['http://localhost:3000']),
     trustProxy: parseBoolean(process.env.API_GATEWAY_TRUST_PROXY, false, 'API_GATEWAY_TRUST_PROXY'),
+    requestLoggingEnabled: parseBoolean(
+      process.env.API_GATEWAY_REQUEST_LOGGING,
+      true,
+      'API_GATEWAY_REQUEST_LOGGING',
+    ),
     jwtSecret: process.env.API_GATEWAY_JWT_SECRET ?? process.env.JWT_SECRET ?? DEFAULT_DEV_JWT_SECRET,
     defaultJsonBodyLimitBytes,
     uploadBodyLimitBytes,

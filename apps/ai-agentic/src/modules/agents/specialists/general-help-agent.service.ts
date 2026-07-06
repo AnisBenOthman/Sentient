@@ -6,11 +6,11 @@ import { KnowledgeRepository } from '../../knowledge';
 import {
   CONVERSATIONAL_STYLE,
   DRAFT_MODE_DIRECTIVE,
-  GeminiToolCallerService,
-  GeminiToolCallOutcome,
+  LlmFallbackOrchestratorService,
   SENTIENT_IDENTITY,
   ToolRegistryService,
 } from '../tools';
+import { toolCallerResult } from './specialist-response.helpers';
 
 const GENERAL_HELP_SYSTEM_PROMPT = `${SENTIENT_IDENTITY}
 
@@ -29,7 +29,7 @@ export class GeneralHelpAgentService implements SpecialistAgent {
   constructor(
     private readonly knowledgeRepository: KnowledgeRepository,
     private readonly social: SocialAiClient,
-    @Optional() private readonly geminiToolCaller?: GeminiToolCallerService,
+    @Optional() private readonly llmCaller?: LlmFallbackOrchestratorService,
     @Optional() private readonly toolRegistry?: ToolRegistryService,
   ) {}
 
@@ -39,19 +39,29 @@ export class GeneralHelpAgentService implements SpecialistAgent {
       correlationId: input.actorContext.correlationId,
     };
 
-    if (this.geminiToolCaller && this.toolRegistry) {
+    if (this.llmCaller && this.toolRegistry) {
       const tools = this.toolRegistry.getGeneralHelpTools(reqContext);
       const systemPrompt = input.isDraftRequest
         ? `${GENERAL_HELP_SYSTEM_PROMPT}\n\n${DRAFT_MODE_DIRECTIVE}`
         : GENERAL_HELP_SYSTEM_PROMPT;
-      const outcome = await this.geminiToolCaller.call(
+      const outcome = await this.llmCaller.call(
         systemPrompt,
         input.userMessage,
         tools,
         input.conversationContext.recentMessages,
         { enableSearch: true },
       );
-      if (outcome) return this.toToolCallerResult(input, outcome);
+      if (outcome) {
+        return toolCallerResult(input, this.agentType, outcome, {
+          sourceType: 'POLICY',
+          title: 'Policy knowledge',
+          referencePrefix: 'policy',
+          referenceFallback: 'scoped',
+          successSummary: 'General help knowledge checked.',
+          limitedSummary: 'General help prepared with limited data access.',
+          draftLabel: 'Policy or announcement draft',
+        });
+      }
     }
 
     const [matches, policyContext] = await Promise.all([
@@ -92,24 +102,4 @@ export class GeneralHelpAgentService implements SpecialistAgent {
     };
   }
 
-  private toToolCallerResult(input: SpecialistInput, outcome: GeminiToolCallOutcome): SpecialistResult {
-    const limited = outcome.anyToolDenied || outcome.anyToolFailed;
-    return {
-      agentType: this.agentType,
-      status: limited ? AgentRunStatus.DEGRADED : AgentRunStatus.SUCCESS,
-      summary: limited ? 'General help prepared with limited data access.' : 'General help knowledge checked.',
-      userVisibleContent: outcome.answer,
-      sourceContext: [{
-        sourceType: 'POLICY',
-        title: 'Policy knowledge',
-        referenceId: `policy:${outcome.toolsUsed.join('+') || 'scoped'}`,
-      }],
-      permissionDecision: outcome.anyToolDenied
-        ? PermissionDecision.DENIED
-        : outcome.anyToolFailed
-          ? PermissionDecision.PARTIAL
-          : PermissionDecision.ALLOWED,
-      draftLabel: input.isDraftRequest ? 'Policy or announcement draft' : undefined,
-    };
-  }
 }

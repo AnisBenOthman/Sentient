@@ -1,16 +1,15 @@
 import { Injectable, Optional } from '@nestjs/common';
-import { AgentRunStatus, AgentType, PermissionDecision } from '../../../generated/prisma';
+import { AgentType } from '../../../generated/prisma';
 import { DownstreamRequestContext, HrCoreAiClient } from '../../../common/clients';
 import { SpecialistAgent, SpecialistInput, SpecialistResult } from '../../../common/graph';
 import {
   CONVERSATIONAL_STYLE,
   DRAFT_MODE_DIRECTIVE,
-  GeminiToolCallerService,
-  GeminiToolCallOutcome,
+  LlmFallbackOrchestratorService,
   SENTIENT_IDENTITY,
   ToolRegistryService,
 } from '../tools';
-import { downstreamResult } from './specialist-response.helpers';
+import { downstreamResult, toolCallerResult } from './specialist-response.helpers';
 
 const CAREER_SYSTEM_PROMPT = `${SENTIENT_IDENTITY}
 
@@ -27,7 +26,7 @@ export class CareerAgentService implements SpecialistAgent {
 
   constructor(
     private readonly hrCore: HrCoreAiClient,
-    @Optional() private readonly geminiToolCaller?: GeminiToolCallerService,
+    @Optional() private readonly llmCaller?: LlmFallbackOrchestratorService,
     @Optional() private readonly toolRegistry?: ToolRegistryService,
   ) {}
 
@@ -37,19 +36,29 @@ export class CareerAgentService implements SpecialistAgent {
       correlationId: input.actorContext.correlationId,
     };
 
-    if (this.geminiToolCaller && this.toolRegistry) {
+    if (this.llmCaller && this.toolRegistry) {
       const tools = this.toolRegistry.getCareerTools(reqContext, input.actorContext.employeeId);
       const systemPrompt = input.isDraftRequest
         ? `${CAREER_SYSTEM_PROMPT}\n\n${DRAFT_MODE_DIRECTIVE}`
         : CAREER_SYSTEM_PROMPT;
-      const outcome = await this.geminiToolCaller.call(
+      const outcome = await this.llmCaller.call(
         systemPrompt,
         input.userMessage,
         tools,
         input.conversationContext.recentMessages,
         { thinkingLevel: 'medium' },
       );
-      if (outcome) return this.toToolCallerResult(input, outcome);
+      if (outcome) {
+        return toolCallerResult(input, this.agentType, outcome, {
+          sourceType: 'CAREER',
+          title: 'Career context',
+          referencePrefix: 'career',
+          referenceFallback: 'skills',
+          successSummary: 'Career guidance prepared.',
+          limitedSummary: 'Career guidance prepared with limited data access.',
+          draftLabel: 'Career draft',
+        });
+      }
     }
 
     const context = await this.hrCore.getSkillsContext(input.actorContext.employeeId, reqContext);
@@ -60,27 +69,6 @@ export class CareerAgentService implements SpecialistAgent {
     return downstreamResult(input, this.agentType, context, 'Career guidance prepared.', content, {
       draftLabel: 'Career draft',
     });
-  }
-
-  private toToolCallerResult(input: SpecialistInput, outcome: GeminiToolCallOutcome): SpecialistResult {
-    const limited = outcome.anyToolDenied || outcome.anyToolFailed;
-    return {
-      agentType: this.agentType,
-      status: limited ? AgentRunStatus.DEGRADED : AgentRunStatus.SUCCESS,
-      summary: limited ? 'Career guidance prepared with limited data access.' : 'Career guidance prepared.',
-      userVisibleContent: outcome.answer,
-      sourceContext: [{
-        sourceType: 'CAREER',
-        title: 'Career context',
-        referenceId: `career:${outcome.toolsUsed.join('+') || 'skills'}`,
-      }],
-      permissionDecision: outcome.anyToolDenied
-        ? PermissionDecision.DENIED
-        : outcome.anyToolFailed
-          ? PermissionDecision.PARTIAL
-          : PermissionDecision.ALLOWED,
-      draftLabel: input.isDraftRequest ? 'Career draft' : undefined,
-    };
   }
 
   private draftContent(lower: string): string {

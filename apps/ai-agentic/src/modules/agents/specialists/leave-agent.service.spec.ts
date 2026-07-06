@@ -1,4 +1,4 @@
-import { AgentRunStatus, PermissionDecision } from '../../../generated/prisma';
+import { AgentRunStatus, AgentType, PermissionDecision } from '../../../generated/prisma';
 import { HrCoreAiClient } from '../../../common/clients';
 import { SpecialistInput } from '../../../common/graph';
 import { LeaveAgentService } from './leave-agent.service';
@@ -31,6 +31,17 @@ function buildInput(userMessage: string, roles: string[]): SpecialistInput {
       mustReturnToSupervisor: true,
     },
   };
+}
+
+function isoDateOffset(daysFromToday: number): string {
+  const date = new Date();
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCDate(date.getUTCDate() + daysFromToday);
+  return date.toISOString().slice(0, 10);
+}
+
+function holidayDateOffset(daysFromToday: number): string {
+  return `${isoDateOffset(daysFromToday)}T00:00:00.000Z`;
 }
 
 describe('LeaveAgentService manager team coverage (FR-008)', () => {
@@ -146,6 +157,86 @@ describe('LeaveAgentService holiday calendar', () => {
     expect(result.status).toBe(AgentRunStatus.SUCCESS);
     expect(result.userVisibleContent).toContain('Independence Day');
     expect(result.userVisibleContent).toContain('2026-07-05');
+  });
+
+  it('answers next bank-holiday questions with the next upcoming holiday only', async () => {
+    const pastDate = holidayDateOffset(-30);
+    const nextDate = holidayDateOffset(7);
+    const laterDate = holidayDateOffset(60);
+    const expectedDate = isoDateOffset(7);
+    const hrCore = {
+      getHolidaysContext: async () => ({
+        data: {
+          id: 'leave:holidays',
+          year: 2026,
+          holidays: [
+            { id: 'h-1', name: 'Labour Day', date: pastDate, isRecurring: true },
+            { id: 'h-2', name: 'Independence Day', date: nextDate, isRecurring: true },
+            { id: 'h-3', name: 'Revolution Day', date: laterDate, isRecurring: true },
+          ],
+        },
+        permissionDecision: PermissionDecision.ALLOWED,
+        degradedReason: null,
+        sourceType: 'HOLIDAYS',
+        sourceTitle: 'Company holidays',
+      }),
+      getLeaveContext: async () => {
+        throw new Error('Next holiday questions must not read individual balances.');
+      },
+    } as unknown as HrCoreAiClient;
+    const agent = new LeaveAgentService(hrCore);
+
+    const result = await agent.execute(buildInput('next bank holiday in french', ['EMPLOYEE']));
+
+    expect(result.status).toBe(AgentRunStatus.SUCCESS);
+    expect(result.userVisibleContent).toBe(`Next company holiday: Independence Day on ${expectedDate}.`);
+    expect(result.userVisibleContent).not.toContain('Labour Day');
+    expect(result.userVisibleContent).not.toContain('Revolution Day');
+  });
+
+  it('keeps a terse next-date follow-up on the holiday calendar path', async () => {
+    const pastDate = holidayDateOffset(-30);
+    const nextDate = holidayDateOffset(7);
+    const expectedDate = isoDateOffset(7);
+    let holidayCalls = 0;
+    const hrCore = {
+      getHolidaysContext: async () => {
+        holidayCalls += 1;
+        return {
+          data: {
+            id: 'leave:holidays',
+            year: 2026,
+            holidays: [
+              { id: 'h-1', name: 'Labour Day', date: pastDate, isRecurring: true },
+              { id: 'h-2', name: 'Independence Day', date: nextDate, isRecurring: true },
+            ],
+          },
+          permissionDecision: PermissionDecision.ALLOWED,
+          degradedReason: null,
+          sourceType: 'HOLIDAYS',
+          sourceTitle: 'Company holidays',
+        };
+      },
+      getLeaveContext: async () => {
+        throw new Error('Holiday follow-ups must not read individual balances.');
+      },
+    } as unknown as HrCoreAiClient;
+    const agent = new LeaveAgentService(hrCore);
+    const input = buildInput('i want only the next date', ['EMPLOYEE']);
+    input.conversationContext = {
+      recentMessages: [
+        { id: 'm-1', role: 'USER', content: 'next bank holiday in french' },
+        { id: 'm-2', role: 'ASSISTANT', content: 'Company holidays for 2026 (4): - Labour Day: 2026-04-30' },
+        { id: 'm-3', role: 'USER', content: 'i want only the next date' },
+      ],
+      priorHandoffAgents: [AgentType.LEAVE_AGENT],
+    };
+
+    const result = await agent.execute(input);
+
+    expect(holidayCalls).toBe(1);
+    expect(result.status).toBe(AgentRunStatus.SUCCESS);
+    expect(result.userVisibleContent).toBe(expectedDate);
   });
 
   it('keeps British-English holiday balance questions on the balance path', async () => {

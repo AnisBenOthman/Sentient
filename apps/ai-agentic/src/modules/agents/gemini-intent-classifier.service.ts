@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { GoogleGenAI } from '@google/genai';
 import { AgentType } from '../../generated/prisma';
 import { ConversationTurnContext } from '../../common/graph';
 import { AiAgenticConfig } from '../../config';
@@ -10,12 +11,10 @@ import {
 } from './intent-classifier.types';
 import { SupervisorIntentClassifierService } from './supervisor-intent-classifier.service';
 
-interface GeminiGenerateContentResponse {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{
-        text?: string;
-      }>;
+interface OpenAiCompatibleChatCompletionResponse {
+  choices?: Array<{
+    message?: {
+      content?: string | null;
     };
   }>;
 }
@@ -29,6 +28,16 @@ interface GeminiIntentPayload {
   isHumanEscalationIntent?: boolean;
   isGreeting?: boolean;
   confidence?: number;
+}
+
+type OpenAiIntentProvider = 'openrouter' | 'groq';
+
+interface OpenAiIntentSettings {
+  apiKey: string;
+  apiUrl: string;
+  model: string;
+  source: OpenAiIntentProvider;
+  label: 'OpenRouter' | 'Groq';
 }
 
 const AGENT_TYPES = new Set<string>(Object.values(AgentType));
@@ -59,12 +68,37 @@ export class GeminiIntentClassifierService implements IntentClassifier {
     if (fallbackClassification.isGreeting) return fallbackClassification;
 
     const aiConfig = this.config.get<AiAgenticConfig>('aiAgentic');
-    const apiKey = aiConfig?.geminiApiKey;
-    if (!aiConfig || !apiKey) return fallbackClassification;
+    if (!aiConfig) return fallbackClassification;
+
+    const selectedOpenAiProvider = this.openAiIntentProvider(aiConfig.intentClassifierProvider);
+    if (selectedOpenAiProvider) {
+      const classification = await this.classifyWithOpenAiCompatibleProvider(
+        message,
+        context,
+        fallbackClassification,
+        aiConfig,
+        selectedOpenAiProvider,
+        `${selectedOpenAiProvider === 'groq' ? 'Groq' : 'OpenRouter'} intent provider selected`,
+        false,
+      );
+      if (classification) return classification;
+      const fallbackClassificationFromProvider = await this.classifyWithConfiguredOpenAiFallbackProvider(
+        message,
+        context,
+        fallbackClassification,
+        aiConfig,
+        `${selectedOpenAiProvider === 'groq' ? 'Groq' : 'OpenRouter'} intent classifier unavailable`,
+      );
+      if (fallbackClassificationFromProvider) return fallbackClassificationFromProvider;
+      this.logDebug(aiConfig, 'fallback', 'OpenAI-compatible intent classifier unavailable; using rules fallback.');
+      return fallbackClassification;
+    }
 
     try {
+      const apiKey = aiConfig.geminiApiKey;
+      if (!apiKey) throw new Error('Gemini intent classifier is not configured');
       const payload = await this.callGemini(message, aiConfig, apiKey, context);
-      const classification = this.toClassification(message, payload);
+      const classification = this.toClassification(message, payload, 'gemini');
       if (this.shouldForceHolidayCalendarToLeave(message, fallbackClassification, classification)) {
         return {
           ...classification,
@@ -75,50 +109,208 @@ export class GeminiIntentClassifierService implements IntentClassifier {
         };
       }
       return classification;
-    } catch {
+    } catch (err: unknown) {
+      const geminiError = err instanceof Error ? err.message : 'unknown error';
+      const fallbackClassificationFromProvider = await this.classifyWithConfiguredOpenAiFallbackProvider(
+        message,
+        context,
+        fallbackClassification,
+        aiConfig,
+        `Gemini intent classifier unavailable: ${geminiError}`,
+      );
+      if (fallbackClassificationFromProvider) return fallbackClassificationFromProvider;
+      this.logDebug(
+        aiConfig,
+        'fallback',
+        `Gemini intent classifier unavailable; using rules fallback: ${geminiError}`,
+      );
       return fallbackClassification;
     }
   }
 
+  /**
+   * WHY: Uses the official @google/genai SDK (matching GeminiToolCallerService) so
+   * Gemini auth, retries, and JSON parsing are handled consistently across the
+   * intent and tool-calling layers. responseMimeType + temperature:0 keep the
+   * output strict JSON so JSON.parse never chokes on markdown-fenced text.
+   */
   private async callGemini(
     message: string,
     config: AiAgenticConfig,
     apiKey: string,
     context?: ConversationTurnContext,
   ): Promise<GeminiIntentPayload> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), config.intentClassifierTimeoutMs);
     const prompt = this.prompt(message, context);
     this.logDebug(config, 'prompt', prompt);
 
-    try {
-      const response = await fetch(
-        `${config.geminiApiUrl}/models/${encodeURIComponent(config.geminiModel)}:generateContent?key=${encodeURIComponent(apiKey)}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: controller.signal,
-          body: JSON.stringify({
-            contents: [
-              {
-                role: 'user',
-                parts: [{ text: prompt }],
-              },
-            ],
-            generationConfig: {
-              temperature: 0,
-              responseMimeType: 'application/json',
-            },
-          }),
-        },
-      );
+    const ai = new GoogleGenAI({
+      apiKey,
+      // WHY: Gemini SDK enforces a minimum 10s deadline; intentClassifierTimeoutMs
+      // may be set lower for the rules/OpenRouter path, so we clamp here.
+      httpOptions: { timeout: Math.max(config.intentClassifierTimeoutMs, 10_000) },
+    });
 
-      if (!response.ok) throw new Error(`Gemini intent classifier failed with ${response.status}`);
-      const data = (await response.json()) as GeminiGenerateContentResponse;
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) throw new Error('Gemini intent classifier returned no text');
-      this.logDebug(config, 'response', text);
-      return JSON.parse(text) as GeminiIntentPayload;
+    const response = await ai.models.generateContent({
+      model: config.geminiModel,
+      contents: prompt,
+      config: {
+        temperature: 0,
+        responseMimeType: 'application/json',
+      },
+    });
+
+    const text = response.text;
+    if (!text) throw new Error('Gemini intent classifier returned no text');
+    this.logDebug(config, 'response', text);
+    return JSON.parse(text) as GeminiIntentPayload;
+  }
+
+  private async classifyWithConfiguredOpenAiFallbackProvider(
+    message: string,
+    context: ConversationTurnContext | undefined,
+    fallbackClassification: SupervisorIntentClassification,
+    config: AiAgenticConfig,
+    reason: string,
+  ): Promise<SupervisorIntentClassification | null> {
+    const providerOrder = Array.isArray(config.llmProviderOrder) ? config.llmProviderOrder : [];
+    for (const provider of providerOrder) {
+      const normalized = provider.trim().toLowerCase();
+      const openAiProvider = this.openAiIntentProvider(normalized);
+      if (!openAiProvider) continue;
+
+      const classification = await this.classifyWithOpenAiCompatibleProvider(
+        message,
+        context,
+        fallbackClassification,
+        config,
+        openAiProvider,
+        reason,
+        true,
+      );
+      if (classification) return classification;
+    }
+
+    this.logDebug(config, 'fallback', `${reason}; OpenAI-compatible fallback skipped.`);
+    return null;
+  }
+
+  private async classifyWithOpenAiCompatibleProvider(
+    message: string,
+    context: ConversationTurnContext | undefined,
+    fallbackClassification: SupervisorIntentClassification,
+    config: AiAgenticConfig,
+    provider: OpenAiIntentProvider,
+    reason: string,
+    requireProviderOrder: boolean,
+  ): Promise<SupervisorIntentClassification | null> {
+    const settings = this.openAiIntentSettings(config, provider, requireProviderOrder);
+    if (!settings) {
+      this.logDebug(config, 'fallback', `${reason}; ${provider.toUpperCase()} classifier skipped.`);
+      return null;
+    }
+
+    try {
+      const payload = await this.callOpenAiCompatibleProvider(message, config, settings, context);
+      const classification = this.toClassification(message, payload, settings.source);
+      if (this.shouldForceHolidayCalendarToLeave(message, fallbackClassification, classification)) {
+        return {
+          ...classification,
+          requiredAgents: [AgentType.LEAVE_AGENT],
+          requiresClarification: false,
+          clarificationReason: null,
+          confidence: Math.max(classification.confidence, fallbackClassification.confidence, 0.85),
+        };
+      }
+      this.logDebug(config, 'fallback', `${reason}; used ${settings.label} classifier.`);
+      return classification;
+    } catch (err: unknown) {
+      this.logDebug(
+        config,
+        'fallback',
+        `${reason}; ${provider.toUpperCase()} classifier failed; using rules fallback: ${
+          err instanceof Error ? err.message : 'unknown error'
+        }`,
+      );
+      return null;
+    }
+  }
+
+  private openAiIntentProvider(value: string | undefined): OpenAiIntentProvider | null {
+    const normalized = value?.trim().toLowerCase();
+    if (normalized === 'openrouter' || normalized === 'groq') return normalized;
+    return null;
+  }
+
+  private openAiIntentSettings(
+    config: AiAgenticConfig,
+    provider: OpenAiIntentProvider,
+    requireProviderOrder: boolean,
+  ): OpenAiIntentSettings | null {
+    const settings =
+      provider === 'openrouter'
+        ? {
+            apiKey: config.openRouterApiKey,
+            apiUrl: config.openRouterApiUrl,
+            model: config.openRouterModel,
+            source: provider,
+            label: 'OpenRouter' as const,
+          }
+        : {
+            apiKey: config.groqApiKey,
+            apiUrl: config.groqApiUrl,
+            model: config.groqModel,
+            source: provider,
+            label: 'Groq' as const,
+          };
+
+    if (!settings.apiKey) return null;
+    if (!requireProviderOrder) return settings as OpenAiIntentSettings;
+    const providerOrder = Array.isArray(config.llmProviderOrder) ? config.llmProviderOrder : [];
+    return providerOrder.some((configured) => configured.trim().toLowerCase() === provider) ? settings as OpenAiIntentSettings : null;
+  }
+
+  private async callOpenAiCompatibleProvider(
+    message: string,
+    config: AiAgenticConfig,
+    settings: OpenAiIntentSettings,
+    context?: ConversationTurnContext,
+  ): Promise<GeminiIntentPayload> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), config.intentClassifierTimeoutMs);
+    const prompt = this.prompt(message, context);
+    this.logDebug(config, 'prompt', `${settings.label} intent prompt:\n${prompt}`);
+
+    try {
+      const response = await fetch(`${settings.apiUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${settings.apiKey}`,
+          'HTTP-Referer': 'http://localhost:3000',
+          'X-Title': 'Sentient AI Agentic',
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: settings.model,
+          messages: [
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          temperature: 0,
+          // WHY: response_format json_object is not supported by all free models
+          // (e.g. Gemma 4 31B returns 400). The prompt already says "Return JSON only"
+          // so the model complies without enforced JSON mode.
+        }),
+      });
+
+      if (!response.ok) throw new Error(`${settings.label} intent classifier failed with ${response.status}`);
+      const data = (await response.json()) as OpenAiCompatibleChatCompletionResponse;
+      const text = data.choices?.[0]?.message?.content;
+      if (!text) throw new Error(`${settings.label} intent classifier returned no text`);
+      this.logDebug(config, 'response', `${settings.label} intent response:\n${text}`);
+      return extractJson(text) as GeminiIntentPayload;
     } finally {
       clearTimeout(timeout);
     }
@@ -130,7 +322,7 @@ export class GeminiIntentClassifierService implements IntentClassifier {
       'Return JSON only, no markdown.',
       'Allowed requiredAgents values: LEAVE_AGENT, OKR_AGENT, CAREER_AGENT, ANALYTICS_AGENT, ONBOARDING_AGENT, LANGUAGE_AGENT, GENERAL_HELP_AGENT, HUMAN_ESCALATION_AGENT.',
       'Allowed draftCategory values: OBJECTIVE, SELF_REVIEW, MANAGER_FEEDBACK, HR_ANNOUNCEMENT, POLICY_SUMMARY, WORKFORCE_INSIGHT, PHRASE_REWRITE, or null.',
-      'Set isGreeting true for short standalone greetings or small talk such as hello, hi, hey, good morning, how are you, how are u, how is it going, or what is up.',
+      'Set isGreeting true for short standalone greetings or small talk such as hello, hi, hey, good morning, how are you, how are u, how is it going, what is up, bonjour, bonsoir, salut, coucou, ca va, or comment ca va.',
       'Set requiresClarification true only when the message has a real business request but not enough routing detail.',
       'Set isHumanEscalationIntent true only when the user explicitly asks to reach a human, HR person, manager, HRBP, or People team.',
       'Route bank/public/company/national/official holiday calendar questions to LEAVE_AGENT, not GENERAL_HELP_AGENT.',
@@ -157,7 +349,11 @@ export class GeminiIntentClassifierService implements IntentClassifier {
     return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 3)}...` : normalized;
   }
 
-  private toClassification(message: string, payload: GeminiIntentPayload): SupervisorIntentClassification {
+  private toClassification(
+    message: string,
+    payload: GeminiIntentPayload,
+    source: 'gemini' | 'openrouter' | 'groq',
+  ): SupervisorIntentClassification {
     const normalizedIntent = message.trim().replace(/\s+/g, ' ');
     const isGreeting = payload.isGreeting === true;
     const requiredAgents = this.validAgents(payload.requiredAgents ?? []);
@@ -179,7 +375,7 @@ export class GeminiIntentClassifierService implements IntentClassifier {
       isHumanEscalationIntent: payload.isHumanEscalationIntent === true,
       isGreeting,
       confidence,
-      source: 'gemini',
+      source,
     };
   }
 
@@ -215,8 +411,40 @@ export class GeminiIntentClassifierService implements IntentClassifier {
     return value as DraftIntentCategory;
   }
 
-  private logDebug(config: AiAgenticConfig, label: 'prompt' | 'response', content: string): void {
+  private logDebug(config: AiAgenticConfig, label: 'prompt' | 'response' | 'fallback', content: string): void {
     if (!config.intentClassifierDebugLogs) return;
-    this.logger.log(`Gemini intent ${label}:\n${content}`);
+    this.logger.log(`Intent classifier ${label}:\n${content}`);
   }
+}
+
+/**
+ * WHY: Free models (e.g. Gemma) ignore "Return JSON only" and wrap output in
+ * markdown fences like ```json ... ```. response_format: json_object would fix
+ * it but many free models return 400 for that parameter. This extractor handles
+ * both cases: raw JSON and fenced JSON, so JSON.parse never crashes.
+ */
+function extractJson(text: string): unknown {
+  const trimmed = text.trim();
+
+  // Fast path: already valid JSON
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    // fall through to fence extraction
+  }
+
+  // Strip ```json ... ``` or ``` ... ``` fences
+  const fenceMatch = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i);
+  if (fenceMatch?.[1]) {
+    return JSON.parse(fenceMatch[1].trim());
+  }
+
+  // Last resort: find the first {...} block in the text
+  const braceStart = trimmed.indexOf('{');
+  const braceEnd = trimmed.lastIndexOf('}');
+  if (braceStart !== -1 && braceEnd > braceStart) {
+    return JSON.parse(trimmed.slice(braceStart, braceEnd + 1));
+  }
+
+  throw new Error(`OpenRouter response is not valid JSON: ${trimmed.slice(0, 120)}`);
 }

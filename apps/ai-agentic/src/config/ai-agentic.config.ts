@@ -15,6 +15,17 @@ export interface AiAgenticConfig {
   geminiApiUrl: string;
   geminiModel: string;
   geminiThinkingLevel: string;
+  /** Comma-separated provider priority order, e.g. ['GEMINI', 'OPENROUTER']. */
+  llmProviderOrder: string[];
+  openRouterApiKey: string | null;
+  openRouterApiUrl: string;
+  openRouterModel: string;
+  groqApiKey: string | null;
+  groqApiUrl: string;
+  groqModel: string;
+  xaiApiKey: string | null;
+  xaiApiUrl: string;
+  xaiModel: string;
   intentClassifierDebugLogs: boolean;
   requestTimeoutMs: number;
   downstreamTimeoutMs: number;
@@ -25,8 +36,25 @@ export interface AiAgenticConfig {
 
 function parseIntentClassifierProvider(value: string | undefined): IntentClassifierProvider {
   const raw = (value ?? 'rules').trim().toLowerCase();
-  if (raw === 'rules' || raw === 'gemini') return raw;
-  throw new Error('AI_AGENT_INTENT_PROVIDER must be one of: rules, gemini');
+  if (raw === 'rules' || raw === 'gemini' || raw === 'openrouter' || raw === 'groq') return raw;
+  throw new Error('AI_AGENT_INTENT_PROVIDER must be one of: rules, gemini, openrouter, groq');
+}
+
+/**
+ * WHY: Users sometimes copy the full cURL endpoint from the Gemini docs
+ * (e.g. ".../v1beta/models/gemini-2.5-flash:generateContent") and paste it
+ * as GEMINI_API_URL. Strip everything from /models/ onward so the service
+ * always works with the bare API root regardless of what was pasted.
+ */
+function parseGeminiApiUrl(value: string | undefined): string {
+  const url = parseHttpUrl(value, 'https://generativelanguage.googleapis.com/v1beta', 'GEMINI_API_URL');
+  const cut = url.indexOf('/models/');
+  return cut === -1 ? url : url.slice(0, cut);
+}
+
+function parseProviderOrder(value: string | undefined): string[] {
+  const raw = (value ?? 'GEMINI').trim();
+  return raw.split(',').map((s) => s.trim().toUpperCase()).filter((s) => s.length > 0);
 }
 
 export const aiAgenticConfig = registerAs('aiAgentic', (): AiAgenticConfig => ({
@@ -41,7 +69,7 @@ export const aiAgenticConfig = registerAs('aiAgentic', (): AiAgenticConfig => ({
   intentClassifierProvider: parseIntentClassifierProvider(process.env.AI_AGENT_INTENT_PROVIDER),
   intentClassifierTimeoutMs: parsePositiveInt(
     process.env.AI_AGENT_INTENT_TIMEOUT_MS,
-    3_000,
+    5_000,
     'AI_AGENT_INTENT_TIMEOUT_MS',
   ),
   intentConfidenceThreshold: parseRatio(
@@ -55,13 +83,23 @@ export const aiAgenticConfig = registerAs('aiAgentic', (): AiAgenticConfig => ({
     'AI_AGENT_SCOPE_OVERRIDE_THRESHOLD',
   ),
   geminiApiKey: parseOptionalString(process.env.GEMINI_API_KEY),
-  geminiApiUrl: parseHttpUrl(
-    process.env.GEMINI_API_URL,
-    'https://generativelanguage.googleapis.com/v1beta',
-    'GEMINI_API_URL',
-  ),
-  geminiModel: parseNonEmptyString(process.env.GEMINI_MODEL, 'gemini-2.5-flash-lite', 'GEMINI_MODEL'),
+  geminiApiUrl: parseGeminiApiUrl(process.env.GEMINI_API_URL),
+  geminiModel: parseNonEmptyString(process.env.GEMINI_MODEL, 'gemini-2.5-flash', 'GEMINI_MODEL'),
   geminiThinkingLevel: parseNonEmptyString(process.env.GEMINI_THINKING_LEVEL, 'medium', 'GEMINI_THINKING_LEVEL'),
+  llmProviderOrder: parseProviderOrder(process.env.AI_AGENT_LLM_PROVIDER_ORDER),
+  openRouterApiKey: parseOptionalString(process.env.OPENROUTER_API_KEY),
+  openRouterApiUrl: parseHttpUrl(
+    process.env.OPENROUTER_API_URL,
+    'https://openrouter.ai/api/v1',
+    'OPENROUTER_API_URL',
+  ),
+  openRouterModel: parseNonEmptyString(process.env.OPENROUTER_MODEL, 'openrouter/auto', 'OPENROUTER_MODEL'),
+  groqApiKey: parseOptionalString(process.env.GROQ_API_KEY),
+  groqApiUrl: parseHttpUrl(process.env.GROQ_API_URL, 'https://api.groq.com/openai/v1', 'GROQ_API_URL'),
+  groqModel: parseNonEmptyString(process.env.GROQ_MODEL, 'llama-3.1-8b-instant', 'GROQ_MODEL'),
+  xaiApiKey: parseOptionalString(process.env.XAI_API_KEY),
+  xaiApiUrl: parseHttpUrl(process.env.XAI_API_URL, 'https://api.x.ai/v1', 'XAI_API_URL'),
+  xaiModel: parseNonEmptyString(process.env.XAI_MODEL, 'grok-2-latest', 'XAI_MODEL'),
   intentClassifierDebugLogs: parseBoolean(
     process.env.AI_AGENT_INTENT_DEBUG_LOGS,
     false,

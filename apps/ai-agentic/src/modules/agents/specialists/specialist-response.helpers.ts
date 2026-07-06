@@ -1,6 +1,7 @@
 import { AgentRunStatus, AgentType, PermissionDecision } from '../../../generated/prisma';
 import { SpecialistInput, SpecialistResult } from '../../../common/graph';
 import { DownstreamResult, DownstreamSummary } from '../../../common/clients';
+import { GeminiToolCallOutcome } from '../tools';
 
 export function deterministicResult(
   input: SpecialistInput,
@@ -29,10 +30,10 @@ export function downstreamResult(
   downstream: DownstreamResult<DownstreamSummary>,
   summary: string,
   allowedContent: string,
-  options?: { draftLabel?: string; nextStep?: string },
+  options?: { draftLabel?: string; nextStep?: string; suppressContinuityPrefix?: boolean },
 ): SpecialistResult {
   const hasPriorContext = input.conversationContext.recentMessages.length > 1;
-  const continuityPrefix = hasPriorContext
+  const continuityPrefix = hasPriorContext && options?.suppressContinuityPrefix !== true
     ? 'I also considered the recent conversation context for this follow-up. '
     : '';
   const status = downstream.permissionDecision === PermissionDecision.ALLOWED
@@ -61,5 +62,56 @@ export function downstreamResult(
     permissionDecision: downstream.permissionDecision,
     recommendedNextStep: options?.nextStep,
     draftLabel: input.isDraftRequest ? options?.draftLabel ?? 'Draft suggestion' : undefined,
+  };
+}
+
+export interface ToolCallerResultMeta {
+  sourceType: string;
+  title: string;
+  referencePrefix: string;
+  referenceFallback: string;
+  successSummary: string;
+  limitedSummary: string;
+  draftLabel?: string;
+}
+
+/**
+ * WHY: All 6 LLM-tool-calling specialists shared near-identical logic for turning
+ * a GeminiToolCallOutcome into a SpecialistResult. Centralising it here means the
+ * fallback-provider DEGRADED rule (multi-provider resilience layer) is written
+ * once instead of drifting across 6 files. A produced answer from a non-primary
+ * provider (outcome.usedFallbackProvider) is honestly surfaced as DEGRADED, the
+ * same governance treatment as a permission-denied or failed tool call.
+ */
+export function toolCallerResult(
+  input: SpecialistInput,
+  agentType: AgentType,
+  outcome: GeminiToolCallOutcome,
+  meta: ToolCallerResultMeta,
+): SpecialistResult {
+  const usedFallback = outcome.usedFallbackProvider === true;
+  const limited = outcome.anyToolDenied || outcome.anyToolFailed || usedFallback;
+  const fallbackOnly = usedFallback && !outcome.anyToolDenied && !outcome.anyToolFailed;
+
+  return {
+    agentType,
+    status: limited ? AgentRunStatus.DEGRADED : AgentRunStatus.SUCCESS,
+    summary: fallbackOnly
+      ? `${meta.successSummary} Answered via fallback provider (${outcome.providerUsed}) after the primary provider was unavailable.`
+      : limited
+        ? meta.limitedSummary
+        : meta.successSummary,
+    userVisibleContent: outcome.answer,
+    sourceContext: [{
+      sourceType: meta.sourceType,
+      title: meta.title,
+      referenceId: `${meta.referencePrefix}:${outcome.toolsUsed.join('+') || meta.referenceFallback}`,
+    }],
+    permissionDecision: outcome.anyToolDenied
+      ? PermissionDecision.DENIED
+      : outcome.anyToolFailed
+        ? PermissionDecision.PARTIAL
+        : PermissionDecision.ALLOWED,
+    draftLabel: input.isDraftRequest ? meta.draftLabel : undefined,
   };
 }

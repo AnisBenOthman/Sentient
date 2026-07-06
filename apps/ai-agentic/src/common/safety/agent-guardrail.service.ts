@@ -180,6 +180,8 @@ const GREETING_PATTERNS = [
   /^\s*(hi|hello|hey|good morning|good afternoon|good evening)\s*[!.]?\s*$/i,
   /^\s*(how\s+are\s+(you|u)|how\s+r\s+u|h[oa]w'?re\s+(you|u)|h[oa]w\s+are\s+(you|u))\s*[?!.]?\s*$/i,
   /^\s*(what'?s\s+up|how'?s\s+it\s+going|how'?s\s+your\s+day)\s*[?!.]?\s*$/i,
+  /^\s*(bonjour|bonsoir|salut|coucou)\s*[!.]?\s*$/i,
+  /^\s*((?:ca|\u00e7a)\s+va|comment\s+(?:ca|\u00e7a)\s+va|comment\s+allez-vous|comment\s+vas-tu)\s*[?!.]?\s*$/i,
 ];
 
 export interface GuardrailActor {

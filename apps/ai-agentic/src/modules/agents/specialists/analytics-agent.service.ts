@@ -1,16 +1,15 @@
 import { Injectable, Optional } from '@nestjs/common';
-import { AgentRunStatus, AgentType, PermissionDecision } from '../../../generated/prisma';
+import { AgentType } from '../../../generated/prisma';
 import { DashboardAiContext, DownstreamRequestContext, HrCoreAiClient, KpiAlertContext, TeamAbsenceSummaryContext } from '../../../common/clients';
 import { SpecialistAgent, SpecialistInput, SpecialistResult } from '../../../common/graph';
 import {
   CONVERSATIONAL_STYLE,
   DRAFT_MODE_DIRECTIVE,
-  GeminiToolCallerService,
-  GeminiToolCallOutcome,
+  LlmFallbackOrchestratorService,
   SENTIENT_IDENTITY,
   ToolRegistryService,
 } from '../tools';
-import { downstreamResult } from './specialist-response.helpers';
+import { downstreamResult, toolCallerResult } from './specialist-response.helpers';
 
 const ABSENCE_INTENT_PATTERN =
   /\b(absent|absence|absences|absentee|always\s+(out|off|away|missing)|frequently\s+(out|off|away)|most\s+(absent|leave|days\s+off)|who.{0,30}miss|miss.{0,20}most|attendance|time\s+off\s+most|days\s+off\s+most|keep\s+(taking|having)\s+leave)\b/i;
@@ -34,7 +33,7 @@ export class AnalyticsAgentService implements SpecialistAgent {
 
   constructor(
     private readonly hrCore: HrCoreAiClient,
-    @Optional() private readonly geminiToolCaller?: GeminiToolCallerService,
+    @Optional() private readonly llmCaller?: LlmFallbackOrchestratorService,
     @Optional() private readonly toolRegistry?: ToolRegistryService,
   ) {}
 
@@ -44,19 +43,29 @@ export class AnalyticsAgentService implements SpecialistAgent {
       correlationId: input.actorContext.correlationId,
     };
 
-    if (this.geminiToolCaller && this.toolRegistry) {
+    if (this.llmCaller && this.toolRegistry) {
       const tools = this.toolRegistry.getAnalyticsTools(reqContext);
       const systemPrompt = input.isDraftRequest
         ? `${ANALYTICS_SYSTEM_PROMPT}\n\n${DRAFT_MODE_DIRECTIVE}`
         : ANALYTICS_SYSTEM_PROMPT;
-      const outcome = await this.geminiToolCaller.call(
+      const outcome = await this.llmCaller.call(
         systemPrompt,
         input.userMessage,
         tools,
         input.conversationContext.recentMessages,
         { thinkingLevel: 'high' },
       );
-      if (outcome) return this.toToolCallerResult(input, outcome);
+      if (outcome) {
+        return toolCallerResult(input, this.agentType, outcome, {
+          sourceType: 'ANALYTICS',
+          title: 'Workforce analytics',
+          referencePrefix: 'analytics',
+          referenceFallback: 'dashboard',
+          successSummary: 'Analytics explanation prepared.',
+          limitedSummary: 'Analytics prepared with limited data access.',
+          draftLabel: 'Workforce insight draft',
+        });
+      }
     }
 
     if (ABSENCE_INTENT_PATTERN.test(input.normalizedIntent)) {
@@ -66,27 +75,6 @@ export class AnalyticsAgentService implements SpecialistAgent {
       return this.handleKpiRiskQuery(input);
     }
     return this.handleDashboardQuery(input);
-  }
-
-  private toToolCallerResult(input: SpecialistInput, outcome: GeminiToolCallOutcome): SpecialistResult {
-    const limited = outcome.anyToolDenied || outcome.anyToolFailed;
-    return {
-      agentType: this.agentType,
-      status: limited ? AgentRunStatus.DEGRADED : AgentRunStatus.SUCCESS,
-      summary: limited ? 'Analytics prepared with limited data access.' : 'Analytics explanation prepared.',
-      userVisibleContent: outcome.answer,
-      sourceContext: [{
-        sourceType: 'ANALYTICS',
-        title: 'Workforce analytics',
-        referenceId: `analytics:${outcome.toolsUsed.join('+') || 'dashboard'}`,
-      }],
-      permissionDecision: outcome.anyToolDenied
-        ? PermissionDecision.DENIED
-        : outcome.anyToolFailed
-          ? PermissionDecision.PARTIAL
-          : PermissionDecision.ALLOWED,
-      draftLabel: input.isDraftRequest ? 'Workforce insight draft' : undefined,
-    };
   }
 
   private async handleDashboardQuery(input: SpecialistInput): Promise<SpecialistResult> {
