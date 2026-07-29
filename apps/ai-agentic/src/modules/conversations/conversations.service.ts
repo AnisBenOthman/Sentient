@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   AgentNodeType,
   AgentRunStatus,
@@ -8,8 +8,8 @@ import {
   MessageRole,
   Prisma,
 } from '../../generated/prisma';
-import { PaginatedResponse, paginationToSkipTake } from '../../common/dto';
-import { AiActorContext } from '../../common/graph';
+import { PaginatedResponse, paginationToSkipTake, RoutingTrace } from '../../common/dto';
+import { AiActorContext, FinalAnswerResult } from '../../common/graph';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SupervisorAgentService } from '../agents/supervisor-agent.service';
 import {
@@ -18,6 +18,7 @@ import {
   ConversationTurnResponse,
 } from './conversation-response.mapper';
 import { ConversationContextService } from './conversation-context.service';
+import { ConversationSummarizerService } from './conversation-summarizer.service';
 import { ConversationTitleService } from './conversation-title.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
@@ -25,13 +26,19 @@ import { ConversationDetailResponse } from './dto/conversation-detail.dto';
 import { ListConversationsQueryDto } from './dto/list-conversations-query.dto';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
 
+const TURN_FAILURE_MESSAGE =
+  'Something went wrong on my side while processing that request. Your message was saved — please send it again in a moment. If this keeps happening, contact your HR admin.';
+
 @Injectable()
 export class ConversationsService {
+  private readonly logger = new Logger(ConversationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly supervisor: SupervisorAgentService,
     private readonly contextBuilder: ConversationContextService,
     private readonly titles: ConversationTitleService,
+    private readonly summarizer: ConversationSummarizerService,
   ) {}
 
   async createConversation(
@@ -143,47 +150,94 @@ export class ConversationsService {
       },
     });
     const conversationContext = await this.contextBuilder.build(conversation.id);
-    const supervisorResult = await this.supervisor.executeTurn({
-      conversationId: conversation.id,
-      userMessageId: userMessage.id,
-      userMessage: message,
-      actor,
-      conversationContext: {
-        recentMessages: conversationContext.recentMessages.map((recentMessage) => ({
-          id: recentMessage.id,
-          role: recentMessage.role,
-          content: recentMessage.content,
-        })),
-        priorHandoffAgents: conversationContext.priorHandoffAgents,
-      },
-    });
+
+    /**
+     * WHY: The user message is already persisted; letting a supervisor failure
+     * bubble up as a 500 left a dangling user message with no reply (and a retry
+     * duplicated it). A failed turn instead persists an honest FAILED assistant
+     * message so the conversation stays consistent and the UI can offer a retry.
+     */
+    let finalAnswer: FinalAnswerResult;
+    let routing: RoutingTrace;
+    let turnFailed = false;
+    try {
+      const supervisorResult = await this.supervisor.executeTurn({
+        conversationId: conversation.id,
+        userMessageId: userMessage.id,
+        userMessage: message,
+        actor,
+        conversationContext: {
+          /**
+           * WHY: The rolling summary rides as a synthetic leading assistant turn
+           * so every consumer (intent classifier, all specialist tool callers)
+           * sees pre-window context without any changes to their history handling.
+           */
+          recentMessages: [
+            ...(conversationContext.contextSummary
+              ? [{
+                  id: 'context-summary',
+                  role: MessageRole.ASSISTANT as string,
+                  content: `Summary of the earlier part of this conversation (for context): ${conversationContext.contextSummary}`,
+                }]
+              : []),
+            ...conversationContext.recentMessages.map((recentMessage) => ({
+              id: recentMessage.id,
+              role: recentMessage.role,
+              content: recentMessage.content,
+            })),
+          ],
+          priorHandoffAgents: conversationContext.priorHandoffAgents,
+        },
+      });
+      finalAnswer = supervisorResult.finalAnswer;
+      routing = supervisorResult.routing;
+    } catch (error: unknown) {
+      turnFailed = true;
+      this.logger.error(
+        `Supervisor turn failed for conversation ${conversation.id}: ${error instanceof Error ? error.message : 'unknown error'}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      finalAnswer = {
+        status: AgentRunStatus.FAILED,
+        content: TURN_FAILURE_MESSAGE,
+        sourceContext: [],
+        routingSummary: '',
+      };
+      routing = { status: AgentRunStatus.FAILED, nodes: [] };
+    }
+
     const assistantMessage = await this.prisma.message.create({
       data: {
         conversationId: conversation.id,
         role: MessageRole.ASSISTANT,
-        content: supervisorResult.finalAnswer.content,
+        content: finalAnswer.content,
         agentType: AgentType.SUPERVISOR_AGENT,
         nodeType: AgentNodeType.FINAL_ANSWER,
-        sourceSummary: this.sourceContextJson(supervisorResult.finalAnswer.sourceContext),
-        status: supervisorResult.finalAnswer.status,
+        sourceSummary: this.sourceContextJson(finalAnswer.sourceContext),
+        status: finalAnswer.status,
       },
     });
     const updatedConversation = await this.prisma.conversation.update({
       where: { id: conversation.id },
       data: {
         lastAgentType: AgentType.SUPERVISOR_AGENT,
-        lastMessagePreview: this.titles.previewFrom(supervisorResult.finalAnswer.content),
-        title: conversation.title === this.titles.initialTitle()
-          ? this.titles.titleFrom(supervisorResult.finalAnswer.content)
+        lastMessagePreview: this.titles.previewFrom(finalAnswer.content),
+        // WHY: a failed turn must not overwrite the initial title with the apology text.
+        title: conversation.title === this.titles.initialTitle() && !turnFailed
+          ? this.titles.titleFrom(finalAnswer.content)
           : conversation.title,
       },
     });
+
+    // WHY: fire-and-forget — the summary refresh must never delay or fail the
+    // turn response; maybeSummarize catches its own errors.
+    void this.summarizer.maybeSummarize(conversation.id);
 
     return ConversationResponseMapper.toTurn(
       updatedConversation,
       userMessage,
       assistantMessage,
-      supervisorResult.routing,
+      routing,
     );
   }
 

@@ -60,6 +60,10 @@ export interface SpecialistResult {
   permissionDecision: PermissionDecision;
   recommendedNextStep?: string;
   draftLabel?: string;
+  /** LLM prompt tokens consumed by this specialist's call, when the provider reported usage. */
+  tokensIn?: number;
+  /** LLM completion/thinking tokens produced by this specialist's call. */
+  tokensOut?: number;
 }
 
 export interface HumanEscalationResult {

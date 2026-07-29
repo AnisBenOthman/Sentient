@@ -60,6 +60,10 @@ export interface GeminiToolCallOutcome {
    * the resilience layer kicked in — never silent, never SUCCESS-masquerading.
    */
   usedFallbackProvider?: boolean;
+  /** Prompt tokens consumed, summed across every LLM round of this call (when the provider reports usage). */
+  tokensIn?: number;
+  /** Completion + thinking tokens produced, summed across every LLM round of this call. */
+  tokensOut?: number;
 }
 
 /**

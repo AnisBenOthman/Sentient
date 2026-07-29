@@ -86,6 +86,7 @@ describe('AI conversation management contract', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     const result = await service.detail('conversation-1', actor);
@@ -136,6 +137,7 @@ describe('AI conversation management contract', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     await service.list(actor, { page: 1, pageSize: 20 });
@@ -169,6 +171,7 @@ describe('AI conversation management contract', () => {
       } as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     try {
@@ -177,5 +180,70 @@ describe('AI conversation management contract', () => {
     } catch (error: unknown) {
       expect(error instanceof BadRequestException).toBe(true);
     }
+  });
+
+  it('persists a FAILED assistant message instead of a 500 when the supervisor throws', async () => {
+    const createdMessages: Array<{ role: MessageRole; content: string; status?: AgentRunStatus }> = [];
+    const service = new ConversationsService(
+      {
+        conversation: {
+          findFirst: async () => ({
+            id: 'conversation-1',
+            ownerUserId: actor.userId,
+            ownerEmployeeId: actor.employeeId,
+            title: 'Sentient AI conversation',
+            status: ConversationStatus.ACTIVE,
+          }),
+          findUnique: async () => ({ contextSummary: null }),
+          update: async () => ({
+            id: 'conversation-1',
+            title: 'Sentient AI conversation',
+            status: ConversationStatus.ACTIVE,
+            lastAgentType: null,
+            lastMessagePreview: 'preview',
+            updatedAt: new Date(0),
+          }),
+        },
+        message: {
+          create: async ({ data }: { data: { role: MessageRole; content: string; status?: AgentRunStatus } }) => {
+            createdMessages.push(data);
+            return {
+              id: `message-${createdMessages.length}`,
+              conversationId: 'conversation-1',
+              role: data.role,
+              content: data.content,
+              agentType: null,
+              nodeType: null,
+              sourceSummary: null,
+              status: data.status ?? AgentRunStatus.SUCCESS,
+              createdAt: new Date(0),
+            };
+          },
+          findMany: async () => [],
+        },
+        agentHandoff: { findMany: async () => [] },
+      } as never,
+      {
+        executeTurn: async () => {
+          throw new Error('Supervisor LangGraph finished without a final answer.');
+        },
+      } as never,
+      {
+        build: async () => ({ recentMessages: [], priorHandoffAgents: [], contextSummary: null }),
+      } as never,
+      {
+        titleFrom: (value: string) => value,
+        previewFrom: (value: string) => value,
+        initialTitle: () => 'Sentient AI conversation',
+      } as never,
+      { maybeSummarize: async () => undefined } as never,
+    );
+
+    const result = await service.sendMessage('conversation-1', actor, { message: 'hello' });
+
+    // WHY: the turn must respond with an honest failure, never a dangling user message + 500.
+    expect(result.assistantMessage.status).toBe(AgentRunStatus.FAILED);
+    expect(result.routing.status).toBe(AgentRunStatus.FAILED);
+    expect(createdMessages.some((message) => message.role === MessageRole.ASSISTANT && message.status === AgentRunStatus.FAILED)).toBe(true);
   });
 });

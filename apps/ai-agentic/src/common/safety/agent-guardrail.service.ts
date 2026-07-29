@@ -190,12 +190,21 @@ export interface GuardrailActor {
 
 @Injectable()
 export class AgentGuardrailService {
-  evaluate(message: string, actor?: GuardrailActor): SafetyPolicyResult {
-    const lower = message.toLowerCase();
-    const hasSentientTopic = SENTIENT_TERM_PATTERNS.some((pattern) => pattern.test(message));
-    const offTopicTerms = OFF_TOPIC_TERMS.filter((term) => lower.includes(term));
-    const hasTeamLeaveScope = this.hasTeamLeaveScope(actor?.roles);
-
+  /**
+   * WHY: Phase 1 of the three-phase supervisor gate
+   * (security -> intent classifier -> RBAC/scope).
+   *
+   * These two pattern sets are the only ones decidable from the message alone:
+   * they need neither the caller's roles nor a classified intent, and they
+   * describe an attack on the system rather than a permission question. Running
+   * them BEFORE the classifier means a prompt-injection or destructive-SQL
+   * payload never reaches the LLM provider at all — it is refused deterministically
+   * and costs no tokens.
+   *
+   * Returns null when the message is clean, so the caller can fall through to
+   * the classifier and then to evaluateScope().
+   */
+  evaluateSecurity(message: string): SafetyPolicyResult | null {
     if (IMMEDIATE_SAFETY_PATTERNS.some((pattern) => pattern.test(message))) {
       return this.escalationResult(
         'IMMEDIATE_SAFETY_RISK',
@@ -217,6 +226,25 @@ export class AgentGuardrailService {
         sensitivity: 'HIGH',
       };
     }
+
+    return null;
+  }
+
+  /**
+   * WHY: Phase 3 of the three-phase supervisor gate. Everything here is either
+   * role-aware (UNAUTHORIZED_DATA / THIRD_PARTY_LEAVE need actor.roles to decide
+   * whether a manager is entitled to the answer) or better judged once the intent
+   * classifier has read the message in conversation context (the OUT_OF_SCOPE
+   * keyword gate, which the supervisor may override on a confident classification).
+   *
+   * Relative pattern order is preserved from the original single-pass evaluate():
+   * hard refusals still precede the greeting allow and the scope gate.
+   */
+  evaluateScope(message: string, actor?: GuardrailActor): SafetyPolicyResult {
+    const lower = message.toLowerCase();
+    const hasSentientTopic = SENTIENT_TERM_PATTERNS.some((pattern) => pattern.test(message));
+    const offTopicTerms = OFF_TOPIC_TERMS.filter((term) => lower.includes(term));
+    const hasTeamLeaveScope = this.hasTeamLeaveScope(actor?.roles);
 
     if (INTERPERSONAL_PATTERNS.some((pattern) => pattern.test(message))) {
       return this.escalationResult(
@@ -328,6 +356,17 @@ export class AgentGuardrailService {
       declinedTopics: [],
       sensitivity: 'LOW',
     };
+  }
+
+  /**
+   * WHY: Single-pass evaluation, kept for callers that have no intent
+   * classification to interleave (and for the guardrail unit suite, which asserts
+   * the full pattern library in one place). The LangGraph supervisor does NOT use
+   * this method — it calls evaluateSecurity() before the classifier and
+   * evaluateScope() after it, so that attack payloads never reach the LLM.
+   */
+  evaluate(message: string, actor?: GuardrailActor): SafetyPolicyResult {
+    return this.evaluateSecurity(message) ?? this.evaluateScope(message, actor);
   }
 
   /**

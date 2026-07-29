@@ -18,7 +18,7 @@ describe('HrCoreAiClient', () => {
     correlationId: 'corr-1',
   };
 
-  it('requests current-year leave balances and approved request history for the actor employee', async () => {
+  it('requests current-year leave balances and full request history for the actor employee', async () => {
     const config = {
       get: (): string => 'http://hr-core.local',
     } as unknown as ConfigService;
@@ -74,7 +74,7 @@ describe('HrCoreAiClient', () => {
     expect(calls[0]?.context).toBe(context);
     expect(calls[0]?.sourceType).toBe('LEAVE');
     expect(calls[0]?.sourceTitle).toBe('Leave balance and history');
-    expect(calls[1]?.path).toBe('/leave-requests?status=APPROVED');
+    expect(calls[1]?.path).toBe('/leave-requests');
     expect(result.data?.balances.length).toBe(1);
     expect(result.data?.recentRequests.length).toBe(1);
   });
@@ -146,5 +146,67 @@ describe('HrCoreAiClient', () => {
     expect(result.permissionDecision).toBe(PermissionDecision.UNAVAILABLE);
     expect(result.degradedReason).toBe('Caller is not linked to an employee record.');
     expect(calls.length).toBe(0);
+  });
+
+  it('requests the employees-without-leave analytics endpoint and passes the payload through', async () => {
+    const config = {
+      get: (): string => 'http://hr-core.local',
+    } as unknown as ConfigService;
+    const calls: HttpCall[] = [];
+    const http = {
+      get: async <TData>(
+        baseUrl: string,
+        path: string,
+        requestContext: DownstreamRequestContext,
+        sourceType: string,
+        sourceTitle: string,
+      ): Promise<DownstreamResult<TData>> => {
+        calls.push({ baseUrl, path, context: requestContext, sourceType, sourceTitle });
+        return {
+          data: {
+            entries: [{ employeeId: 'emp-1', employeeName: 'Alice Martin' }],
+            totalConsidered: 5,
+            windowStart: '2025-07-29',
+            windowEnd: '2026-07-29',
+          } as TData,
+          permissionDecision: PermissionDecision.ALLOWED,
+          degradedReason: null,
+          sourceType,
+          sourceTitle,
+        };
+      },
+    } as unknown as HttpJsonClient;
+    const client = new HrCoreAiClient(config, http);
+
+    const result = await client.getEmployeesWithoutLeaveContext(context);
+
+    expect(calls.length).toBe(1);
+    expect(calls[0]?.path).toBe('/analytics/employees-without-leave');
+    expect(calls[0]?.sourceType).toBe('LEAVE_ZERO_SUMMARY');
+    expect(result.data?.entries).toEqual([{ employeeId: 'emp-1', employeeName: 'Alice Martin' }]);
+    expect(result.data?.totalConsidered).toBe(5);
+    expect(result.data?.windowStart).toBe('2025-07-29');
+    expect(result.data?.windowEnd).toBe('2026-07-29');
+  });
+
+  it('returns null data for employees-without-leave when the caller is denied', async () => {
+    const config = {
+      get: (): string => 'http://hr-core.local',
+    } as unknown as ConfigService;
+    const http = {
+      get: async <TData>(): Promise<DownstreamResult<TData>> => ({
+        data: null,
+        permissionDecision: PermissionDecision.DENIED,
+        degradedReason: 'Forbidden',
+        sourceType: 'LEAVE_ZERO_SUMMARY',
+        sourceTitle: 'Employees without leave',
+      }),
+    } as unknown as HttpJsonClient;
+    const client = new HrCoreAiClient(config, http);
+
+    const result = await client.getEmployeesWithoutLeaveContext(context);
+
+    expect(result.permissionDecision).toBe(PermissionDecision.DENIED);
+    expect(result.data).toBeNull();
   });
 });

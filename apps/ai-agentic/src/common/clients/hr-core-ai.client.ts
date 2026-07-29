@@ -61,6 +61,27 @@ export interface TeamAbsenceSummaryContext extends DownstreamSummary {
   windowEnd: string;
 }
 
+/** One employee in scope with no approved leave request overlapping the window. */
+export interface EmployeeWithoutLeaveEntry {
+  employeeId: string;
+  employeeName: string;
+}
+
+/** Raw shape returned by HR Core's GET /analytics/employees-without-leave. */
+interface EmployeesWithoutLeaveRaw {
+  entries: EmployeeWithoutLeaveEntry[];
+  totalConsidered: number;
+  windowStart: string;
+  windowEnd: string;
+}
+
+export interface EmployeesWithoutLeaveContext extends DownstreamSummary {
+  entries: EmployeeWithoutLeaveEntry[];
+  totalConsidered: number;
+  windowStart: string;
+  windowEnd: string;
+}
+
 /** Mirrors HR Core Holiday (dates serialize to ISO strings). */
 export interface HolidayContext {
   id: string;
@@ -319,6 +340,39 @@ export class HrCoreAiClient {
     };
   }
 
+  /**
+   * WHY: "Who hasn't taken leave" cannot be derived from any leave-request-shaped
+   * data (see getTeamAbsenceSummaryContext) — it requires HR Core to diff the full
+   * scoped roster against approved leave history server-side. This method just
+   * forwards that pre-computed result; no reshaping needed beyond the DownstreamResult
+   * envelope, since HR Core's response already matches the AI-facing shape.
+   */
+  async getEmployeesWithoutLeaveContext(
+    context: DownstreamRequestContext,
+  ): Promise<DownstreamResult<EmployeesWithoutLeaveContext>> {
+    const result = await this.get<EmployeesWithoutLeaveRaw>(
+      '/analytics/employees-without-leave',
+      context,
+      'LEAVE_ZERO_SUMMARY',
+      'Employees without leave',
+    );
+
+    if (result.permissionDecision !== PermissionDecision.ALLOWED) {
+      return { ...result, data: null };
+    }
+
+    return {
+      ...result,
+      data: {
+        id: 'leave:zero-leave-summary',
+        entries: result.data?.entries ?? [],
+        totalConsidered: result.data?.totalConsidered ?? 0,
+        windowStart: result.data?.windowStart ?? '',
+        windowEnd: result.data?.windowEnd ?? '',
+      },
+    };
+  }
+
   private static calendarDaysBetween(startDate: string, endDate: string): number {
     const msPerDay = 1000 * 60 * 60 * 24;
     return Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / msPerDay) + 1);
@@ -486,15 +540,15 @@ export class HrCoreAiClient {
     balancePath: string,
     context: DownstreamRequestContext,
   ): Promise<DownstreamResult<LeaveAiContext>> {
-    const historyQuery = new URLSearchParams({ status: 'APPROVED' });
+    /**
+     * WHY: No status filter here — the LLM needs visibility into PENDING and
+     * REJECTED requests too (e.g. "when was my last rejected leave request?"),
+     * not just APPROVED ones. HR Core already scopes this to the caller's own
+     * employeeId server-side.
+     */
     const [balancesResult, requestsResult] = await Promise.all([
       this.get<LeaveBalanceContext[]>(balancePath, context, 'LEAVE', 'Leave balance and history'),
-      this.get<LeaveRequestContext[]>(
-        `/leave-requests?${historyQuery.toString()}`,
-        context,
-        'LEAVE',
-        'Leave balance and history',
-      ),
+      this.get<LeaveRequestContext[]>('/leave-requests', context, 'LEAVE', 'Leave balance and history'),
     ]);
 
     if (balancesResult.permissionDecision !== PermissionDecision.ALLOWED) {

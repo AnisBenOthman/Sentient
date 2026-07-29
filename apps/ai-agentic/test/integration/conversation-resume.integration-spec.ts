@@ -17,6 +17,9 @@ describe('conversation resume context', () => {
       agentHandoff: {
         findMany: async () => [{ toAgentType: 'LEAVE_AGENT' }, { toAgentType: 'OKR_AGENT' }],
       },
+      conversation: {
+        findUnique: async () => ({ contextSummary: null }),
+      },
     } as unknown as PrismaService);
 
     const context = await service.build('conversation-1');
@@ -46,6 +49,7 @@ describe('conversation resume context', () => {
           title: 'Leave help',
           status: ConversationStatus.ACTIVE,
         }),
+        findUnique: async () => ({ contextSummary: null }),
         update: async () => ({
           id: 'conversation-1',
           title: 'Leave help',
@@ -91,6 +95,7 @@ describe('conversation resume context', () => {
       } as never,
       new ConversationContextService(prisma),
       { titleFrom: (value: string) => value, previewFrom: (value: string) => value, initialTitle: () => 'Sentient AI conversation' } as never,
+      { maybeSummarize: async () => undefined } as never,
     );
 
     await service.sendMessage('conversation-1', actor, { message: 'And last leave date?' });

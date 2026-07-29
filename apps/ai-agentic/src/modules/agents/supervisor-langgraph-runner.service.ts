@@ -216,7 +216,48 @@ export class SupervisorLangGraphRunnerService {
       },
     });
 
-    let safety = this.guardrails.evaluate(state.input.userMessage, state.input.actor);
+    /**
+     * PHASE 1 — Security guardrail, before any LLM call.
+     *
+     * WHY: The turn used to evaluate the whole guardrail and then call the
+     * classifier unconditionally, so a prompt-injection or destructive-SQL
+     * payload was still forwarded to the model provider even though the answer
+     * was already decided. Attack patterns are decidable from the message alone,
+     * so they short-circuit here: no tokens spent, no attacker-controlled text
+     * reaching the LLM, and the refusal is deterministic rather than model-dependent.
+     */
+    const securityRefusal = this.guardrails.evaluateSecurity(state.input.userMessage);
+    if (securityRefusal) {
+      this.logTrace('supervisor.securityRefused', {
+        classification: securityRefusal.classification,
+        status: securityRefusal.status,
+        shouldEscalate: securityRefusal.shouldEscalate,
+        declinedTopics: securityRefusal.declinedTopics,
+        intentClassifierInvoked: false,
+      });
+      return {
+        parentLog,
+        sequence: state.sequence + 1,
+        safety: securityRefusal,
+        // WHY: downstream nodes (human escalation, final answer) call
+        // requireClassification() unconditionally. The classifier never ran, so
+        // a neutral rules-sourced stub keeps routing, logging, and the escalation
+        // path working instead of throwing on a null classification.
+        classification: this.securityBlockedClassification(state.input.userMessage),
+        draftBlock: null,
+        routingNodes: [
+          ...state.routingNodes,
+          {
+            nodeType: AgentNodeType.SUPERVISOR,
+            agentType: AgentType.SUPERVISOR_AGENT,
+            status: AgentRunStatus.SUCCESS,
+            summary: 'Security guardrail refused the request before intent classification.',
+          },
+        ],
+      };
+    }
+
+    /** PHASE 2 — Intent classifier (LLM). Only reached by security-clean input. */
     let classification = await this.classifier.classify(
       state.input.userMessage,
       state.input.conversationContext,
@@ -243,18 +284,34 @@ export class SupervisorLangGraphRunnerService {
     }
 
     /**
+     * PHASE 3 — RBAC / scope guardrail, after intent classification.
+     *
+     * WHY: Everything evaluated here is role-aware (a manager IS entitled to
+     * team leave answers that are refused for an employee) or benefits from the
+     * classifier's context-aware reading of the message. Running it after Phase 2
+     * lets the confident-classification override below consume a real intent
+     * signal instead of patching a verdict that was computed blind.
+     */
+    let safety = this.guardrails.evaluateScope(state.input.userMessage, state.input.actor);
+
+    /**
      * WHY: The guardrail scope gate is a static keyword list and cannot keep up
      * with real HR vocabulary ("bank holidays in my country" carried no listed
      * term and was refused even though the LLM classifier routed it to the
-     * Leave Agent at 0.9 confidence). When the Gemini classifier — which sees
+     * Leave Agent at 0.9 confidence). When an LLM classifier — which sees
      * the conversation context — confidently selects a specialist or an
      * escalation, that judgment outranks the keyword gate. Only the benign
      * OUT_OF_SCOPE verdict is overridable; hard safety refusals (unauthorized
-     * data, unsafe actions, conflict escalations) are never bypassed.
+     * data, unsafe actions, conflict escalations) are never bypassed, and Phase 1
+     * security refusals never reach this point at all.
+     *
+     * The source check is "any LLM classifier, not the rule-based fallback":
+     * pinning it to 'gemini' silently disabled the override for the Groq and
+     * OpenRouter providers, which are selected by AI_AGENT_INTENT_PROVIDER.
      */
     if (
       safety.classification === 'OUT_OF_SCOPE' &&
-      classification.source === 'gemini' &&
+      classification.source !== 'rules' &&
       !classification.requiresClarification &&
       classification.confidence >= this.scopeOverrideThreshold() &&
       (this.runnableSpecialists(classification).length > 0 ||
@@ -334,6 +391,28 @@ export class SupervisorLangGraphRunnerService {
           summary: 'Intent classified by LangGraph supervisor node.',
         },
       ],
+    };
+  }
+
+  /**
+   * WHY: A Phase-1 security refusal skips the intent classifier entirely, but the
+   * escalation and final-answer nodes both call requireClassification(). This
+   * neutral stub keeps those nodes total: no specialist is requested, no
+   * clarification is asked, and confidence 0 with source 'rules' records honestly
+   * in the trace that no model judgment backed this turn.
+   */
+  private securityBlockedClassification(userMessage: string): SupervisorIntentClassification {
+    return {
+      normalizedIntent: userMessage,
+      requiredAgents: [],
+      requiresClarification: false,
+      clarificationReason: null,
+      isDraftIntent: false,
+      draftCategory: null,
+      isHumanEscalationIntent: false,
+      isGreeting: false,
+      confidence: 0,
+      source: 'rules',
     };
   }
 
@@ -439,7 +518,6 @@ export class SupervisorLangGraphRunnerService {
   private async specialistsNode(state: LangGraphState): Promise<LangGraphUpdate> {
     const parentLog = this.requireParentLog(state);
     const classification = this.requireClassification(state);
-    const specialistResults: SpecialistResult[] = [];
     const routingNodes = [...state.routingNodes];
     let sequence = state.sequence;
     this.logTrace('specialists.route', {
@@ -449,18 +527,29 @@ export class SupervisorLangGraphRunnerService {
       draftCategory: classification.draftCategory,
     });
 
-    for (const agentType of this.runnableSpecialists(classification)) {
-      const result = await this.executeSpecialist(
-        state.input,
-        parentLog.id,
-        agentType,
-        classification.normalizedIntent,
-        classification.isDraftIntent,
-      );
-      specialistResults.push(result);
+    /**
+     * WHY: Specialists share no state, so a multi-agent turn runs them
+     * concurrently instead of paying each LLM loop's latency serially.
+     * Results keep the classifier's ordering, and a single failing specialist
+     * degrades only its own portion instead of aborting the whole turn.
+     */
+    const agents = this.runnableSpecialists(classification);
+    const specialistResults = await Promise.all(
+      agents.map((agentType) =>
+        this.executeSpecialist(
+          state.input,
+          parentLog.id,
+          agentType,
+          classification.normalizedIntent,
+          classification.isDraftIntent,
+        ).catch((error: unknown) => this.specialistFailureResult(agentType, error)),
+      ),
+    );
+
+    for (const result of specialistResults) {
       routingNodes.push({
         nodeType: AgentNodeType.SPECIALIST,
-        agentType,
+        agentType: result.agentType,
         status: result.status,
         summary: result.summary,
       });
@@ -468,7 +557,7 @@ export class SupervisorLangGraphRunnerService {
         conversationId: state.input.conversationId,
         taskLogId: parentLog.id,
         nodeType: AgentNodeType.SPECIALIST,
-        agentType,
+        agentType: result.agentType,
         status: result.status,
         sequence,
       });
@@ -479,6 +568,20 @@ export class SupervisorLangGraphRunnerService {
       sequence,
       specialistResults: [...state.specialistResults, ...specialistResults],
       routingNodes,
+    };
+  }
+
+  private specialistFailureResult(agentType: AgentType, error: unknown): SpecialistResult {
+    this.logger.error(
+      `Specialist ${agentType} threw during execution: ${error instanceof Error ? error.message : 'unknown error'}`,
+    );
+    return {
+      agentType,
+      status: AgentRunStatus.FAILED,
+      summary: `${agentType} failed with an internal error.`,
+      userVisibleContent: 'One part of your request hit an internal error and could not be completed. Please try again.',
+      sourceContext: [],
+      permissionDecision: PermissionDecision.UNAVAILABLE,
     };
   }
 
@@ -507,6 +610,7 @@ export class SupervisorLangGraphRunnerService {
       status: finalAnswer.status,
       sequence: state.sequence,
     });
+    const turnTokens = this.sumTokens(state.specialistResults);
     await this.taskLogs.finish(parentLog.id, {
       status: finalAnswer.status,
       outputSummary: finalAnswer.content,
@@ -520,6 +624,8 @@ export class SupervisorLangGraphRunnerService {
       )
         ? PermissionDecision.PARTIAL
         : PermissionDecision.ALLOWED,
+      tokensIn: turnTokens.tokensIn,
+      tokensOut: turnTokens.tokensOut,
     });
     this.logTrace('finalAnswer.completed', {
       status: finalAnswer.status,
@@ -593,6 +699,8 @@ export class SupervisorLangGraphRunnerService {
       outputSummary: result.summary,
       sourceCategories: result.sourceContext.map((source) => source.sourceType),
       permissionDecision: result.permissionDecision,
+      tokensIn: result.tokensIn ?? null,
+      tokensOut: result.tokensOut ?? null,
     });
     await this.permissionDecisions.record({
       conversationId: input.conversationId,
@@ -659,6 +767,16 @@ export class SupervisorLangGraphRunnerService {
     return [...new Set(results.flatMap((result) => result.sourceContext.map((source) => source.sourceType)))];
   }
 
+  /** Turn-level token rollup: null when no specialist reported usage (e.g. deterministic paths). */
+  private sumTokens(results: SpecialistResult[]): { tokensIn: number | null; tokensOut: number | null } {
+    const reported = results.filter((result) => result.tokensIn != null || result.tokensOut != null);
+    if (reported.length === 0) return { tokensIn: null, tokensOut: null };
+    return {
+      tokensIn: reported.reduce((sum, result) => sum + (result.tokensIn ?? 0), 0),
+      tokensOut: reported.reduce((sum, result) => sum + (result.tokensOut ?? 0), 0),
+    };
+  }
+
   private resolveSupervisorRoute(state: LangGraphState): SupervisorRoute {
     if (!state.safety || !state.classification) return 'finalAnswerNode';
     if (state.safety.shouldEscalate) return 'humanEscalationNode';
@@ -690,8 +808,19 @@ export class SupervisorLangGraphRunnerService {
 
   private routeReason(state: LangGraphState, route: SupervisorRoute): string {
     if (!state.safety || !state.classification) return 'Missing supervisor state; finishing safely.';
-    if (state.safety.shouldEscalate && route === 'humanEscalationNode') return 'Guardrail requested human escalation.';
-    if (!state.safety.allowed && route === 'finalAnswerNode') return 'Guardrail refused the request before specialist routing.';
+    const isSecurityPhase =
+      state.safety.classification === 'UNSAFE_SYSTEM_ACTION' ||
+      state.safety.classification === 'IMMEDIATE_SAFETY_RISK';
+    if (state.safety.shouldEscalate && route === 'humanEscalationNode') {
+      return isSecurityPhase
+        ? 'Security guardrail escalated the request before intent classification.'
+        : 'Guardrail requested human escalation.';
+    }
+    if (!state.safety.allowed && route === 'finalAnswerNode') {
+      return isSecurityPhase
+        ? 'Security guardrail refused the request before intent classification.'
+        : 'Scope guardrail refused the request before specialist routing.';
+    }
     if (state.classification.isGreeting && route === 'finalAnswerNode') return 'Greeting handled directly by supervisor.';
     if (state.draftBlock && route === 'finalAnswerNode') return 'Draft policy blocked a mutation-phrased draft request.';
     if (route === 'humanEscalationNode') return 'Classifier identified an explicit human-support request.';

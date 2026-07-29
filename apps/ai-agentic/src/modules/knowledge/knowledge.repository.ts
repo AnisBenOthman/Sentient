@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import {
   KnowledgeItem,
   KnowledgeItemStatus,
@@ -7,6 +7,7 @@ import {
   VectorDocument,
 } from '../../generated/prisma';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EmbeddingService } from './embedding.service';
 
 export interface KnowledgeSearchResult {
   document: VectorDocument;
@@ -14,10 +15,11 @@ export interface KnowledgeSearchResult {
 }
 
 /**
- * WHY: Whole-message substring matching never hits for natural questions, so
- * retrieval is keyword-based: significant query tokens are OR-matched and the
- * results ranked by how many distinct tokens each chunk contains. Real
- * embedding search can replace this without changing the call sites.
+ * WHY: Retrieval is vector-first (pgvector ANN over Gemini embeddings) so
+ * paraphrased questions match policy text semantically. The keyword token
+ * search below remains as the fallback for environments without an embedding
+ * provider, for corpora that have not been backfilled yet, and for queries
+ * where the ANN search finds nothing.
  */
 const SEARCH_STOPWORDS = new Set([
   'the', 'and', 'for', 'with', 'that', 'this', 'what', 'when', 'where', 'which',
@@ -36,9 +38,19 @@ function tokenizeQuery(query: string): string[] {
   return [...new Set(tokens)].slice(0, MAX_SEARCH_TOKENS);
 }
 
+/** pgvector text input format: '[0.1,0.2,...]' — passed as a parameter and cast with ::vector. */
+function toVectorLiteral(embedding: number[]): string {
+  return `[${embedding.join(',')}]`;
+}
+
 @Injectable()
 export class KnowledgeRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(KnowledgeRepository.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly embedder?: EmbeddingService,
+  ) {}
 
   async listActiveItems(limit = 20): Promise<KnowledgeItem[]> {
     return this.prisma.knowledgeItem.findMany({
@@ -49,6 +61,55 @@ export class KnowledgeRepository {
   }
 
   async searchApproved(query: string, limit = 5): Promise<KnowledgeSearchResult[]> {
+    const vectorResults = await this.searchByVector(query, limit);
+    if (vectorResults && vectorResults.length > 0) return vectorResults;
+    return this.searchByKeywords(query, limit);
+  }
+
+  /**
+   * ANN search over pgvector. Returns null when the embedder is unavailable or
+   * the raw query fails (e.g. migration not applied) so the caller falls back
+   * to keyword retrieval instead of surfacing an error to the agent.
+   */
+  private async searchByVector(query: string, limit: number): Promise<KnowledgeSearchResult[] | null> {
+    if (!this.embedder?.isConfigured()) return null;
+    const embedding = await this.embedder.embed(query);
+    if (!embedding) return null;
+
+    try {
+      const vectorLiteral = toVectorLiteral(embedding);
+      // WHY: filter FIRST (approved knowledge item, embedded rows), then ANN on
+      // the filtered subset — the hybrid-query rule from the RAG architecture.
+      const rows = await this.prisma.$queryRaw<Array<{ id: string }>>`
+        SELECT vd."id"
+        FROM "ai_agent"."vector_documents" vd
+        JOIN "ai_agent"."knowledge_items" ki ON ki."id" = vd."knowledge_item_id"
+        WHERE ki."status" = 'ACTIVE'
+          AND vd."embedding_vec" IS NOT NULL
+        ORDER BY vd."embedding_vec" <=> ${vectorLiteral}::vector
+        LIMIT ${limit}
+      `;
+      if (rows.length === 0) return [];
+
+      const orderedIds = rows.map((row) => row.id);
+      const documents = await this.prisma.vectorDocument.findMany({
+        where: { id: { in: orderedIds } },
+        include: { knowledgeItem: true },
+      });
+      const byId = new Map(documents.map((document) => [document.id, document]));
+      return orderedIds
+        .map((id) => byId.get(id))
+        .filter((document): document is (typeof documents)[number] => document != null)
+        .map((document) => ({ document, item: document.knowledgeItem }));
+    } catch (error: unknown) {
+      this.logger.warn(
+        `Vector search unavailable, falling back to keyword retrieval: ${error instanceof Error ? error.message : 'unknown error'}`,
+      );
+      return null;
+    }
+  }
+
+  private async searchByKeywords(query: string, limit: number): Promise<KnowledgeSearchResult[]> {
     const tokens = tokenizeQuery(query);
     if (tokens.length === 0) return [];
 
@@ -79,6 +140,29 @@ export class KnowledgeRepository {
       document,
       item: document.knowledgeItem,
     }));
+  }
+
+  /** Documents that still need an embedding (backfill + future ingestion both use this). */
+  async findUnembeddedApproved(limit: number): Promise<Array<{ id: string; content: string }>> {
+    return this.prisma.$queryRaw<Array<{ id: string; content: string }>>`
+      SELECT vd."id", vd."content"
+      FROM "ai_agent"."vector_documents" vd
+      JOIN "ai_agent"."knowledge_items" ki ON ki."id" = vd."knowledge_item_id"
+      WHERE ki."status" = 'ACTIVE'
+        AND vd."embedding_vec" IS NULL
+      ORDER BY vd."created_at" ASC
+      LIMIT ${limit}
+    `;
+  }
+
+  /** Raw update because Prisma cannot write Unsupported("vector") columns. */
+  async storeEmbedding(documentId: string, embedding: number[]): Promise<void> {
+    const vectorLiteral = toVectorLiteral(embedding);
+    await this.prisma.$executeRaw`
+      UPDATE "ai_agent"."vector_documents"
+      SET "embedding_vec" = ${vectorLiteral}::vector
+      WHERE "id" = ${documentId}
+    `;
   }
 
   async upsertKnowledgeItem(input: {

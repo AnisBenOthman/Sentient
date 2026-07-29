@@ -63,7 +63,7 @@ See `.claude/rules/code-style.md` for full conventions. Key rules:
 - Every endpoint: `@UseGuards(SharedJwtGuard, RbacGuard)` + `@Roles(...)`. Except `/health`.
 
 ## Recent Changes
-- 016-ai-module (COMPLETE — all 97 tasks done, T097 live smoke pending): Full AI Agentic supervisor pipeline landed. LangGraph.js `SupervisorLangGraphRunnerService` compiled graph with conditional routing, clarification node, specialist execution, human escalation, and final-answer nodes. 7 specialist agents (Leave, OKR, Career, Analytics, Onboarding, Language, General Help) + Human Escalation. Gemini intent classifier with rule-based fallback, `AI_AGENT_INTENT_PROVIDER` env toggle. `AgentGuardrailService` with word-boundary Sentient-scope matching, UNAUTHORIZED_DATA / UNSAFE_SYSTEM_ACTION / interpersonal-judgment guardrails. `FinalAnswerPolicyService` honest status taxonomy (REFUSED/PARTIAL/DEGRADED). Conversation management (list/detail/archive/delete/resume). Feedback + Governance endpoints. `HrCoreAiClient` / `SocialAiClient` with scope-filtered downstream context. `HolidayQueryDto` with `@Type(() => Number)` coercion. `AI_AGENT_SCOPE_OVERRIDE_THRESHOLD` (0.7) lets Gemini confident classifications override benign OUT_OF_SCOPE without bypassing hard refusals. Scope-gate SENTIENT_TERMS expanded to cover everyday HR vocabulary. Full AI Assistant chat page in `apps/web`. 27 test suites / 137 tests green.
+- 016-ai-module (COMPLETE — all 97 tasks done, T097 live smoke pending): Full AI Agentic supervisor pipeline landed. LangGraph.js `SupervisorLangGraphRunnerService` compiled graph with conditional routing, clarification node, specialist execution, human escalation, and final-answer nodes. 7 specialist agents (Leave, OKR, Career, Analytics, Onboarding, Language, General Help) + Human Escalation. Gemini intent classifier with rule-based fallback, `AI_AGENT_INTENT_PROVIDER` env toggle. `AgentGuardrailService` with word-boundary Sentient-scope matching, UNAUTHORIZED_DATA / UNSAFE_SYSTEM_ACTION / interpersonal-judgment guardrails, split across a **three-phase supervisor gate: security guardrail → intent classifier → RBAC/scope guardrail** (see below). `FinalAnswerPolicyService` honest status taxonomy (REFUSED/PARTIAL/DEGRADED). Conversation management (list/detail/archive/delete/resume). Feedback + Governance endpoints. `HrCoreAiClient` / `SocialAiClient` with scope-filtered downstream context. `HolidayQueryDto` with `@Type(() => Number)` coercion. `AI_AGENT_SCOPE_OVERRIDE_THRESHOLD` (0.7) lets Gemini confident classifications override benign OUT_OF_SCOPE without bypassing hard refusals. Scope-gate SENTIENT_TERMS expanded to cover everyday HR vocabulary. Full AI Assistant chat page in `apps/web`. 27 test suites / 137 tests green.
 - 015-api-gateway (COMPLETE): NestJS API Gateway in `apps/api-gateway` (:3004). Streaming proxy for HR/Social/AI upstreams. Central JWT validation + public allow-list. Correlation IDs. In-memory edge rate limiting (`@nestjs/throttler`) with public-IP and override-route tiers. Standard error envelopes. Health/docs aggregation. `API_GATEWAY_AI_UPSTREAM_TIMEOUT_MS` separate AI timeout. Frontend migrated to single `/api` gateway origin. Full test suite green.
 - 014-documents-module: Documents module in Social — `DocumentStorage` interface + `FilesystemDocumentStorage`, path-traversal guard, `mime-to-extension` + `sanitizeFilename` helpers, 6 endpoints (upload/download/list/detail/update/delete), multer file-size filter, `document.uploaded`/`document.deleted` events, `DocumentCategory` enum corrected, frontend documents page with role-gated upload/edit/delete.
 - 013-announcements-module: Announcements module in Social — audience-filter logic, expiry filtering, author enrichment, 6 endpoints, HrCoreClient with TTL-cache for dept/team refs, 25-test unit suite, frontend announcements page.
@@ -71,6 +71,47 @@ See `.claude/rules/code-style.md` for full conventions. Key rules:
 
 
 <!-- MANUAL ADDITIONS START -->
+## AI Supervisor Three-Phase Gate
+
+> Every conversation turn in `SupervisorLangGraphRunnerService.supervisorNode` passes through
+> three phases in this fixed order. Do not collapse them back into one pass.
+
+```
+User message
+    ↓
+PHASE 1 — Security guardrail    AgentGuardrailService.evaluateSecurity(message)
+    ↓                            IMMEDIATE_SAFETY_PATTERNS, UNSAFE_SYSTEM_ACTION_PATTERNS
+    ↓                            Refused here → return BEFORE the classifier. No LLM call.
+PHASE 2 — Intent classifier     IntentClassifier.classify(message, context)   ← the only LLM call
+    ↓                            Groq / Gemini / OpenRouter, rules fallback
+PHASE 3 — RBAC/scope guardrail  AgentGuardrailService.evaluateScope(message, actor)
+    ↓                            UNAUTHORIZED_DATA (role-aware), THIRD_PARTY_LEAVE (role-aware),
+    ↓                            UNSAFE_ADVICE, interpersonal/conflict, greeting, OUT_OF_SCOPE
+Route → specialist / clarification / escalation / final answer
+```
+
+**Which phase does a new pattern belong to?** Phase 1 if and only if it is decidable from the
+message alone — no `actor.roles`, no classified intent — **and** it is either an attack on the
+system (injection, destructive SQL, secret exfiltration, shell execution) or an immediate
+human-welfare risk where a one-LLM-call delay is unacceptable (`IMMEDIATE_SAFETY_PATTERNS`).
+Everything that depends on who is asking is Phase 3 by definition.
+
+**Rules:**
+- Phase 1 must never call the LLM. Its whole purpose is that attacker-controlled text is refused
+  deterministically without being forwarded to a model provider or billed for.
+- **Known limitation:** this holds for the turn the payload arrives on. `ConversationContextService.build()`
+  selects `recentMessages` by `conversationId` with no status filter, so a refused message is still
+  replayed into the classifier prompt as history on subsequent turns of the same conversation.
+  Closing this means excluding `REFUSED`/`ESCALATED` turns from the recent-message window.
+- A Phase-1 short-circuit must supply `securityBlockedClassification()` — the escalation and
+  final-answer nodes call `requireClassification()` unconditionally and will throw on null.
+- Only the benign `OUT_OF_SCOPE` verdict is overridable by a confident classification
+  (`source !== 'rules'` and confidence ≥ `AI_AGENT_SCOPE_OVERRIDE_THRESHOLD`). Hard refusals —
+  `UNAUTHORIZED_DATA`, `UNSAFE_ADVICE`, `UNSAFE_SYSTEM_ACTION`, conflict escalations — are never
+  bypassed, and Phase-1 refusals never reach the override at all.
+- `AgentGuardrailService.evaluate()` is the single-pass composition kept for the unit suite.
+  The supervisor does not use it.
+
 ## Notification Routing Convention
 - HR Core notifications are created only from `DomainEvent` subscribers in `apps/hr-core/src/modules/notifications/events/notifications-events.bridge.ts`.
 - Add a new notification producer by emitting after the domain transaction commits, adding one routing rule in `events/routing-rules/<domain>.rules.ts`, and registering the event type in the bridge. Do not call `NotificationsService` directly from domain services.

@@ -9,6 +9,7 @@ import { Decimal } from '../../generated/prisma/runtime/library';
 import { JwtPayload, PermissionScope } from '@sentient/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DashboardAnalyticsQueryDto } from './dto/dashboard-analytics-query.dto';
+import { EmployeesWithoutLeaveQueryDto } from './dto/employees-without-leave-query.dto';
 
 export interface ChartPoint {
   label: string;
@@ -89,6 +90,22 @@ export interface DashboardAnalytics {
   };
 }
 
+export interface EmployeeWithoutLeaveEntry {
+  employeeId: string;
+  employeeName: string;
+  departmentId: string | null;
+  employmentStatus: EmploymentStatus;
+}
+
+export interface EmployeesWithoutLeaveResult {
+  entries: EmployeeWithoutLeaveEntry[];
+  totalConsidered: number;
+  /** ISO date (YYYY-MM-DD) — trailing 365-day window start. */
+  windowStart: string;
+  /** ISO date (YYYY-MM-DD) — trailing 365-day window end (today). */
+  windowEnd: string;
+}
+
 type EmployeeRow = Prisma.EmployeeGetPayload<{
   include: {
     department: {
@@ -143,6 +160,13 @@ type SkillRow = Prisma.EmployeeSkillGetPayload<{
 type SkillHistoryRow = Prisma.SkillHistoryGetPayload<{
   include: { skill: { select: { name: true } } };
 }>;
+
+/** Common shape shared by every scope-filterable analytics query DTO. */
+interface EmployeeScopeFilterQuery {
+  businessUnitId?: string;
+  departmentId?: string;
+  teamId?: string;
+}
 
 const MONTH_COUNT = 12;
 const QUARTER_COUNT = 8;
@@ -283,6 +307,59 @@ export class AnalyticsService {
         message: 'Engagement analytics are waiting for the backend performance/engagement module.',
       },
     };
+  }
+
+  /**
+   * WHY: The roster half and the leave half of this diff must derive from the
+   * exact same scope filter (currentEmployeeWhere), or the "zero-leave" result
+   * can silently leak out-of-scope employees or drop in-scope employees who
+   * legitimately have zero leave. Reusing buildScopedEmployeeWhere +
+   * buildCurrentWorkforceFilter — the same combination getDashboard uses —
+   * guarantees both queries see the identical population.
+   */
+  async getEmployeesWithoutLeave(
+    query: EmployeesWithoutLeaveQueryDto,
+    user: JwtPayload,
+  ): Promise<EmployeesWithoutLeaveResult> {
+    const employeeWhere = this.buildScopedEmployeeWhere(query, user);
+    const currentEmployeeWhere = this.andEmployeeWhere(
+      employeeWhere,
+      this.buildCurrentWorkforceFilter(),
+    );
+
+    const windowEndDate = new Date();
+    const windowStartDate = new Date(windowEndDate.getTime() - 365 * 24 * 60 * 60 * 1000);
+    const windowStart = windowStartDate.toISOString().slice(0, 10);
+    const windowEnd = windowEndDate.toISOString().slice(0, 10);
+
+    const [roster, leaveTakers] = await Promise.all([
+      this.prisma.employee.findMany({
+        where: currentEmployeeWhere,
+        select: { id: true, firstName: true, lastName: true, departmentId: true, employmentStatus: true },
+      }),
+      this.prisma.leaveRequest.findMany({
+        where: {
+          status: 'APPROVED',
+          employee: currentEmployeeWhere,
+          startDate: { lte: windowEndDate },
+          endDate: { gte: windowStartDate },
+        },
+        select: { employeeId: true },
+        distinct: ['employeeId'],
+      }),
+    ]);
+
+    const takenSet = new Set(leaveTakers.map((row) => row.employeeId));
+    const entries: EmployeeWithoutLeaveEntry[] = roster
+      .filter((employee) => !takenSet.has(employee.id))
+      .map((employee) => ({
+        employeeId: employee.id,
+        employeeName: `${employee.firstName} ${employee.lastName}`,
+        departmentId: employee.departmentId,
+        employmentStatus: employee.employmentStatus,
+      }));
+
+    return { entries, totalConsidered: roster.length, windowStart, windowEnd };
   }
 
   private buildEmployeeAnalytics(
@@ -578,7 +655,7 @@ export class AnalyticsService {
   }
 
   private buildScopedEmployeeWhere(
-    query: DashboardAnalyticsQueryDto,
+    query: EmployeeScopeFilterQuery,
     user: JwtPayload,
   ): Prisma.EmployeeWhereInput {
     const filters: Prisma.EmployeeWhereInput[] = [

@@ -146,6 +146,10 @@ model Conversation {
   status             ConversationStatus @default(ACTIVE)
   lastAgentType      AgentType?         @map("last_agent_type")
   lastMessagePreview String?            @map("last_message_preview")
+  /// Rolling summary of messages that no longer fit the recent-message window.
+  contextSummary     String?            @map("context_summary")
+  /// How many of the oldest messages the current contextSummary already covers.
+  summarizedMessageCount Int            @default(0) @map("summarized_message_count")
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
   archivedAt         DateTime?          @map("archived_at")
@@ -201,6 +205,10 @@ model AgentTaskLog {
   outputSummary      String?             @map("output_summary")
   errorCode          String?             @map("error_code")
   errorMessage       String?             @map("error_message")
+  /// Prompt tokens consumed by LLM calls attributed to this task (summed across rounds).
+  tokensIn           Int?                @map("tokens_in")
+  /// Completion/thinking tokens produced by LLM calls attributed to this task.
+  tokensOut          Int?                @map("tokens_out")
   correlationId      String              @map("correlation_id")
   startedAt          DateTime            @default(now()) @map("started_at")
   finishedAt         DateTime?           @map("finished_at")
@@ -350,6 +358,9 @@ model VectorDocument {
   chunkIndex      Int                 @map("chunk_index")
   content         String
   embedding       Json?
+  /// pgvector embedding (Gemini text-embedding-004, 768 dims). Written and
+  /// queried via raw SQL only — Prisma cannot represent vector natively.
+  embeddingVec    Unsupported("vector(768)")? @map("embedding_vec")
   metadata        Json                @default("{}")
   createdAt       DateTime            @default(now()) @map("created_at")
 

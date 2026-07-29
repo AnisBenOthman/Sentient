@@ -62,6 +62,23 @@ const MOCK_ABSENCE_SUMMARY_CONTEXT = {
   sourceTitle: 'Team absence summary',
 };
 
+const MOCK_ZERO_LEAVE_CONTEXT = {
+  data: {
+    id: 'leave:zero-leave-summary',
+    entries: [
+      { employeeId: 'emp-3', employeeName: 'Carla Diaz' },
+      { employeeId: 'emp-4', employeeName: 'Dev Patel' },
+    ],
+    totalConsidered: 6,
+    windowStart: '2025-07-29',
+    windowEnd: '2026-07-29',
+  },
+  permissionDecision: PermissionDecision.ALLOWED,
+  degradedReason: null,
+  sourceType: 'LEAVE_ZERO_SUMMARY',
+  sourceTitle: 'Employees without leave',
+};
+
 describe('AnalyticsAgentService', () => {
   describe('dashboard queries', () => {
     it('summarizes scoped dashboard metrics instead of generic guidance (FR-038)', async () => {
@@ -200,6 +217,90 @@ describe('AnalyticsAgentService', () => {
       const result = await agent.execute(
         buildInput({ normalizedIntent: 'who is always absent', userMessage: 'who is always absent' }),
       );
+
+      expect(result.status).toBe(AgentRunStatus.DEGRADED);
+      expect(result.permissionDecision).toBe(PermissionDecision.DENIED);
+    });
+  });
+
+  describe('zero-leave queries', () => {
+    it('routes "which employees have not taken leave" to the zero-leave tool, not absence summary', async () => {
+      let zeroLeaveCalls = 0;
+      let absenceCalls = 0;
+      const hrCore = {
+        getEmployeesWithoutLeaveContext: async () => { zeroLeaveCalls += 1; return MOCK_ZERO_LEAVE_CONTEXT; },
+        getTeamAbsenceSummaryContext: async () => { absenceCalls += 1; return MOCK_ABSENCE_SUMMARY_CONTEXT; },
+      } as unknown as HrCoreAiClient;
+      const agent = new AnalyticsAgentService(hrCore);
+
+      const message = "Which employees who doesn't have taken leave yet?";
+      await agent.execute(buildInput({ normalizedIntent: message, userMessage: message }));
+
+      expect(zeroLeaveCalls).toBe(1);
+      expect(absenceCalls).toBe(0);
+    });
+
+    it('routes "who has never taken leave" and "without any leave" phrasing to zero-leave', async () => {
+      for (const message of ['who has never taken leave', 'list employees without any leave']) {
+        let zeroLeaveCalls = 0;
+        const hrCore = {
+          getEmployeesWithoutLeaveContext: async () => { zeroLeaveCalls += 1; return MOCK_ZERO_LEAVE_CONTEXT; },
+        } as unknown as HrCoreAiClient;
+        const agent = new AnalyticsAgentService(hrCore);
+
+        await agent.execute(buildInput({ normalizedIntent: message, userMessage: message }));
+
+        expect(zeroLeaveCalls).toBe(1);
+      }
+    });
+
+    it('returns named employees with the inverted honesty caveat and window dates', async () => {
+      const hrCore = {
+        getEmployeesWithoutLeaveContext: async () => MOCK_ZERO_LEAVE_CONTEXT,
+      } as unknown as HrCoreAiClient;
+      const agent = new AnalyticsAgentService(hrCore);
+
+      const message = "which employees haven't taken leave";
+      const result = await agent.execute(buildInput({ normalizedIntent: message, userMessage: message }));
+
+      expect(result.status).toBe(AgentRunStatus.SUCCESS);
+      expect(result.userVisibleContent).toContain('Carla Diaz');
+      expect(result.userVisibleContent).toContain('Dev Patel');
+      expect(result.userVisibleContent).toContain('2025-07-29');
+      expect(result.userVisibleContent).toContain('2026-07-29');
+      expect(result.userVisibleContent).toContain('does not mean these employees were present every day');
+    });
+
+    it('handles the everyone-has-taken-leave case gracefully', async () => {
+      const hrCore = {
+        getEmployeesWithoutLeaveContext: async () => ({
+          ...MOCK_ZERO_LEAVE_CONTEXT,
+          data: { ...MOCK_ZERO_LEAVE_CONTEXT.data, entries: [] },
+        }),
+      } as unknown as HrCoreAiClient;
+      const agent = new AnalyticsAgentService(hrCore);
+
+      const message = 'who has not taken any leave';
+      const result = await agent.execute(buildInput({ normalizedIntent: message, userMessage: message }));
+
+      expect(result.status).toBe(AgentRunStatus.SUCCESS);
+      expect(result.userVisibleContent).toContain('Everyone in scope');
+    });
+
+    it('degrades gracefully when the zero-leave endpoint is denied', async () => {
+      const hrCore = {
+        getEmployeesWithoutLeaveContext: async () => ({
+          data: null,
+          permissionDecision: PermissionDecision.DENIED,
+          degradedReason: 'MANAGER scope required.',
+          sourceType: 'LEAVE_ZERO_SUMMARY',
+          sourceTitle: 'Employees without leave',
+        }),
+      } as unknown as HrCoreAiClient;
+      const agent = new AnalyticsAgentService(hrCore);
+
+      const message = 'which employees have not taken leave';
+      const result = await agent.execute(buildInput({ normalizedIntent: message, userMessage: message }));
 
       expect(result.status).toBe(AgentRunStatus.DEGRADED);
       expect(result.permissionDecision).toBe(PermissionDecision.DENIED);

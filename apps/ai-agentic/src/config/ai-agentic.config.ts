@@ -14,6 +14,7 @@ export interface AiAgenticConfig {
   geminiApiKey: string | null;
   geminiApiUrl: string;
   geminiModel: string;
+  geminiEmbeddingModel: string;
   geminiThinkingLevel: string;
   /** Comma-separated provider priority order, e.g. ['GEMINI', 'OPENROUTER']. */
   llmProviderOrder: string[];
@@ -85,6 +86,12 @@ export const aiAgenticConfig = registerAs('aiAgentic', (): AiAgenticConfig => ({
   geminiApiKey: parseOptionalString(process.env.GEMINI_API_KEY),
   geminiApiUrl: parseGeminiApiUrl(process.env.GEMINI_API_URL),
   geminiModel: parseNonEmptyString(process.env.GEMINI_MODEL, 'gemini-2.5-flash', 'GEMINI_MODEL'),
+  // WHY: must produce 768-dim vectors — the vector_documents.embedding_vec column is vector(768).
+  geminiEmbeddingModel: parseNonEmptyString(
+    process.env.GEMINI_EMBEDDING_MODEL,
+    'text-embedding-004',
+    'GEMINI_EMBEDDING_MODEL',
+  ),
   geminiThinkingLevel: parseNonEmptyString(process.env.GEMINI_THINKING_LEVEL, 'medium', 'GEMINI_THINKING_LEVEL'),
   llmProviderOrder: parseProviderOrder(process.env.AI_AGENT_LLM_PROVIDER_ORDER),
   openRouterApiKey: parseOptionalString(process.env.OPENROUTER_API_KEY),

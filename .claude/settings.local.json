@@ -133,7 +133,10 @@
       "PowerShell(winget install *)",
       "PowerShell(& \"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth status)",
       "Bash(gh repo *)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(npx tsc *)",
+      "Bash(npx jest *)",
+      "Bash(git --no-pager diff --stat apps/ai-agentic/src/common/safety/agent-guardrail.service.ts apps/ai-agentic/src/modules/agents/supervisor-langgraph-runner.service.ts apps/ai-agentic/src/modules/agents/supervisor-langgraph-runner.service.spec.ts CLAUDE.md AGENTS.md)"
     ]
   }
 }

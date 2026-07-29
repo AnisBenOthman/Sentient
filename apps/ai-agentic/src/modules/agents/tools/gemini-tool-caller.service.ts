@@ -74,6 +74,15 @@ export class GeminiToolCallerService implements LlmToolCallerAdapter {
     let anyToolDenied = false;
     let anyToolFailed = false;
     const toolsUsed: string[] = [];
+    const usage = { tokensIn: 0, tokensOut: 0, reported: false };
+    const recordUsage = (metadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number }): void => {
+      if (!metadata) return;
+      usage.reported = true;
+      usage.tokensIn += metadata.promptTokenCount ?? 0;
+      usage.tokensOut += (metadata.candidatesTokenCount ?? 0) + (metadata.thoughtsTokenCount ?? 0);
+    };
+    const usageFields = (): { tokensIn?: number; tokensOut?: number } =>
+      usage.reported ? { tokensIn: usage.tokensIn, tokensOut: usage.tokensOut } : {};
 
     try {
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
@@ -95,6 +104,7 @@ export class GeminiToolCallerService implements LlmToolCallerAdapter {
           },
         });
 
+        recordUsage(response.usageMetadata);
         const candidateContent = response.candidates?.[0]?.content;
         const parts: Part[] = candidateContent?.parts ?? [];
         const functionCalls = parts.filter(
@@ -132,7 +142,7 @@ export class GeminiToolCallerService implements LlmToolCallerAdapter {
 
         const answer = response.text?.trim();
         if (answer) {
-          return { answer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName };
+          return { answer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() };
         }
         return null;
       }
@@ -153,9 +163,10 @@ export class GeminiToolCallerService implements LlmToolCallerAdapter {
         },
       });
 
+      recordUsage(finalResponse.usageMetadata);
       const finalAnswer = finalResponse.text?.trim();
       return finalAnswer
-        ? { answer: finalAnswer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName }
+        ? { answer: finalAnswer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() }
         : null;
     } catch (err: unknown) {
       this.logger.warn(`Gemini SDK call failed: ${err instanceof Error ? err.message : 'unknown'}`);

@@ -35,6 +35,10 @@ interface OpenAiMessage {
 
 interface OpenAiChatResponse {
   choices?: Array<{ message?: OpenAiMessage; finish_reason?: string }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+  };
 }
 
 interface ToolRunResult {
@@ -98,6 +102,15 @@ export class OpenAiCompatibleToolCallerService implements LlmToolCallerAdapter {
     let anyToolDenied = false;
     let anyToolFailed = false;
     const toolsUsed: string[] = [];
+    const usage = { tokensIn: 0, tokensOut: 0, reported: false };
+    const recordUsage = (raw: OpenAiChatResponse): void => {
+      if (!raw.usage) return;
+      usage.reported = true;
+      usage.tokensIn += raw.usage.prompt_tokens ?? 0;
+      usage.tokensOut += raw.usage.completion_tokens ?? 0;
+    };
+    const usageFields = (): { tokensIn?: number; tokensOut?: number } =>
+      usage.reported ? { tokensIn: usage.tokensIn, tokensOut: usage.tokensOut } : {};
     const controller = new AbortController();
     const downstreamTimeoutMs = this.aiConfig()?.downstreamTimeoutMs ?? 8_000;
     const timer = setTimeout(() => controller.abort(), downstreamTimeoutMs * MAX_TOOL_ROUNDS);
@@ -113,6 +126,7 @@ export class OpenAiCompatibleToolCallerService implements LlmToolCallerAdapter {
         const raw = await this.fetchChatCompletion(settings, messages, toolDefs, controller.signal, toolChoice);
         if (!raw) return null;
 
+        recordUsage(raw);
         const message = raw.choices?.[0]?.message;
         const toolCalls = message?.tool_calls ?? [];
 
@@ -130,15 +144,16 @@ export class OpenAiCompatibleToolCallerService implements LlmToolCallerAdapter {
         }
 
         const answer = message?.content?.trim();
-        if (answer) return { answer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName };
+        if (answer) return { answer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() };
         return null;
       }
 
       /** WHY: mirrors Gemini's final forced-synthesis round — never discard gathered tool results. */
       const final = await this.fetchChatCompletion(settings, messages, toolDefs, controller.signal, 'none');
+      if (final) recordUsage(final);
       const finalAnswer = final?.choices?.[0]?.message?.content?.trim();
       return finalAnswer
-        ? { answer: finalAnswer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName }
+        ? { answer: finalAnswer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() }
         : null;
     } catch (err: unknown) {
       this.logger.warn(`${this.providerName} tool call failed: ${err instanceof Error ? err.message : 'unknown'}`);
@@ -230,13 +245,20 @@ export class OpenAiCompatibleToolCallerService implements LlmToolCallerAdapter {
         if (signal.aborted) return null;
         const retry = await fetch(url, { ...fetchOptions, body: requestBody });
         if (!retry.ok) {
-          this.logger.warn(`${this.providerName} API returned ${retry.status} (after 429 retry)`);
+          this.logger.warn(
+            `${this.providerName} API returned ${retry.status} (after 429 retry): ${await safeReadBody(retry)}`,
+          );
           return null;
         }
         return (await retry.json()) as OpenAiChatResponse;
       }
       if (!resp.ok) {
-        this.logger.warn(`${this.providerName} API returned ${resp.status}`);
+        /**
+         * WHY: A bare status code makes fallback causes undiagnosable (a Groq 400
+         * can be tool-schema rejection, model incompatibility with tool_choice,
+         * or context overflow). The truncated body names the actual reason.
+         */
+        this.logger.warn(`${this.providerName} API returned ${resp.status}: ${await safeReadBody(resp)}`);
         return null;
       }
       return (await resp.json()) as OpenAiChatResponse;
@@ -269,4 +291,17 @@ function parseArguments(raw: string): Record<string, unknown> {
 function isFlagged(result: unknown, flag: 'denied' | 'unavailable'): boolean {
   if (!result || typeof result !== 'object') return false;
   return (result as Record<string, unknown>)[flag] === true;
+}
+
+const MAX_ERROR_BODY_CHARS = 500;
+
+/** Reads an error response body for logging; never throws, never logs secrets. */
+async function safeReadBody(resp: { text?: () => Promise<string> }): Promise<string> {
+  try {
+    const body = typeof resp.text === 'function' ? await resp.text() : '';
+    const trimmed = body.replace(/\s+/g, ' ').trim();
+    return trimmed.length > MAX_ERROR_BODY_CHARS ? `${trimmed.slice(0, MAX_ERROR_BODY_CHARS)}…` : trimmed || '<empty body>';
+  } catch {
+    return '<unreadable body>';
+  }
 }

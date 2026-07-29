@@ -113,5 +113,7 @@ export function toolCallerResult(
         ? PermissionDecision.PARTIAL
         : PermissionDecision.ALLOWED,
     draftLabel: input.isDraftRequest ? meta.draftLabel : undefined,
+    tokensIn: outcome.tokensIn,
+    tokensOut: outcome.tokensOut,
   };
 }

@@ -1,6 +1,13 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { AgentType } from '../../../generated/prisma';
-import { DashboardAiContext, DownstreamRequestContext, HrCoreAiClient, KpiAlertContext, TeamAbsenceSummaryContext } from '../../../common/clients';
+import {
+  DashboardAiContext,
+  DownstreamRequestContext,
+  EmployeesWithoutLeaveContext,
+  HrCoreAiClient,
+  KpiAlertContext,
+  TeamAbsenceSummaryContext,
+} from '../../../common/clients';
 import { SpecialistAgent, SpecialistInput, SpecialistResult } from '../../../common/graph';
 import {
   CONVERSATIONAL_STYLE,
@@ -10,6 +17,15 @@ import {
   ToolRegistryService,
 } from '../tools';
 import { downstreamResult, toolCallerResult } from './specialist-response.helpers';
+
+/**
+ * WHY: Checked before ABSENCE_INTENT_PATTERN in execute() — "hasn't taken leave"
+ * is the complement of "who is frequently absent," not an instance of it, and
+ * needs its own tool (get_employees_without_leave / getEmployeesWithoutLeaveContext)
+ * since no absence-shaped data can represent zero leave taken.
+ */
+const ZERO_LEAVE_INTENT_PATTERN =
+  /\b(?:has(?:\s+not|n'?t)|have(?:\s+not|n'?t)|do(?:es)?\s+not\s+have|do(?:es)?n'?t\s+have|did(?:\s+not|n'?t)|never)\b[\s\S]{0,25}\b(?:taken|took|had|book(?:ed)?)\b[\s\S]{0,20}\bleave\b|\bwithout\s+(?:any\s+)?leave\b|\bno\s+leave\s+(?:taken|recorded?|yet)\b|\bzero\s+leave\b/i;
 
 const ABSENCE_INTENT_PATTERN =
   /\b(absent|absence|absences|absentee|always\s+(out|off|away|missing)|frequently\s+(out|off|away)|most\s+(absent|leave|days\s+off)|who.{0,30}miss|miss.{0,20}most|attendance|time\s+off\s+most|days\s+off\s+most|keep\s+(taking|having)\s+leave)\b/i;
@@ -23,7 +39,8 @@ You are the Sentient HR analytics assistant. Use the provided tools to answer wo
 - Call get_workforce_dashboard for headcount, pending leave approvals, or skills metrics.
 - Call get_team_absence_summary for questions about who is frequently absent, who takes the most leave, or absence frequency.
 - Call get_kpi_threshold_alerts for questions about KPI risk, dashboard alerts, which metrics are in a critical or warning state, or which dashboard cards are red or orange.
-The tools calculate the numbers — your job is to narrate and interpret results clearly. For absence data, always note it reflects only approved, recorded leave — not unplanned absences or no-shows.
+- Call get_employees_without_leave for questions about which employees have NOT taken any leave, have zero leave records, or haven't booked time off.
+The tools calculate the numbers — your job is to narrate and interpret results clearly. For absence data, always note it reflects only approved, recorded leave — not unplanned absences or no-shows. For "without leave" data, always note the reverse: it reflects only the absence of an approved leave record, not attendance — it does not mean those employees were present every day.
 
 ${CONVERSATIONAL_STYLE}`;
 
@@ -68,6 +85,9 @@ export class AnalyticsAgentService implements SpecialistAgent {
       }
     }
 
+    if (ZERO_LEAVE_INTENT_PATTERN.test(input.normalizedIntent)) {
+      return this.handleZeroLeaveQuery(input);
+    }
     if (ABSENCE_INTENT_PATTERN.test(input.normalizedIntent)) {
       return this.handleAbsenceSummaryQuery(input);
     }
@@ -100,6 +120,19 @@ export class AnalyticsAgentService implements SpecialistAgent {
       : this.describeAbsenceSummary(context.data);
     return downstreamResult(input, this.agentType, context, 'Team absence summary prepared.', content, {
       draftLabel: 'Team absence summary draft',
+    });
+  }
+
+  private async handleZeroLeaveQuery(input: SpecialistInput): Promise<SpecialistResult> {
+    const context = await this.hrCore.getEmployeesWithoutLeaveContext({
+      jwt: input.actorContext.jwt,
+      correlationId: input.actorContext.correlationId,
+    });
+    const content = input.isDraftRequest
+      ? 'Draft zero-leave summary: list who has no approved leave request in the past 12 months, note this reflects the absence of a leave record only (not attendance), and suggest one follow-up action for the manager.'
+      : this.describeZeroLeave(context.data);
+    return downstreamResult(input, this.agentType, context, 'Employees-without-leave summary prepared.', content, {
+      draftLabel: 'Zero-leave summary draft',
     });
   }
 
@@ -222,6 +255,36 @@ export class AnalyticsAgentService implements SpecialistAgent {
       '',
       'This reflects approved, recorded leave only — not unplanned or unexcused absence. The system does not track attendance or no-shows. If attendance is a concern, please follow up directly with those employees or consult HR.',
     ];
+    return lines.join('\n');
+  }
+
+  /**
+   * WHY: The misreading here runs the opposite direction from describeAbsenceSummary —
+   * a manager could read "hasn't taken leave" as "was present every day." The caveat
+   * must say the reverse explicitly: this is the absence of an approved leave record,
+   * not attendance data, and the window dates must always be shown so an employee
+   * with leave starting after the window doesn't look wrongly flagged.
+   */
+  private describeZeroLeave(context: EmployeesWithoutLeaveContext | null): string {
+    if (!context) {
+      return 'I could not retrieve leave data for your scope right now. You can open the Leave Management module to check leave history directly.';
+    }
+    if (context.entries.length === 0) {
+      return `Everyone in scope (${context.totalConsidered}) has at least one approved leave request between ${context.windowStart} and ${context.windowEnd}.`;
+    }
+    const shown = context.entries.slice(0, 15);
+    const lines: string[] = [
+      `${context.entries.length} of ${context.totalConsidered} employees in scope have no approved leave request between ${context.windowStart} and ${context.windowEnd}:`,
+      '',
+      ...shown.map((e, i) => `${i + 1}. ${e.employeeName}`),
+    ];
+    if (context.entries.length > shown.length) {
+      lines.push(`...and ${context.entries.length - shown.length} more.`);
+    }
+    lines.push('');
+    lines.push(
+      'This reflects only the absence of an approved leave request in this window — it does not mean these employees were present every day. Attendance and unplanned absence are not tracked in this system.',
+    );
     return lines.join('\n');
   }
 }

@@ -30,6 +30,9 @@ export interface FinishTaskLogInput {
   sourceCategories?: string[];
   errorCode?: string | null;
   errorMessage?: string | null;
+  /** LLM token usage attributed to this task (governance cost telemetry). */
+  tokensIn?: number | null;
+  tokensOut?: number | null;
 }
 
 @Injectable()
@@ -67,6 +70,8 @@ export class AgentTaskLogService {
         ...(input.sourceCategories ? { sourceCategories: input.sourceCategories } : {}),
         errorCode: input.errorCode ?? null,
         errorMessage: input.errorMessage ?? null,
+        tokensIn: input.tokensIn ?? null,
+        tokensOut: input.tokensOut ?? null,
         finishedAt: new Date(),
       },
     });

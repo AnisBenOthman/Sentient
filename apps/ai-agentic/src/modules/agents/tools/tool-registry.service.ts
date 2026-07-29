@@ -44,7 +44,7 @@ export class ToolRegistryService {
         declaration: {
           name: 'get_my_leave_balance',
           description:
-            "Get the authenticated employee's current leave balances by type, including remaining, used, and pending days for the current year, plus recent approved leave history.",
+            "Get the authenticated employee's current leave balances by type, including remaining, used, and pending days for the current year, plus recent leave request history (all statuses: approved, pending, rejected, cancelled).",
         },
         run: async (_args) => toolOutput(await this.hrCore.getLeaveContext(employeeId, context)),
       },
@@ -74,6 +74,14 @@ export class ToolRegistryService {
               'Get a ranked summary of team members by how many distinct leave spells they have taken in the past 12 months, with approximate calendar-day totals. Useful for identifying frequent absence patterns.',
           },
           run: async (_args) => toolOutput(await this.hrCore.getTeamAbsenceSummaryContext(context)),
+        },
+        {
+          declaration: {
+            name: 'get_employees_without_leave',
+            description:
+              'Get the list of employees in scope who have NOT had any approved leave request overlapping the trailing 12 months. This reflects only the absence of an approved leave record — it does not mean the employee was present every day, and does not track attendance or unplanned absence. Only available to managers and HR admins.',
+          },
+          run: async (_args) => toolOutput(await this.hrCore.getEmployeesWithoutLeaveContext(context)),
         },
       );
     }
@@ -132,6 +140,14 @@ export class ToolRegistryService {
             'Get a ranked list of team members by recorded leave frequency over the past 12 months — spell count and approximate calendar days per person. Only available to managers and HR admins.',
         },
         run: async (_args) => toolOutput(await this.hrCore.getTeamAbsenceSummaryContext(context)),
+      },
+      {
+        declaration: {
+          name: 'get_employees_without_leave',
+          description:
+            'Get the list of employees in scope who have NOT had any approved leave request overlapping the trailing 12 months. This reflects only the absence of an approved leave record — it does not mean the employee was present every day, and does not track attendance or unplanned absence. Only available to managers and HR admins.',
+        },
+        run: async (_args) => toolOutput(await this.hrCore.getEmployeesWithoutLeaveContext(context)),
       },
       {
         declaration: {

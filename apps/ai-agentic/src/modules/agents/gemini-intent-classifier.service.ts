@@ -305,7 +305,12 @@ export class GeminiIntentClassifierService implements IntentClassifier {
         }),
       });
 
-      if (!response.ok) throw new Error(`${settings.label} intent classifier failed with ${response.status}`);
+      if (!response.ok) {
+        // WHY: the status alone can't distinguish schema rejection from quota or
+        // model errors; the truncated body makes fallback causes diagnosable.
+        const body = await response.text().then((text) => text.replace(/\s+/g, ' ').trim().slice(0, 500)).catch(() => '');
+        throw new Error(`${settings.label} intent classifier failed with ${response.status}: ${body || '<empty body>'}`);
+      }
       const data = (await response.json()) as OpenAiCompatibleChatCompletionResponse;
       const text = data.choices?.[0]?.message?.content;
       if (!text) throw new Error(`${settings.label} intent classifier returned no text`);
