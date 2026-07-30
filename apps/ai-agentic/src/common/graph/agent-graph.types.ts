@@ -1,3 +1,4 @@
+import { RoleAssignmentClaim } from '@sentient/shared';
 import {
   AgentNodeType,
   AgentRunStatus,
@@ -15,6 +16,14 @@ export interface AiActorContext {
   departmentId: string | null;
   teamId: string | null;
   businessUnitId: string | null;
+  /**
+   * WHY: the analytics SQL branch resolves row scope by mirroring HR Core's
+   * EmployeesService.buildProfileAccessFilter, whose precedence chain keys on
+   * roleAssignments[].scopeEntityId — NOT on the flat departmentId/teamId claims.
+   * Using the flat claims instead would grant a manager assigned to a department
+   * they are not a member of the wrong rows.
+   */
+  roleAssignments: RoleAssignmentClaim[];
   correlationId: string;
 }
 

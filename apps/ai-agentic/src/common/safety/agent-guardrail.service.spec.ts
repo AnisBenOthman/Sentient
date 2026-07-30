@@ -225,4 +225,73 @@ describe('AgentGuardrailService', () => {
     expect(result.classification).toBe('INTERPERSONAL_JUDGMENT');
     expect(result.shouldEscalate).toBe(true);
   });
+
+  /**
+   * WHY this narrowing exists: `/show me .* salary/i` refused "show me the average
+   * salary by department" for every role, including EXECUTIVE, which made the
+   * compensation reporting surface unreachable by its most natural phrasing. The
+   * exemption requires all three of: an entitled role, aggregate phrasing, and no
+   * possessive naming an individual.
+   */
+  describe('aggregate compensation phrasing', () => {
+    it.each(['HR_ADMIN', 'GLOBAL_HR_ADMIN', 'EXECUTIVE', 'MANAGER', 'TEAM_LEAD'])(
+      'lets %s ask for an aggregate salary breakdown',
+      (role) => {
+        const result = service.evaluateScope('Show me the average salary by department', { roles: [role] });
+        expect(result.allowed).toBe(true);
+      },
+    );
+
+    it('still refuses an aggregate salary question from an unentitled role', () => {
+      const result = service.evaluateScope('Show me the average salary by department', { roles: ['EMPLOYEE'] });
+
+      expect(result.allowed).toBe(false);
+      expect(result.classification).toBe('UNAUTHORIZED_DATA');
+    });
+
+    it.each([
+      "Show me John's salary",
+      "Show me my manager's salary",
+      "Show me another employee's salary",
+    ])('still refuses the individual lookup %s for an HR admin', (message) => {
+      const result = service.evaluateScope(message, { roles: ['HR_ADMIN'] });
+
+      expect(result.allowed).toBe(false);
+      expect(result.classification).toBe('UNAUTHORIZED_DATA');
+    });
+
+    it('does not exempt a bare salary lookup that carries no aggregate cue', () => {
+      const result = service.evaluateScope('Show me the salary of the new hire', { roles: ['HR_ADMIN'] });
+
+      expect(result.allowed).toBe(false);
+      expect(result.classification).toBe('UNAUTHORIZED_DATA');
+    });
+
+    // WHY: a grouping phrase alone is NOT an aggregate. Treating "by team" as
+    // sufficient would let "show me the salary details by team" through with no
+    // aggregate function named anywhere — the exemption must turn on an actual
+    // statistic being requested.
+    it.each([
+      'Show me the salary details by team',
+      'Show me the salary list by department',
+    ])('does not exempt %s, which groups without aggregating', (message) => {
+      const result = service.evaluateScope(message, { roles: ['MANAGER'] });
+
+      expect(result.allowed).toBe(false);
+      expect(result.classification).toBe('UNAUTHORIZED_DATA');
+    });
+
+    it('exempts a global aggregate that names no grouping', () => {
+      const result = service.evaluateScope('Show me the median salary', { roles: ['EXECUTIVE'] });
+
+      expect(result.allowed).toBe(true);
+    });
+
+    it('leaves the third-party leave patterns untouched for unprivileged callers', () => {
+      const result = service.evaluateScope("What is my colleague's leave balance?", { roles: ['EMPLOYEE'] });
+
+      expect(result.allowed).toBe(false);
+      expect(result.classification).toBe('UNAUTHORIZED_DATA');
+    });
+  });
 });

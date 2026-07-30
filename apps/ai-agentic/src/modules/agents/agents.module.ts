@@ -8,6 +8,7 @@ import {
   HttpJsonClient,
   SocialAiClient,
 } from '../../common/clients';
+import { AnalyticsSqlModule } from '../analytics-sql';
 import { KnowledgeModule } from '../knowledge';
 import { AgentHandoffService } from './agent-handoff.service';
 import { AgentNodeRunService } from './agent-node-run.service';
@@ -44,7 +45,7 @@ import {
 import { ToolRegistryService } from './tools/tool-registry.service';
 
 @Module({
-  imports: [KnowledgeModule],
+  imports: [KnowledgeModule, AnalyticsSqlModule],
   providers: [
     ActorContextFactory,
     AgentGuardrailService,

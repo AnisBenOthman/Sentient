@@ -25,6 +25,7 @@ export class ActorContextFactory {
       departmentId: user.departmentId,
       teamId: user.teamId,
       businessUnitId: user.businessUnitId,
+      roleAssignments: [...(user.roleAssignments ?? [])],
       correlationId: request.correlationId ?? this.headerValue(request, 'x-correlation-id') ?? 'missing',
     };
   }

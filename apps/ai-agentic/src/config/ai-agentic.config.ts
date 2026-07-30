@@ -33,6 +33,12 @@ export interface AiAgenticConfig {
   maxMessageChars: number;
   defaultPageSize: number;
   maxPageSize: number;
+  /** Connection string for the SELECT-only role used by the Text-to-SQL branch. */
+  analyticsDatabaseUrl: string;
+  /** Ships false: merging the analytics SQL branch is inert until explicitly enabled. */
+  analyticsSqlEnabled: boolean;
+  analyticsSqlRowLimit: number;
+  analyticsSqlTimeoutMs: number;
 }
 
 function parseIntentClassifierProvider(value: string | undefined): IntentClassifierProvider {
@@ -136,5 +142,27 @@ export const aiAgenticConfig = registerAs('aiAgentic', (): AiAgenticConfig => ({
     process.env.AI_AGENT_MAX_PAGE_SIZE,
     100,
     'AI_AGENT_MAX_PAGE_SIZE',
+  ),
+  // WHY parseNonEmptyString and not parseHttpUrl: parseHttpUrl rejects the
+  // postgresql:// scheme. Follows the databaseUrl precedent above.
+  analyticsDatabaseUrl: parseNonEmptyString(
+    process.env.AI_ANALYTICS_DATABASE_URL,
+    'postgresql://ai_analytics_readonly:readonly_pass@localhost:5432/sentient?schema=hr_analytics',
+    'AI_ANALYTICS_DATABASE_URL',
+  ),
+  analyticsSqlEnabled: parseBoolean(
+    process.env.AI_AGENT_ANALYTICS_SQL_ENABLED,
+    false,
+    'AI_AGENT_ANALYTICS_SQL_ENABLED',
+  ),
+  analyticsSqlRowLimit: parsePositiveInt(
+    process.env.AI_AGENT_ANALYTICS_SQL_ROW_LIMIT,
+    1_000,
+    'AI_AGENT_ANALYTICS_SQL_ROW_LIMIT',
+  ),
+  analyticsSqlTimeoutMs: parsePositiveInt(
+    process.env.AI_AGENT_ANALYTICS_SQL_TIMEOUT_MS,
+    5_000,
+    'AI_AGENT_ANALYTICS_SQL_TIMEOUT_MS',
   ),
 }));

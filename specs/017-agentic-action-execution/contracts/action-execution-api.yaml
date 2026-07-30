@@ -1,0 +1,251 @@
+openapi: 3.0.3
+info:
+  title: Sentient AI — Agentic Action Execution
+  version: 0.1.0
+  description: >
+    Delta contract for feature 017. Extends the 016 conversation API rather than
+    replacing it: no new routes are introduced. Confirmation and cancellation are
+    ordinary messages carrying two new typed fields, so the supervisor's existing
+    three-phase gate, RBAC, and audit path apply unchanged.
+
+    IMPORTANT — field names follow the EXISTING CreateMessageDto
+    (apps/ai-agentic/src/modules/conversations/dto/create-message.dto.ts):
+    the body field is `message`, not `content`, and free-form client data lives in
+    `clientContext`. The confirmation fields are added as TYPED, VALIDATED
+    properties rather than being buried inside `clientContext`, so that an invalid
+    or malformed token is rejected at the DTO boundary by class-validator instead
+    of being discovered deep inside the Leave Agent.
+
+servers:
+  - url: /api/ai
+    description: Via the API Gateway (60s AI upstream timeout)
+
+paths:
+  /conversations/{conversationId}/messages:
+    post:
+      summary: Send a message — also the confirm and cancel channel
+      description: >
+        Three shapes share this endpoint:
+          1. Ordinary message  — `message` only.
+          2. Confirm           — `message` + `confirmed: true`  + `confirmationToken`.
+          3. Cancel            — `message` + `confirmed: false` + `confirmationToken`.
+        A message carrying `confirmed` WITHOUT a matching `confirmationToken` is a
+        400. A message carrying neither is an ordinary turn and MUST NOT be treated
+        as an implicit confirmation of any pending proposal (FR-Edge: "unrelated
+        message while a proposal is pending").
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMessageDto'
+            examples:
+              ordinary:
+                summary: Normal turn
+                value:
+                  message: "I'm not feeling well today"
+              confirm:
+                summary: User tapped Confirm
+                value:
+                  message: "confirm"
+                  confirmed: true
+                  confirmationToken: "3f2a9c14-8b6e-4d21-9a77-5c0e1b8f4d33"
+              cancel:
+                summary: User tapped Cancel
+                value:
+                  message: "cancel"
+                  confirmed: false
+                  confirmationToken: "3f2a9c14-8b6e-4d21-9a77-5c0e1b8f4d33"
+      responses:
+        '201':
+          description: >
+            The assistant turn completed. Note that a FAILED or UNVERIFIED action
+            is still a 201 at the HTTP layer — the action outcome lives in
+            `status` on the assistant message, not in the HTTP status code. The
+            client MUST read `status`, never infer success from 201.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: >
+            Malformed body, or `confirmed` supplied without `confirmationToken`.
+        '401':
+          description: Missing or invalid JWT.
+        '403':
+          description: Caller does not own this conversation.
+        '404':
+          description: Conversation not found.
+        '504':
+          description: >
+            Gateway timeout. CRITICAL — the client MUST NOT render this as a
+            failed booking. The POST to HR Core may already have succeeded. The
+            client MUST re-fetch the conversation, where the persisted execution
+            result is authoritative (see research.md R7).
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    CreateMessageDto:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 8000
+        clientContext:
+          type: object
+          additionalProperties: true
+          description: Existing free-form field, unchanged by this feature.
+        confirmed:
+          type: boolean
+          description: >
+            NEW. Explicit user decision on a pending proposal. `true` executes,
+            `false` cancels. Its presence is the ONLY signal that counts as
+            consent — never inferred from message text (FR-003, FR-030).
+        confirmationToken:
+          type: string
+          format: uuid
+          description: >
+            NEW. Single-use token from the proposal being decided. Required
+            whenever `confirmed` is present.
+
+    MessageResponse:
+      type: object
+      required: [id, role, content, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        role:
+          type: string
+          enum: [USER, ASSISTANT, SYSTEM, AGENT]
+        content: { type: string }
+        status:
+          $ref: '#/components/schemas/AgentRunStatus'
+        agentType: { type: string, nullable: true }
+        sourceSummary:
+          type: object
+          nullable: true
+          description: Existing field — sources used in the answer. NOT the action payload.
+        confirmationPayload:
+          # Present only when status = PENDING_CONFIRMATION. Its presence is the
+          # frontend's signal to render the confirmation card instead of a plain
+          # chat bubble (FR-042).
+          { $ref: '#/components/schemas/ConfirmationPayload', nullable: true }
+        actionOutcome:
+          # Present on the assistant message that reports an execute/verify result.
+          { $ref: '#/components/schemas/ActionOutcome', nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    AgentRunStatus:
+      type: string
+      description: >
+        Existing enum plus two members added by this feature. Declared in BOTH
+        packages/shared/src/enums/ai-agent-run-status.enum.ts and the Prisma
+        ai_agent schema — they must be added to both (research.md R2).
+      enum:
+        [PENDING, RUNNING, SUCCESS, FAILED, DEGRADED, PARTIAL, ESCALATED,
+         REFUSED, OUT_OF_SCOPE, PENDING_CONFIRMATION, UNVERIFIED]
+
+    ConfirmationPayload:
+      type: object
+      required:
+        [confirmationToken, actionKind, leaveTypeId, leaveTypeName, startDate,
+         endDate, businessDays, currentBalance, balanceAfter, expiresAt]
+      properties:
+        confirmationToken: { type: string, format: uuid }
+        actionKind:
+          type: string
+          enum: [LEAVE_BOOKING]
+        leaveTypeId: { type: string, format: uuid }
+        leaveTypeName: { type: string, example: "Sick Leave" }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        businessDays:
+          type: number
+          description: >
+            ADVISORY, for display only. HR Core recomputes totalDays
+            authoritatively at creation via countBusinessDays and its value wins.
+            A difference is NOT a verification failure (research.md R4).
+        currentBalance: { type: number }
+        balanceAfter: { type: number }
+        expiresAt:
+          type: string
+          format: date-time
+          description: After this, the token is refused and a fresh proposal is required.
+        emotionalContext:
+          type: string
+          nullable: true
+          enum: [NEUTRAL, COMPASSIONATE_SICK]
+          description: Drives the compassionate card variant (FR-046).
+        policyCitations:
+          type: array
+          description: >
+            Shown BEFORE the user confirms (FR-047). Empty array is meaningful and
+            distinct from absent — it means policy was consulted and nothing
+            relevant was found, which the card states explicitly rather than
+            staying silent (FR-019).
+          items: { $ref: '#/components/schemas/PolicyCitation' }
+
+    PolicyCitation:
+      type: object
+      required: [sourceLabel, excerpt]
+      properties:
+        sourceLabel:
+          type: string
+          description: >
+            Document title. Derived from KnowledgeItem when present; falls back to
+            VectorDocument metadata because searchApproved() returns `item` as
+            nullable (research.md R6).
+          example: "Leave Policy v2"
+        excerpt: { type: string, maxLength: 500 }
+
+    ActionOutcome:
+      type: object
+      required: [actionKind, status]
+      properties:
+        actionKind:
+          type: string
+          enum: [LEAVE_BOOKING]
+        status:
+          type: string
+          enum: [SUCCESS, FAILED, UNVERIFIED, CANCELLED, ALREADY_SUBMITTED]
+        recordId:
+          type: string
+          nullable: true
+          description: The created leave request id. Present on SUCCESS and UNVERIFIED.
+        totalDays:
+          type: number
+          nullable: true
+          description: HR Core's authoritative figure, which supersedes the proposal's businessDays.
+        failureCode:
+          type: string
+          nullable: true
+          description: >
+            Verbatim machine-readable code from HR Core. Every one of these MUST
+            be mapped to user-facing text on the frontend per
+            .claude/rules/frontend-backend-coherence.md §3 (research.md R5).
+          enum:
+            [InsufficientBalance, OverlappingRequest, ZeroDayRequest,
+             LeaveTypeInactive, LeaveTypeOutOfScope, UnresolvedBusinessUnit,
+             UpstreamUnavailable, UpstreamTimeout]
+        failureMessage:
+          type: string
+          nullable: true
+          description: Human-readable reason. MUST be specific, never generic (FR-010).
+        manualFallback:
+          type: string
+          nullable: true
+          description: Present on FAILED and UNVERIFIED — what the user should do instead.

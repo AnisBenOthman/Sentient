@@ -26,6 +26,13 @@ export interface StartTaskLogInput {
 export interface FinishTaskLogInput {
   status: AgentRunStatus;
   outputSummary?: string | null;
+  /**
+   * WHY: stored verbatim, bypassing redactSensitiveText. The generated SQL is the
+   * forensic record of what the analytics branch ran; the \d{6,} redaction would
+   * rewrite salary thresholds and date literals inside it. Only ever set by the
+   * analytics SQL branch.
+   */
+  generatedSql?: string | null;
   permissionDecision?: PermissionDecision | null;
   sourceCategories?: string[];
   errorCode?: string | null;
@@ -66,6 +73,7 @@ export class AgentTaskLogService {
       data: {
         status: input.status,
         outputSummary: input.outputSummary ? redactSensitiveText(input.outputSummary) : null,
+        generatedSql: input.generatedSql ?? null,
         permissionDecision: input.permissionDecision ?? null,
         ...(input.sourceCategories ? { sourceCategories: input.sourceCategories } : {}),
         errorCode: input.errorCode ?? null,

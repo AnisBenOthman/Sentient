@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { GoogleGenAI } from '@google/genai';
 import { AgentType } from '../../generated/prisma';
 import { ConversationTurnContext } from '../../common/graph';
+import { extractJson } from '../../common/util';
 import { AiAgenticConfig } from '../../config';
 import {
   DraftIntentCategory,
@@ -27,6 +28,7 @@ interface GeminiIntentPayload {
   draftCategory?: string | null;
   isHumanEscalationIntent?: boolean;
   isGreeting?: boolean;
+  isAnalyticalQuestion?: boolean;
   confidence?: number;
 }
 
@@ -333,7 +335,8 @@ export class GeminiIntentClassifierService implements IntentClassifier {
       'Route bank/public/company/national/official holiday calendar questions to LEAVE_AGENT, not GENERAL_HELP_AGENT.',
       'If the message is a follow-up to the recent conversation, resolve it against that context before classifying.',
       'Set confidence between 0 and 1 reflecting how sure you are about requiredAgents.',
-      'Schema: {"requiredAgents":[],"requiresClarification":false,"clarificationReason":null,"isDraftIntent":false,"draftCategory":null,"isHumanEscalationIntent":false,"isGreeting":false,"confidence":0.0}',
+      'Set isAnalyticalQuestion true ONLY for exploratory reporting questions that need an aggregate over a grouping or a time window — for example "what trends do you see in absenteeism over the past five years" or "average leave by department over three years". Set it false for operational requests that act on a specific record ("approve John\'s leave request", "book me Friday off", "what is my balance"), and false when in doubt.',
+      'Schema: {"requiredAgents":[],"requiresClarification":false,"clarificationReason":null,"isDraftIntent":false,"draftCategory":null,"isHumanEscalationIntent":false,"isGreeting":false,"isAnalyticalQuestion":false,"confidence":0.0}',
     ];
     const recentMessages = context?.recentMessages.slice(-4) ?? [];
     if (recentMessages.length > 0) {
@@ -379,6 +382,9 @@ export class GeminiIntentClassifierService implements IntentClassifier {
       draftCategory: this.validDraftCategory(payload.draftCategory),
       isHumanEscalationIntent: payload.isHumanEscalationIntent === true,
       isGreeting,
+      // WHY not `!== false`: an omitted field must mean "not analytical". Defaulting
+      // the other way would route unclassified turns into generated SQL.
+      isAnalyticalQuestion: payload.isAnalyticalQuestion === true && !isGreeting,
       confidence,
       source,
     };
@@ -422,34 +428,3 @@ export class GeminiIntentClassifierService implements IntentClassifier {
   }
 }
 
-/**
- * WHY: Free models (e.g. Gemma) ignore "Return JSON only" and wrap output in
- * markdown fences like ```json ... ```. response_format: json_object would fix
- * it but many free models return 400 for that parameter. This extractor handles
- * both cases: raw JSON and fenced JSON, so JSON.parse never crashes.
- */
-function extractJson(text: string): unknown {
-  const trimmed = text.trim();
-
-  // Fast path: already valid JSON
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    // fall through to fence extraction
-  }
-
-  // Strip ```json ... ``` or ``` ... ``` fences
-  const fenceMatch = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i);
-  if (fenceMatch?.[1]) {
-    return JSON.parse(fenceMatch[1].trim());
-  }
-
-  // Last resort: find the first {...} block in the text
-  const braceStart = trimmed.indexOf('{');
-  const braceEnd = trimmed.lastIndexOf('}');
-  if (braceStart !== -1 && braceEnd > braceStart) {
-    return JSON.parse(trimmed.slice(braceStart, braceEnd + 1));
-  }
-
-  throw new Error(`OpenRouter response is not valid JSON: ${trimmed.slice(0, 120)}`);
-}

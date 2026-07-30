@@ -11,6 +11,7 @@ const actor: AiActorContext = {
   departmentId: null,
   teamId: null,
   businessUnitId: null,
+  roleAssignments: [],
   correlationId: 'corr-1',
 };
 

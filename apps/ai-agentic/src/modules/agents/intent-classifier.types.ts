@@ -24,6 +24,16 @@ export interface SupervisorIntentClassification {
   draftCategory: DraftIntentCategory | null;
   isHumanEscalationIntent: boolean;
   isGreeting: boolean;
+  /**
+   * True when the turn is an exploratory *analytical* question — an aggregate over
+   * a time window or a grouping — rather than an operational request. Routes to the
+   * Text-to-SQL branch instead of tool calling.
+   *
+   * Both classifiers must be conservative here: a false negative simply keeps
+   * today's behaviour, whereas a false positive diverts an operational request
+   * ("approve John's leave") into generated SQL.
+   */
+  isAnalyticalQuestion: boolean;
   confidence: number;
   source: IntentClassificationSource;
 }

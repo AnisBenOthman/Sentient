@@ -101,14 +101,47 @@ const OFF_TOPIC_TERMS = [
   'travel destination',
 ];
 
+/**
+ * WHY this one is separated from the list below: `/show me .* salary/i` is broad
+ * enough to refuse "show me the average salary by department" for every role,
+ * including EXECUTIVE. That makes the compensation reporting surface unreachable
+ * by its most natural phrasing. It is dropped — and only it — when a privileged
+ * actor asks an unmistakably aggregate question. Every other unauthorized pattern
+ * still applies, so "show me another employee's salary" stays refused via
+ * `/another employee.*salary/i`.
+ */
+const BROAD_SALARY_PATTERN = /show me .* salary/i;
+
 const UNAUTHORIZED_PATTERNS = [
   /another employee.*salary/i,
   /someone else.*salary/i,
   /colleague.*salary/i,
   /other employee.*performance/i,
   /private profile/i,
-  /show me .* salary/i,
+  BROAD_SALARY_PATTERN,
 ];
+
+/** Roles entitled to compensation data — mirrors EmployeesService.buildCompensationAccessFilter. */
+const COMPENSATION_ROLES = ['MANAGER', 'TEAM_LEAD', 'HR_ADMIN', 'GLOBAL_HR_ADMIN', 'EXECUTIVE'];
+
+/**
+ * An actual statistic must be named. A grouping phrase alone is deliberately NOT
+ * sufficient: "show me the salary details by team" groups without aggregating, and
+ * accepting it would widen this exemption into a general salary-listing bypass for
+ * any message that happens to contain "by department".
+ *
+ * `highest`/`lowest`/`range` are excluded on purpose — they surface a single
+ * employee's exact figure even though the view carries no identifier.
+ */
+const AGGREGATE_COMPENSATION_PATTERN =
+  /\b(average|avg|mean|median|total|sum|distribution|breakdown|histogram)\b/i;
+
+/**
+ * A possessive before a pay noun means an individual is the target ("John's
+ * salary", "my manager's pay"), which stays refused for every role no matter how
+ * the rest of the sentence is phrased.
+ */
+const INDIVIDUAL_COMPENSATION_PATTERN = /\b[\w-]+'s\s+(salary|pay|compensation|wage|comp)\b/i;
 
 /**
  * WHY: Individual third-party leave records stay private for regular employees,
@@ -262,9 +295,12 @@ export class AgentGuardrailService {
       );
     }
 
+    const basePatterns = this.allowsAggregateCompensation(message, actor?.roles)
+      ? UNAUTHORIZED_PATTERNS.filter((pattern) => pattern !== BROAD_SALARY_PATTERN)
+      : UNAUTHORIZED_PATTERNS;
     const unauthorizedPatterns = hasTeamLeaveScope
-      ? UNAUTHORIZED_PATTERNS
-      : [...UNAUTHORIZED_PATTERNS, ...THIRD_PARTY_LEAVE_PATTERNS];
+      ? basePatterns
+      : [...basePatterns, ...THIRD_PARTY_LEAVE_PATTERNS];
     if (unauthorizedPatterns.some((pattern) => pattern.test(message))) {
       return {
         classification: 'UNAUTHORIZED_DATA',
@@ -388,6 +424,19 @@ export class AgentGuardrailService {
   /** WHY: Single source of truth for the manager/HR-admin team-leave entitlement check. */
   hasTeamLeaveScope(roles: readonly string[] | undefined): boolean {
     return roles?.some((role) => TEAM_LEAVE_SCOPE_ROLES.includes(role)) ?? false;
+  }
+
+  /**
+   * True when a compensation-entitled actor is asking for an aggregate rather than
+   * an individual's pay. All three conditions must hold — role, aggregate phrasing,
+   * and no possessive naming a person — so the exemption cannot be reached by
+   * rephrasing alone.
+   */
+  allowsAggregateCompensation(message: string, roles: readonly string[] | undefined): boolean {
+    const entitled = roles?.some((role) => COMPENSATION_ROLES.includes(role)) ?? false;
+    if (!entitled) return false;
+    if (INDIVIDUAL_COMPENSATION_PATTERN.test(message)) return false;
+    return AGGREGATE_COMPENSATION_PATTERN.test(message);
   }
 
   matchesInterpersonalJudgment(text: string): boolean {

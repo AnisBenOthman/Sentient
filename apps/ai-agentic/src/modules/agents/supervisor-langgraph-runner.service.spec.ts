@@ -25,6 +25,7 @@ function buildParentLog(inputSummary: string): AgentTaskLog {
     sourceCategories: [],
     inputSummary,
     outputSummary: null,
+    generatedSql: null,
     errorCode: null,
     errorMessage: null,
     tokensIn: null,
@@ -41,6 +42,8 @@ interface RunnerOverrides {
   finalAnswerNode?: unknown;
   humanEscalationAgent?: unknown;
   leaveAgent?: unknown;
+  analyticsSql?: unknown;
+  config?: unknown;
   nodeStatuses?: AgentRunStatus[];
   parentLog?: AgentTaskLog;
 }
@@ -94,6 +97,17 @@ function createRunner(overrides: RunnerOverrides = {}): SupervisorLangGraphRunne
     {} as never,
     {} as never,
     (overrides.humanEscalationAgent ?? {}) as never,
+    (overrides.analyticsSql ?? {
+      execute: async () => ({
+        agentType: AgentType.ANALYTICS_AGENT,
+        status: AgentRunStatus.SUCCESS,
+        summary: 'Analytics query returned 1 row(s).',
+        userVisibleContent: '| headcount |\n| --- |\n| 42 |',
+        sourceContext: [],
+        permissionDecision: PermissionDecision.ALLOWED,
+      }),
+    }) as never,
+    overrides.config as never,
   );
 }
 
@@ -105,6 +119,7 @@ const actor = {
   departmentId: null,
   teamId: null,
   businessUnitId: null,
+  roleAssignments: [],
   correlationId: 'corr-1',
 };
 
@@ -203,6 +218,7 @@ describe('SupervisorLangGraphRunnerService', () => {
           draftCategory: null,
           isHumanEscalationIntent: false,
           isGreeting: false,
+          isAnalyticalQuestion: false,
           confidence: 0.9,
           source: 'gemini',
         }),
@@ -247,6 +263,7 @@ describe('SupervisorLangGraphRunnerService', () => {
           draftCategory: null,
           isHumanEscalationIntent: false,
           isGreeting: false,
+          isAnalyticalQuestion: false,
           confidence: 0.9,
           source: 'rules',
         }),
@@ -277,6 +294,7 @@ describe('SupervisorLangGraphRunnerService', () => {
           draftCategory: null,
           isHumanEscalationIntent: false,
           isGreeting: false,
+          isAnalyticalQuestion: false,
           confidence: 0.95,
           source: 'gemini',
         }),
@@ -309,6 +327,7 @@ describe('SupervisorLangGraphRunnerService', () => {
           draftCategory: null,
           isHumanEscalationIntent: true,
           isGreeting: false,
+          isAnalyticalQuestion: false,
           confidence: 0.9,
           source: 'rules',
         }),
@@ -362,6 +381,7 @@ describe('SupervisorLangGraphRunnerService', () => {
           draftCategory: null,
           isHumanEscalationIntent: false,
           isGreeting: false,
+          isAnalyticalQuestion: false,
           confidence: 0.1,
           source: 'gemini',
         }),
@@ -397,6 +417,7 @@ describe('SupervisorLangGraphRunnerService', () => {
           draftCategory: null,
           isHumanEscalationIntent: false,
           isGreeting: false,
+          isAnalyticalQuestion: false,
           confidence: 0.9,
           source: 'rules',
         }),
@@ -492,5 +513,116 @@ describe('SupervisorLangGraphRunnerService', () => {
       AgentNodeType.HUMAN_ESCALATION,
       AgentNodeType.FINAL_ANSWER,
     ]);
+  });
+
+  describe('analytics SQL routing', () => {
+    const ANALYTICAL_QUESTION = 'Show me the average leave by department over the last three years';
+
+    function analyticalClassifier(requiredAgents: AgentType[] = [AgentType.ANALYTICS_AGENT]): IntentClassifier {
+      return {
+        classify: async () => ({
+          normalizedIntent: ANALYTICAL_QUESTION,
+          requiredAgents,
+          requiresClarification: false,
+          clarificationReason: null,
+          isDraftIntent: false,
+          draftCategory: null,
+          isHumanEscalationIntent: false,
+          isGreeting: false,
+          isAnalyticalQuestion: true,
+          confidence: 0.9,
+          source: 'gemini' as const,
+        }),
+      };
+    }
+
+    function configWith(analyticsSqlEnabled: boolean) {
+      return { get: () => ({ analyticsSqlEnabled, intentConfidenceThreshold: 0.4 }) };
+    }
+
+    function runnerFor(options: {
+      roles: string[];
+      enabled: boolean;
+      execute: jest.Mock;
+      requiredAgents?: AgentType[];
+    }) {
+      return createRunner({
+        parentLog: buildParentLog(ANALYTICAL_QUESTION),
+        classifier: analyticalClassifier(options.requiredAgents),
+        config: configWith(options.enabled),
+        analyticsSql: { execute: options.execute },
+        leaveAgent: { agentType: AgentType.LEAVE_AGENT, execute: async () => specialistOk() },
+      });
+    }
+
+    function specialistOk() {
+      return {
+        agentType: AgentType.ANALYTICS_AGENT,
+        status: AgentRunStatus.SUCCESS,
+        summary: 'Analytics query returned 1 row(s).',
+        userVisibleContent: '| department | avg_days |\n| --- | --- |\n| Engineering | 4.2 |',
+        sourceContext: [],
+        permissionDecision: PermissionDecision.ALLOWED,
+      };
+    }
+
+    function turnFor(roles: string[]) {
+      return { ...turnInput(ANALYTICAL_QUESTION), actor: { ...actor, roles } };
+    }
+
+    it('routes an analytical question from an HR admin to the SQL branch', async () => {
+      const execute = jest.fn(async () => specialistOk());
+      const runner = runnerFor({ roles: ['HR_ADMIN'], enabled: true, execute });
+
+      const result = await runner.execute(turnFor(['HR_ADMIN']));
+
+      expect(execute).toHaveBeenCalledTimes(1);
+      expect(result.finalAnswer.content).toContain('Engineering');
+    });
+
+    it('routes a manager to the SQL branch as well', async () => {
+      const execute = jest.fn(async () => specialistOk());
+      const runner = runnerFor({ roles: ['MANAGER'], enabled: true, execute });
+
+      await runner.execute(turnFor(['MANAGER']));
+
+      expect(execute).toHaveBeenCalledTimes(1);
+    });
+
+    // WHY: the router gate is the first of two checks; AnalyticsSqlService re-checks
+    // the role itself, but an EMPLOYEE must not even reach the node.
+    it('never routes an employee to the SQL branch', async () => {
+      const execute = jest.fn(async () => specialistOk());
+      const runner = runnerFor({ roles: ['EMPLOYEE'], enabled: true, execute });
+
+      await runner.execute(turnFor(['EMPLOYEE']));
+
+      expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('does not route when the feature flag is off', async () => {
+      const execute = jest.fn(async () => specialistOk());
+      const runner = runnerFor({ roles: ['HR_ADMIN'], enabled: false, execute });
+
+      await runner.execute(turnFor(['HR_ADMIN']));
+
+      expect(execute).not.toHaveBeenCalled();
+    });
+
+    // A turn that also needs an operational specialist keeps the tool-calling path,
+    // which can act; the SQL branch only reads.
+    it('keeps a mixed operational turn on the specialist path', async () => {
+      const execute = jest.fn(async () => specialistOk());
+      const runner = runnerFor({
+        roles: ['HR_ADMIN'],
+        enabled: true,
+        execute,
+        requiredAgents: [AgentType.ANALYTICS_AGENT, AgentType.LEAVE_AGENT],
+      });
+
+      await runner.execute(turnFor(['HR_ADMIN']));
+
+      expect(execute).not.toHaveBeenCalled();
+    });
   });
 });

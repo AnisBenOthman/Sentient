@@ -16,6 +16,7 @@ const baseInput: SpecialistInput = {
     departmentId: null,
     teamId: null,
     businessUnitId: null,
+    roleAssignments: [],
     correlationId: 'corr-1',
   },
   conversationContext: {

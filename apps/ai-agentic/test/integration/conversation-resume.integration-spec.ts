@@ -37,6 +37,7 @@ describe('conversation resume context', () => {
       departmentId: null,
       teamId: null,
       businessUnitId: null,
+      roleAssignments: [],
       correlationId: 'corr-1',
     };
     let supervisorInput = null as ExecuteConversationTurnInput | null;

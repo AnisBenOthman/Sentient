@@ -79,6 +79,25 @@ const FOLLOW_UP_PATTERNS = [
   /\b(what about|how about)\b/i,
 ];
 
+/**
+ * Cues that the user wants a computed aggregate rather than a record lookup.
+ * Necessary but NOT sufficient for the analytical route — see isAnalyticalQuestion.
+ */
+const AGGREGATION_PATTERNS = [
+  /\b(average|avg|mean|median|total|sum|count of|how many)\b/i,
+  /\b(trend|trends|breakdown|distribution|compare|comparison|rate|ratio|percentage)\b/i,
+  /\b(highest|lowest|top|bottom|most|least)\b/i,
+];
+
+/** A grouping dimension or an explicit time window — the second required cue. */
+const ANALYTICAL_DIMENSION_PATTERNS = [
+  /\b(by|per)\s+(department|team|position|role|manager|business unit|contract|gender|month|quarter|year)\b/i,
+  /\b(over|during|in|for)\s+the\s+(past|last|previous)\s+\w+/i,
+  /\b(last|past|previous)\s+\d+\s+(day|days|week|weeks|month|months|quarter|quarters|year|years)\b/i,
+  /\bper\s+(month|quarter|year)\b/i,
+  /\byear[- ]over[- ]year\b/i,
+];
+
 const GREETING_PATTERNS = [
   /^\s*(hi|hello|hey|good morning|good afternoon|good evening)\s*[!.]?\s*$/i,
   /^\s*(how\s+are\s+(you|u)|how\s+r\s+u|h[oa]w'?re\s+(you|u)|h[oa]w\s+are\s+(you|u))\s*[?!.]?\s*$/i,
@@ -137,9 +156,24 @@ export class SupervisorIntentClassifierService implements IntentClassifier {
       draftCategory,
       isHumanEscalationIntent,
       isGreeting,
+      isAnalyticalQuestion: this.isAnalyticalQuestion(lower, isGreeting, isHumanEscalationIntent),
       confidence: this.confidence(isGreeting, uniqueAgents.length, requiresClarification, followUpRoute),
       source: 'rules',
     };
+  }
+
+  /**
+   * WHY both an aggregation cue AND a dimension cue are required: `trend` and
+   * `attrition` already route to ANALYTICS_AGENT today, and the SQL branch outranks
+   * that route. A single-cue rule would divert questions `get_workforce_dashboard`
+   * answers correctly and cheaply into generated SQL. A false negative costs
+   * nothing — the turn keeps today's behaviour; a false positive is a regression.
+   */
+  private isAnalyticalQuestion(lower: string, isGreeting: boolean, isEscalation: boolean): boolean {
+    if (isGreeting || isEscalation) return false;
+    const hasAggregation = AGGREGATION_PATTERNS.some((pattern) => pattern.test(lower));
+    if (!hasAggregation) return false;
+    return ANALYTICAL_DIMENSION_PATTERNS.some((pattern) => pattern.test(lower));
   }
 
   private isFollowUp(message: string, context?: ConversationTurnContext): boolean {

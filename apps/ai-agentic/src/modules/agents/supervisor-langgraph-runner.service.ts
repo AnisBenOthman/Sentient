@@ -5,12 +5,14 @@ import { RoutingTrace } from '../../common/dto';
 import { AgentGuardrailService, DraftPolicyService, SafetyPolicyResult } from '../../common/safety';
 import { AiAgenticConfig } from '../../config';
 import {
+  AiActorContext,
   FinalAnswerResult,
   HumanEscalationResult,
   SpecialistAgent,
   SpecialistInput,
   SpecialistResult,
 } from '../../common/graph';
+import { AnalyticsSqlService, hasAnalyticsSqlAccess } from '../analytics-sql';
 import { AgentHandoffService } from './agent-handoff.service';
 import { AgentNodeRunService } from './agent-node-run.service';
 import { AgentTaskLogService } from './agent-task-log.service';
@@ -36,7 +38,12 @@ import { LeaveAgentService } from './specialists/leave-agent.service';
 import { OkrAgentService } from './specialists/okr-agent.service';
 import { OnboardingAgentService } from './specialists/onboarding-agent.service';
 
-type SupervisorRoute = 'humanEscalationNode' | 'clarificationNode' | 'specialistsNode' | 'finalAnswerNode';
+type SupervisorRoute =
+  | 'humanEscalationNode'
+  | 'clarificationNode'
+  | 'specialistsNode'
+  | 'analyticsSqlNode'
+  | 'finalAnswerNode';
 type LangGraphModule = typeof import('@langchain/langgraph');
 type CompiledSupervisorGraph = { invoke(input: SupervisorGraphState): Promise<SupervisorGraphState> };
 
@@ -90,6 +97,7 @@ export class SupervisorLangGraphRunnerService {
     private readonly languageAgent: LanguageAgentService,
     private readonly generalHelpAgent: GeneralHelpAgentService,
     private readonly humanEscalationAgent: HumanEscalationAgentService,
+    private readonly analyticsSql: AnalyticsSqlService,
     private readonly config?: ConfigService,
   ) {
     this.specialists = {
@@ -180,17 +188,22 @@ export class SupervisorLangGraphRunnerService {
       .addNode('humanEscalationNode', (state) => this.humanEscalationNode(state))
       .addNode('clarificationNode', (state) => this.clarificationNodeRun(state))
       .addNode('specialistsNode', (state) => this.specialistsNode(state))
+      .addNode('analyticsSqlNode', (state) => this.analyticsSqlNode(state))
       .addNode('finalAnswerNode', (state) => this.finalAnswerNodeRun(state))
       .addEdge(langGraph.START, 'supervisorNode')
       .addConditionalEdges('supervisorNode', (state) => this.routeAfterSupervisor(state), {
         humanEscalationNode: 'humanEscalationNode',
         clarificationNode: 'clarificationNode',
         specialistsNode: 'specialistsNode',
+        analyticsSqlNode: 'analyticsSqlNode',
         finalAnswerNode: 'finalAnswerNode',
       })
       .addEdge('humanEscalationNode', 'finalAnswerNode')
       .addEdge('clarificationNode', 'finalAnswerNode')
       .addEdge('specialistsNode', 'finalAnswerNode')
+      // WHY no new state channel: the node emits a SpecialistResult onto
+      // specialistResults, so finalAnswerNode consumes it unchanged.
+      .addEdge('analyticsSqlNode', 'finalAnswerNode')
       .addEdge('finalAnswerNode', langGraph.END);
   }
 
@@ -411,6 +424,10 @@ export class SupervisorLangGraphRunnerService {
       draftCategory: null,
       isHumanEscalationIntent: false,
       isGreeting: false,
+      // WHY explicitly false: a Phase-1 security refusal must never reach the
+      // generated-SQL branch. Leaving this to a default would make the guarantee
+      // depend on the field's initialiser rather than on this stub.
+      isAnalyticalQuestion: false,
       confidence: 0,
       source: 'rules',
     };
@@ -568,6 +585,56 @@ export class SupervisorLangGraphRunnerService {
       sequence,
       specialistResults: [...state.specialistResults, ...specialistResults],
       routingNodes,
+    };
+  }
+
+  /**
+   * WHY a dedicated node rather than another entry in the specialists map: this
+   * branch generates SQL instead of calling tools, so it needs no handoff record
+   * and no tool loop. It reuses AgentType.ANALYTICS_AGENT deliberately — the
+   * specialists map is Record<AgentType, ...> and exhaustive, so introducing a new
+   * AgentType member would be a Prisma enum migration plus a compile break.
+   */
+  private async analyticsSqlNode(state: LangGraphState): Promise<LangGraphUpdate> {
+    const parentLog = this.requireParentLog(state);
+    const classification = this.requireClassification(state);
+    this.logTrace('analytics_sql.start', { normalizedIntent: classification.normalizedIntent });
+
+    const result = await this.analyticsSql
+      .execute(this.specialistInput(state.input, parentLog.id, classification.normalizedIntent, false))
+      .catch((error: unknown) => this.specialistFailureResult(AgentType.ANALYTICS_AGENT, error));
+
+    await this.nodeRuns.record({
+      conversationId: state.input.conversationId,
+      taskLogId: parentLog.id,
+      nodeType: AgentNodeType.SPECIALIST,
+      agentType: result.agentType,
+      status: result.status,
+      sequence: state.sequence,
+    });
+    await this.permissionDecisions.record({
+      conversationId: state.input.conversationId,
+      taskLogId: parentLog.id,
+      agentType: AgentType.ANALYTICS_AGENT,
+      decision: result.permissionDecision,
+      resourceType: result.sourceContext[0]?.sourceType ?? 'ANALYTICS_SQL',
+      resourceId: result.sourceContext[0]?.referenceId ?? null,
+      reason: result.summary,
+    });
+    this.logTrace('analytics_sql.completed', { status: result.status, summary: result.summary });
+
+    return {
+      sequence: state.sequence + 1,
+      specialistResults: [...state.specialistResults, result],
+      routingNodes: [
+        ...state.routingNodes,
+        {
+          nodeType: AgentNodeType.SPECIALIST,
+          agentType: result.agentType,
+          status: result.status,
+          summary: result.summary,
+        },
+      ],
     };
   }
 
@@ -791,8 +858,33 @@ export class SupervisorLangGraphRunnerService {
      */
     if (this.classifierRequestsEscalation(state.classification)) return 'humanEscalationNode';
     if (state.classification.requiresClarification) return 'clarificationNode';
+    /**
+     * WHY this outranks the specialist check below: the rules classifier already
+     * routes `trend`/`attrition` phrasing to ANALYTICS_AGENT, so an analytical
+     * question usually has a runnable specialist too. Placing the SQL branch after
+     * that check would make it unreachable.
+     *
+     * The gate is deliberately narrow — flag on, actor role permitted, and the
+     * classifier confident it is a pure reporting question. Any miss falls through
+     * to existing behaviour rather than failing the turn.
+     */
+    if (this.shouldRouteToAnalyticsSql(state.classification, state.input.actor)) return 'analyticsSqlNode';
     if (this.runnableSpecialists(state.classification).length > 0) return 'specialistsNode';
     return 'finalAnswerNode';
+  }
+
+  private shouldRouteToAnalyticsSql(
+    classification: SupervisorIntentClassification,
+    actor: AiActorContext,
+  ): boolean {
+    if (!classification.isAnalyticalQuestion) return false;
+    if (!this.config?.get<AiAgenticConfig>('aiAgentic')?.analyticsSqlEnabled) return false;
+    if (!hasAnalyticsSqlAccess(actor.roles)) return false;
+    // A turn that also asks for something operational keeps the tool-calling path,
+    // which can act; the SQL branch only reads.
+    return this.runnableSpecialists(classification).every(
+      (agentType) => agentType === AgentType.ANALYTICS_AGENT,
+    );
   }
 
   private classifierRequestsEscalation(classification: SupervisorIntentClassification): boolean {
@@ -825,6 +917,7 @@ export class SupervisorLangGraphRunnerService {
     if (state.draftBlock && route === 'finalAnswerNode') return 'Draft policy blocked a mutation-phrased draft request.';
     if (route === 'humanEscalationNode') return 'Classifier identified an explicit human-support request.';
     if (state.classification.requiresClarification && route === 'clarificationNode') return 'Classifier requested clarification.';
+    if (route === 'analyticsSqlNode') return 'Classifier identified an analytical reporting question; routed to generated SQL.';
     if (state.classification.requiredAgents.length > 0 && route === 'specialistsNode') return 'Classifier selected specialist agents.';
     return 'No specialist route selected; finishing with supervisor response.';
   }
