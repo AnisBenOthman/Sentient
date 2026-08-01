@@ -1,19 +1,28 @@
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
 
-const QUICK_PICKS = [
-  { label: "HR Admin",     email: "hradmin@sentient.dev",  password: "Sentient@2026!" },
-  { label: "Dept Manager", email: "manager@sentient.dev",  password: "Sentient@2026!" },
-  { label: "Team Lead",    email: "teamlead@sentient.dev", password: "Sentient@2026!" },
-  { label: "Employee",     email: "employee@sentient.dev", password: "Sentient@2026!" },
-] as const;
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Brain, Eye, EyeOff, ArrowRight, ArrowLeft } from "lucide-react";
 import { login } from "@/lib/api/hr-core";
 import { getGatewayErrorMessage } from "@/lib/api/gateway-error";
 import { useAuth } from "@/components/providers/auth-provider";
 
+/**
+ * WHY: `roleKey` points at common.json's shared role labels rather than a
+ * signin-local string, so the seeded-account chips read the same as the role
+ * shown in the sidebar. `testId` stays a fixed slug — deriving it from the
+ * translated label would rename the selector per locale.
+ */
+const QUICK_PICKS = [
+  { roleKey: "roles.hrAdmin",  testId: "hr-admin",  email: "hradmin@sentient.dev",  password: "Sentient@2026!" },
+  { roleKey: "roles.manager",  testId: "manager",   email: "manager@sentient.dev",  password: "Sentient@2026!" },
+  { roleKey: "roles.teamLead", testId: "team-lead", email: "teamlead@sentient.dev", password: "Sentient@2026!" },
+  { roleKey: "roles.employee", testId: "employee",  email: "employee@sentient.dev", password: "Sentient@2026!" },
+] as const;
+
 export default function SignIn() {
+  const { t } = useTranslation(["auth", "common"]);
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,7 +38,7 @@ export default function SignIn() {
   });
 
   const errorMessage: string | null = error
-    ? getGatewayErrorMessage(error, "Invalid email or password.")
+    ? getGatewayErrorMessage(error, t("signIn.errors.invalidCredentials"))
     : null;
 
   function handleSubmit(e: React.FormEvent) {
@@ -80,15 +89,15 @@ export default function SignIn() {
         </div>
 
         <h1 className="text-2xl font-bold text-[#1e1b4b] mb-2" data-testid="signin-heading">
-          Sentient HRIS
+          {t("signIn.heading")}
         </h1>
-        <p className="text-slate-400 text-sm mb-8 text-center">Sign in to your workspace</p>
+        <p className="text-slate-400 text-sm mb-8 text-center">{t("signIn.subtitle")}</p>
 
         <form onSubmit={handleSubmit} className="w-full space-y-4 mb-6" data-testid="signin-form">
           {/* Email */}
           <div className="space-y-1.5">
             <label htmlFor="email" className="block text-sm font-medium text-zinc-600" data-testid="label-email">
-              Email address
+              {t("signIn.emailLabel")}
             </label>
             <input
               id="email"
@@ -97,7 +106,7 @@ export default function SignIn() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@company.com"
+              placeholder={t("signIn.emailPlaceholder")}
               data-testid="input-email"
               className="w-full h-11 px-3.5 rounded-xl border border-gray-200 bg-white text-zinc-900 text-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#818cf8] focus:border-transparent transition-all"
             />
@@ -107,7 +116,7 @@ export default function SignIn() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label htmlFor="password" className="text-sm font-medium text-zinc-600" data-testid="label-password">
-                Password
+                {t("signIn.passwordLabel")}
               </label>
               <Link href="/forgot-password">
                 <button
@@ -115,7 +124,7 @@ export default function SignIn() {
                   data-testid="btn-forgot-password"
                   className="text-sm text-[#4f46e5] hover:underline font-medium transition-colors"
                 >
-                  Forgot password?
+                  {t("signIn.forgotPassword")}
                 </button>
               </Link>
             </div>
@@ -127,7 +136,7 @@ export default function SignIn() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder={t("signIn.passwordPlaceholder")}
                 data-testid="input-password"
                 className="w-full h-11 px-3.5 pr-10 rounded-xl border border-gray-200 bg-white text-zinc-900 text-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#818cf8] focus:border-transparent transition-all"
               />
@@ -160,11 +169,11 @@ export default function SignIn() {
             {isPending ? (
               <>
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Signing in…
+                {t("signIn.signingIn")}
               </>
             ) : (
               <>
-                Sign In
+                {t("signIn.submitButton")}
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
@@ -173,14 +182,14 @@ export default function SignIn() {
 
         {/* Quick sign-in picks */}
         <div className="w-full mb-4">
-          <p className="text-xs text-slate-400 text-center mb-2">Quick sign-in as:</p>
+          <p className="text-xs text-slate-400 text-center mb-2">{t("signIn.quickSignInAs")}</p>
           <div className="flex flex-wrap gap-1.5 justify-center">
-            {QUICK_PICKS.map(({ label, email: qEmail, password: qPwd }) => (
+            {QUICK_PICKS.map(({ roleKey, testId, email: qEmail, password: qPwd }) => (
               <button
-                key={label}
+                key={testId}
                 type="button"
                 disabled={isPending}
-                data-testid={`btn-quickpick-${label.toLowerCase().replace(" ", "-")}`}
+                data-testid={`btn-quickpick-${testId}`}
                 onClick={() => {
                   setEmail(qEmail);
                   setPassword(qPwd);
@@ -188,7 +197,7 @@ export default function SignIn() {
                 }}
                 className="px-2.5 py-1 rounded-full text-xs font-medium border border-[#4f46e5]/30 text-[#4f46e5] bg-[#eef2ff] hover:bg-[#4f46e5] hover:text-white transition-colors disabled:opacity-50"
               >
-                {label}
+                {t(roleKey, { ns: "common" })}
               </button>
             ))}
           </div>
@@ -200,7 +209,7 @@ export default function SignIn() {
             data-testid="btn-back-home"
             className="text-sm text-slate-400 hover:text-slate-600 transition-colors flex items-center gap-1 font-medium"
           >
-            <ArrowLeft className="w-3 h-3" /> Back to home
+            <ArrowLeft className="w-3 h-3" /> {t("signIn.backToHome")}
           </button>
         </Link>
       </div>

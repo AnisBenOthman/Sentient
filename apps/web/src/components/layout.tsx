@@ -24,47 +24,69 @@ import {
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/components/providers/auth-provider";
 import { getEmployee } from "@/lib/api/hr-core";
-import { getRoleTier, roleTierLabel, type RoleTier } from "@/lib/auth";
+import { getRoleTier, roleTierLabelKey, type RoleTier } from "@/lib/auth";
 import { NotificationsBell } from "@/components/notifications/notifications-bell";
 import { FloatingAiAssistant } from "@/components/ai/floating-ai-assistant";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import type enNav from "@/i18n/locales/en/nav.json";
+
+type NavKey = keyof typeof enNav;
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
-const ALL_MAIN_NAV = [
-  { title: "Home",                href: "/home",                icon: Home,            tourId: "home-nav",          tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "My Profile",          href: "/profile",             icon: UserRound,       tourId: "profile-nav",       tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "Dashboard",           href: "/dashboard",           icon: LayoutDashboard, tourId: "dashboard-nav",     tiers: ["hr_admin", "dept_manager", "team_lead"]                as RoleTier[] },
-  { title: "Employees",           href: "/employees",           icon: Users,           tourId: "employees-nav",     tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "Leaves",              href: "/leaves",              icon: CalendarDays,    tourId: "leaves-nav",        tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "Org Chart",           href: "/org-chart",           icon: GitFork,         tourId: "org-chart-nav",     tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "Performance Reviews", href: "/performance-reviews", icon: ClipboardCheck,  tourId: "performance-nav",   tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "OKRs",                 href: "/okrs",                icon: Target,          tourId: "okrs-nav",          tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "Announcements",       href: "/announcements",       icon: Megaphone,       tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "Events",              href: "/events",              icon: CalendarDays,    tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "Documents",           href: "/documents",           icon: FileText,        tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "AI Assistant",         href: "/ai-assistant",        icon: Bot,             tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[] },
-  { title: "Simulation",          href: "/simulation",          icon: Sparkles,        tourId: "simulation-nav",    tiers: ["hr_admin", "dept_manager", "team_lead"]              as RoleTier[] },
+/**
+ * WHY: `navKey` is a nav.json key resolved at render time, and `testId` is a
+ * fixed slug. They are deliberately separate: deriving the test-id from the
+ * label (as this did before i18n) would rename every selector to French the
+ * moment the user switches language.
+ */
+interface NavEntry {
+  navKey: NavKey;
+  testId: string;
+  href: string;
+  icon: React.ElementType;
+  tourId?: string;
+  tiers: RoleTier[];
+}
+
+const ALL_MAIN_NAV: NavEntry[] = [
+  { navKey: "home",               testId: "home",                href: "/home",                icon: Home,            tourId: "home-nav",          tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] },
+  { navKey: "myProfile",          testId: "my-profile",          href: "/profile",             icon: UserRound,       tourId: "profile-nav",       tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] },
+  { navKey: "dashboard",          testId: "dashboard",           href: "/dashboard",           icon: LayoutDashboard, tourId: "dashboard-nav",     tiers: ["hr_admin", "dept_manager", "team_lead"] },
+  { navKey: "employees",          testId: "employees",           href: "/employees",           icon: Users,           tourId: "employees-nav",     tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] },
+  { navKey: "leaves",             testId: "leaves",              href: "/leaves",              icon: CalendarDays,    tourId: "leaves-nav",        tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] },
+  { navKey: "orgChart",           testId: "org-chart",           href: "/org-chart",           icon: GitFork,         tourId: "org-chart-nav",     tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] },
+  { navKey: "performanceReviews", testId: "performance-reviews", href: "/performance-reviews", icon: ClipboardCheck,  tourId: "performance-nav",   tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] },
+  { navKey: "myOkrs",             testId: "okrs",                href: "/okrs",                icon: Target,          tourId: "okrs-nav",          tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] },
+  { navKey: "announcements",      testId: "announcements",       href: "/announcements",       icon: Megaphone,       tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] },
+  { navKey: "events",             testId: "events",              href: "/events",              icon: CalendarDays,    tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] },
+  { navKey: "documents",          testId: "documents",           href: "/documents",           icon: FileText,        tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] },
+  { navKey: "aiAssistant",        testId: "ai-assistant",        href: "/ai-assistant",        icon: Bot,             tourId: undefined,           tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] },
+  { navKey: "simulation",         testId: "simulation",          href: "/simulation",          icon: Sparkles,        tourId: "simulation-nav",    tiers: ["hr_admin", "dept_manager", "team_lead"] },
 ];
 
-const ALL_ADMIN_NAV = [
-  { title: "Positions",             href: "/positions",             icon: Briefcase,    tourId: "positions-nav",  tiers: ["hr_admin"] as RoleTier[] },
-  { title: "Leave Management",      href: "/leave-management",      icon: CalendarClock, tourId: "leave-mgmt-nav", tiers: ["hr_admin"] as RoleTier[] },
-  { title: "Settings",              href: "/settings",              icon: Settings,      tourId: undefined,        tiers: ["hr_admin"] as RoleTier[] },
+const ALL_ADMIN_NAV: NavEntry[] = [
+  { navKey: "positions",       testId: "positions",        href: "/positions",        icon: Briefcase,     tourId: "positions-nav",  tiers: ["hr_admin"] },
+  { navKey: "leaveManagement", testId: "leave-management", href: "/leave-management", icon: CalendarClock, tourId: "leave-mgmt-nav", tiers: ["hr_admin"] },
+  { navKey: "settings",        testId: "settings",         href: "/settings",         icon: Settings,      tourId: undefined,        tiers: ["hr_admin"] },
 ];
 
 interface NavItemProps {
-  item: { title: string; href: string; icon: React.ElementType; tourId?: string };
+  item: NavEntry;
   collapsed: boolean;
 }
 
 function NavItem({ item, collapsed }: NavItemProps) {
   const [location] = useLocation();
+  const { t } = useTranslation("nav");
   const isActive =
     location === item.href || location.startsWith(item.href + "/");
+  const label = t(item.navKey);
   return (
     <Link
       href={item.href}
@@ -75,9 +97,9 @@ function NavItem({ item, collapsed }: NavItemProps) {
           ? "bg-blue-50 text-blue-700 font-medium dark:bg-blue-900/30 dark:text-blue-300"
           : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 font-normal dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
       )}
-      data-testid={`link-nav-${item.title.toLowerCase().replace(" ", "-")}`}
+      data-testid={`link-nav-${item.testId}`}
       data-tour={item.tourId}
-      title={collapsed ? item.title : undefined}
+      title={collapsed ? label : undefined}
     >
       <item.icon
         className={cn(
@@ -88,7 +110,7 @@ function NavItem({ item, collapsed }: NavItemProps) {
             : "text-gray-400 dark:text-gray-500"
         )}
       />
-      {!collapsed && item.title}
+      {!collapsed && label}
     </Link>
   );
 }
@@ -101,6 +123,7 @@ export function Layout({ children }: LayoutProps) {
   );
 
   const { user, logout } = useAuth();
+  const { t } = useTranslation(["nav", "common"]);
 
   const { data: profile } = useQuery({
     queryKey: ["employee-self", user?.employeeId],
@@ -123,7 +146,7 @@ export function Layout({ children }: LayoutProps) {
     ? `${profile.firstName[0] ?? ""}${profile.lastName[0] ?? ""}`.toUpperCase()
     : "?";
 
-  const roleDisplay = roleTierLabel(roleTier);
+  const roleDisplay = t(roleTierLabelKey(roleTier), { ns: "common" });
   const showFloatingAssistant = location !== "/ai-assistant";
 
   useEffect(() => {
@@ -176,7 +199,7 @@ export function Layout({ children }: LayoutProps) {
             <button
               onClick={() => setCollapsed(true)}
               className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
-              aria-label="Collapse sidebar"
+              aria-label={t("nav:collapseMenu")}
             >
               <Menu className="w-4 h-4" />
             </button>
@@ -189,7 +212,7 @@ export function Layout({ children }: LayoutProps) {
             <button
               onClick={() => setCollapsed(false)}
               className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              aria-label="Expand sidebar"
+              aria-label={t("nav:expandMenu")}
             >
               <Menu className="w-4 h-4" />
             </button>
@@ -207,7 +230,7 @@ export function Layout({ children }: LayoutProps) {
             <div className="pt-4">
               {!collapsed && (
                 <p className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600">
-                  Admin
+                  {t("nav:admin")}
                 </p>
               )}
               {collapsed && (
@@ -222,6 +245,9 @@ export function Layout({ children }: LayoutProps) {
 
         {/* Footer */}
         <div className="border-t border-gray-100 dark:border-gray-800 p-2 space-y-1">
+          {/* Language switcher */}
+          <LanguageSwitcher collapsed={collapsed} />
+
           {/* Dark mode toggle */}
           <button
             onClick={() => setDark((d) => !d)}
@@ -230,11 +256,15 @@ export function Layout({ children }: LayoutProps) {
               "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800",
               collapsed && "justify-center px-0"
             )}
-            aria-label="Toggle dark mode"
+            aria-label={dark ? t("nav:lightMode") : t("nav:darkMode")}
             data-testid="button-dark-mode"
             data-tour="dark-mode-toggle"
             title={
-              collapsed ? (dark ? "Light mode" : "Dark mode") : undefined
+              collapsed
+                ? dark
+                  ? t("nav:lightMode")
+                  : t("nav:darkMode")
+                : undefined
             }
           >
             {dark ? (
@@ -243,7 +273,9 @@ export function Layout({ children }: LayoutProps) {
               <Moon className="w-4 h-4 flex-shrink-0" />
             )}
             {!collapsed && (
-              <span className="text-xs">{dark ? "Light mode" : "Dark mode"}</span>
+              <span className="text-xs">
+                {dark ? t("nav:lightMode") : t("nav:darkMode")}
+              </span>
             )}
           </button>
 
@@ -272,7 +304,8 @@ export function Layout({ children }: LayoutProps) {
                 onClick={() => void logout()}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors flex-shrink-0"
                 data-testid="button-logout"
-                title="Sign out"
+                title={t("nav:signOut")}
+                aria-label={t("nav:signOut")}
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>

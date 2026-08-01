@@ -52,12 +52,20 @@ export const authStore = {
   },
 };
 
-export function roleLabel(roles: string[]): string {
-  if (roles.includes('HR_ADMIN'))    return 'HR Admin';
-  if (roles.includes('MANAGER'))     return 'Manager';
-  if (roles.includes('EXECUTIVE'))   return 'Executive';
-  if (roles.includes('SYSTEM_ADMIN'))return 'System Admin';
-  return 'Employee';
+/**
+ * WHY: Returns a `common.json` key rather than a display string so this stays
+ * usable outside React (no hook) while the caller resolves it with t(). Replaced
+ * the former `roleLabel`, which returned hardcoded English and could not be
+ * translated at the call site.
+ */
+export function roleLabelKey(
+  roles: string[],
+): 'roles.hrAdmin' | 'roles.manager' | 'roles.executive' | 'roles.systemAdmin' | 'roles.employee' {
+  if (roles.includes('HR_ADMIN'))     return 'roles.hrAdmin';
+  if (roles.includes('MANAGER'))      return 'roles.manager';
+  if (roles.includes('EXECUTIVE'))    return 'roles.executive';
+  if (roles.includes('SYSTEM_ADMIN')) return 'roles.systemAdmin';
+  return 'roles.employee';
 }
 
 export function hasRole(roles: string[], check: string[]): boolean {
@@ -167,12 +175,18 @@ export function canViewEmployeeDetails(
   return Boolean(payload.teamId && targetTeamId === payload.teamId);
 }
 
-export function roleTierLabel(tier: RoleTier): string {
-  const labels: Record<RoleTier, string> = {
-    hr_admin:     'HR Admin',
-    dept_manager: 'Manager',
-    team_lead:    'Team Lead',
-    employee:     'Employee',
-  };
-  return labels[tier];
+/**
+ * WHY: Returns a `common.json` key, not a display string — see roleLabelKey.
+ * Callers resolve it with t(); layout.tsx maps RoleTier → label this way.
+ */
+export function roleTierLabelKey(
+  tier: RoleTier,
+): 'roles.hrAdmin' | 'roles.manager' | 'roles.teamLead' | 'roles.employee' {
+  const keys = {
+    hr_admin:     'roles.hrAdmin',
+    dept_manager: 'roles.manager',
+    team_lead:    'roles.teamLead',
+    employee:     'roles.employee',
+  } as const;
+  return keys[tier];
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Pencil, Trash2, X, Check, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,11 +21,24 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
+/**
+ * WHY: `label` is kept as the English string because it is persisted to HR Core
+ * via upsertThresholdIndicator — it is stored data, not display text. The UI
+ * renders `thresholds.metrics.<key>` instead, so switching language never
+ * rewrites what was already saved server-side.
+ */
 interface MetricDefinition {
-  key: string;
+  key: MetricKey;
   label: string;
   unit: string;
 }
+
+type MetricKey =
+  | "EMPLOYEES_EXITS"
+  | "EMPLOYEES_ATTRITION_RATE"
+  | "EMPLOYEES_PROBATION"
+  | "LEAVE_PENDING_APPROVALS"
+  | "PROMOTIONS_PENDING_REQUESTS";
 
 const METRIC_DEFINITIONS: MetricDefinition[] = [
   { key: "EMPLOYEES_EXITS",             label: "Terminal employees",      unit: "count" },
@@ -59,6 +73,7 @@ function ThresholdRow({
   saving: boolean;
   removing: boolean;
 }) {
+  const { t } = useTranslation("settings");
   const [editing, setEditing] = useState(false);
   const [warning, setWarning] = useState("");
   const [critical, setCritical] = useState("");
@@ -85,14 +100,18 @@ function ThresholdRow({
   return (
     <div className="flex items-center gap-4 py-3">
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{def.label}</p>
+        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+          {t(`thresholds.metrics.${def.key}`)}
+        </p>
         <p className="text-xs text-muted-foreground">{def.unit === "%" ? "percentage value" : "count"}</p>
       </div>
 
       {editing ? (
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
-            <span className="text-[11px] text-amber-600 font-medium w-14 shrink-0">Warning ≥</span>
+            <span className="text-[11px] text-amber-600 font-medium w-14 shrink-0">
+              {t("thresholds.warning")} ≥
+            </span>
             <Input
               className="w-20 h-7 text-xs"
               type="number"
@@ -103,7 +122,9 @@ function ThresholdRow({
             />
           </div>
           <div className="flex items-center gap-1">
-            <span className="text-[11px] text-red-600 font-medium w-14 shrink-0">Critical ≥</span>
+            <span className="text-[11px] text-red-600 font-medium w-14 shrink-0">
+              {t("thresholds.critical")} ≥
+            </span>
             <Input
               className="w-20 h-7 text-xs"
               type="number"
@@ -139,7 +160,9 @@ function ThresholdRow({
                 </span>
               </>
             ) : (
-              <span className="text-xs text-muted-foreground italic">Not configured</span>
+              <span className="text-xs text-muted-foreground italic">
+                {t("thresholds.noThresholds")}
+              </span>
             )}
           </div>
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={startEdit}>
@@ -164,6 +187,7 @@ function ThresholdRow({
 
 export default function Settings() {
   const { user } = useAuth();
+  const { t } = useTranslation("settings");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isHrAdmin = (user?.roles ?? []).some((r) => ["HR_ADMIN", "GLOBAL_HR_ADMIN"].includes(r));
@@ -217,7 +241,9 @@ export default function Settings() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight" data-testid="heading-settings">Settings</h1>
+        <h1 className="text-3xl font-bold tracking-tight" data-testid="heading-settings">
+          {t("title")}
+        </h1>
         <p className="text-muted-foreground mt-1">Manage organizational configurations and preferences</p>
       </div>
 
@@ -283,12 +309,9 @@ export default function Settings() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-500" />
-                <CardTitle>Dashboard Alert Thresholds</CardTitle>
+                <CardTitle>{t("sections.thresholds")}</CardTitle>
               </div>
-              <CardDescription>
-                Configure warning and critical thresholds for KPI cards. When a metric crosses a
-                threshold the dashboard card lights up orange (warning) or red (critical).
-              </CardDescription>
+              <CardDescription>{t("thresholds.description")}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -314,13 +337,13 @@ export default function Settings() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Guided Tour</CardTitle>
-            <CardDescription>Restart the platform walkthrough to rediscover all features.</CardDescription>
+            <CardTitle>{t("sections.tour")}</CardTitle>
+            <CardDescription>{t("tour.description")}</CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="outline" onClick={restartTour} className="gap-2">
               <PlayCircle className="w-4 h-4" />
-              Restart Tour
+              {t("tour.restartButton")}
             </Button>
           </CardContent>
         </Card>
