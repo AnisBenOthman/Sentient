@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AgentNodeType, AgentRunStatus, AgentTaskLog, AgentType, PermissionDecision } from '../../generated/prisma';
 import { RoutingTrace } from '../../common/dto';
-import { AgentGuardrailService, DraftPolicyService, SafetyPolicyResult } from '../../common/safety';
+import { AgentGuardrailService, DraftPolicyService, permittedActionsFor, SafetyPolicyResult } from '../../common/safety';
 import { AiAgenticConfig } from '../../config';
 import {
   AiActorContext,
@@ -454,6 +454,7 @@ export class SupervisorLangGraphRunnerService {
       parentLog.id,
       classification.normalizedIntent,
       classification.isDraftIntent,
+      AgentType.HUMAN_ESCALATION_AGENT,
     );
     // WHY: classifier-detected escalations ("let me talk to HR") reach this node
     // with a benign safety classification; the reason must reflect the user
@@ -601,7 +602,15 @@ export class SupervisorLangGraphRunnerService {
     this.logTrace('analytics_sql.start', { normalizedIntent: classification.normalizedIntent });
 
     const result = await this.analyticsSql
-      .execute(this.specialistInput(state.input, parentLog.id, classification.normalizedIntent, false))
+      .execute(
+        this.specialistInput(
+          state.input,
+          parentLog.id,
+          classification.normalizedIntent,
+          false,
+          AgentType.ANALYTICS_AGENT,
+        ),
+      )
       .catch((error: unknown) => this.specialistFailureResult(AgentType.ANALYTICS_AGENT, error));
 
     await this.nodeRuns.record({
@@ -760,7 +769,9 @@ export class SupervisorLangGraphRunnerService {
       actor: input.actor,
       inputSummary: normalizedIntent,
     });
-    const result = await specialist.execute(this.specialistInput(input, childLog.id, normalizedIntent, isDraftRequest));
+    const result = await specialist.execute(
+      this.specialistInput(input, childLog.id, normalizedIntent, isDraftRequest, agentType),
+    );
     await this.taskLogs.finish(childLog.id, {
       status: result.status,
       outputSummary: result.summary,
@@ -792,12 +803,21 @@ export class SupervisorLangGraphRunnerService {
     return result;
   }
 
+  /**
+   * WHY `agentType` is required (not optional): the capability-aware branch
+   * below is the ONLY place `ActionCapableSpecialistConstraints` is constructed
+   * (spec 017 D1). Every other call site — human escalation, the analytics SQL
+   * branch — passes an agent type with no registered capability and falls
+   * through to the read-only literal unchanged.
+   */
   private specialistInput(
     input: ExecuteConversationTurnInput,
     parentTaskLogId: string,
     normalizedIntent: string,
     isDraftRequest: boolean,
+    agentType: AgentType,
   ): SpecialistInput {
+    const permittedActions = permittedActionsFor(agentType);
     return {
       conversationId: input.conversationId,
       parentTaskLogId,
@@ -807,11 +827,19 @@ export class SupervisorLangGraphRunnerService {
       conversationContext: input.conversationContext,
       sourceHints: [],
       isDraftRequest,
-      constraints: {
-        sentientOnly: true,
-        readOnlyOfficialRecords: true,
-        mustReturnToSupervisor: true,
-      },
+      constraints:
+        permittedActions.length > 0
+          ? {
+              sentientOnly: true,
+              readOnlyOfficialRecords: false,
+              mustReturnToSupervisor: true,
+              permittedActions,
+            }
+          : {
+              sentientOnly: true,
+              readOnlyOfficialRecords: true,
+              mustReturnToSupervisor: true,
+            },
     };
   }
 

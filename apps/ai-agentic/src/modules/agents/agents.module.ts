@@ -10,6 +10,7 @@ import {
 } from '../../common/clients';
 import { AnalyticsSqlModule } from '../analytics-sql';
 import { KnowledgeModule } from '../knowledge';
+import { ActionAuditService } from './actions/action-audit.service';
 import { AgentHandoffService } from './agent-handoff.service';
 import { AgentNodeRunService } from './agent-node-run.service';
 import { AgentRegistryService } from './agent-registry.service';
@@ -47,6 +48,7 @@ import { ToolRegistryService } from './tools/tool-registry.service';
 @Module({
   imports: [KnowledgeModule, AnalyticsSqlModule],
   providers: [
+    ActionAuditService,
     ActorContextFactory,
     AgentGuardrailService,
     AgentHandoffService,
@@ -115,6 +117,7 @@ import { ToolRegistryService } from './tools/tool-registry.service';
     },
   ],
   exports: [
+    ActionAuditService,
     ActorContextFactory,
     AgentGuardrailService,
     AgentHandoffService,

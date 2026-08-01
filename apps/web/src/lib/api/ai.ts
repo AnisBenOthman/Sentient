@@ -18,6 +18,11 @@ export const aiApi = {
   client: aiClient,
 };
 
+/**
+ * Mirrors AiAgentRunStatus in packages/shared/src/enums/ai-agent-run-status.enum.ts.
+ * This is a hand-maintained copy — the compiler cannot catch drift between the
+ * two, so any member added there must be added here in the same change.
+ */
 export type AiAgentRunStatus =
   | 'PENDING'
   | 'RUNNING'
@@ -27,7 +32,11 @@ export type AiAgentRunStatus =
   | 'PARTIAL'
   | 'ESCALATED'
   | 'REFUSED'
-  | 'OUT_OF_SCOPE';
+  | 'OUT_OF_SCOPE'
+  /** A mutating action was proposed and awaits the user's explicit confirm/cancel tap. */
+  | 'PENDING_CONFIRMATION'
+  /** The downstream write apparently succeeded but the independent read-back did not confirm it. */
+  | 'UNVERIFIED';
 
 export interface SourceContext {
   sourceType: string;

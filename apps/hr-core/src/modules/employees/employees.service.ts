@@ -41,13 +41,13 @@ export type EmployeeProfile = Employee & {
     id: string;
     name: string;
     businessUnitId: string;
-    businessUnit: { id: string; name: string; currency: string } | null;
+    businessUnit: { id: string; name: string; currency: string; country: string | null } | null;
   } | null;
   team: {
     id: string;
     name: string;
     businessUnitId: string;
-    businessUnit: { id: string; name: string; currency: string } | null;
+    businessUnit: { id: string; name: string; currency: string; country: string | null } | null;
   } | null;
   position: { id: string; title: string } | null;
   manager: { id: string; firstName: string; lastName: string } | null;
@@ -57,6 +57,11 @@ export type EmployeeProfile = Employee & {
   // `null` means the employee has no department/team assignment yet, so the
   // currency is genuinely unknown — never guessed.
   currency: string | null;
+  // WHY the same resolution as currency: country lives on BusinessUnit, not
+  // Employee, and an employee's department BU is preferred over their team
+  // BU. `null` means unassigned or the BU's own country is unset (spec 017) —
+  // consumers must handle absence, never infer a region from currency.
+  country: string | null;
 };
 
 export type SalaryHistoryWithCurrency = SalaryHistory & { currency: string | null };
@@ -767,7 +772,7 @@ export class EmployeesService {
           id: true,
           name: true,
           businessUnitId: true,
-          businessUnit: { select: { id: true, name: true, currency: true } },
+          businessUnit: { select: { id: true, name: true, currency: true, country: true } },
         },
       },
       team: {
@@ -775,7 +780,7 @@ export class EmployeesService {
           id: true,
           name: true,
           businessUnitId: true,
-          businessUnit: { select: { id: true, name: true, currency: true } },
+          businessUnit: { select: { id: true, name: true, currency: true, country: true } },
         },
       },
       position: { select: { id: true, title: true } },
@@ -796,8 +801,16 @@ export class EmployeesService {
     return employee.department?.businessUnit?.currency ?? employee.team?.businessUnit?.currency ?? null;
   }
 
+  /** WHY the same precedence as resolveCurrency: department's BU wins over team's BU (spec 017). */
+  private resolveCountry(employee: {
+    department: { businessUnit: { country: string | null } | null } | null;
+    team: { businessUnit: { country: string | null } | null } | null;
+  }): string | null {
+    return employee.department?.businessUnit?.country ?? employee.team?.businessUnit?.country ?? null;
+  }
+
   private attachCurrency<T extends EmployeeProfile>(employee: T): T {
-    return { ...employee, currency: this.resolveCurrency(employee) };
+    return { ...employee, currency: this.resolveCurrency(employee), country: this.resolveCountry(employee) };
   }
 
   private async generateEmployeeCode(): Promise<string> {

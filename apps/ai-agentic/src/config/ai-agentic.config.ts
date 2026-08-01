@@ -39,6 +39,12 @@ export interface AiAgenticConfig {
   analyticsSqlEnabled: boolean;
   analyticsSqlRowLimit: number;
   analyticsSqlTimeoutMs: number;
+  /** Confirmation-token lifetime for a proposed mutating action (FR-004). */
+  actionTokenTtlMinutes: number;
+  /** Delay before a sick-leave wellness follow-up fires (FR-033). */
+  followUpDelayHours: number;
+  /** A due follow-up older than this after downtime is suppressed rather than sent late (FR-038). */
+  followUpStaleAfterHours: number;
 }
 
 function parseIntentClassifierProvider(value: string | undefined): IntentClassifierProvider {
@@ -164,5 +170,20 @@ export const aiAgenticConfig = registerAs('aiAgentic', (): AiAgenticConfig => ({
     process.env.AI_AGENT_ANALYTICS_SQL_TIMEOUT_MS,
     5_000,
     'AI_AGENT_ANALYTICS_SQL_TIMEOUT_MS',
+  ),
+  actionTokenTtlMinutes: parsePositiveInt(
+    process.env.AI_AGENT_ACTION_TOKEN_TTL_MINUTES,
+    15,
+    'AI_AGENT_ACTION_TOKEN_TTL_MINUTES',
+  ),
+  followUpDelayHours: parsePositiveInt(
+    process.env.AI_AGENT_FOLLOWUP_DELAY_HOURS,
+    48,
+    'AI_AGENT_FOLLOWUP_DELAY_HOURS',
+  ),
+  followUpStaleAfterHours: parsePositiveInt(
+    process.env.AI_AGENT_FOLLOWUP_STALE_AFTER_HOURS,
+    24,
+    'AI_AGENT_FOLLOWUP_STALE_AFTER_HOURS',
   ),
 }));

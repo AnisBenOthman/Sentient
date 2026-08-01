@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { RbacGuard, SharedJwtGuard } from '@sentient/shared';
 import { AppController } from './app.controller';
@@ -30,6 +31,7 @@ import { PrismaModule } from './prisma/prisma.module';
         },
       ],
     }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     AgentsModule,
     KnowledgeModule,

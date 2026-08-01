@@ -402,11 +402,15 @@ model EnumMeta {
 // ============================================================
 
 model BusinessUnit {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  address   String
-  currency  String   @default("USD") @db.VarChar(3)
-  isActive  Boolean  @default(true)
+  id       String  @id @default(uuid())
+  name     String  @unique
+  address  String
+  currency String  @default("USD") @db.VarChar(3)
+  /// ISO-3166-1 alpha-2 (e.g. "DZ", "FR"). Nullable so existing rows stay valid
+  /// after this additive migration; consumers must handle absence — never
+  /// guess a region from currency or free-text address (spec 017 Design Stance).
+  country  String? @db.VarChar(2)
+  isActive Boolean @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

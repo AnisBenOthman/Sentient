@@ -440,20 +440,47 @@ describe('SupervisorLangGraphRunnerService', () => {
     expect(result.finalAnswer.content).toContain('I cannot share that record.');
   });
 
-  it('refuses mutation-phrased draft requests through the draft policy', async () => {
+  it('refuses mutation-phrased draft requests through the draft policy for a read-only specialist', async () => {
+    // WHY OKR_AGENT and not LEAVE_AGENT: spec 017 grants LEAVE_AGENT a real
+    // action capability, so draft+mutation phrasing routed to it is no longer
+    // blocked here — see the LEAVE_AGENT case below. OKR_AGENT has no entry in
+    // the action-capability registry, so it exercises the still-unweakened
+    // refusal path for every specialist that remains read-only.
     const runner = createRunner({
       parentLog: buildParentLog('draft block'),
+    });
+
+    const result = await runner.execute(turnInput('Draft my OKR update and submit it for approval.'));
+
+    expect(result.finalAnswer.status).toBe(AgentRunStatus.REFUSED);
+    expect(result.finalAnswer.content).toContain('cannot submit, approve, publish');
+  });
+
+  // WHY this test exists (spec 017 D2): DraftPolicyService no longer blanket-
+  // blocks a capable specialist on a mutation term — it routes the turn
+  // through to the specialist instead. This does not grant LEAVE_AGENT any
+  // capability beyond LEAVE_BOOKING; it only proves the draft-policy gate no
+  // longer refuses it outright, matching the assertion above proving the gate
+  // still refuses specialists without any capability.
+  it('routes a capable specialist through the draft policy instead of refusing it', async () => {
+    const runner = createRunner({
+      parentLog: buildParentLog('draft route-through'),
       leaveAgent: {
-        execute: async () => {
-          throw new Error('Blocked draft requests must not reach specialists.');
-        },
+        execute: async () => ({
+          agentType: AgentType.LEAVE_AGENT,
+          status: AgentRunStatus.SUCCESS,
+          summary: 'Leave agent reached.',
+          userVisibleContent: 'Leave agent reached.',
+          sourceContext: [],
+          permissionDecision: PermissionDecision.ALLOWED,
+        }),
       },
     });
 
     const result = await runner.execute(turnInput('Draft my leave request and submit it for approval.'));
 
-    expect(result.finalAnswer.status).toBe(AgentRunStatus.REFUSED);
-    expect(result.finalAnswer.content).toContain('cannot submit, approve, publish');
+    expect(result.finalAnswer.content).toContain('Leave agent reached.');
+    expect(result.finalAnswer.content).not.toContain('cannot submit, approve, publish');
   });
 
   // WHY: this is the contract of the three-phase gate

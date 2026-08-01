@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PermissionDecision } from '../../generated/prisma';
-import { DownstreamRequestContext, DownstreamResult, DownstreamSummary } from './downstream-client.types';
+import { ActionExecutionOutcome, DownstreamRequestContext, DownstreamResult, DownstreamSummary } from './downstream-client.types';
 import { HttpJsonClient } from './http-json.client';
 
 export interface LeaveBalanceContext {
@@ -168,6 +168,73 @@ export interface KpiAlertContext extends DownstreamSummary {
   checkedCount: number;
   /** Threshold labels that could not be checked (no current value in dashboard analytics). */
   uncheckedMetrics: string[];
+}
+
+/** Mirrors HR Core LeaveType (spec 017 — resolving "sick"/"annual" phrasing to an id). */
+export interface LeaveTypeContext {
+  id: string;
+  businessUnitId: string;
+  name: string;
+  defaultDaysPerYear: number | string;
+  accrualFrequency: string;
+  maxCarryoverDays: number | string;
+  requiresApproval: boolean;
+  isActive: boolean;
+  color: string | null;
+}
+
+export interface LeaveTypesAiContext extends DownstreamSummary {
+  leaveTypes: LeaveTypeContext[];
+}
+
+/**
+ * Mirrors HR Core's raw LeaveRequest scalars for GET /leave-requests/:id
+ * (spec 017 Verify phase — the independent read-back). WHY not the existing
+ * LeaveRequestContext: that shape is for the list endpoint, which HR Core does
+ * NOT include a nested leaveType relation on for the single-record read
+ * (requests.service.ts findOne has no `include`) — reusing it here would
+ * silently promise a field that is never populated.
+ */
+export interface LeaveRequestRecordContext {
+  id: string;
+  employeeId: string;
+  leaveTypeId: string;
+  startDate: string;
+  endDate: string;
+  startHalfDay: string | null;
+  endHalfDay: string | null;
+  totalDays: number | string;
+  reason: string | null;
+  status: string;
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * The identity facts Reason resolves before anything else (spec 017 Design
+ * Stance). WHY not businessUnitId here: it is already a JWT claim on
+ * AiActorContext — no fetch needed for it. gender and country ARE fetched
+ * here because they are not on the JWT; both are nullable and every consumer
+ * must degrade independently rather than guessing.
+ */
+export interface EmployeeProfileContext {
+  id: string;
+  firstName: string;
+  lastName: string;
+  gender: string | null;
+  /** ISO-3166-1 alpha-2, resolved by HR Core from the employee's business unit. */
+  country: string | null;
+}
+
+/** Frozen at Propose time; sent to HR Core verbatim at Execute (spec 017 FR-001). */
+export interface CreateLeaveRequestPayload {
+  leaveTypeId: string;
+  startDate: string;
+  endDate: string;
+  reason?: string;
 }
 
 const TEAM_COVERAGE_WINDOW_DAYS = 30;
@@ -410,6 +477,90 @@ export class HrCoreAiClient {
         year,
       },
     };
+  }
+
+  /**
+   * WHY businessUnitId is required, not optional-and-ignored: LeaveType is
+   * business-unit-scoped (@@unique([name, businessUnitId])). An unscoped list
+   * can surface a leave type from a different business unit that this
+   * employee cannot actually use (spec 017 US1).
+   */
+  async getLeaveTypes(
+    businessUnitId: string | null,
+    context: DownstreamRequestContext,
+  ): Promise<DownstreamResult<LeaveTypesAiContext>> {
+    const query = businessUnitId ? `?${new URLSearchParams({ businessUnitId }).toString()}` : '';
+    const result = await this.get<LeaveTypeContext[]>(`/leave-types${query}`, context, 'LEAVE_TYPES', 'Leave types');
+
+    if (result.permissionDecision !== PermissionDecision.ALLOWED) {
+      return { ...result, data: null };
+    }
+
+    return {
+      ...result,
+      data: {
+        id: 'leave:types',
+        leaveTypes: Array.isArray(result.data) ? result.data : [],
+      },
+    };
+  }
+
+  /**
+   * WHY a read-back method exists at all: the Verify phase (spec 017 FR-008)
+   * must independently confirm a created record, not trust the 201 response.
+   * Read-only — this method never mutates anything.
+   */
+  getLeaveRequestById(
+    id: string,
+    context: DownstreamRequestContext,
+  ): Promise<DownstreamResult<LeaveRequestRecordContext>> {
+    return this.get<LeaveRequestRecordContext>(
+      `/leave-requests/${encodeURIComponent(id)}`,
+      context,
+      'LEAVE_REQUEST_DETAIL',
+      'Leave request detail',
+    );
+  }
+
+  /**
+   * WHY a separate method from getEmployeeContext (which returns the loose
+   * DownstreamSummary and has no callers today): Reason's identity-resolution
+   * step needs gender and country as checked, typed fields it can branch on —
+   * not buried in an untyped `metadata` bag.
+   */
+  getEmployeeProfileContext(
+    employeeId: string,
+    context: DownstreamRequestContext,
+  ): Promise<DownstreamResult<EmployeeProfileContext>> {
+    return this.get<EmployeeProfileContext>(
+      `/employees/${encodeURIComponent(employeeId)}`,
+      context,
+      'EMPLOYEE_PROFILE_DETAIL',
+      'Employee profile',
+    );
+  }
+
+  /**
+   * WHY this is the client's first write method (spec 017 D5): every other
+   * method on this client is a GET. FR-007 requires classifying a non-2xx
+   * response, a timeout, and a network failure as three DISTINCT FAILED
+   * causes, each carrying the specific downstream reason — the get()/
+   * DownstreamResult pair this client otherwise uses collapses all of those
+   * into a vague `degradedReason` string with no HTTP status or response
+   * body, which is not enough for FR-010's "HR Core returned: <reason>"
+   * requirement. ActionExecutionOutcome exists for exactly this gap.
+   *
+   * WHY no employeeId in the payload: HR Core's POST /leave-requests derives
+   * the employee from the forwarded JWT server-side (requireEmployeeId(user)
+   * in requests.controller.ts) — it does not accept one in the body. The
+   * employeeId on the frozen confirmation payload is for display only.
+   */
+  createLeaveRequest(
+    payload: CreateLeaveRequestPayload,
+    context: DownstreamRequestContext,
+  ): Promise<ActionExecutionOutcome<LeaveRequestRecordContext>> {
+    const baseUrl = this.config.get<string>('aiAgentic.hrCoreUrl') ?? 'http://localhost:3001';
+    return this.http.post<LeaveRequestRecordContext>(baseUrl, '/leave-requests', payload, context, 'Leave request submission');
   }
 
   /** WHY: HR Core has no /okrs/my-okrs route; objectives are owner-filtered via /objectives. */

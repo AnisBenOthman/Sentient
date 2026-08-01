@@ -1,5 +1,6 @@
 import { RoleAssignmentClaim } from '@sentient/shared';
 import {
+  AgentActionKind,
   AgentNodeType,
   AgentRunStatus,
   AgentType,
@@ -44,6 +45,30 @@ export interface ConversationTurnContext {
   priorHandoffAgents: string[];
 }
 
+/**
+ * WHY a discriminated union and not `readOnlyOfficialRecords: boolean`: a boolean
+ * would compile everywhere and silently delete the read-only guarantee for all
+ * eight specialists at once. `readOnlyOfficialRecords: false` is paired with an
+ * explicit `permittedActions` list, so a specialist can only ever propose the
+ * action kinds it was granted — and a read-only specialist constructing a
+ * confirmation payload is a compile error, not a runtime hope (spec 017 D1).
+ */
+export interface ReadOnlySpecialistConstraints {
+  sentientOnly: true;
+  readOnlyOfficialRecords: true;
+  mustReturnToSupervisor: true;
+}
+
+export interface ActionCapableSpecialistConstraints {
+  sentientOnly: true;
+  readOnlyOfficialRecords: false;
+  mustReturnToSupervisor: true;
+  /** The exact action kinds this specialist may propose — nothing else. */
+  permittedActions: AgentActionKind[];
+}
+
+export type SpecialistConstraints = ReadOnlySpecialistConstraints | ActionCapableSpecialistConstraints;
+
 export interface SpecialistInput {
   conversationId: string;
   parentTaskLogId: string;
@@ -53,15 +78,43 @@ export interface SpecialistInput {
   conversationContext: ConversationTurnContext;
   sourceHints: string[];
   isDraftRequest: boolean;
-  constraints: {
-    sentientOnly: true;
-    readOnlyOfficialRecords: true;
-    mustReturnToSupervisor: true;
-  };
+  constraints: SpecialistConstraints;
+  /**
+   * Set by the supervisor when a life-event intent is detected (spec 017 FR-027).
+   * Read by FinalAnswerNodeService to choose the response's opening tone.
+   */
+  emotionalContext?: 'NEUTRAL' | 'COMPASSIONATE_SICK' | 'CELEBRATORY_PARENTAL' | 'EMPATHETIC_BEREAVEMENT';
 }
+
+/**
+ * The frozen payload a specialist returns from Propose (spec 017 FR-003).
+ * Persisted as `AgentActionProposal.payload` (Json), so at rest it is
+ * schemaless — the framework is specialist-agnostic (FR-011) and each action
+ * kind defines its own shape. `ActionConfirmationPayload` is the union of
+ * those shapes; today it has exactly one member because LEAVE_BOOKING is the
+ * only action kind. A second action kind widens the union here.
+ */
+export interface LeaveBookingConfirmationPayload {
+  leaveTypeId: string;
+  leaveTypeName: string;
+  startDate: string;
+  endDate: string;
+  businessDays: number;
+  currentBalance: number;
+  balanceAfter: number;
+  employeeId: string;
+}
+
+export type ActionConfirmationPayload = LeaveBookingConfirmationPayload;
 
 export interface SpecialistResult {
   agentType: AgentType;
+  /**
+   * WHY reused rather than a separate `SpecialistStatus` type: this already IS
+   * the specialist-status vocabulary — `FAILED` predates this feature and
+   * `PENDING_CONFIRMATION`/`UNVERIFIED` were added to this same Prisma enum
+   * (spec 017 FR-012), so no parallel status type is needed.
+   */
   status: AgentRunStatus;
   summary: string;
   userVisibleContent: string;
@@ -73,6 +126,10 @@ export interface SpecialistResult {
   tokensIn?: number;
   /** LLM completion/thinking tokens produced by this specialist's call. */
   tokensOut?: number;
+  /** Present only when status is PENDING_CONFIRMATION (spec 017 FR-012). */
+  confirmationPayload?: ActionConfirmationPayload;
+  /** Single-use token bound server-side to confirmationPayload (spec 017 FR-003). */
+  confirmationToken?: string;
 }
 
 export interface HumanEscalationResult {

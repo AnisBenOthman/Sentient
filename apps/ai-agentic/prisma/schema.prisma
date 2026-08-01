@@ -65,6 +65,32 @@ enum AgentRunStatus {
   ESCALATED
   REFUSED
   OUT_OF_SCOPE
+  /// A mutating action was proposed and awaits the user's explicit confirm/cancel tap.
+  PENDING_CONFIRMATION
+  /// The downstream write apparently succeeded but the independent read-back did not confirm it.
+  UNVERIFIED
+
+  @@schema("ai_agent")
+}
+
+/// WHY a dedicated enum rather than a string: its existence is what makes the
+/// five-phase action-execution framework specialist-agnostic (spec 017 FR-011) —
+/// a future mutating action (e.g. leave cancellation) adds a member here, not a
+/// new state machine.
+enum AgentActionKind {
+  LEAVE_BOOKING
+
+  @@schema("ai_agent")
+}
+
+enum ActionProposalStatus {
+  /// Minted, awaiting confirm or cancel.
+  PENDING
+  /// Claimed by exactly one execute or cancel — terminal. Retry after failure
+  /// requires a new proposal (spec 017 FR-006).
+  CONSUMED
+  /// Swept past expiresAt without a decision.
+  EXPIRED
 
   @@schema("ai_agent")
 }
@@ -163,6 +189,8 @@ model Conversation {
   humanEscalations    HumanEscalation[]
   responseFeedback    ResponseFeedback[]
   permissionDecisions PermissionDecisionRecord[]
+  actionProposals     AgentActionProposal[]
+  scheduledFollowUps  ScheduledFollowUp[]
 
   @@index([ownerUserId, updatedAt])
   @@schema("ai_agent")
@@ -180,12 +208,96 @@ model Message {
   status         AgentRunStatus  @default(SUCCESS)
   createdAt      DateTime        @default(now()) @map("created_at")
 
-  conversation Conversation       @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  feedback     ResponseFeedback[]
+  conversation   Conversation          @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  feedback       ResponseFeedback[]
+  actionProposal AgentActionProposal?
 
   @@index([conversationId, createdAt])
   @@schema("ai_agent")
   @@map("messages")
+}
+
+/// The frozen payload plus the single-use confirmation token for a mutating
+/// specialist action (spec 017). A row, not a JSON blob on the conversation —
+/// a read-modify-write on a JSON blob cannot enforce single-use under a
+/// double-tap (spec 017 research.md R3). Consume is always a conditional
+/// updateMany, never read-then-write:
+///   updateMany({ where: { token, status: PENDING, expiresAt: { gt: now } },
+///                data:  { status: CONSUMED, consumedAt: now } })
+///   count === 1 → this caller owns the execution; count === 0 → refuse.
+model AgentActionProposal {
+  id             String               @id @default(uuid())
+  conversationId String               @map("conversation_id")
+  messageId      String               @unique @map("message_id")
+  token          String               @unique
+  actionKind     AgentActionKind      @map("action_kind")
+  status         ActionProposalStatus @default(PENDING)
+
+  /// WHY: scoping the token to the minting user and employee is what makes
+  /// cross-user replay impossible (FR-004). Re-checked at confirm time.
+  actorUserId     String @map("actor_user_id")
+  actorEmployeeId String @map("actor_employee_id")
+
+  /// The exact computed payload, frozen at propose time. Execute sends THIS,
+  /// never a payload re-derived from the confirm message (FR-001).
+  payload Json
+
+  /// Citations shown on the card before the user confirmed (FR-047/FR-048).
+  policyCitations Json? @map("policy_citations")
+
+  /// Set by Execute. Null until a downstream write is attempted.
+  executedAt       DateTime? @map("executed_at")
+  resultRecordId   String?   @map("result_record_id")
+  resultStatusCode Int?      @map("result_status_code")
+  resultErrorCode  String?   @map("result_error_code")
+
+  /// Set by Verify. Null when Execute failed or verification has not run.
+  verifiedAt        DateTime? @map("verified_at")
+  /// MATCHED | MISMATCHED | UNAVAILABLE
+  verificationState String?   @map("verification_state")
+
+  proposalLogId String?   @map("proposal_log_id")
+  expiresAt     DateTime  @map("expires_at")
+  consumedAt    DateTime? @map("consumed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message      Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([status, expiresAt])
+  @@index([conversationId, createdAt])
+  @@schema("ai_agent")
+  @@map("agent_action_proposals")
+}
+
+/// A pending proactive check-in bound to a conversation, user, and (optionally)
+/// the originating leave request (spec 017). Re-read at fire time under a
+/// SYSTEM context — the event bus is in-process only and cannot deliver
+/// leave.cancelled across services (FR-040).
+model ScheduledFollowUp {
+  id                String   @id @default(uuid())
+  conversationId    String   @map("conversation_id")
+  actorUserId       String   @map("actor_user_id")
+  employeeFirstName String   @map("employee_first_name")
+  /// SICK_LEAVE_WELLNESS_CHECK
+  followUpType      String   @map("follow_up_type")
+  followUpAt        DateTime @map("follow_up_at")
+
+  /// The booking this check-in is about. Null = no specific leave request
+  /// context was available at schedule time.
+  leaveRequestId String? @map("leave_request_id")
+
+  /// Null = pending. Non-null = handled, whether sent or suppressed.
+  resolvedAt DateTime? @map("resolved_at")
+  /// SENT | SUPPRESSED_CANCELLED | SUPPRESSED_STALE | SUPPRESSED_CONVERSATION_GONE
+  resolution String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([followUpAt, resolvedAt])
+  @@schema("ai_agent")
+  @@map("scheduled_follow_ups")
 }
 
 model AgentTaskLog {
