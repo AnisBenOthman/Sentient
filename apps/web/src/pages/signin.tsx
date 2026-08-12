@@ -7,6 +7,7 @@ import { Brain, Eye, EyeOff, ArrowRight, ArrowLeft } from "lucide-react";
 import { login } from "@/lib/api/hr-core";
 import { getGatewayErrorMessage } from "@/lib/api/gateway-error";
 import { useAuth } from "@/components/providers/auth-provider";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 /**
  * WHY: `roleKey` points at common.json's shared role labels rather than a
@@ -83,6 +84,8 @@ export default function SignIn() {
         className="relative z-10 bg-white rounded-[20px] p-10 w-full max-w-[420px] flex flex-col items-center"
         style={{ boxShadow: "0 8px 40px rgba(99,102,241,0.12)" }}
       >
+        {/* SCRATCH: visual QA for LanguageSwitcher, remove before commit */}
+        <div className="w-40 mb-4"><LanguageSwitcher collapsed={false} /></div>
         {/* Logo */}
         <div className="w-12 h-12 rounded-full bg-[#eef2ff] flex items-center justify-center mb-6">
           <Brain className="w-6 h-6 text-[#4f46e5]" />
