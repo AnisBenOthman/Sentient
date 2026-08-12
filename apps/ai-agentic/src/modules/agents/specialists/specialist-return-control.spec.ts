@@ -55,7 +55,21 @@ describe('specialist agents return structured control to supervisor', () => {
       getLeaveContext: async () => downstream,
       getOkrContext: async () => downstream,
       getSkillsContext: async () => downstream,
-      getDashboardContext: async () => downstream,
+      // WHY its own shape: getDashboardContext always pairs the payload with the
+      // population it covers, so the generic downstream stub would not be realistic.
+      getDashboardContext: async () => ({
+        ...downstream,
+        data: {
+          id: 'context-1',
+          scope: {
+            level: 'ORGANIZATION',
+            label: 'Entire organization — every department and team combined, not any single group',
+            departmentId: null,
+            teamId: null,
+            businessUnitId: null,
+          },
+        },
+      }),
     } as unknown as HrCoreAiClient;
     const social = {
       getOnboardingContext: async () => downstream,

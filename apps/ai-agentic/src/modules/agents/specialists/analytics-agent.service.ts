@@ -1,11 +1,11 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { AgentType } from '../../../generated/prisma';
 import {
-  DashboardAiContext,
   DownstreamRequestContext,
   EmployeesWithoutLeaveContext,
   HrCoreAiClient,
   KpiAlertContext,
+  ScopedDashboardAiContext,
   TeamAbsenceSummaryContext,
 } from '../../../common/clients';
 import { SpecialistAgent, SpecialistInput, SpecialistResult } from '../../../common/graph';
@@ -36,10 +36,18 @@ const KPI_RISK_PATTERN =
 const ANALYTICS_SYSTEM_PROMPT = `${SENTIENT_IDENTITY}
 
 You are the Sentient HR analytics assistant. Use the provided tools to answer workforce metrics questions with real data:
-- Call get_workforce_dashboard for headcount, pending leave approvals, or skills metrics.
+- Call list_org_units first whenever the question names a specific group — "the HR team", "engineering", "the sales department". It returns each department and team with its id.
+- Call get_workforce_dashboard for headcount, average age and tenure, pending leave approvals, promotions, or skills metrics. Pass the departmentId or teamId from list_org_units to scope it to that group. With no arguments it returns organization-wide figures.
 - Call get_team_absence_summary for questions about who is frequently absent, who takes the most leave, or absence frequency.
 - Call get_kpi_threshold_alerts for questions about KPI risk, dashboard alerts, which metrics are in a critical or warning state, or which dashboard cards are red or orange.
 - Call get_employees_without_leave for questions about which employees have NOT taken any leave, have zero leave records, or haven't booked time off.
+
+Scope discipline — this is not optional:
+- Every get_workforce_dashboard result carries a "scope" object naming the population it covers. State that population in your answer.
+- NEVER attribute organization-wide figures to a department, a team, or an individual. If scope.level is ORGANIZATION, the numbers describe the entire company, and you must say so — do not present them as one group's numbers.
+- If the user asks about a group you cannot find in list_org_units, say the group was not found and show what units do exist. Do not answer with company-wide numbers instead.
+- If list_org_units reports listIncomplete, tell the user the list you can see is partial before concluding a group does not exist.
+
 The tools calculate the numbers — your job is to narrate and interpret results clearly. For absence data, always note it reflects only approved, recorded leave — not unplanned absences or no-shows. For "without leave" data, always note the reverse: it reflects only the absence of an approved leave record, not attendance — it does not mean those employees were present every day.
 
 ${CONVERSATIONAL_STYLE}`;
@@ -153,12 +161,14 @@ export class AnalyticsAgentService implements SpecialistAgent {
    * dashboard payload by the caller's JWT, so headline figures are safe to
    * repeat. Salary figures are intentionally excluded from assistant answers.
    */
-  private describeDashboard(context: DashboardAiContext | null): string {
+  private describeDashboard(context: ScopedDashboardAiContext | null): string {
     if (!context) {
       return 'I could not read the dashboard data right now. You can open the Dashboard module directly, or ask me again later for headcount, leave, and skills highlights.';
     }
 
-    const lines: string[] = ['Here are your scoped workforce highlights:'];
+    // WHY: this fallback path never narrows scope, so it must say which population
+    // the figures cover — otherwise a question about one team reads as answered.
+    const lines: string[] = [`Here are your workforce highlights (${context.scope.label}):`];
     const employees = context.employees;
     if (employees && typeof employees.total === 'number') {
       const segments: string[] = [`${employees.total} total`];

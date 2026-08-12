@@ -40,6 +40,13 @@ const MOCK_DASHBOARD_CONTEXT = {
     employees: { total: 128, active: 110, onLeave: 6, probation: 12 },
     leave: { pendingApprovals: 4 },
     skills: { averageScore: 3.4, skillsTracked: 42, topSkill: 'TypeScript' },
+    scope: {
+      level: 'ORGANIZATION',
+      label: 'Entire organization — every department and team combined, not any single group',
+      departmentId: null,
+      teamId: null,
+      businessUnitId: null,
+    },
   },
   permissionDecision: PermissionDecision.ALLOWED,
   degradedReason: null,

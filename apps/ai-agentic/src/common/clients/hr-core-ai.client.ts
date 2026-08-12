@@ -136,6 +136,122 @@ export interface DashboardAiContext extends DownstreamSummary {
   } | null;
 }
 
+/**
+ * Narrowing selector forwarded to HR Core's GET /analytics/dashboard.
+ *
+ * WHY only ids and no `level`: HR Core's `buildScopedEmployeeWhere` reads
+ * businessUnitId / departmentId / teamId exclusively — `level` is never
+ * consulted. Sending `level=dept` without a departmentId would silently
+ * return organization-wide figures, which is precisely the failure this
+ * type exists to prevent.
+ */
+export interface DashboardScopeSelector {
+  departmentId?: string | null;
+  teamId?: string | null;
+  businessUnitId?: string | null;
+}
+
+/**
+ * The population a dashboard payload actually describes.
+ *
+ * WHY this is never omitted, not even for the unscoped call: an absent scope
+ * field lets the LLM assume the numbers match whatever the user asked about,
+ * so organization-wide totals get relabelled as "the HR team's". A present,
+ * explicit `ORGANIZATION` label contradicts that assumption directly.
+ */
+export interface DashboardScopeEcho {
+  level: 'ORGANIZATION' | 'BUSINESS_UNIT' | 'DEPARTMENT' | 'TEAM';
+  label: string;
+  departmentId: string | null;
+  teamId: string | null;
+  businessUnitId: string | null;
+}
+
+/** A dashboard payload paired with the population it covers. */
+export interface ScopedDashboardAiContext extends DashboardAiContext {
+  scope: DashboardScopeEcho;
+}
+
+/** One selectable org unit the analytics scope selector accepts. */
+export interface OrgUnitRef {
+  id: string;
+  name: string;
+  code?: string | null;
+  departmentId?: string | null;
+}
+
+export interface OrgUnitsAiContext extends DownstreamSummary {
+  departments: OrgUnitRef[];
+  teams: OrgUnitRef[];
+  /**
+   * WHY surfaced rather than swallowed: TeamsService.findAll returns only the
+   * caller's own team for a non-admin manager, and both lists are page-limited.
+   * Without this flag the LLM would read a short list as the whole org and
+   * confidently answer "there is no HR department".
+   */
+  listIncomplete: boolean;
+  incompleteReason: string | null;
+}
+
+/** Cursor page envelope returned by HR Core's org-unit list endpoints. */
+interface OrgUnitPageRaw {
+  data?: Array<{ id?: string; name?: string; code?: string | null; departmentId?: string | null }>;
+  nextCursor?: string | null;
+  total?: number;
+}
+
+/** Matches HR Core's `@IsUUID()` on DashboardAnalyticsQueryDto scope params. */
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isUuid(value: string): boolean {
+  return UUID_PATTERN.test(value);
+}
+
+/** Highest-resolution selector wins: team narrows more than department, which narrows more than BU. */
+function describeScope(
+  selector: DashboardScopeSelector,
+  names: { departmentName?: string | null; teamName?: string | null; businessUnitName?: string | null } = {},
+): DashboardScopeEcho {
+  const departmentId = selector.departmentId ?? null;
+  const teamId = selector.teamId ?? null;
+  const businessUnitId = selector.businessUnitId ?? null;
+
+  if (teamId) {
+    return {
+      level: 'TEAM',
+      label: names.teamName ? `Team: ${names.teamName}` : `Team ${teamId}`,
+      departmentId,
+      teamId,
+      businessUnitId,
+    };
+  }
+  if (departmentId) {
+    return {
+      level: 'DEPARTMENT',
+      label: names.departmentName ? `Department: ${names.departmentName}` : `Department ${departmentId}`,
+      departmentId,
+      teamId,
+      businessUnitId,
+    };
+  }
+  if (businessUnitId) {
+    return {
+      level: 'BUSINESS_UNIT',
+      label: names.businessUnitName ? `Business unit: ${names.businessUnitName}` : `Business unit ${businessUnitId}`,
+      departmentId,
+      teamId,
+      businessUnitId,
+    };
+  }
+  return {
+    level: 'ORGANIZATION',
+    label: 'Entire organization — every department and team combined, not any single group',
+    departmentId: null,
+    teamId: null,
+    businessUnitId: null,
+  };
+}
+
 /** One HR Core ThresholdIndicator row (active thresholds only). */
 export interface ThresholdConfig {
   id: string;
@@ -611,8 +727,92 @@ export class HrCoreAiClient {
     return this.get('/notifications', context, 'NOTIFICATIONS', 'Notifications');
   }
 
-  getDashboardContext(context: DownstreamRequestContext): Promise<DownstreamResult<DashboardAiContext>> {
-    return this.get<DashboardAiContext>('/analytics/dashboard', context, 'DASHBOARD', 'Dashboard analytics');
+  /**
+   * WHY the scope selector and the returned `scope` echo are inseparable: HR Core
+   * defaults an unqualified /analytics/dashboard call to the caller's full visible
+   * population. For an HR_ADMIN that is the whole company, so a question about one
+   * department silently receives company-wide aggregates. Forwarding the ids fixes
+   * the numbers; echoing the resulting population back tells the consumer which
+   * group those numbers describe, so an unscoped result can never be narrated as a
+   * departmental one.
+   *
+   * Names are optional and used only for the human-readable label — the ids are
+   * what HR Core filters on.
+   */
+  async getDashboardContext(
+    context: DownstreamRequestContext,
+    selector: DashboardScopeSelector = {},
+    names: { departmentName?: string | null; teamName?: string | null; businessUnitName?: string | null } = {},
+  ): Promise<DownstreamResult<ScopedDashboardAiContext>> {
+    const query = new URLSearchParams();
+    if (selector.departmentId) query.set('departmentId', selector.departmentId);
+    if (selector.teamId) query.set('teamId', selector.teamId);
+    if (selector.businessUnitId) query.set('businessUnitId', selector.businessUnitId);
+
+    const queryString = query.toString();
+    const path = queryString.length > 0 ? `/analytics/dashboard?${queryString}` : '/analytics/dashboard';
+    const result = await this.get<DashboardAiContext>(path, context, 'DASHBOARD', 'Dashboard analytics');
+
+    if (result.permissionDecision !== PermissionDecision.ALLOWED || result.data == null) {
+      return { ...result, data: null };
+    }
+
+    return { ...result, data: { ...result.data, scope: describeScope(selector, names) } };
+  }
+
+  /**
+   * WHY a lookup tool rather than name matching inside the agent: department and
+   * team names are tenant data ("People Ops", "Human Resources", "HR & Talent"),
+   * so any hardcoded alias table in the AI service would rot. The LLM matches the
+   * user's phrasing against the real list, then passes back the id that
+   * getDashboardContext can actually filter on.
+   */
+  async getOrgUnitsContext(context: DownstreamRequestContext): Promise<DownstreamResult<OrgUnitsAiContext>> {
+    const [departmentsResult, teamsResult] = await Promise.all([
+      this.get<OrgUnitPageRaw>('/departments?limit=200', context, 'ORG_UNITS', 'Departments and teams'),
+      this.get<OrgUnitPageRaw>('/teams?limit=200', context, 'ORG_UNITS', 'Departments and teams'),
+    ]);
+
+    if (departmentsResult.permissionDecision !== PermissionDecision.ALLOWED) {
+      return { ...departmentsResult, data: null };
+    }
+
+    const departmentsPage = departmentsResult.data;
+    const teamsPage = teamsResult.permissionDecision === PermissionDecision.ALLOWED ? teamsResult.data : null;
+
+    const departments: OrgUnitRef[] = (departmentsPage?.data ?? [])
+      .filter((row): row is { id: string; name: string; code?: string | null } =>
+        typeof row.id === 'string' && typeof row.name === 'string')
+      .map((row) => ({ id: row.id, name: row.name, code: row.code ?? null }));
+
+    const teams: OrgUnitRef[] = (teamsPage?.data ?? [])
+      .filter((row): row is { id: string; name: string; departmentId?: string | null } =>
+        typeof row.id === 'string' && typeof row.name === 'string')
+      .map((row) => ({ id: row.id, name: row.name, departmentId: row.departmentId ?? null }));
+
+    const reasons: string[] = [];
+    if (teamsResult.permissionDecision !== PermissionDecision.ALLOWED) {
+      reasons.push('The team list is not visible with your permissions.');
+    } else if (teamsPage?.nextCursor) {
+      reasons.push('More teams exist than were returned in this page.');
+    }
+    if (departmentsPage?.nextCursor) {
+      reasons.push('More departments exist than were returned in this page.');
+    }
+
+    return {
+      data: {
+        id: 'org:units',
+        departments,
+        teams,
+        listIncomplete: reasons.length > 0,
+        incompleteReason: reasons.length > 0 ? reasons.join(' ') : null,
+      },
+      permissionDecision: PermissionDecision.ALLOWED,
+      degradedReason: reasons.length > 0 ? reasons.join(' ') : null,
+      sourceType: 'ORG_UNITS',
+      sourceTitle: 'Departments and teams',
+    };
   }
 
   /**

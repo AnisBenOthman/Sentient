@@ -1,6 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PermissionDecision } from '../../../generated/prisma';
-import { DownstreamRequestContext, DownstreamResult, HrCoreAiClient, SocialAiClient } from '../../../common/clients';
+import {
+  DashboardScopeSelector,
+  DownstreamRequestContext,
+  DownstreamResult,
+  HrCoreAiClient,
+  SocialAiClient,
+  isUuid,
+} from '../../../common/clients';
 import { KnowledgeRepository } from '../../knowledge';
 import { AgentTool } from './agent-tool.types';
 
@@ -18,6 +25,37 @@ function toolOutput<T>(result: DownstreamResult<T>): unknown {
     return { denied: true, reason: result.degradedReason ?? 'Access denied with current permissions' };
   }
   return { unavailable: true, reason: result.degradedReason ?? 'Data temporarily unavailable' };
+}
+
+const SCOPE_ARG_KEYS = ['departmentId', 'teamId', 'businessUnitId'] as const;
+
+/**
+ * WHY validate here instead of letting HR Core reject it: HR Core answers a
+ * malformed uuid with HTTP 400, which HttpJsonClient flattens to the generic
+ * "temporarily unavailable" degradation — the model would read an infrastructure
+ * hiccup and give up, rather than a correctable mistake. A named error tells it
+ * exactly how to recover, so a hallucinated `departmentId: "HR"` becomes one
+ * retry through list_org_units instead of a silent fallback to global figures.
+ */
+function readScopeSelector(
+  args: Record<string, unknown>,
+): { selector: DashboardScopeSelector } | { error: string } {
+  const selector: DashboardScopeSelector = {};
+
+  for (const key of SCOPE_ARG_KEYS) {
+    const raw = args[key];
+    if (raw == null || raw === '') continue;
+    if (typeof raw !== 'string' || !isUuid(raw)) {
+      return {
+        error:
+          `${key} must be an id returned by list_org_units, not a name. ` +
+          'Call list_org_units, find the unit whose name matches what the user asked about, and pass its id.',
+      };
+    }
+    selector[key] = raw;
+  }
+
+  return { selector };
 }
 
 /**
@@ -124,14 +162,65 @@ export class ToolRegistryService {
   }
 
   getAnalyticsTools(context: DownstreamRequestContext): AgentTool[] {
+    /**
+     * WHY a per-toolset map rather than a second HTTP lookup: the scope echo reads
+     * better as "Department: Human Resources" than as a bare uuid, and the names
+     * are already in hand once list_org_units has run. If the model skips that
+     * lookup the map is empty and the echo falls back to the id — degraded label,
+     * never a wrong one, and never an extra round trip.
+     */
+    const knownUnitNames = new Map<string, string>();
+
     return [
+      {
+        declaration: {
+          name: 'list_org_units',
+          description:
+            'List the departments and teams that workforce metrics can be filtered by, with the id of each. Call this FIRST whenever the question names a group — "the HR team", "engineering", "sales department" — so you can look up that group\'s id, then pass the id to get_workforce_dashboard. This includes short follow-ups that narrow an earlier question ("i want for HR team", "and for engineering?", "what about sales"): those name a group too, and answering one without a scope id would just repeat the previous, wider numbers.',
+        },
+        run: async (_args) => {
+          const result = await this.hrCore.getOrgUnitsContext(context);
+          for (const unit of [...(result.data?.departments ?? []), ...(result.data?.teams ?? [])]) {
+            knownUnitNames.set(unit.id, unit.name);
+          }
+          return toolOutput(result);
+        },
+      },
       {
         declaration: {
           name: 'get_workforce_dashboard',
           description:
-            'Get scoped workforce dashboard metrics: headcount (total, active, on leave, on probation), pending leave approvals, and skills summary (tracked skills, top skill, average score).',
+            'Get workforce dashboard metrics: headcount, average age and tenure, pending leave approvals, promotions, and skills summary. Called with no arguments it returns ORGANIZATION-WIDE figures covering every department combined. To get figures for one department or team, first call list_org_units, then pass that unit\'s id here. The response always includes a "scope" object naming the population the numbers describe — report that population, never a different one.',
+          parameters: {
+            type: 'object',
+            properties: {
+              departmentId: {
+                type: 'string',
+                description: 'Optional department id from list_org_units. Restricts every metric to that department.',
+              },
+              teamId: {
+                type: 'string',
+                description: 'Optional team id from list_org_units. Restricts every metric to that team.',
+              },
+              businessUnitId: {
+                type: 'string',
+                description: 'Optional business unit id. Restricts every metric to that business unit.',
+              },
+            },
+          },
         },
-        run: async (_args) => toolOutput(await this.hrCore.getDashboardContext(context)),
+        run: async (args) => {
+          const parsed = readScopeSelector(args);
+          if ('error' in parsed) return parsed;
+          const { selector } = parsed;
+          return toolOutput(
+            await this.hrCore.getDashboardContext(context, selector, {
+              departmentName: selector.departmentId ? knownUnitNames.get(selector.departmentId) ?? null : null,
+              teamName: selector.teamId ? knownUnitNames.get(selector.teamId) ?? null : null,
+              businessUnitName: selector.businessUnitId ? knownUnitNames.get(selector.businessUnitId) ?? null : null,
+            }),
+          );
+        },
       },
       {
         declaration: {
