@@ -9,6 +9,7 @@ import { AppService } from './app.service';
 import { CorrelationIdMiddleware } from './common/middleware';
 import { EventBusModule } from './common/event-bus/event-bus.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { ChannelIdentitiesModule } from './modules/channel-identities/channel-identities.module';
 import { EmployeesModule } from './modules/employees/employees.module';
 import { IamModule } from './modules/iam/iam.module';
 import { UserStatusGuard } from './modules/iam/guards/user-status.guard';
@@ -41,6 +42,7 @@ import { PrismaModule } from './prisma/prisma.module';
     EventBusModule,
     PrismaModule,
     IamModule,
+    ChannelIdentitiesModule,
     AnalyticsModule,
     OrganizationModule,
     EmployeesModule,

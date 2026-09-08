@@ -4,6 +4,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { TelegramModule } from './channels/telegram/telegram.module';
+import { ClientsModule } from './common/clients/clients.module';
 import { CorrelationIdMiddleware } from './common/middleware';
 import { PrismaModule } from './prisma/prisma.module';
 
@@ -23,6 +25,8 @@ import { PrismaModule } from './prisma/prisma.module';
       ],
     }),
     PrismaModule,
+    ClientsModule,
+    TelegramModule,
   ],
   controllers: [AppController],
   providers: [
