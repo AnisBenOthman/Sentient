@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Decimal } from '../../../generated/prisma/runtime/library';
+import { Prisma } from '../../../generated/prisma';
 import { LeaveBalance, LeaveBalanceAdjustment } from '../../../generated/prisma';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AdjustBalanceDto } from '../dto/adjust-balance.dto';
@@ -10,10 +10,10 @@ export interface LeaveBalanceDto {
   leaveTypeId: string;
   leaveTypeName: string;
   year: number;
-  totalDays: Decimal;
-  usedDays: Decimal;
-  pendingDays: Decimal;
-  remainingDays: Decimal;
+  totalDays: Prisma.Decimal;
+  usedDays: Prisma.Decimal;
+  pendingDays: Prisma.Decimal;
+  remainingDays: Prisma.Decimal;
 }
 
 @Injectable()
@@ -38,7 +38,7 @@ export class BalancesService {
     if (!balance) throw new NotFoundException(`LeaveBalance ${balanceId} not found`);
 
     const previousTotalDays = balance.totalDays;
-    const newTotalDays = new Decimal(dto.newTotalDays);
+    const newTotalDays = new Prisma.Decimal(dto.newTotalDays);
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const updatedBalance = await tx.leaveBalance.update({

@@ -1,7 +1,6 @@
 import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { randomUUID } from 'crypto';
-import { Decimal } from '../../../generated/prisma/runtime/library';
 import { AccrualFrequency, EmploymentStatus, Prisma } from '../../../generated/prisma';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { resolveEmployeeBusinessUnitId } from '../util/bu-resolver.util';
@@ -26,7 +25,7 @@ export class AccrualService {
 
     for (const balance of priorBalances) {
       const remaining = balance.totalDays.minus(balance.usedDays).minus(balance.pendingDays);
-      const carryDays = Decimal.min(remaining, balance.leaveType.maxCarryoverDays);
+      const carryDays = Prisma.Decimal.min(remaining, balance.leaveType.maxCarryoverDays);
       const forfeited = remaining.minus(carryDays);
 
       const nextBalance = await this.prisma.leaveBalance.upsert({
@@ -43,8 +42,8 @@ export class AccrualService {
           leaveTypeId: balance.leaveTypeId,
           year: nextYear,
           totalDays: carryDays,
-          usedDays: new Decimal(0),
-          pendingDays: new Decimal(0),
+          usedDays: new Prisma.Decimal(0),
+          pendingDays: new Prisma.Decimal(0),
         },
       });
 
@@ -134,8 +133,8 @@ export class AccrualService {
 
         const increment =
           leaveType.accrualFrequency === AccrualFrequency.MONTHLY
-            ? new Decimal(leaveType.defaultDaysPerYear).dividedBy(12).toDecimalPlaces(2)
-            : new Decimal(leaveType.defaultDaysPerYear);
+            ? new Prisma.Decimal(leaveType.defaultDaysPerYear).dividedBy(12).toDecimalPlaces(2)
+            : new Prisma.Decimal(leaveType.defaultDaysPerYear);
 
         const balance = await this.prisma.leaveBalance.upsert({
           where: {
@@ -151,8 +150,8 @@ export class AccrualService {
             leaveTypeId: leaveType.id,
             year,
             totalDays: increment,
-            usedDays: new Decimal(0),
-            pendingDays: new Decimal(0),
+            usedDays: new Prisma.Decimal(0),
+            pendingDays: new Prisma.Decimal(0),
           },
         });
 

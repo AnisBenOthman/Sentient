@@ -1,7 +1,6 @@
 import { ChannelType, JwtPayload, PermissionScope } from '@sentient/shared';
 import { AnalyticsService } from './analytics.service';
 import { ContractType, EmploymentStatus, Gender, MaritalStatus, Prisma } from '../../generated/prisma';
-import { Decimal } from '../../generated/prisma/runtime/library';
 import { PrismaService } from '../../prisma/prisma.service';
 
 const mockPrisma = {
@@ -53,7 +52,7 @@ function employeeRow(
     hireDate: overrides.hireDate ?? new Date('2024-01-01T00:00:00.000Z'),
     employmentStatus,
     contractType: overrides.contractType ?? ContractType.FULL_TIME,
-    grossSalary: new Decimal(grossSalary),
+    grossSalary: new Prisma.Decimal(grossSalary),
     netSalary: null,
     gender: overrides.contractType === ContractType.FIXED_TERM ? Gender.FEMALE : Gender.MALE,
     maritalStatus: null,

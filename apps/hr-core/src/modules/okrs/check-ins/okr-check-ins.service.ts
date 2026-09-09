@@ -19,7 +19,6 @@ import {
   ObjectiveLevel,
 } from '@sentient/shared';
 
-import { Decimal } from '../../../generated/prisma/runtime/library';
 import {
   OkrCheckIn,
   OkrCheckInStatus as PrismaOkrCheckInStatus,
@@ -65,7 +64,7 @@ export class OkrCheckInsService {
       throw new BadRequestException('NotAssigned');
     }
 
-    const valueDecimal = new Decimal(dto.value);
+    const valueDecimal = new Prisma.Decimal(dto.value);
 
     if (kr.metricType === 'BOOLEAN') {
       if (!valueDecimal.equals(0) && !valueDecimal.equals(1)) {
@@ -213,7 +212,7 @@ export class OkrCheckInsService {
 
     const now = new Date();
     const valueDecimal = checkIn.value;
-    const scoreDecimal = new Decimal(checkIn.score.toString());
+    const scoreDecimal = new Prisma.Decimal(checkIn.score.toString());
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const approved = await tx.okrCheckIn.update({
@@ -228,7 +227,7 @@ export class OkrCheckInsService {
       const kr = checkIn.keyResult;
       const newScore = computeScore(
         kr.metricType as unknown as KeyResultMetricType,
-        new Decimal(valueDecimal.toString()),
+        new Prisma.Decimal(valueDecimal.toString()),
         kr.targetValue,
       );
       const scoreNum = newScore.toNumber();
