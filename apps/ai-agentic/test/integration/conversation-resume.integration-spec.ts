@@ -97,6 +97,7 @@ describe('conversation resume context', () => {
       new ConversationContextService(prisma),
       { titleFrom: (value: string) => value, previewFrom: (value: string) => value, initialTitle: () => 'Sentient AI conversation' } as never,
       { maybeSummarize: async () => undefined } as never,
+      {} as never,
     );
 
     await service.sendMessage('conversation-1', actor, { message: 'And last leave date?' });

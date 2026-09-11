@@ -76,6 +76,19 @@ export class FinalAnswerNodeService {
     if (input.policyRefusalMessage) return AgentRunStatus.REFUSED;
     if (input.clarificationQuestion) return AgentRunStatus.PARTIAL;
     if (input.specialistResults.length > 0) {
+      /**
+       * WHY ahead of the failed/non-success checks: a pending proposal is a
+       * COMPLETED specialist turn awaiting a human tap, not a partial failure
+       * (spec 017 FR-012). The generic `anyNonSuccess` branch below would fold
+       * it into PARTIAL, and the stored Message.status is what tells the web and
+       * Telegram cards to render confirm/cancel at all (FR-042) — collapsing it
+       * silently disables the entire confirmation surface.
+       */
+      const pendingConfirmation = input.specialistResults.some(
+        (result) => result.status === AgentRunStatus.PENDING_CONFIRMATION,
+      );
+      if (pendingConfirmation) return AgentRunStatus.PENDING_CONFIRMATION;
+
       const failed = input.specialistResults.filter((result) =>
         FAILED_SPECIALIST_STATUSES.includes(result.status),
       );

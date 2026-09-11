@@ -11,6 +11,7 @@ import {
 import { AnalyticsSqlModule } from '../analytics-sql';
 import { KnowledgeModule } from '../knowledge';
 import { ActionAuditService } from './actions/action-audit.service';
+import { ActionProposalService } from './actions/action-proposal.service';
 import { AgentHandoffService } from './agent-handoff.service';
 import { AgentNodeRunService } from './agent-node-run.service';
 import { AgentRegistryService } from './agent-registry.service';
@@ -49,6 +50,7 @@ import { ToolRegistryService } from './tools/tool-registry.service';
   imports: [KnowledgeModule, AnalyticsSqlModule],
   providers: [
     ActionAuditService,
+    ActionProposalService,
     ActorContextFactory,
     AgentGuardrailService,
     AgentHandoffService,
@@ -118,6 +120,7 @@ import { ToolRegistryService } from './tools/tool-registry.service';
   ],
   exports: [
     ActionAuditService,
+    ActionProposalService,
     ActorContextFactory,
     AgentGuardrailService,
     AgentHandoffService,

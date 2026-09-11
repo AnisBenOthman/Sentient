@@ -107,6 +107,33 @@ export interface LeaveBookingConfirmationPayload {
 
 export type ActionConfirmationPayload = LeaveBookingConfirmationPayload;
 
+/**
+ * A policy passage shown on the card BEFORE the user confirms (spec 017 FR-047).
+ * An empty array is meaningful and distinct from absent: it means policy was
+ * consulted and nothing relevant was found, which the card states explicitly
+ * rather than staying silent (FR-019).
+ */
+export interface PolicyCitation {
+  sourceLabel: string;
+  excerpt: string;
+}
+
+/**
+ * What a specialist hands back from Propose so the turn can mint a proposal row.
+ *
+ * WHY this is separate from SpecialistResult.confirmationToken: the token cannot
+ * exist yet at this point. `AgentActionProposal.messageId` is a non-null unique FK
+ * to Message, and the assistant message is not created until after the graph has
+ * finished — so mint() runs in ConversationsService.executeTurn, not here. The
+ * specialist computes and freezes; the turn persists and mints.
+ */
+export interface PendingActionDraft {
+  actionKind: AgentActionKind;
+  /** Frozen at propose time. Execute sends THIS, never a re-derived payload (FR-001). */
+  payload: ActionConfirmationPayload;
+  policyCitations: PolicyCitation[];
+}
+
 export interface SpecialistResult {
   agentType: AgentType;
   /**
@@ -128,7 +155,25 @@ export interface SpecialistResult {
   tokensOut?: number;
   /** Present only when status is PENDING_CONFIRMATION (spec 017 FR-012). */
   confirmationPayload?: ActionConfirmationPayload;
-  /** Single-use token bound server-side to confirmationPayload (spec 017 FR-003). */
+  /**
+   * Which action the payload describes. Explicit rather than inferred from the
+   * payload's shape: ActionConfirmationPayload is a union whose members may not
+   * stay structurally distinguishable once a second action kind exists, and the
+   * capability check (permittedActionsFor) is expressed in these terms anyway.
+   */
+  pendingActionKind?: AgentActionKind;
+  /**
+   * Policy passages retrieved during Reason, frozen onto the proposal alongside
+   * the payload so the card can show what was consulted (FR-047).
+   */
+  policyCitations?: PolicyCitation[];
+  /**
+   * Single-use token bound server-side to confirmationPayload (spec 017 FR-003).
+   *
+   * NOTE: specialists never set this. It is minted by ActionProposalService once
+   * the assistant message exists (see PendingActionDraft). Kept on the result
+   * type because the supervisor lifts the minted token back onto the turn.
+   */
   confirmationToken?: string;
 }
 

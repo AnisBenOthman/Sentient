@@ -8,6 +8,7 @@ import {
   AiActorContext,
   FinalAnswerResult,
   HumanEscalationResult,
+  PendingActionDraft,
   SpecialistAgent,
   SpecialistInput,
   SpecialistResult,
@@ -155,6 +156,42 @@ export class SupervisorLangGraphRunnerService {
         status: state.finalAnswer.status,
         nodes: state.routingNodes,
       },
+      pendingAction: this.pendingActionFrom(state),
+    };
+  }
+
+  /**
+   * WHY keyed off the specialist's own status rather than finalAnswer.status: the
+   * final-answer node runs its output through FinalAnswerPolicyService, which can
+   * rewrite content and force REFUSED. Lifting the draft unconditionally here and
+   * letting ConversationsService gate the mint on the REVIEWED status means a swept
+   * turn simply never mints — a refusal can never ship with a live token attached.
+   */
+  private pendingActionFrom(state: SupervisorGraphState): PendingActionDraft | undefined {
+    const pending = state.specialistResults.find(
+      (result) => result.status === AgentRunStatus.PENDING_CONFIRMATION,
+    );
+    if (!pending?.confirmationPayload) return undefined;
+
+    if (!pending.pendingActionKind) return undefined;
+
+    /**
+     * Defence in depth: re-check the capability registry here, not just inside the
+     * specialist. permittedActionsFor is the same source the specialist's own
+     * constraints were built from (T008/T010), so a specialist that somehow emitted
+     * an action kind it was never granted is dropped rather than minted.
+     */
+    if (!permittedActionsFor(pending.agentType).includes(pending.pendingActionKind)) {
+      this.logger.error(
+        `Specialist ${pending.agentType} proposed ${pending.pendingActionKind} without the capability; draft discarded.`,
+      );
+      return undefined;
+    }
+
+    return {
+      actionKind: pending.pendingActionKind,
+      payload: pending.confirmationPayload,
+      policyCitations: pending.policyCitations ?? [],
     };
   }
 

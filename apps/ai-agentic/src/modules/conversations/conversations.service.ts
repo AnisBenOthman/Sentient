@@ -9,8 +9,9 @@ import {
   Prisma,
 } from '../../generated/prisma';
 import { PaginatedResponse, paginationToSkipTake, RoutingTrace } from '../../common/dto';
-import { AiActorContext, FinalAnswerResult } from '../../common/graph';
+import { AiActorContext, FinalAnswerResult, PendingActionDraft } from '../../common/graph';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ActionProposalService } from '../agents/actions/action-proposal.service';
 import { SupervisorAgentService } from '../agents/supervisor-agent.service';
 import {
   ConversationResponseMapper,
@@ -39,6 +40,7 @@ export class ConversationsService {
     private readonly contextBuilder: ConversationContextService,
     private readonly titles: ConversationTitleService,
     private readonly summarizer: ConversationSummarizerService,
+    private readonly proposals: ActionProposalService,
   ) {}
 
   async createConversation(
@@ -159,6 +161,7 @@ export class ConversationsService {
      */
     let finalAnswer: FinalAnswerResult;
     let routing: RoutingTrace;
+    let pendingAction: PendingActionDraft | undefined;
     let turnFailed = false;
     try {
       const supervisorResult = await this.supervisor.executeTurn({
@@ -191,6 +194,7 @@ export class ConversationsService {
       });
       finalAnswer = supervisorResult.finalAnswer;
       routing = supervisorResult.routing;
+      pendingAction = supervisorResult.pendingAction;
     } catch (error: unknown) {
       turnFailed = true;
       this.logger.error(
@@ -206,7 +210,7 @@ export class ConversationsService {
       routing = { status: AgentRunStatus.FAILED, nodes: [] };
     }
 
-    const assistantMessage = await this.prisma.message.create({
+    let assistantMessage = await this.prisma.message.create({
       data: {
         conversationId: conversation.id,
         role: MessageRole.ASSISTANT,
@@ -217,6 +221,41 @@ export class ConversationsService {
         status: finalAnswer.status,
       },
     });
+    /**
+     * Propose completes here, not inside the specialist.
+     *
+     * WHY gated on finalAnswer.status rather than on pendingAction alone:
+     * FinalAnswerPolicyService.review() can rewrite the content and force REFUSED
+     * after the specialist returned. Minting only when the REVIEWED status is still
+     * PENDING_CONFIRMATION means a swept turn never mints — a refusal can never ship
+     * with a live confirmation token attached to it.
+     */
+    if (pendingAction && finalAnswer.status === AgentRunStatus.PENDING_CONFIRMATION) {
+      try {
+        await this.proposals.mint(pendingAction, {
+          conversationId: conversation.id,
+          messageId: assistantMessage.id,
+          actor,
+        });
+      } catch (error: unknown) {
+        /**
+         * A card with no token is worse than no card: the user would see a booking
+         * summary with buttons that can never succeed. Demote the message so nothing
+         * renders a confirmation affordance.
+         */
+        this.logger.error(
+          `Failed to mint action proposal for message ${assistantMessage.id}: ${error instanceof Error ? error.message : 'unknown error'}`,
+          error instanceof Error ? error.stack : undefined,
+        );
+        assistantMessage = await this.prisma.message.update({
+          where: { id: assistantMessage.id },
+          data: { status: AgentRunStatus.FAILED, content: TURN_FAILURE_MESSAGE },
+        });
+        finalAnswer = { ...finalAnswer, status: AgentRunStatus.FAILED, content: TURN_FAILURE_MESSAGE };
+        routing = { ...routing, status: AgentRunStatus.FAILED };
+      }
+    }
+
     const updatedConversation = await this.prisma.conversation.update({
       where: { id: conversation.id },
       data: {

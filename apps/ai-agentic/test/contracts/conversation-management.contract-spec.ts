@@ -88,6 +88,7 @@ describe('AI conversation management contract', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     const result = await service.detail('conversation-1', actor);
@@ -139,6 +140,7 @@ describe('AI conversation management contract', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     await service.list(actor, { page: 1, pageSize: 20 });
@@ -170,6 +172,7 @@ describe('AI conversation management contract', () => {
           routing: { status: AgentRunStatus.SUCCESS, nodes: [] },
         }),
       } as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,
@@ -238,6 +241,7 @@ describe('AI conversation management contract', () => {
         initialTitle: () => 'Sentient AI conversation',
       } as never,
       { maybeSummarize: async () => undefined } as never,
+      {} as never,
     );
 
     const result = await service.sendMessage('conversation-1', actor, { message: 'hello' });
