@@ -105,6 +105,16 @@ export class ChannelIdentitiesService {
       scopeEntityId: ur.scopeEntityId,
     }));
 
+    // Revoke any existing active session on this channel before creating the
+    // new one — sessions_active_channel_uidx (userId, channel) WHERE revokedAt
+    // IS NULL only allows one active session per channel per user. Without
+    // this, every exchange after the first permanently 500s on that unique
+    // index (mirrors AuthService.login()'s revokeChannel-then-create order).
+    await this.prisma.session.updateMany({
+      where: { userId: user.id, channel: dto.channel, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+
     const { rawToken: rawRefresh } = this.tokens.generateRefreshToken();
     const sessionId = randomUUID();
 

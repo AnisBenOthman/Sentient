@@ -181,6 +181,27 @@ describe('ChannelIdentitiesService', () => {
       expect(result.accessToken).toBe('access-token');
       expect(result.refreshToken).toBe('raw-refresh');
     });
+
+    it('revokes the prior active session on this channel before creating the new one', async () => {
+      // Regression test: sessions_active_channel_uidx is a partial unique index
+      // on (userId, channel) WHERE revokedAt IS NULL. Without revoking the
+      // prior session first, every exchange after the first 500s on that
+      // constraint (a bot re-exchanges each time its cached token expires).
+      mockPrisma.channelIdentity.findUnique.mockResolvedValue({ userId: 'user-1' });
+      mockPrisma.user.findUnique.mockResolvedValue(baseUser);
+
+      await service.exchange(dto);
+
+      expect(mockPrisma.session.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1', channel: ChannelType.TELEGRAM, revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+      const [updateManyOrder] = mockPrisma.session.updateMany.mock.invocationCallOrder;
+      const [createOrder] = mockPrisma.session.create.mock.invocationCallOrder;
+      expect(updateManyOrder).toBeDefined();
+      expect(createOrder).toBeDefined();
+      expect(updateManyOrder as number).toBeLessThan(createOrder as number);
+    });
   });
 
   // ---- unlink ----
