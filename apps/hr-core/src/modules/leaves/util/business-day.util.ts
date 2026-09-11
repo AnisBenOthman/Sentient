@@ -1,4 +1,4 @@
-import { Decimal } from '../../../generated/prisma/runtime/library';
+import { Prisma } from '../../../generated/prisma';
 import { HalfDay } from '@sentient/shared';
 
 function toDateString(d: Date): string {
@@ -16,8 +16,8 @@ export function countBusinessDays(
   startHalfDay: HalfDay | null | undefined,
   endHalfDay: HalfDay | null | undefined,
   holidays: Set<string>,
-): Decimal {
-  let total = new Decimal(0);
+): Prisma.Decimal {
+  let total = new Prisma.Decimal(0);
   const current = new Date(startDate);
   current.setUTCHours(0, 0, 0, 0);
   const end = new Date(endDate);
@@ -34,16 +34,16 @@ export function countBusinessDays(
       if (isStart && isEnd) {
         // Single day: both flags set → 0.5 (any non-null half-day flag)
         if (startHalfDay !== null && startHalfDay !== undefined) {
-          total = total.plus(new Decimal('0.5'));
+          total = total.plus(new Prisma.Decimal('0.5'));
         } else {
-          total = total.plus(new Decimal('1'));
+          total = total.plus(new Prisma.Decimal('1'));
         }
       } else if (isStart && startHalfDay !== null && startHalfDay !== undefined) {
-        total = total.plus(new Decimal('0.5'));
+        total = total.plus(new Prisma.Decimal('0.5'));
       } else if (isEnd && endHalfDay !== null && endHalfDay !== undefined) {
-        total = total.plus(new Decimal('0.5'));
+        total = total.plus(new Prisma.Decimal('0.5'));
       } else {
-        total = total.plus(new Decimal('1'));
+        total = total.plus(new Prisma.Decimal('1'));
       }
     }
 

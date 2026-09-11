@@ -60,6 +60,7 @@ import {
 } from "@/lib/api/hr-core";
 import { getGatewayErrorMessage } from "@/lib/api/gateway-error";
 import { useAuth } from "@/components/providers/auth-provider";
+import { LinkedChannelsCard } from "@/components/linked-channels-card";
 import { getRoleTier } from "@/lib/auth";
 import {
   PERFORMANCE_RATING_LABELS,
@@ -432,6 +433,7 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
   const params = useParams<{ id: string }>();
   const id = employeeId ?? params.id ?? "";
   const { user } = useAuth();
+  const isSelf = !!user?.employeeId && user.employeeId === id;
   const queryClient = useQueryClient();
   const [editMode, setEditMode] = useState(false);
   const [draft, setDraft] = useState<DraftProfile | null>(null);
@@ -672,6 +674,7 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
           <TabsTrigger value="promotions">Promotion History {promotionRequests.length > 0 ? `(${promotionRequests.length})` : ""}</TabsTrigger>
           <TabsTrigger value="performance">Performance {reviews.length > 0 ? `(${reviews.length})` : ""}</TabsTrigger>
           {salaryHistory.length > 0 && <TabsTrigger value="salary">Salary History</TabsTrigger>}
+          {isSelf && <TabsTrigger value="channels">Linked Channels</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="details" className="mt-6">
@@ -1020,6 +1023,12 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                 </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+        )}
+
+        {isSelf && (
+          <TabsContent value="channels" className="mt-6 max-w-2xl">
+            <LinkedChannelsCard />
           </TabsContent>
         )}
       </Tabs>

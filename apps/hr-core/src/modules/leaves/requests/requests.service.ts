@@ -7,7 +7,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { Decimal } from '../../../generated/prisma/runtime/library';
 import { LeaveRequest, LeaveStatus, Prisma } from '../../../generated/prisma';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { IEventBus, EVENT_BUS, DomainEvent, JwtPayload, PermissionScope } from '@sentient/shared';
@@ -87,7 +86,7 @@ export class RequestsService {
       holidays,
     );
 
-    if (totalDays.equals(new Decimal(0))) {
+    if (totalDays.equals(new Prisma.Decimal(0))) {
       throw new BadRequestException('ZeroDayRequest');
     }
 
@@ -110,7 +109,7 @@ export class RequestsService {
         });
         const remainingDays = balance
           ? balance.totalDays.minus(balance.usedDays).minus(balance.pendingDays)
-          : new Decimal(0);
+          : new Prisma.Decimal(0);
         if (remainingDays.lessThan(totalDays)) {
           throw new BadRequestException('InsufficientBalance');
         }

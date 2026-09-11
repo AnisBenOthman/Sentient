@@ -5,7 +5,6 @@ import {
   ProficiencyLevel,
   SalaryChangeReason,
 } from '../../generated/prisma';
-import { Decimal } from '../../generated/prisma/runtime/library';
 import { JwtPayload, PermissionScope } from '@sentient/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DashboardAnalyticsQueryDto } from './dto/dashboard-analytics-query.dto';
@@ -640,7 +639,7 @@ export class AnalyticsService {
 
   private salaryAt(
     date: Date,
-    currentGrossSalary: Decimal | number | string | null,
+    currentGrossSalary: Prisma.Decimal | number | string | null,
     history: SalaryRow[],
   ): number {
     const latest = history
@@ -817,9 +816,9 @@ export class AnalyticsService {
     return distinct.values().next().value ?? null;
   }
 
-  private decimalToNumber(value: Decimal | number | string | null): number {
+  private decimalToNumber(value: Prisma.Decimal | number | string | null): number {
     if (value === null) return 0;
-    if (value instanceof Decimal) return value.toNumber();
+    if (value instanceof Prisma.Decimal) return value.toNumber();
     return Number(value);
   }
 

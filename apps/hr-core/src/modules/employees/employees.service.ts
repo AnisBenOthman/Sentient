@@ -19,7 +19,6 @@ import {
   SalaryChangeReason,
   SalaryHistory,
 } from '../../generated/prisma';
-import { Decimal } from '../../generated/prisma/runtime/library';
 import { IEventBus, EVENT_BUS, JwtPayload, PermissionScope, ProficiencyLevel, SkillDomain, SkillRequirementLevel } from '@sentient/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InviteService } from '../iam/services/invite.service';
@@ -151,8 +150,8 @@ export class EmployeesService {
         dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
         hireDate: new Date(dto.hireDate),
         contractType: dto.contractType as ContractType,
-        grossSalary: dto.grossSalary ? new Decimal(dto.grossSalary) : undefined,
-        netSalary: dto.netSalary ? new Decimal(dto.netSalary) : undefined,
+        grossSalary: dto.grossSalary ? new Prisma.Decimal(dto.grossSalary) : undefined,
+        netSalary: dto.netSalary ? new Prisma.Decimal(dto.netSalary) : undefined,
         gender: dto.gender as Gender | undefined,
         maritalStatus: dto.maritalStatus as MaritalStatus | undefined,
         educationLevel: dto.educationLevel as EducationLevel | undefined,
@@ -263,10 +262,10 @@ export class EmployeesService {
       await this.resolveTeamDepartmentAlignment(effectiveTeamId, effectiveDeptId);
     }
 
-    const incomingGross = dto.grossSalary ? new Decimal(dto.grossSalary) : undefined;
-    const incomingNet   = dto.netSalary   ? new Decimal(dto.netSalary)   : undefined;
-    const prevGross     = existing.grossSalary ?? new Decimal(0);
-    const prevNet       = existing.netSalary   ?? new Decimal(0);
+    const incomingGross = dto.grossSalary ? new Prisma.Decimal(dto.grossSalary) : undefined;
+    const incomingNet   = dto.netSalary   ? new Prisma.Decimal(dto.netSalary)   : undefined;
+    const prevGross     = existing.grossSalary ?? new Prisma.Decimal(0);
+    const prevNet       = existing.netSalary   ?? new Prisma.Decimal(0);
     const salaryChanged = incomingGross !== undefined && !incomingGross.equals(prevGross);
 
     let updated: EmployeeProfile;
@@ -742,8 +741,8 @@ export class EmployeesService {
 
   private buildUpdateData(
     dto: UpdateEmployeeDto,
-    incomingGross: Decimal | undefined,
-    incomingNet: Decimal | undefined,
+    incomingGross: Prisma.Decimal | undefined,
+    incomingNet: Prisma.Decimal | undefined,
   ): Prisma.EmployeeUpdateInput {
     return {
       ...(dto.firstName !== undefined && { firstName: dto.firstName }),

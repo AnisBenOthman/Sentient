@@ -220,6 +220,8 @@ enum SecurityEventType {
   ROLE_PERMISSION_ADDED
   ROLE_PERMISSION_REMOVED
   INVITE_SENT
+  CHANNEL_LINKED
+  CHANNEL_UNLINKED
   INVITE_CLAIMED
 
   @@schema("hr_core")
@@ -248,6 +250,7 @@ enum PermissionScope {
 enum ChannelType {
   WEB
   SLACK
+  TELEGRAM
   WHATSAPP
   EMAIL
   IN_APP
@@ -982,6 +985,8 @@ model User {
   sessions            Session[]
   passwordResetTokens PasswordResetToken[]
   inviteTokens        InviteToken[]
+  channelIdentities   ChannelIdentity[]
+  channelLinkCodes    ChannelLinkCode[]
   securityEvents      SecurityEvent[]
   notifications       Notification[]              @relation("UserNotifications")
   ownedObjectives     Objective[]                 @relation("UserOwnedObjectives")
@@ -1092,6 +1097,48 @@ model Session {
   @@map("sessions")
   @@index([userId])
   @@index([revokedAt])
+  @@index([expiresAt])
+}
+
+// ============================================================
+// DOMAIN: Channel Identities
+// WHY: Maps an external chat identity (Telegram chatId, Slack userId) to a
+// Sentient User so a message arriving over a free chat channel can be
+// resolved to a real, RBAC-scoped session — never a SYSTEM/GLOBAL bypass.
+// Linking is a two-step handshake: the user requests a one-time code from
+// the authenticated web app (ChannelLinkCode), then sends it to the bot,
+// which redeems it to create the ChannelIdentity mapping.
+// ============================================================
+
+model ChannelIdentity {
+  id         String      @id @default(uuid())
+  userId     String
+  channel    ChannelType
+  externalId String
+  linkedAt   DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([channel, externalId])
+  @@schema("hr_core")
+  @@map("channel_identities")
+  @@index([userId])
+}
+
+model ChannelLinkCode {
+  id         String      @id @default(uuid())
+  userId     String
+  channel    ChannelType
+  codeHash   String      @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@schema("hr_core")
+  @@map("channel_link_codes")
+  @@index([userId, channel])
   @@index([expiresAt])
 }
 

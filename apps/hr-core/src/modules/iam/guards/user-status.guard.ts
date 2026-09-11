@@ -43,6 +43,11 @@ export class UserStatusGuard implements CanActivate {
     const user = request.user;
     if (!user) return true;
 
+    // WHY: SYSTEM principals (minted by TokenService.signSystemToken) have no
+    // User row and no Session row by design — they authenticate via a
+    // separate short-lived secret, not account state. Skip both checks below.
+    if (user.sub === 'system') return true;
+
     // --- User status check (cached per userId) ---
     const cachedUser = this.cache.get(user.sub);
     if (cachedUser && Date.now() - cachedUser.cachedAt < CACHE_TTL_MS) {
@@ -59,8 +64,8 @@ export class UserStatusGuard implements CanActivate {
       this.assertStatus(status);
     }
 
-    // --- Session revocation check (skip for SYSTEM tokens — sub === 'system') ---
-    if (user.sessionId && user.sub !== 'system') {
+    // --- Session revocation check ---
+    if (user.sessionId) {
       await this.assertSessionActive(user.sessionId);
     }
 

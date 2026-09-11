@@ -6,6 +6,8 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { RbacGuard, SharedJwtGuard } from '@sentient/shared';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { TelegramModule } from './channels/telegram/telegram.module';
+import { ClientsModule } from './common/clients/clients.module';
 import { CorrelationIdMiddleware } from './common/middleware';
 import { aiAgenticConfig } from './config';
 import { AgentsModule } from './modules/agents';
@@ -38,6 +40,8 @@ import { PrismaModule } from './prisma/prisma.module';
     ConversationsModule,
     FeedbackModule,
     GovernanceModule,
+    ClientsModule,
+    TelegramModule,
   ],
   controllers: [AppController],
   providers: [

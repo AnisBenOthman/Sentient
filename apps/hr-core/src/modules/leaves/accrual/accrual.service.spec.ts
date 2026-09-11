@@ -1,7 +1,7 @@
 import { ConflictException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccrualFrequency, EmploymentStatus } from '../../../generated/prisma';
-import { Decimal } from '../../../generated/prisma/runtime/library';
+import { Prisma } from '../../../generated/prisma';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AccrualService } from './accrual.service';
 
@@ -20,7 +20,7 @@ function makeEmployee(buId: string, status = EmploymentStatus.ACTIVE) {
 }
 
 function makeLeaveType(frequency: AccrualFrequency, days = 24) {
-  return { id: `lt-${frequency}`, businessUnitId: 'bu-1', name: frequency, defaultDaysPerYear: new Decimal(days), accrualFrequency: frequency, maxCarryoverDays: new Decimal(5), requiresApproval: true, color: null, createdAt: new Date(), updatedAt: new Date() };
+  return { id: `lt-${frequency}`, businessUnitId: 'bu-1', name: frequency, defaultDaysPerYear: new Prisma.Decimal(days), accrualFrequency: frequency, maxCarryoverDays: new Prisma.Decimal(5), requiresApproval: true, color: null, createdAt: new Date(), updatedAt: new Date() };
 }
 
 describe('AccrualService', () => {
@@ -55,7 +55,7 @@ describe('AccrualService', () => {
     (prisma.leaveAccrualRun.update as jest.Mock).mockResolvedValue({});
     (prisma.employee.findMany as jest.Mock).mockResolvedValue([makeEmployee('bu-1')]);
     (prisma.leaveType.findMany as jest.Mock).mockResolvedValue([monthlyType, yearlyType]);
-    (prisma.leaveBalance.upsert as jest.Mock).mockResolvedValue({ id: 'bal-1', totalDays: new Decimal(2) });
+    (prisma.leaveBalance.upsert as jest.Mock).mockResolvedValue({ id: 'bal-1', totalDays: new Prisma.Decimal(2) });
     (prisma.leaveBalanceAdjustment.create as jest.Mock).mockResolvedValue({});
 
     await service.runMonthlyAccrual('2026-02');
@@ -70,7 +70,7 @@ describe('AccrualService', () => {
     (prisma.leaveAccrualRun.update as jest.Mock).mockResolvedValue({});
     (prisma.employee.findMany as jest.Mock).mockResolvedValue([makeEmployee('bu-1')]);
     (prisma.leaveType.findMany as jest.Mock).mockResolvedValue([yearlyType]);
-    (prisma.leaveBalance.upsert as jest.Mock).mockResolvedValue({ id: 'bal-1', totalDays: new Decimal(98) });
+    (prisma.leaveBalance.upsert as jest.Mock).mockResolvedValue({ id: 'bal-1', totalDays: new Prisma.Decimal(98) });
     (prisma.leaveBalanceAdjustment.create as jest.Mock).mockResolvedValue({});
 
     await service.runMonthlyAccrual('2026-01');
@@ -115,10 +115,10 @@ describe('AccrualService', () => {
     const leaveBalanceMock = prisma.leaveBalance as unknown as Record<string, jest.Mock>;
     leaveBalanceMock['findMany'] = jest.fn().mockResolvedValue([{
       id: 'bal-1', employeeId: 'emp-1', leaveTypeId: 'lt-1', year: 2025,
-      totalDays: new Decimal(10), usedDays: new Decimal(5), pendingDays: new Decimal(0),
-      leaveType: { maxCarryoverDays: new Decimal(0) },
+      totalDays: new Prisma.Decimal(10), usedDays: new Prisma.Decimal(5), pendingDays: new Prisma.Decimal(0),
+      leaveType: { maxCarryoverDays: new Prisma.Decimal(0) },
     }]);
-    (prisma.leaveBalance.upsert as jest.Mock).mockResolvedValue({ id: 'new-bal', totalDays: new Decimal(0) });
+    (prisma.leaveBalance.upsert as jest.Mock).mockResolvedValue({ id: 'new-bal', totalDays: new Prisma.Decimal(0) });
     (prisma.leaveBalanceAdjustment.create as jest.Mock).mockResolvedValue({});
 
     await service.runYearEndCarryover();

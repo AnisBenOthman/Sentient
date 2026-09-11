@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import { EVENT_BUS } from '@sentient/shared';
 import { HalfDay } from '@sentient/shared';
 import { LeaveStatus } from '../../../generated/prisma';
-import { Decimal } from '../../../generated/prisma/runtime/library';
+import { Prisma } from '../../../generated/prisma';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { HolidaysService } from '../holidays/holidays.service';
 import { RequestsService } from './requests.service';
@@ -18,9 +18,9 @@ function makeBalance(overrides: Partial<{
     employeeId: overrides.employeeId ?? 'emp-1',
     leaveTypeId: overrides.leaveTypeId ?? 'lt-1',
     year: overrides.year ?? 2026,
-    totalDays: new Decimal(overrides.totalDays ?? 15),
-    usedDays: new Decimal(overrides.usedDays ?? 0),
-    pendingDays: new Decimal(overrides.pendingDays ?? 0),
+    totalDays: new Prisma.Decimal(overrides.totalDays ?? 15),
+    usedDays: new Prisma.Decimal(overrides.usedDays ?? 0),
+    pendingDays: new Prisma.Decimal(overrides.pendingDays ?? 0),
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -48,7 +48,7 @@ function makeEmployee(buId: string | null = 'bu-1') {
 }
 
 function makeLeaveType(requiresApproval = true, buId = 'bu-1') {
-  return { id: 'lt-1', businessUnitId: buId, name: 'Annual', defaultDaysPerYear: new Decimal(24), accrualFrequency: 'MONTHLY', maxCarryoverDays: new Decimal(5), requiresApproval, color: null, isActive: true, createdAt: new Date(), updatedAt: new Date() };
+  return { id: 'lt-1', businessUnitId: buId, name: 'Annual', defaultDaysPerYear: new Prisma.Decimal(24), accrualFrequency: 'MONTHLY', maxCarryoverDays: new Prisma.Decimal(5), requiresApproval, color: null, isActive: true, createdAt: new Date(), updatedAt: new Date() };
 }
 
 describe('RequestsService', () => {
@@ -90,7 +90,7 @@ describe('RequestsService', () => {
       const txPrisma = {
         leaveRequest: {
           findFirst: jest.fn().mockResolvedValue(overrides.overlapping ?? null),
-          create: jest.fn().mockResolvedValue(overrides.createdRequest ?? { id: 'lr-1', status: LeaveStatus.PENDING, employeeId: 'emp-1', leaveTypeId: 'lt-1', startDate: new Date(), endDate: new Date(), totalDays: new Decimal(5), startHalfDay: null, endHalfDay: null, reason: null, reviewedById: null, reviewedAt: null, reviewNote: null, agentRiskAssessment: null, agentSuggestedDates: null, createdAt: new Date(), updatedAt: new Date() }),
+          create: jest.fn().mockResolvedValue(overrides.createdRequest ?? { id: 'lr-1', status: LeaveStatus.PENDING, employeeId: 'emp-1', leaveTypeId: 'lt-1', startDate: new Date(), endDate: new Date(), totalDays: new Prisma.Decimal(5), startHalfDay: null, endHalfDay: null, reason: null, reviewedById: null, reviewedAt: null, reviewNote: null, agentRiskAssessment: null, agentSuggestedDates: null, createdAt: new Date(), updatedAt: new Date() }),
         },
         leaveBalance: {
           findUnique: jest.fn().mockResolvedValue(overrides.balance !== undefined ? overrides.balance : makeBalance()),
@@ -120,7 +120,7 @@ describe('RequestsService', () => {
   it('auto-approves when requiresApproval=false', async () => {
     (prisma.employee.findUnique as jest.Mock).mockResolvedValue(makeEmployee());
     (prisma.leaveType.findUnique as jest.Mock).mockResolvedValue(makeLeaveType(false));
-    const approvedRequest = { id: 'lr-1', status: LeaveStatus.APPROVED, employeeId: 'emp-1', leaveTypeId: 'lt-1', startDate: new Date(), endDate: new Date(), totalDays: new Decimal(5), startHalfDay: null, endHalfDay: null, reason: null, reviewedById: null, reviewedAt: null, reviewNote: null, agentRiskAssessment: null, agentSuggestedDates: null, createdAt: new Date(), updatedAt: new Date() };
+    const approvedRequest = { id: 'lr-1', status: LeaveStatus.APPROVED, employeeId: 'emp-1', leaveTypeId: 'lt-1', startDate: new Date(), endDate: new Date(), totalDays: new Prisma.Decimal(5), startHalfDay: null, endHalfDay: null, reason: null, reviewedById: null, reviewedAt: null, reviewNote: null, agentRiskAssessment: null, agentSuggestedDates: null, createdAt: new Date(), updatedAt: new Date() };
     setupTransactionMock({ createdRequest: approvedRequest });
 
     const result = await service.create('emp-1', baseDto);
@@ -197,7 +197,7 @@ describe('RequestsService', () => {
     });
 
     await service.create('emp-1', { ...baseDto, startHalfDay: HalfDay.MORNING });
-    expect((capturedTotalDays as Decimal).toNumber()).toBe(4.5);
+    expect((capturedTotalDays as Prisma.Decimal).toNumber()).toBe(4.5);
   });
 
   it('throws NotOwner when employee tries to cancel another employee\'s request', async () => {

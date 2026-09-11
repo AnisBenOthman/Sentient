@@ -1299,6 +1299,35 @@ export async function deleteThresholdIndicator(id: string): Promise<void> {
   await hrClient.delete(`/threshold-indicators/${id}`);
 }
 
+// ── Channel Identities ───────────────────────────────────────────────────
+
+export type LinkableChannel = 'TELEGRAM';
+
+export interface ChannelIdentity {
+  channel: LinkableChannel;
+  externalId: string;
+  linkedAt: string;
+}
+
+export interface LinkCodeResponse {
+  code: string;
+  expiresAt: string;
+}
+
+export async function getLinkedChannels(): Promise<ChannelIdentity[]> {
+  const { data } = await hrClient.get<ChannelIdentity[]>('/channel-identities');
+  return data;
+}
+
+export async function generateChannelLinkCode(channel: LinkableChannel): Promise<LinkCodeResponse> {
+  const { data } = await hrClient.post<LinkCodeResponse>('/channel-identities/link-codes', { channel });
+  return data;
+}
+
+export async function unlinkChannel(channel: LinkableChannel): Promise<void> {
+  await hrClient.delete(`/channel-identities/${channel}`);
+}
+
 // ── OKR Types ─────────────────────────────────────────────────────────────
 
 export type OkrCycleType = 'ANNUAL' | 'QUARTERLY';

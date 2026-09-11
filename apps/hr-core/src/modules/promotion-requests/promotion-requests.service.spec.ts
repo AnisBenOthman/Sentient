@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { ChannelType, JwtPayload, PermissionScope } from '@sentient/shared';
-import { Decimal } from '../../generated/prisma/runtime/library';
+import { Prisma } from '../../generated/prisma';
 import { PromotionRequestStatus, SalaryChangeReason } from '../../generated/prisma';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PromotionRequestsService } from './promotion-requests.service';
@@ -51,13 +51,13 @@ function makeRequest(overrides: Partial<{
     requestedById: 'manager-1',
     currentRole: 'Engineer',
     newRole: 'Senior Engineer',
-    currentGrossSalary: new Decimal(100000),
-    newGrossSalary: new Decimal(100000 + salaryDelta),
-    salaryDelta: new Decimal(salaryDelta),
-    salaryDeltaPercentage: new Decimal(15),
-    currentTeamBudget: new Decimal(400000),
-    newTeamBudget: new Decimal(400000 + salaryDelta),
-    budgetImpactPercentage: new Decimal(3.75),
+    currentGrossSalary: new Prisma.Decimal(100000),
+    newGrossSalary: new Prisma.Decimal(100000 + salaryDelta),
+    salaryDelta: new Prisma.Decimal(salaryDelta),
+    salaryDeltaPercentage: new Prisma.Decimal(15),
+    currentTeamBudget: new Prisma.Decimal(400000),
+    newTeamBudget: new Prisma.Decimal(400000 + salaryDelta),
+    budgetImpactPercentage: new Prisma.Decimal(3.75),
     responsibilities: ['Lead delivery'],
     status: overrides.status ?? PromotionRequestStatus.PENDING,
     submittedAt: new Date('2026-02-01T00:00:00.000Z'),
@@ -116,14 +116,14 @@ describe('PromotionRequestsService', () => {
   it('creates a request with server-computed salary and budget impact', async () => {
     prisma.employee.findFirst.mockResolvedValue({
       id: 'emp-1',
-      grossSalary: new Decimal(100000),
+      grossSalary: new Prisma.Decimal(100000),
       teamId: 'team-1',
       managerId: 'manager-1',
       positionId: 'position-current',
       position: { id: 'position-current', title: 'Engineer', isActive: true },
     });
     prisma.position.findFirst.mockResolvedValue({ id: 'position-new', title: 'Senior Engineer' });
-    prisma.employee.aggregate.mockResolvedValue({ _sum: { grossSalary: new Decimal(400000) } });
+    prisma.employee.aggregate.mockResolvedValue({ _sum: { grossSalary: new Prisma.Decimal(400000) } });
     prisma.promotionRequest.create.mockResolvedValue(makeRequest());
 
     const result = await service.create(
@@ -141,10 +141,10 @@ describe('PromotionRequestsService', () => {
         data: expect.objectContaining({
           currentRole: 'Engineer',
           newRole: 'Senior Engineer',
-          salaryDelta: new Decimal(15000),
-          salaryDeltaPercentage: new Decimal(15),
-          newTeamBudget: new Decimal(415000),
-          budgetImpactPercentage: new Decimal(3.75),
+          salaryDelta: new Prisma.Decimal(15000),
+          salaryDeltaPercentage: new Prisma.Decimal(15),
+          newTeamBudget: new Prisma.Decimal(415000),
+          budgetImpactPercentage: new Prisma.Decimal(3.75),
           responsibilities: ['Lead delivery'],
         }),
       }),
@@ -162,14 +162,14 @@ describe('PromotionRequestsService', () => {
   it('requires at least one responsibility', async () => {
     prisma.employee.findFirst.mockResolvedValue({
       id: 'emp-1',
-      grossSalary: new Decimal(100000),
+      grossSalary: new Prisma.Decimal(100000),
       teamId: 'team-1',
       managerId: 'manager-1',
       positionId: 'position-current',
       position: { id: 'position-current', title: 'Engineer', isActive: true },
     });
     prisma.position.findFirst.mockResolvedValue({ id: 'position-new', title: 'Senior Engineer' });
-    prisma.employee.aggregate.mockResolvedValue({ _sum: { grossSalary: new Decimal(400000) } });
+    prisma.employee.aggregate.mockResolvedValue({ _sum: { grossSalary: new Prisma.Decimal(400000) } });
 
     await expect(
       service.create(
@@ -187,14 +187,14 @@ describe('PromotionRequestsService', () => {
   it('allows global manager demo accounts to use department/team leadership scope', async () => {
     prisma.employee.findFirst.mockResolvedValue({
       id: 'emp-1',
-      grossSalary: new Decimal(100000),
+      grossSalary: new Prisma.Decimal(100000),
       teamId: 'team-2',
       managerId: 'manager-2',
       positionId: 'position-current',
       position: { id: 'position-current', title: 'Engineer', isActive: true },
     });
     prisma.position.findFirst.mockResolvedValue({ id: 'position-new', title: 'Senior Engineer' });
-    prisma.employee.aggregate.mockResolvedValue({ _sum: { grossSalary: new Decimal(400000) } });
+    prisma.employee.aggregate.mockResolvedValue({ _sum: { grossSalary: new Prisma.Decimal(400000) } });
     prisma.promotionRequest.create.mockResolvedValue(makeRequest());
 
     await service.create(
@@ -254,8 +254,8 @@ describe('PromotionRequestsService', () => {
     prisma.promotionRequest.findUnique.mockResolvedValue({
       ...makeRequest(),
       employee: {
-        grossSalary: new Decimal(100000),
-        netSalary: new Decimal(74000),
+        grossSalary: new Prisma.Decimal(100000),
+        netSalary: new Prisma.Decimal(74000),
       },
     });
     prisma.promotionRequest.update.mockResolvedValue(
@@ -272,12 +272,12 @@ describe('PromotionRequestsService', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           employeeId: 'emp-1',
-          previousGrossSalary: new Decimal(100000),
-          newGrossSalary: new Decimal(115000),
-          previousNetSalary: new Decimal(74000),
-          newNetSalary: new Decimal(85100),
-          grossRaisePercentage: new Decimal(15),
-          netRaisePercentage: new Decimal(15),
+          previousGrossSalary: new Prisma.Decimal(100000),
+          newGrossSalary: new Prisma.Decimal(115000),
+          previousNetSalary: new Prisma.Decimal(74000),
+          newNetSalary: new Prisma.Decimal(85100),
+          grossRaisePercentage: new Prisma.Decimal(15),
+          netRaisePercentage: new Prisma.Decimal(15),
           reason: SalaryChangeReason.PROMOTION,
           changedById: 'hr-user-1',
         }),
@@ -288,8 +288,8 @@ describe('PromotionRequestsService', () => {
         where: { id: 'emp-1' },
         data: {
           positionId: 'position-new',
-          grossSalary: new Decimal(115000),
-          netSalary: new Decimal(85100),
+          grossSalary: new Prisma.Decimal(115000),
+          netSalary: new Prisma.Decimal(85100),
         },
       }),
     );
