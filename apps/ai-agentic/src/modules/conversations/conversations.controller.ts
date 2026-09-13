@@ -2,15 +2,13 @@ import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, Req
 import { ApiBearerAuth, ApiCreatedResponse, ApiNoContentResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '@sentient/shared';
 import { Request } from 'express';
-import { ActorContextFactory } from '../../common/graph';
+import { ActorContextFactory, AI_USER_ROLES } from '../../common/graph';
 import { ConversationTurnResponse } from './conversation-response.mapper';
 import { ConversationsService } from './conversations.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { ListConversationsQueryDto } from './dto/list-conversations-query.dto';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
-
-const AI_USER_ROLES = ['HR_ADMIN', 'MANAGER', 'TEAM_LEAD', 'EMPLOYEE', 'EXECUTIVE', 'SYSTEM_ADMIN'];
 
 @ApiTags('AI Conversations')
 @ApiBearerAuth()

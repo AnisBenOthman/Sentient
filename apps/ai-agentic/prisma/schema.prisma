@@ -28,6 +28,19 @@ enum AgentType {
   @@schema("ai_agent")
 }
 
+/// Mirrors packages/shared/src/enums/channel-type.enum.ts. Declared here because
+/// services never share schema objects — the hr_core enum is not reachable.
+enum ChannelType {
+  WEB
+  SLACK
+  TELEGRAM
+  WHATSAPP
+  EMAIL
+  IN_APP
+
+  @@schema("ai_agent")
+}
+
 enum ConversationStatus {
   ACTIVE
   ARCHIVED
@@ -191,10 +204,30 @@ model Conversation {
   permissionDecisions PermissionDecisionRecord[]
   actionProposals     AgentActionProposal[]
   scheduledFollowUps  ScheduledFollowUp[]
+  channelLinks        ChannelConversationLink[]
 
   @@index([ownerUserId, updatedAt])
   @@schema("ai_agent")
   @@map("conversations")
+}
+
+/// Which conversation a chat-channel thread (a Telegram chat, later a Slack DM)
+/// currently continues. One row per (channel, externalId); "/new" deletes it.
+/// Cascades from Conversation so deleting a thread in the web app drops the pointer.
+model ChannelConversationLink {
+  id             String      @id @default(uuid())
+  channel        ChannelType
+  externalId     String      @map("external_id")
+  conversationId String      @map("conversation_id")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([channel, externalId])
+  @@index([conversationId])
+  @@schema("ai_agent")
+  @@map("channel_conversation_links")
 }
 
 model Message {
