@@ -176,6 +176,23 @@ export async function sendConversationMessage(
   return response.data;
 }
 
+/**
+ * Confirm or cancel a pending proposal. Goes through the same endpoint as an
+ * ordinary message; `confirmed` + `confirmationToken` are what make it a
+ * decision rather than a turn the classifier interprets (spec 017 FR-003).
+ */
+export async function decideOnProposal(
+  conversationId: string,
+  confirmationToken: string,
+  confirmed: boolean,
+): Promise<ConversationTurnResponse> {
+  return sendConversationMessage(conversationId, {
+    message: confirmed ? 'Confirm' : 'Cancel',
+    confirmed,
+    confirmationToken,
+  });
+}
+
 export async function listConversations(params: { page?: number; pageSize?: number } = {}): Promise<ConversationListResponse> {
   const response = await aiClient.get<ConversationListResponse>('/conversations', { params });
   return response.data;

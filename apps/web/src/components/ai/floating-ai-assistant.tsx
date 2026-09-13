@@ -23,10 +23,14 @@ interface ChatLine {
 
 function toChatLine(message: AiMessageResponse): ChatLine | null {
   if (message.role !== "USER" && message.role !== "ASSISTANT") return null;
+  // The compact widget has no room for the confirmation card; point at the full page (FR-042).
+  const content = message.confirmationPayload
+    ? `${message.content}\n\nOpen the AI Assistant page to review and confirm this booking.`
+    : message.content;
   return {
     id: message.id,
     role: message.role,
-    content: message.content,
+    content,
   };
 }
 

@@ -4,11 +4,13 @@ import { Bot, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { AiMessage } from "@/components/ai/ai-message";
+import { ActionConfirmationCard, ActionOutcomeNotice } from "@/components/ai/action-confirmation-card";
 import { AiConversationList } from "@/components/ai/ai-conversation-list";
 import { AiDraftToolbar } from "@/components/ai/ai-draft-toolbar";
 import { RoutingTraceSummary } from "@/components/ai/routing-trace-summary";
 import {
   archiveConversation,
+  decideOnProposal,
   deleteConversation,
   getConversation,
   listConversations,
@@ -16,6 +18,7 @@ import {
   saveResponseFeedback,
   sendConversationMessage,
   startConversation,
+  type ActionOutcome,
   type ConversationSummary,
   type AiMessageResponse,
   type ConversationTurnResponse,
@@ -37,6 +40,9 @@ export default function AiAssistantPage() {
   const [routing, setRouting] = useState<RoutingTrace | null>(null);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
+  /** Outcome per outcome-message id, and per proposal token (to re-enable Confirm on FAILED). */
+  const [outcomes, setOutcomes] = useState<Record<string, ActionOutcome>>({});
+  const [outcomeByToken, setOutcomeByToken] = useState<Record<string, ActionOutcome["status"]>>({});
 
   const conversationsQuery = useQuery({
     queryKey: ["ai-conversations"],
@@ -60,12 +66,48 @@ export default function AiAssistantPage() {
     },
   });
 
+  /**
+   * WHY the proposal message is rewritten with confirmationPayload stripped on
+   * success: the card must disappear the moment a decision lands, whatever the
+   * outcome, and this state array is not re-fetched from the server. On FAILED
+   * the payload is kept so the user can retry (FR-044) — the server's re-validation
+   * decides whether the token is still usable.
+   */
+  const decideMutation = useMutation({
+    mutationFn: ({ token, confirmed }: { token: string; confirmed: boolean }) =>
+      decideOnProposal(conversationId ?? "", token, confirmed),
+    onSuccess: (turn: ConversationTurnResponse, { token }) => {
+      const outcome = turn.actionOutcome;
+      setMessages((current) => [
+        ...current.map((message) =>
+          message.confirmationPayload?.confirmationToken === token && outcome?.status !== "FAILED"
+            ? { ...message, confirmationPayload: null }
+            : message,
+        ),
+        turn.assistantMessage,
+      ]);
+      if (outcome) {
+        setOutcomes((current) => ({ ...current, [turn.assistantMessage.id]: outcome }));
+        setOutcomeByToken((current) => ({ ...current, [token]: outcome.status }));
+      }
+      setRouting(turn.routing);
+      setError("");
+      void queryClient.invalidateQueries({ queryKey: ["ai-conversations"] });
+    },
+    onError: (err: unknown, { token }) => {
+      // A transport failure is not a booking failure: the POST may have gone through.
+      setOutcomeByToken((current) => ({ ...current, [token]: "FAILED" }));
+      setError(getGatewayErrorMessage(err, "The decision could not be sent. Check the Leaves page before retrying — it may already have gone through."));
+    },
+  });
+
   const loadConversationMutation = useMutation({
     mutationFn: getConversation,
     onSuccess: (detail) => {
       setConversationId(detail.conversation.id);
       setMessages(detail.messages);
       setRouting(null);
+      setOutcomes({});
       setError("");
     },
     onError: (err: unknown) => {
@@ -187,12 +229,35 @@ export default function AiAssistantPage() {
                   {message.role === "ASSISTANT" && /^draft/i.test(message.content) && (
                     <AiDraftToolbar content={message.content} />
                   )}
+                  {message.role === "ASSISTANT" && message.confirmationPayload && (
+                    <div className="pl-11">
+                      <ActionConfirmationCard
+                        payload={message.confirmationPayload}
+                        pending={decideMutation.isPending}
+                        lastOutcomeStatus={outcomeByToken[message.confirmationPayload.confirmationToken] ?? null}
+                        onDecide={(confirmed) =>
+                          decideMutation.mutate({ token: message.confirmationPayload!.confirmationToken, confirmed })
+                        }
+                      />
+                    </div>
+                  )}
+                  {outcomes[message.id] && (
+                    <div className="pl-11">
+                      <ActionOutcomeNotice outcome={outcomes[message.id]!} />
+                    </div>
+                  )}
                 </div>
               ))}
               {turnMutation.isPending && (
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <Bot className="h-4 w-4 animate-pulse" />
                   Routing through supervisor...
+                </div>
+              )}
+              {decideMutation.isPending && (
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Bot className="h-4 w-4 animate-pulse" />
+                  Submitting to HR Core and verifying...
                 </div>
               )}
             </div>
