@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Bot, BotError } from 'grammy';
+import type { Update } from 'grammy/types';
 import { ChannelType } from '@sentient/shared';
 import { HrCoreClient } from '../../common/clients/hr-core.client';
 
@@ -9,18 +10,23 @@ interface CachedSession {
   expiresAt: number;
 }
 
+type TelegramMode = 'polling' | 'webhook';
+
 /**
- * WHY: Long polling (bot.start()) needs no public URL and no domain/TLS —
- * the whole reason Telegram is free-to-run at any scale for this project.
- * The tradeoff is exactly one poller per bot token: a second instance (or a
- * hot-reloaded dev process) makes Telegram's getUpdates return 409, which
- * onModuleInit's bot.catch() logs as a duplicate-poller conflict, not a
- * token problem.
+ * WHY two modes behind one switch rather than replacing polling: this repo
+ * has no public HTTPS URL in local dev (docker-compose only exposes
+ * localhost ports; api-gateway calls AI Agentic over host.docker.internal).
+ * Telegram's setWebhook rejects anything but a public https:// URL, so
+ * polling stays the default and only path that works without a tunnel.
+ * TELEGRAM_MODE=webhook is opt-in, for a tunnel (ngrok/cloudflared) in dev
+ * or a real domain in production — both talk to the same handlers below.
  */
 @Injectable()
 export class TelegramService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(TelegramService.name);
   private bot: Bot | null = null;
+  private mode: TelegramMode = 'polling';
+  private webhookSecret: string | null = null;
   private readonly sessionCache = new Map<string, CachedSession>();
 
   constructor(
@@ -28,7 +34,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     private readonly hrCore: HrCoreClient,
   ) {}
 
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
     const enabled = this.config.get<string>('TELEGRAM_ENABLED', 'false') === 'true';
     if (!enabled) {
       this.logger.log('Telegram channel disabled (set TELEGRAM_ENABLED=true to start it)');
@@ -40,6 +46,8 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn('TELEGRAM_ENABLED=true but TELEGRAM_BOT_TOKEN is not set — channel not started');
       return;
     }
+
+    this.mode = this.config.get<string>('TELEGRAM_MODE', 'polling') === 'webhook' ? 'webhook' : 'polling';
 
     const bot = new Bot(token);
     this.bot = bot;
@@ -54,16 +62,72 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       this.logger.error(`Telegram handler error: ${message}`);
     });
 
-    // WHY: bot.start() resolves only when bot.stop() is called — it's a
-    // long-polling loop. Awaiting it here would hang Nest's bootstrap
-    // forever, so it's fired without awaiting; onModuleDestroy stops it.
-    bot
-      .start({ onStart: () => this.logger.log('Telegram bot connected (long polling)') })
-      .catch((err: unknown) => this.logger.error(`Telegram bot failed to start: ${this.errorMessage(err)}`));
+    if (this.mode === 'webhook') {
+      await this.startWebhook(bot);
+    } else {
+      // WHY: bot.start() resolves only when bot.stop() is called — it's a
+      // long-polling loop. Awaiting it here would hang Nest's bootstrap
+      // forever, so it's fired without awaiting; onModuleDestroy stops it.
+      bot
+        .start({ onStart: () => this.logger.log('Telegram bot connected (long polling)') })
+        .catch((err: unknown) => this.logger.error(`Telegram bot failed to start: ${this.errorMessage(err)}`));
+    }
+  }
+
+  private async startWebhook(bot: Bot): Promise<void> {
+    const webhookUrl = this.config.get<string>('TELEGRAM_WEBHOOK_URL');
+    const secret = this.config.get<string>('TELEGRAM_WEBHOOK_SECRET');
+    if (!webhookUrl || !secret) {
+      this.logger.warn(
+        'TELEGRAM_MODE=webhook but TELEGRAM_WEBHOOK_URL or TELEGRAM_WEBHOOK_SECRET is not set — channel not started',
+      );
+      this.bot = null;
+      return;
+    }
+    this.webhookSecret = secret;
+
+    try {
+      // WHY bot.init() instead of bot.start(): init() only fetches botInfo
+      // (required before handleUpdate() will process anything) without
+      // opening a getUpdates long-polling loop — the two are mutually
+      // exclusive on Telegram's side.
+      await bot.init();
+      await bot.api.setWebhook(webhookUrl, { secret_token: secret });
+      this.logger.log(`Telegram bot connected (webhook: ${webhookUrl})`);
+    } catch (err: unknown) {
+      this.logger.error(`Telegram setWebhook failed: ${this.errorMessage(err)}`);
+    }
+  }
+
+  /**
+   * WHY the secret-token check lives here rather than a guard: this route
+   * carries no Sentient JWT — Telegram sends none — so the shared auth
+   * guards don't apply. The X-Telegram-Bot-Api-Secret-Token header, echoed
+   * back on every webhook delivery once set via setWebhook, is the only
+   * thing distinguishing a real Telegram delivery from anyone who finds
+   * the URL. A mismatch (or webhook mode not actually running) is a 403
+   * from the caller (TelegramController), never a silent accept.
+   */
+  verifyWebhookSecret(providedSecret: string | undefined): boolean {
+    return this.mode === 'webhook' && this.webhookSecret !== null && providedSecret === this.webhookSecret;
+  }
+
+  async handleWebhookUpdate(update: Update): Promise<void> {
+    if (!this.bot) return;
+    await this.bot.handleUpdate(update);
   }
 
   async onModuleDestroy(): Promise<void> {
-    if (this.bot) {
+    if (!this.bot) return;
+    if (this.mode === 'webhook') {
+      // WHY: a stale webhook pointed at a dead tunnel/instance means
+      // Telegram silently drops every update until someone notices. Clearing
+      // it on shutdown means the next boot's setWebhook is the only source
+      // of truth, never a leftover from a previous dev session.
+      await this.bot.api.deleteWebhook().catch((err: unknown) => {
+        this.logger.warn(`Telegram deleteWebhook failed: ${this.errorMessage(err)}`);
+      });
+    } else {
       await this.bot.stop();
     }
   }
@@ -124,6 +188,29 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
         "I'm connected to your account, but full conversations aren't wired up yet — that part of Sentient is still being built.",
       );
     });
+  }
+
+  /**
+   * WHY: Proactive push (HR Core calling in after a manager decision) is a
+   * different failure surface than the inbound handlers above — there is no
+   * ctx.reply to fall back on. Both "channel disabled" and "Telegram
+   * rejected the send" (user blocked the bot, chat deleted) must resolve to
+   * a quiet no-op rather than a thrown error: the caller only ever wanted
+   * best-effort delivery, never a reason to fail its own request.
+   */
+  async sendMessage(chatId: string, text: string): Promise<{ delivered: boolean }> {
+    if (!this.bot) {
+      this.logger.debug(`Telegram channel disabled — dropping proactive message to chat ${chatId}`);
+      return { delivered: false };
+    }
+
+    try {
+      await this.bot.api.sendMessage(chatId, text);
+      return { delivered: true };
+    } catch (err: unknown) {
+      this.logger.warn(`Telegram sendMessage to chat ${chatId} failed: ${this.errorMessage(err)}`);
+      return { delivered: false };
+    }
   }
 
   private async resolveSession(chatId: string): Promise<CachedSession | null> {

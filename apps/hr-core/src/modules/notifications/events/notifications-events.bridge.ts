@@ -1,6 +1,8 @@
 import { Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import { DomainEvent, EVENT_BUS, IEventBus } from '@sentient/shared';
+import { ChannelType, DomainEvent, EVENT_BUS, IEventBus } from '@sentient/shared';
+import { AiAgenticClient } from '../../../common/clients/ai-agentic.client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { NotificationResponseDto } from '../dto/notification-response.dto';
 import { NotificationRouter } from '../notification-router';
 import { NotificationRenderers } from '../notifications.renderers';
 import { NotificationsService } from '../notifications.service';
@@ -9,6 +11,17 @@ import { RoutingRule } from './routing-rules/routing-rule.interface';
 import * as leaveRules from './routing-rules/leave.rules';
 import * as okrRules from './routing-rules/okr.rules';
 import * as promotionRules from './routing-rules/promotion.rules';
+
+/**
+ * WHY only these two event types: NotificationsEventsBridge.dispatch() runs
+ * synchronously inside the awaited eventBus.emit() call on the leave
+ * approve/reject request path (requests.service.ts). Pushing to Telegram
+ * for every notification category (OKR reminders, performance cycles,
+ * announcements...) would put an identity lookup plus an HTTP round-trip on
+ * a dozen endpoints nobody asked to touch. Scoped to the one thing the
+ * feature actually is: a Telegram ping when a manager decides your leave.
+ */
+const TELEGRAM_ELIGIBLE_EVENT_TYPES = new Set(['leave.approved', 'leave.rejected']);
 
 const SUBSCRIBED_EVENT_TYPES = [
   'leave.requested',
@@ -72,6 +85,7 @@ export class NotificationsEventsBridge implements OnApplicationBootstrap {
     private readonly prisma: PrismaService,
     private readonly renderers: NotificationRenderers,
     private readonly sseRegistry: NotificationsSseRegistry,
+    private readonly aiAgentic: AiAgenticClient,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -103,11 +117,36 @@ export class NotificationsEventsBridge implements OnApplicationBootstrap {
           data: notification,
         });
       }
+
+      if (TELEGRAM_ELIGIBLE_EVENT_TYPES.has(event.type)) {
+        await Promise.all(created.map((notification) => this.pushTelegram(notification)));
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
         `Notification dispatch failed for ${event.type} correlationId=${event.metadata.correlationId}: ${message}`,
       );
+    }
+  }
+
+  /**
+   * WHY a dedicated try/catch here rather than letting failures bubble into
+   * dispatch()'s own catch: a Telegram/AI-Agentic outage must never look
+   * like "notification dispatch failed" in logs when the in-app Notification
+   * row and SSE push above already succeeded. AiAgenticClient itself never
+   * throws; this also guards the Prisma lookup.
+   */
+  private async pushTelegram(notification: NotificationResponseDto): Promise<void> {
+    try {
+      const identity = await this.prisma.channelIdentity.findFirst({
+        where: { userId: notification.recipientUserId, channel: ChannelType.TELEGRAM },
+      });
+      if (!identity) return;
+
+      await this.aiAgentic.notifyTelegram(identity.externalId, `${notification.title}\n\n${notification.body}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Telegram push skipped for notification ${notification.id}: ${message}`);
     }
   }
 }
