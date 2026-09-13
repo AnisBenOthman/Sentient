@@ -128,6 +128,8 @@ export interface PolicyCitation {
  * specialist computes and freezes; the turn persists and mints.
  */
 export interface PendingActionDraft {
+  /** Which specialist proposed it — the audit trail attributes the action to it (FR-049). */
+  agentType: AgentType;
   actionKind: AgentActionKind;
   /** Frozen at propose time. Execute sends THIS, never a re-derived payload (FR-001). */
   payload: ActionConfirmationPayload;

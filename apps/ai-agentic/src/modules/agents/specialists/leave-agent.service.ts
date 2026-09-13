@@ -20,6 +20,7 @@ import {
   SENTIENT_IDENTITY,
   ToolRegistryService,
 } from '../tools';
+import { LeaveBookingReasonService } from '../actions/leave-booking-reason.service';
 import { downstreamResult, toolCallerResult } from './specialist-response.helpers';
 
 const TEAM_LEAVE_SCOPE_ROLES = ['MANAGER', 'HR_ADMIN'];
@@ -33,7 +34,7 @@ You are the Sentient HR leave assistant. Use the provided tools to answer leave 
 - Call get_team_absence_summary (when available) for who takes the most leave or absence frequency.
 - Call get_employees_without_leave (when available) for who has NOT taken any leave, or has zero leave records — note this only means no approved leave request was found, not that the employee was present every day.
 Call only the tools relevant to the question.
-Leave records are read-only here — direct the user to the Leaves module for booking or changes.
+You cannot book, change, or cancel leave yourself, and you must never claim to have done so. If the user wants to book leave, ask them to state the leave type and the exact dates (for example: "book 2 days of annual leave from 12 June") — a separate confirmation step prepares the booking for them to approve.
 ${FEW_SHOT_LEAVE_EXAMPLES}
 ${CONVERSATIONAL_STYLE}`;
 
@@ -52,6 +53,7 @@ export class LeaveAgentService implements SpecialistAgent {
     private readonly hrCore: HrCoreAiClient,
     @Optional() private readonly llmCaller?: LlmFallbackOrchestratorService,
     @Optional() private readonly toolRegistry?: ToolRegistryService,
+    @Optional() private readonly booking?: LeaveBookingReasonService,
   ) {}
 
   async execute(input: SpecialistInput): Promise<SpecialistResult> {
@@ -80,6 +82,19 @@ export class LeaveAgentService implements SpecialistAgent {
         'Leave context refused because the request targets another individual.',
         `I cannot access or disclose another individual employee's leave balance or leave history. I can help with your own leave records, or with approved team-level leave coverage summaries when your Sentient role permits them.${managerHint}`,
       );
+    }
+
+    /**
+     * WHY before the LLM tool-caller: a booking request must reach the
+     * deterministic Reason/Propose path (spec 017 US1), never a model that could
+     * answer "done" without doing anything. tryPropose returns null for every
+     * non-booking message, so the read-only paths below are untouched. It also
+     * runs after the two refusal guards above, so "book leave for Alice" is
+     * still refused as a third-party request rather than proposed.
+     */
+    if (this.booking) {
+      const proposal = await this.booking.tryPropose(input);
+      if (proposal) return proposal;
     }
 
     if (this.llmCaller && this.toolRegistry) {

@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
+  AgentActionProposal,
   AgentNodeType,
   AgentRunStatus,
   AgentType,
@@ -102,9 +103,17 @@ export class ConversationsService {
       where: { conversationId: conversation.id },
       orderBy: { createdAt: 'asc' },
     });
+    // One query for every proposal in the thread, so a re-fetched conversation
+    // re-renders any still-pending card exactly as the original turn did (FR-042).
+    const proposals = await this.prisma.agentActionProposal.findMany({
+      where: { conversationId: conversation.id },
+    });
+    const proposalByMessageId = new Map(proposals.map((proposal) => [proposal.messageId, proposal]));
     return {
       conversation: ConversationResponseMapper.toSummary(conversation),
-      messages: messages.map(ConversationResponseMapper.toMessage),
+      messages: messages.map((message) =>
+        ConversationResponseMapper.toMessage(message, proposalByMessageId.get(message.id) ?? null),
+      ),
     };
   }
 
@@ -210,6 +219,7 @@ export class ConversationsService {
       routing = { status: AgentRunStatus.FAILED, nodes: [] };
     }
 
+    let proposalForResponse: AgentActionProposal | null = null;
     let assistantMessage = await this.prisma.message.create({
       data: {
         conversationId: conversation.id,
@@ -237,6 +247,7 @@ export class ConversationsService {
           messageId: assistantMessage.id,
           actor,
         });
+        proposalForResponse = await this.proposals.findByMessageId(assistantMessage.id);
       } catch (error: unknown) {
         /**
          * A card with no token is worse than no card: the user would see a booking
@@ -277,6 +288,7 @@ export class ConversationsService {
       userMessage,
       assistantMessage,
       routing,
+      proposalForResponse,
     );
   }
 

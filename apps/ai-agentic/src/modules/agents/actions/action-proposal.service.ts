@@ -5,6 +5,7 @@ import { ActionProposalStatus, AgentActionProposal, Prisma } from '../../../gene
 import { AiActorContext, PendingActionDraft } from '../../../common/graph';
 import { AiAgenticConfig } from '../../../config';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { ActionAuditService } from './action-audit.service';
 
 /** The narrow projection a confirm/cancel needs before it decides anything. */
 export interface ProposalRef {
@@ -48,6 +49,7 @@ export class ActionProposalService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly audit: ActionAuditService,
   ) {}
 
   /**
@@ -63,11 +65,25 @@ export class ActionProposalService {
       conversationId: string;
       messageId: string;
       actor: AiActorContext;
-      proposalLogId?: string;
     },
   ): Promise<{ token: string; expiresAt: Date }> {
     const token = randomUUID();
     const expiresAt = new Date(Date.now() + this.tokenTtlMinutes() * 60_000);
+
+    /**
+     * action.proposed is written BEFORE the row so the row can carry its log id
+     * (FR-049). It records the computed payload and the scoping facts actually
+     * used — never raw profile PII (spec 017 T035).
+     */
+    const proposalLog = await this.audit.logProposed({
+      conversationId: context.conversationId,
+      actor: context.actor,
+      agentType: draft.agentType,
+      payloadSummary: this.payloadSummary(draft),
+      policySourcesSummary: draft.policyCitations.length
+        ? `Policy consulted: ${draft.policyCitations.map((citation) => citation.sourceLabel).join('; ')}`
+        : null,
+    });
 
     await this.prisma.agentActionProposal.create({
       data: {
@@ -82,7 +98,7 @@ export class ActionProposalService {
         actorEmployeeId: context.actor.employeeId ?? '',
         payload: draft.payload as unknown as Prisma.InputJsonValue,
         policyCitations: draft.policyCitations as unknown as Prisma.InputJsonValue,
-        proposalLogId: context.proposalLogId ?? null,
+        proposalLogId: proposalLog.id,
         expiresAt,
       },
     });
@@ -178,6 +194,11 @@ export class ActionProposalService {
       where: { id: proposalId },
       data: { verifiedAt: new Date(), verificationState },
     });
+  }
+
+  private payloadSummary(draft: PendingActionDraft): string {
+    const p = draft.payload;
+    return `${draft.actionKind}: ${p.leaveTypeName} (${p.leaveTypeId}) ${p.startDate} to ${p.endDate}, ${p.businessDays} business days (advisory), balance ${p.currentBalance} -> ${p.balanceAfter}. No write performed.`;
   }
 
   private tokenTtlMinutes(): number {

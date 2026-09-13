@@ -68,6 +68,7 @@ describe('AI conversation management contract', () => {
             deletedAt: null,
           }),
         },
+        agentActionProposal: { findMany: async () => [] },
         message: {
           findMany: async () => [
             {

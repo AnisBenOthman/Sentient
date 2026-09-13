@@ -189,6 +189,7 @@ export class SupervisorLangGraphRunnerService {
     }
 
     return {
+      agentType: pending.agentType,
       actionKind: pending.pendingActionKind,
       payload: pending.confirmationPayload,
       policyCitations: pending.policyCitations ?? [],
