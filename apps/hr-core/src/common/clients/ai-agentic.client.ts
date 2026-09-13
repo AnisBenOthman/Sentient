@@ -32,16 +32,29 @@ export class AiAgenticClient {
   }
 
   async notifyTelegram(externalId: string, text: string): Promise<void> {
+    await this.notify('telegram', externalId, text);
+  }
+
+  async notifySlack(externalId: string, text: string): Promise<void> {
+    await this.notify('slack', externalId, text);
+  }
+
+  /**
+   * Both channel controllers in AI Agentic expose the same SYSTEM-only
+   * `POST /channels/<channel>/notify` shape with the same taskType, so one
+   * best-effort POST serves them all — adding WhatsApp later is one line.
+   */
+  private async notify(channel: 'telegram' | 'slack', externalId: string, text: string): Promise<void> {
     try {
       await this.http.post(
-        '/channels/telegram/notify',
+        `/channels/${channel}/notify`,
         { externalId, text },
         { headers: this.systemAuthHeaders('channel_notify') },
       );
     } catch (err: unknown) {
       const status = isAxiosError(err) ? (err.response?.status ?? err.code) : undefined;
       const message = err instanceof Error ? err.message : String(err);
-      this.logger.warn(`AiAgenticClient.notifyTelegram failed (status=${String(status)}): ${message}`);
+      this.logger.warn(`AiAgenticClient.notify(${channel}) failed (status=${String(status)}): ${message}`);
     }
   }
 

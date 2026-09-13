@@ -37,14 +37,14 @@ function buildNotification(overrides: Partial<NotificationResponseDto> = {}): No
   };
 }
 
-describe('NotificationsEventsBridge — Telegram push', () => {
+describe('NotificationsEventsBridge — chat-app push (Telegram + Slack)', () => {
   // employee.findUnique -> null makes userIdForEmployee() resolve null, which
   // is enough for onApproved/onRejected/onCancelled to short-circuit to an
   // empty draft list without throwing — bulkCreate's return is mocked
   // directly below, so what the real routing rule actually produces doesn't
   // matter here; only "does it throw" does.
   const mockPrisma = {
-    channelIdentity: { findFirst: jest.fn() },
+    channelIdentity: { findMany: jest.fn() },
     employee: { findUnique: jest.fn().mockResolvedValue(null) },
   };
   const mockNotificationsService = {
@@ -53,7 +53,10 @@ describe('NotificationsEventsBridge — Telegram push', () => {
     markResolved: jest.fn().mockResolvedValue({ updatedCount: 0 }),
   };
   const mockSseRegistry = { push: jest.fn() };
-  const mockAiAgentic = { notifyTelegram: jest.fn().mockResolvedValue(undefined) };
+  const mockAiAgentic = {
+    notifyTelegram: jest.fn().mockResolvedValue(undefined),
+    notifySlack: jest.fn().mockResolvedValue(undefined),
+  };
   const router = new NotificationRouter();
   const renderers = new NotificationRenderers();
 
@@ -69,6 +72,10 @@ describe('NotificationsEventsBridge — Telegram push', () => {
     );
   }
 
+  function dispatch(bridge: NotificationsEventsBridge, type: string): Promise<void> {
+    return (bridge as unknown as { dispatch: (e: unknown) => Promise<void> }).dispatch(buildEvent(type));
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -76,57 +83,69 @@ describe('NotificationsEventsBridge — Telegram push', () => {
   it('pushes to Telegram when the recipient has a linked chat and the event is a leave decision', async () => {
     const notification = buildNotification();
     mockNotificationsService.bulkCreate.mockResolvedValue([notification]);
-    mockPrisma.channelIdentity.findFirst.mockResolvedValue({ externalId: 'chat-42' });
+    mockPrisma.channelIdentity.findMany.mockResolvedValue([{ channel: ChannelType.TELEGRAM, externalId: 'chat-42' }]);
 
-    const bridge = build();
-    await (bridge as unknown as { dispatch: (e: unknown) => Promise<void> }).dispatch(
-      buildEvent('leave.approved'),
-    );
+    await dispatch(build(), 'leave.approved');
 
-    expect(mockPrisma.channelIdentity.findFirst).toHaveBeenCalledWith({
-      where: { userId: 'user-1', channel: ChannelType.TELEGRAM },
+    expect(mockPrisma.channelIdentity.findMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', channel: { in: [ChannelType.TELEGRAM, ChannelType.SLACK] } },
     });
-    expect(mockAiAgentic.notifyTelegram).toHaveBeenCalledWith(
-      'chat-42',
-      `${notification.title}\n\n${notification.body}`,
-    );
+    expect(mockAiAgentic.notifyTelegram).toHaveBeenCalledWith('chat-42', `${notification.title}\n\n${notification.body}`);
+    expect(mockAiAgentic.notifySlack).not.toHaveBeenCalled();
   });
 
-  it('does not call AiAgenticClient when the recipient has no linked Telegram chat', async () => {
-    mockNotificationsService.bulkCreate.mockResolvedValue([buildNotification()]);
-    mockPrisma.channelIdentity.findFirst.mockResolvedValue(null);
+  it('pushes to Slack when the recipient has a linked Slack user', async () => {
+    const notification = buildNotification();
+    mockNotificationsService.bulkCreate.mockResolvedValue([notification]);
+    mockPrisma.channelIdentity.findMany.mockResolvedValue([{ channel: ChannelType.SLACK, externalId: 'U42' }]);
 
-    const bridge = build();
-    await (bridge as unknown as { dispatch: (e: unknown) => Promise<void> }).dispatch(
-      buildEvent('leave.rejected'),
-    );
+    await dispatch(build(), 'leave.rejected');
 
+    expect(mockAiAgentic.notifySlack).toHaveBeenCalledWith('U42', `${notification.title}\n\n${notification.body}`);
     expect(mockAiAgentic.notifyTelegram).not.toHaveBeenCalled();
   });
 
-  it('never looks up a Telegram identity for event types outside the leave-decision allowlist', async () => {
+  it('pushes to every linked chat app when the recipient has more than one', async () => {
+    mockNotificationsService.bulkCreate.mockResolvedValue([buildNotification()]);
+    mockPrisma.channelIdentity.findMany.mockResolvedValue([
+      { channel: ChannelType.TELEGRAM, externalId: 'chat-42' },
+      { channel: ChannelType.SLACK, externalId: 'U42' },
+    ]);
+
+    await dispatch(build(), 'leave.approved');
+
+    expect(mockAiAgentic.notifyTelegram).toHaveBeenCalledTimes(1);
+    expect(mockAiAgentic.notifySlack).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call AiAgenticClient when the recipient has no linked chat app', async () => {
+    mockNotificationsService.bulkCreate.mockResolvedValue([buildNotification()]);
+    mockPrisma.channelIdentity.findMany.mockResolvedValue([]);
+
+    await dispatch(build(), 'leave.rejected');
+
+    expect(mockAiAgentic.notifyTelegram).not.toHaveBeenCalled();
+    expect(mockAiAgentic.notifySlack).not.toHaveBeenCalled();
+  });
+
+  it('never looks up chat identities for event types outside the leave-decision allowlist', async () => {
     // leave.cancelled has a registered rule and produces real notifications
     // (via findOpenByReference/markResolved), but it is not an approve/reject
     // decision — the allowlist, not "did a rule run", is what gates the push.
     mockNotificationsService.bulkCreate.mockResolvedValue([buildNotification()]);
 
-    const bridge = build();
-    await (bridge as unknown as { dispatch: (e: unknown) => Promise<void> }).dispatch(
-      buildEvent('leave.cancelled'),
-    );
+    await dispatch(build(), 'leave.cancelled');
 
-    expect(mockPrisma.channelIdentity.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.channelIdentity.findMany).not.toHaveBeenCalled();
     expect(mockAiAgentic.notifyTelegram).not.toHaveBeenCalled();
+    expect(mockAiAgentic.notifySlack).not.toHaveBeenCalled();
   });
 
   it('swallows a Prisma lookup failure without affecting the notification dispatch outcome', async () => {
     mockNotificationsService.bulkCreate.mockResolvedValue([buildNotification()]);
-    mockPrisma.channelIdentity.findFirst.mockRejectedValue(new Error('db unavailable'));
+    mockPrisma.channelIdentity.findMany.mockRejectedValue(new Error('db unavailable'));
 
-    const bridge = build();
-    await expect(
-      (bridge as unknown as { dispatch: (e: unknown) => Promise<void> }).dispatch(buildEvent('leave.approved')),
-    ).resolves.toBeUndefined();
+    await expect(dispatch(build(), 'leave.approved')).resolves.toBeUndefined();
 
     expect(mockSseRegistry.push).toHaveBeenCalledTimes(1);
   });

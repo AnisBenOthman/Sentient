@@ -1292,7 +1292,7 @@ export async function deleteThresholdIndicator(id: string): Promise<void> {
 
 // ── Channel Identities ───────────────────────────────────────────────────
 
-export type LinkableChannel = 'TELEGRAM';
+export type LinkableChannel = 'TELEGRAM' | 'SLACK';
 
 export interface ChannelIdentity {
   channel: LinkableChannel;

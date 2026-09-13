@@ -51,9 +51,25 @@ describe('AiAgenticClient', () => {
     expect(decoded.taskType).toBe('channel_notify');
   });
 
-  it('never throws when the request fails — the caller must not fail on a Telegram/AI Agentic outage', async () => {
+  it('posts to /channels/slack/notify with the same channel_notify-scoped SYSTEM bearer token', async () => {
+    postSpy.mockResolvedValue({ status: 204, data: undefined });
+
+    await client.notifySlack('U42', 'Your leave was rejected.');
+
+    expect(postSpy).toHaveBeenCalledTimes(1);
+    const [url, body, config] = postSpy.mock.calls[0] as [string, unknown, { headers: Record<string, string> }];
+    expect(url).toBe('/channels/slack/notify');
+    expect(body).toEqual({ externalId: 'U42', text: 'Your leave was rejected.' });
+
+    const token = (config.headers.Authorization ?? '').replace('Bearer ', '');
+    const decoded = jwt.verify(token, 'test-system-secret') as Record<string, unknown>;
+    expect(decoded.taskType).toBe('channel_notify');
+  });
+
+  it('never throws when the request fails — the caller must not fail on a chat-app/AI Agentic outage', async () => {
     postSpy.mockRejectedValue(new Error('ECONNREFUSED'));
 
     await expect(client.notifyTelegram('chat-42', 'text')).resolves.toBeUndefined();
+    await expect(client.notifySlack('U42', 'text')).resolves.toBeUndefined();
   });
 });

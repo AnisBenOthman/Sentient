@@ -15,13 +15,16 @@ import * as promotionRules from './routing-rules/promotion.rules';
 /**
  * WHY only these two event types: NotificationsEventsBridge.dispatch() runs
  * synchronously inside the awaited eventBus.emit() call on the leave
- * approve/reject request path (requests.service.ts). Pushing to Telegram
+ * approve/reject request path (requests.service.ts). Pushing to chat apps
  * for every notification category (OKR reminders, performance cycles,
  * announcements...) would put an identity lookup plus an HTTP round-trip on
  * a dozen endpoints nobody asked to touch. Scoped to the one thing the
- * feature actually is: a Telegram ping when a manager decides your leave.
+ * feature actually is: a Telegram/Slack ping when a manager decides your leave.
  */
-const TELEGRAM_ELIGIBLE_EVENT_TYPES = new Set(['leave.approved', 'leave.rejected']);
+const CHAT_PUSH_ELIGIBLE_EVENT_TYPES = new Set(['leave.approved', 'leave.rejected']);
+
+/** Channels AI Agentic exposes a `POST /channels/<x>/notify` relay for. */
+const CHAT_PUSH_CHANNELS = [ChannelType.TELEGRAM, ChannelType.SLACK];
 
 const SUBSCRIBED_EVENT_TYPES = [
   'leave.requested',
@@ -118,8 +121,8 @@ export class NotificationsEventsBridge implements OnApplicationBootstrap {
         });
       }
 
-      if (TELEGRAM_ELIGIBLE_EVENT_TYPES.has(event.type)) {
-        await Promise.all(created.map((notification) => this.pushTelegram(notification)));
+      if (CHAT_PUSH_ELIGIBLE_EVENT_TYPES.has(event.type)) {
+        await Promise.all(created.map((notification) => this.pushChatChannels(notification)));
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -131,22 +134,32 @@ export class NotificationsEventsBridge implements OnApplicationBootstrap {
 
   /**
    * WHY a dedicated try/catch here rather than letting failures bubble into
-   * dispatch()'s own catch: a Telegram/AI-Agentic outage must never look
-   * like "notification dispatch failed" in logs when the in-app Notification
-   * row and SSE push above already succeeded. AiAgenticClient itself never
-   * throws; this also guards the Prisma lookup.
+   * dispatch()'s own catch: a Telegram/Slack/AI-Agentic outage must never
+   * look like "notification dispatch failed" in logs when the in-app
+   * Notification row and SSE push above already succeeded. AiAgenticClient
+   * itself never throws; this also guards the Prisma lookup. One findMany
+   * covers every linked chat app, so a user linked to both gets both pings
+   * from a single query.
    */
-  private async pushTelegram(notification: NotificationResponseDto): Promise<void> {
+  private async pushChatChannels(notification: NotificationResponseDto): Promise<void> {
     try {
-      const identity = await this.prisma.channelIdentity.findFirst({
-        where: { userId: notification.recipientUserId, channel: ChannelType.TELEGRAM },
+      const identities = await this.prisma.channelIdentity.findMany({
+        where: { userId: notification.recipientUserId, channel: { in: CHAT_PUSH_CHANNELS } },
       });
-      if (!identity) return;
+      if (identities.length === 0) return;
 
-      await this.aiAgentic.notifyTelegram(identity.externalId, `${notification.title}\n\n${notification.body}`);
+      const text = `${notification.title}\n\n${notification.body}`;
+      await Promise.all(
+        identities.map((identity) => {
+          const channel: string = identity.channel;
+          return channel === ChannelType.SLACK
+            ? this.aiAgentic.notifySlack(identity.externalId, text)
+            : this.aiAgentic.notifyTelegram(identity.externalId, text);
+        }),
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Telegram push skipped for notification ${notification.id}: ${message}`);
+      this.logger.warn(`Chat push skipped for notification ${notification.id}: ${message}`);
     }
   }
 }
