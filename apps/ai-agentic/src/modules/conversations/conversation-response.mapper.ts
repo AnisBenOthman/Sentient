@@ -5,6 +5,7 @@ import {
   Message,
 } from '../../generated/prisma';
 import {
+  ActionOutcomeResponse,
   buildConfirmationPayload,
   ConfirmationPayloadResponse,
 } from '../agents/actions/confirmation-card.presenter';
@@ -39,9 +40,16 @@ export interface MessageResponse {
 
 export interface ConversationTurnResponse {
   conversation: ConversationSummaryResponse;
-  userMessage: MessageResponse;
+  /**
+   * Null for a confirm/cancel turn: a button tap is a control signal, not a
+   * message, so nothing is persisted as a USER message (spec 017 T047) — which
+   * also keeps it out of the classifier's history window on the next turn.
+   */
+  userMessage: MessageResponse | null;
   assistantMessage: MessageResponse;
   routing: RoutingTrace;
+  /** Present on confirm/cancel turns: the execute/verify result (contracts/action-execution-api.yaml). */
+  actionOutcome?: ActionOutcomeResponse;
 }
 
 export class ConversationResponseMapper {

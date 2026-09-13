@@ -65,6 +65,45 @@ export interface ConversationSummary {
   updatedAt: string;
 }
 
+export interface PolicyCitation {
+  sourceLabel: string;
+  excerpt: string;
+}
+
+/** Mirrors ConfirmationPayloadResponse in apps/ai-agentic confirmation-card.presenter.ts. */
+export interface ConfirmationPayload {
+  confirmationToken: string;
+  actionKind: 'LEAVE_BOOKING';
+  leaveTypeId: string;
+  leaveTypeName: string;
+  startDate: string;
+  endDate: string;
+  /** Advisory only — HR Core recomputes the exact count. */
+  businessDays: number;
+  currentBalance: number;
+  balanceAfter: number;
+  expiresAt: string;
+  emotionalContext: 'NEUTRAL' | 'COMPASSIONATE_SICK' | null;
+  /** Empty means policy was consulted and nothing relevant was found. */
+  policyCitations: PolicyCitation[];
+}
+
+export type ActionOutcomeStatus =
+  | 'SUCCESS' | 'UNVERIFIED' | 'FAILED' | 'REFUSED'
+  | 'CANCELLED' | 'ALREADY_SUBMITTED' | 'EXPIRED' | 'NOT_FOUND';
+
+/** Mirrors ActionOutcomeResponse in apps/ai-agentic confirmation-card.presenter.ts. */
+export interface ActionOutcome {
+  actionKind: 'LEAVE_BOOKING' | null;
+  status: ActionOutcomeStatus;
+  recordId: string | null;
+  recordStatus: string | null;
+  httpStatus: number | null;
+  reason: string | null;
+  verificationState: 'MATCHED' | 'MISMATCHED' | 'UNAVAILABLE' | null;
+  summary: string;
+}
+
 export interface AiMessageResponse {
   id: string;
   role: 'USER' | 'ASSISTANT' | 'SYSTEM' | 'AGENT';
@@ -73,18 +112,27 @@ export interface AiMessageResponse {
   status: AiAgentRunStatus;
   sourceContext: SourceContext[];
   createdAt: string;
+  /** Present only while a booking proposal on this message is still awaiting Confirm/Cancel. */
+  confirmationPayload?: ConfirmationPayload | null;
 }
 
 export interface ConversationTurnResponse {
   conversation: ConversationSummary;
-  userMessage: AiMessageResponse;
+  /** Null on confirm/cancel turns — a button tap is not a message. */
+  userMessage: AiMessageResponse | null;
   assistantMessage: AiMessageResponse;
   routing: RoutingTrace;
+  /** Present on confirm/cancel turns. */
+  actionOutcome?: ActionOutcome;
 }
 
 export interface ConversationTurnRequest {
   message: string;
   clientContext?: Record<string, unknown>;
+  /** Explicit decision on a pending proposal. Its presence is the only consent signal. */
+  confirmed?: boolean;
+  /** Required whenever `confirmed` is present. */
+  confirmationToken?: string;
 }
 
 export interface ConversationListResponse {

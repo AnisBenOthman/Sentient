@@ -50,7 +50,7 @@ export default function AiAssistantPage() {
         : startConversation({ message }),
     onSuccess: (turn: ConversationTurnResponse) => {
       setConversationId(turn.conversation.id);
-      setMessages((current) => [...current, turn.userMessage, turn.assistantMessage]);
+      setMessages((current) => [...current, ...(turn.userMessage ? [turn.userMessage] : []), turn.assistantMessage]);
       setRouting(turn.routing);
       setError("");
       void queryClient.invalidateQueries({ queryKey: ["ai-conversations"] });

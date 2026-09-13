@@ -116,7 +116,7 @@ export function FloatingAiAssistant() {
         : startConversation({ message }),
     onSuccess: (turn: ConversationTurnResponse) => {
       setConversationId(turn.conversation.id);
-      setLines((current) => [...current, ...toChatLines([turn.userMessage, turn.assistantMessage])].slice(-10));
+      setLines((current) => [...current, ...toChatLines(turn.userMessage ? [turn.userMessage, turn.assistantMessage] : [turn.assistantMessage])].slice(-10));
       setError("");
       setPendingPrompt(null);
       setLoadedLatest(true);

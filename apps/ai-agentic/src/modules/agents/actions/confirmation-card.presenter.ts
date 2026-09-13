@@ -80,6 +80,115 @@ export function confirmationCardLines(payload: ConfirmationPayloadResponse): Car
   };
 }
 
+export type ActionOutcomeStatus =
+  | 'SUCCESS'
+  | 'UNVERIFIED'
+  | 'FAILED'
+  | 'REFUSED'
+  | 'CANCELLED'
+  | 'ALREADY_SUBMITTED'
+  | 'EXPIRED'
+  | 'NOT_FOUND';
+
+/**
+ * The wire shape for the result of a confirm/cancel turn
+ * (contracts/action-execution-api.yaml `actionOutcome`). `summary` is the one
+ * plain-language sentence every channel shows; built here so web and Telegram
+ * never word the same outcome two different ways.
+ */
+export interface ActionOutcomeResponse {
+  actionKind: AgentActionKind | null;
+  status: ActionOutcomeStatus;
+  recordId: string | null;
+  /** HR Core's own status on the created record (PENDING or APPROVED), when known. */
+  recordStatus: string | null;
+  httpStatus: number | null;
+  /** The downstream reason verbatim (FR-010), or the refusal reason. */
+  reason: string | null;
+  verificationState: 'MATCHED' | 'MISMATCHED' | 'UNAVAILABLE' | null;
+  summary: string;
+}
+
+export interface BuildOutcomeInput {
+  actionKind: AgentActionKind | null;
+  status: ActionOutcomeStatus;
+  payload: LeaveBookingConfirmationPayload | null;
+  recordId?: string | null;
+  recordStatus?: string | null;
+  httpStatus?: number | null;
+  reason?: string | null;
+  verificationState?: 'MATCHED' | 'MISMATCHED' | 'UNAVAILABLE' | null;
+}
+
+export function buildActionOutcome(input: BuildOutcomeInput): ActionOutcomeResponse {
+  return {
+    actionKind: input.actionKind,
+    status: input.status,
+    recordId: input.recordId ?? null,
+    recordStatus: input.recordStatus ?? null,
+    httpStatus: input.httpStatus ?? null,
+    reason: input.reason ?? null,
+    verificationState: input.verificationState ?? null,
+    summary: outcomeSummary(input),
+  };
+}
+
+function outcomeSummary(input: BuildOutcomeInput): string {
+  const p = input.payload;
+  const what = p
+    ? `your ${p.leaveTypeName} ${p.startDate === p.endDate ? `on ${formatDate(p.startDate)}` : `from ${formatDate(p.startDate)} to ${formatDate(p.endDate)}`}`
+    : 'that booking';
+  switch (input.status) {
+    case 'SUCCESS': {
+      // FR-024: never name a specific approver — routing may fall back to HR admins.
+      const next = input.recordStatus?.toUpperCase() === 'APPROVED'
+        ? 'It was approved automatically.'
+        : 'It is now pending approval and the approver has been notified.';
+      return `Done — ${what} has been submitted and I verified it in HR Core${input.recordId ? ` (reference ${input.recordId.slice(0, 8)})` : ''}. ${next}`;
+    }
+    case 'UNVERIFIED':
+      return `I submitted ${what}, but I could not confirm it was recorded correctly${input.reason ? ` (${input.reason})` : ''}. Please check the Leaves page in the web app, or contact HR, before assuming it went through.`;
+    case 'FAILED':
+      return `I could not submit ${what}. HR Core returned: ${input.reason ?? 'an unknown error'}. Nothing was booked — you can ask me to try again, or use the Leaves page.`;
+    case 'REFUSED':
+      return input.reason ?? `Something changed since I proposed ${what}, so I have not submitted it.`;
+    case 'CANCELLED':
+      return `Cancelled — ${what} was not submitted.`;
+    case 'ALREADY_SUBMITTED':
+      return input.recordId
+        ? `${capitalize(what)} was already submitted (reference ${input.recordId.slice(0, 8)}). I have not submitted it a second time.`
+        : `${capitalize(what)} is already being submitted from your earlier tap. I have not submitted it a second time — check the Leaves page in a moment.`;
+    case 'EXPIRED':
+      return `That confirmation has expired, so I have not submitted ${what}. Ask me again and I will re-check your balance and prepare a fresh one.`;
+    case 'NOT_FOUND':
+    default:
+      return "I don't recognise that confirmation any more. If you still want to book leave, just ask me again.";
+  }
+}
+
+export function outcomeLines(outcome: ActionOutcomeResponse): CardLines {
+  const headline: Record<ActionOutcomeStatus, string> = {
+    SUCCESS: 'Leave booked',
+    UNVERIFIED: 'Submitted, but not verified',
+    FAILED: 'Booking failed',
+    REFUSED: 'Not submitted',
+    CANCELLED: 'Cancelled',
+    ALREADY_SUBMITTED: 'Already submitted',
+    EXPIRED: 'Confirmation expired',
+    NOT_FOUND: 'Unknown confirmation',
+  };
+  const lines: Array<{ label: string; value: string }> = [];
+  if (outcome.recordId) lines.push({ label: 'Reference', value: outcome.recordId });
+  if (outcome.recordStatus) lines.push({ label: 'Status', value: outcome.recordStatus });
+  if (outcome.verificationState) lines.push({ label: 'Verification', value: outcome.verificationState });
+  if (outcome.httpStatus !== null && outcome.status === 'FAILED') lines.push({ label: 'HR Core response', value: String(outcome.httpStatus) });
+  return { headline: headline[outcome.status], lines, citations: [], footer: outcome.summary };
+}
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 // ---------------------------------------------------------------------------
 
 export function readLeavePayload(value: unknown): LeaveBookingConfirmationPayload | null {

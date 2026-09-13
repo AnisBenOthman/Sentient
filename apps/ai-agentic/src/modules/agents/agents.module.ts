@@ -11,6 +11,7 @@ import {
 import { AnalyticsSqlModule } from '../analytics-sql';
 import { KnowledgeModule } from '../knowledge';
 import { ActionAuditService } from './actions/action-audit.service';
+import { ActionExecutorService } from './actions/action-executor.service';
 import { ActionProposalService } from './actions/action-proposal.service';
 import { LeaveBookingReasonService } from './actions/leave-booking-reason.service';
 import { AgentHandoffService } from './agent-handoff.service';
@@ -51,6 +52,7 @@ import { ToolRegistryService } from './tools/tool-registry.service';
   imports: [KnowledgeModule, AnalyticsSqlModule],
   providers: [
     ActionAuditService,
+    ActionExecutorService,
     ActionProposalService,
     LeaveBookingReasonService,
     ActorContextFactory,
@@ -122,6 +124,7 @@ import { ToolRegistryService } from './tools/tool-registry.service';
   ],
   exports: [
     ActionAuditService,
+    ActionExecutorService,
     ActionProposalService,
     LeaveBookingReasonService,
     ActorContextFactory,

@@ -13,6 +13,7 @@ import { PaginatedResponse, paginationToSkipTake, RoutingTrace } from '../../com
 import { AiActorContext, FinalAnswerResult, PendingActionDraft } from '../../common/graph';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ActionProposalService } from '../agents/actions/action-proposal.service';
+import { ActionOutcomeResponse, ActionOutcomeStatus } from '../agents/actions/confirmation-card.presenter';
 import { SupervisorAgentService } from '../agents/supervisor-agent.service';
 import {
   ConversationResponseMapper,
@@ -66,7 +67,85 @@ export class ConversationsService {
     dto: CreateMessageDto,
   ): Promise<ConversationTurnResponse> {
     const conversation = await this.findOwnedConversation(conversationId, actor.userId);
+    /**
+     * A confirm/cancel is a typed control signal, routed straight to the action
+     * executor and never through the intent classifier (spec 017 T047). Its
+     * presence is the ONLY consent signal — plain text like "yes, book it" is an
+     * ordinary turn and must never be read as implicit confirmation (FR-003).
+     */
+    if (dto.confirmed !== undefined) {
+      if (!dto.confirmationToken) {
+        throw new BadRequestException('confirmationToken is required when confirmed is present.');
+      }
+      return this.executeDecision(conversation, actor, dto.confirmed, dto.confirmationToken);
+    }
     return this.executeTurn(conversation, actor, dto.message);
+  }
+
+  private async executeDecision(
+    conversation: Conversation,
+    actor: AiActorContext,
+    confirmed: boolean,
+    confirmationToken: string,
+  ): Promise<ConversationTurnResponse> {
+    if (conversation.status === ConversationStatus.ARCHIVED) {
+      throw new BadRequestException('Archived conversations must be restored before sending messages.');
+    }
+
+    const outcome = await this.proposals.decide({
+      token: confirmationToken,
+      confirmed,
+      conversationId: conversation.id,
+      actor,
+    });
+
+    // Only the ASSISTANT outcome is persisted — see ConversationTurnResponse.userMessage.
+    const status = this.outcomeMessageStatus(outcome.status);
+    const assistantMessage = await this.prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        role: MessageRole.ASSISTANT,
+        content: outcome.summary,
+        agentType: AgentType.LEAVE_AGENT,
+        nodeType: AgentNodeType.SPECIALIST,
+        sourceSummary: [],
+        status,
+      },
+    });
+    const updatedConversation = await this.prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { lastAgentType: AgentType.LEAVE_AGENT, lastMessagePreview: this.titles.previewFrom(outcome.summary) },
+    });
+
+    return {
+      ...ConversationResponseMapper.toTurn(updatedConversation, assistantMessage, assistantMessage, {
+        status,
+        nodes: [{ nodeType: AgentNodeType.SPECIALIST, agentType: AgentType.LEAVE_AGENT, status, summary: outcome.summary }],
+      }),
+      userMessage: null,
+      actionOutcome: outcome,
+    };
+  }
+
+  /**
+   * FR-009/T055: SUCCESS only on a MATCHED verification; UNVERIFIED and FAILED
+   * keep their own statuses; a precondition refusal is REFUSED. Every other
+   * outcome (cancel, already-decided, expired, unknown) is an informational
+   * turn that completed normally.
+   */
+  private outcomeMessageStatus(status: ActionOutcomeStatus): AgentRunStatus {
+    switch (status) {
+      case 'SUCCESS':
+        return AgentRunStatus.SUCCESS;
+      case 'UNVERIFIED':
+        return AgentRunStatus.UNVERIFIED;
+      case 'FAILED':
+        return AgentRunStatus.FAILED;
+      case 'REFUSED':
+        return AgentRunStatus.REFUSED;
+      default:
+        return AgentRunStatus.SUCCESS;
+    }
   }
 
   async list(

@@ -17,8 +17,8 @@ export interface LogExecutedInput {
   conversationId: string;
   actor: AiActorContext;
   agentType: AgentType;
-  /** Links this entry to its originating Propose entry (FR-049). */
-  proposalLogId: string;
+  /** Links this entry to its originating Propose entry (FR-049). Null only for proposals minted before audit-on-mint existed. */
+  proposalLogId: string | null;
   /** SUCCESS or FAILED — never anything else; Execute has no other outcomes. */
   status: AgentRunStatus;
   httpStatus: number | null;
@@ -70,7 +70,7 @@ export class ActionAuditService {
   async logExecuted(input: LogExecutedInput): Promise<AgentTaskLog> {
     const log = await this.taskLogs.start({
       conversationId: input.conversationId,
-      parentLogId: input.proposalLogId,
+      parentLogId: input.proposalLogId ?? undefined,
       agentType: input.agentType,
       nodeType: AgentNodeType.SPECIALIST,
       taskType: 'action.executed',
