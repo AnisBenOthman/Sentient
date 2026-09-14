@@ -11,7 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiExcludeEndpoint, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { RbacGuard, RequireTaskType, Roles, SharedJwtGuard, SystemTaskGuard } from '@sentient/shared';
+import { Public, RbacGuard, RequireTaskType, Roles, SharedJwtGuard, SystemTaskGuard } from '@sentient/shared';
 import type { Request } from 'express';
 import { NotifySlackDto } from './dto/notify-slack.dto';
 import { SlackEventsPayload, SlackService } from './slack.service';
@@ -41,6 +41,11 @@ export class SlackController {
   }
 
   /**
+   * WHY @Public(): this service registers SharedJwtGuard and RbacGuard as
+   * APP_GUARDs, so without it every Slack delivery is rejected with 401 before
+   * the signature check below ever runs. @Public() opts this one route out of
+   * the global JWT gate — the HMAC check is what guards it instead.
+   *
    * WHY unauthenticated + no DTO: Slack sends no Sentient JWT, so
    * SharedJwtGuard/RbacGuard don't apply here — the HMAC signature over the
    * raw body (verified by SlackService against SLACK_SIGNING_SECRET) is the
@@ -55,6 +60,7 @@ export class SlackController {
    * first attempt never reached a handler and must be processed.
    */
   @Post('events')
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiExcludeEndpoint()
   async events(

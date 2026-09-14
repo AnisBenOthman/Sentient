@@ -1,6 +1,6 @@
 import { Body, Controller, ForbiddenException, HttpCode, HttpStatus, Headers, Post, UseGuards } from '@nestjs/common';
 import { ApiExcludeEndpoint, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { RbacGuard, RequireTaskType, Roles, SharedJwtGuard, SystemTaskGuard } from '@sentient/shared';
+import { Public, RbacGuard, RequireTaskType, Roles, SharedJwtGuard, SystemTaskGuard } from '@sentient/shared';
 import type { Update } from 'grammy/types';
 import { NotifyTelegramDto } from './dto/notify-telegram.dto';
 import { TelegramService } from './telegram.service';
@@ -31,6 +31,11 @@ export class TelegramController {
   }
 
   /**
+   * WHY @Public(): this service registers SharedJwtGuard and RbacGuard as
+   * APP_GUARDs, so without it every Telegram delivery is rejected with 401
+   * before the secret-token check below ever runs. @Public() opts this one
+   * route out of the global JWT gate — the shared secret guards it instead.
+   *
    * WHY unauthenticated + no DTO: Telegram sends no Sentient JWT, so
    * SharedJwtGuard/RbacGuard don't apply here — the shared-secret header
    * (set once via bot.api.setWebhook, verified by TelegramService) is the
@@ -41,6 +46,7 @@ export class TelegramController {
    * consumers, and it has no useful request/response shape to document.
    */
   @Post('webhook')
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiExcludeEndpoint()
   async webhook(
