@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AiAgenticClient } from '../../common/clients/ai-agentic.client';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { NotificationsEventsBridge } from './events/notifications-events.bridge';
 import { NotificationRouter } from './notification-router';
@@ -21,6 +22,7 @@ import { SseAuthGuard } from './sse/sse-auth.guard';
     NotificationsSseRegistry,
     SseAuthGuard,
     RetentionScheduler,
+    AiAgenticClient,
   ],
   exports: [NotificationsService],
 })

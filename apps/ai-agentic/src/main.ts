@@ -10,7 +10,10 @@ import { HttpExceptionFilter } from './common/filters';
 import { TimeoutInterceptor } from './common/interceptors';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  // WHY rawBody: Slack signs the exact bytes it sent (X-Slack-Signature over
+  // v0:<ts>:<body>); a re-serialised JSON body would never verify. Nest keeps
+  // the buffer on req.rawBody alongside the parsed body — see SlackController.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
   const configService = app.get(ConfigService);
 
