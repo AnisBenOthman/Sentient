@@ -104,10 +104,6 @@ export class SlackService implements OnModuleInit, OnModuleDestroy {
     }
 
     const socket = new SocketModeClient({ appToken });
-    // TEMP DIAGNOSTIC — remove once inbound delivery is confirmed working.
-    socket.on('slack_event', (a: { type: string; body?: { event?: { type?: string; subtype?: string; channel_type?: string } } }) => {
-      this.logger.warn(`DIAG slack_event type=${a.type} inner=${a.body?.event?.type} subtype=${a.body?.event?.subtype} channel_type=${a.body?.event?.channel_type}`);
-    });
     socket.on('message', async ({ ack, event }: SocketModeEventArgs) => {
       // WHY ack first: Slack redelivers any envelope not acked within ~3s,
       // and a redeemLinkCode round-trip to HR Core can take longer than that
