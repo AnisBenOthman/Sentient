@@ -1,4 +1,4 @@
-import { countAdvisoryBusinessDays, parseBookingRequest } from './leave-booking-request.parser';
+import { countAdvisoryBusinessDays, parseBookingRequest, parseDateRange } from './leave-booking-request.parser';
 
 // A fixed Tuesday so weekday arithmetic is deterministic: 2026-06-09 is a Tuesday.
 const TUESDAY = new Date('2026-06-09T15:30:00.000Z');
@@ -12,6 +12,10 @@ describe('parseBookingRequest — intent detection (T022)', () => {
     "I'd like to apply for vacation on 2026-07-01",
     "I'm sick today",
     'Not feeling well, staying home',
+    // Live Slack transcript 2026-09-15: no LEAVE_NOUNS entry, only a strong verb + duration.
+    'i want to book one day next week on 20 september',
+    'take 2 days next Monday',
+    'I want Friday off',
   ])('treats "%s" as a booking request', (message) => {
     expect(parseBookingRequest(message, TUESDAY).isBookingRequest).toBe(true);
   });
@@ -24,6 +28,10 @@ describe('parseBookingRequest — intent detection (T022)', () => {
     'When is the next public holiday?',
     'Who is off next week?',
     'Cancel my leave request',
+    // Soft verb + bare duration is not a booking; a duration in the past is history.
+    'I need two days to finish the report',
+    'I booked 2 days ago, is it approved?',
+    'paid leave, 20 september',
   ])('does NOT treat "%s" as a booking request', (message) => {
     expect(parseBookingRequest(message, TUESDAY).isBookingRequest).toBe(false);
   });
@@ -77,6 +85,17 @@ describe('parseBookingRequest — date extraction (T022)', () => {
 
   it('returns no range when the message names no usable dates', () => {
     expect(parseBookingRequest('I want to book some annual leave', TUESDAY).range).toBeNull();
+  });
+
+  it('moves a lone weekend date to the following Monday, but leaves an explicit two-date range alone', () => {
+    // 2026-06-13 is a Saturday.
+    expect(parseBookingRequest('book one day on 13 June', TUESDAY).range).toEqual({ startDate: '2026-06-15', endDate: '2026-06-15' });
+    expect(parseBookingRequest('book leave from 13 June to 14 June', TUESDAY).range).toEqual({ startDate: '2026-06-13', endDate: '2026-06-14' });
+  });
+
+  it('parseDateRange reads dates with no intent gate, for clarification replies', () => {
+    expect(parseDateRange('20 september', TUESDAY)).toEqual({ startDate: '2026-09-21', endDate: '2026-09-21' });
+    expect(parseDateRange('annual', TUESDAY)).toBeNull();
   });
 
   it('accepts day-first numeric dates', () => {

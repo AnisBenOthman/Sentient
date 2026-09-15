@@ -41,6 +41,8 @@ const PRISMA_SLACK = PrismaChannelType.SLACK;
 // the worst possible moment, after the user confirmed.
 const TOKEN_REFRESH_MARGIN_SECONDS = 120;
 const MAX_INBOUND_CHARS = 8_000;
+/** Posted the instant a turn starts, then edited in place into the answer. */
+const PLACEHOLDER_TEXT = '_Thinking…_';
 
 const LINK_HINT = 'Get a link code from My Profile > Linked Channels in the web app, then send me `link <code>` here.';
 const HELP_TEXT = [
@@ -98,6 +100,9 @@ interface SocketModeInteractiveArgs {
   ack: () => Promise<void>;
   body: SlackInteractivePayload;
 }
+
+/** Delivers one text reply — either by editing a held message or posting a new one. */
+type Respond = (text: string) => Promise<void>;
 
 /**
  * WHY Socket Mode is the default: it is Slack's equivalent of Telegram long
@@ -366,15 +371,20 @@ export class SlackService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    // Placeholder goes out before the HR Core session exchange, not after it:
+    // that round-trip is part of what the user is waiting on.
+    const placeholderTs = await this.postPlaceholder(channelId);
+    const respond: Respond = (reply) => this.finish(channelId, placeholderTs, reply);
+
     try {
-      const actor = await this.actorFor(userId, channelId);
+      const actor = await this.actorFor(userId, respond);
       if (!actor) return;
 
-      const turn = await this.runWithTimeout(channelId, () => this.sendTurn(userId, actor, text));
-      if (turn) await this.deliverTurn(channelId, turn);
+      const turn = await this.runWithTimeout(channelId, respond, () => this.sendTurn(userId, actor, text));
+      if (turn) await this.deliverTurn(channelId, respond, turn);
     } catch (err: unknown) {
       this.logger.error(`Slack turn failed for user ${userId}: ${this.errorMessage(err)}`);
-      await this.reply(channelId, "Something went wrong on my side. Your message wasn't lost — please try again in a moment.");
+      await respond("Something went wrong on my side. Your message wasn't lost — please try again in a moment.");
     } finally {
       this.inFlight.delete(userId);
     }
@@ -402,8 +412,8 @@ export class SlackService implements OnModuleInit, OnModuleDestroy {
     return turn;
   }
 
-  private async deliverTurn(channelId: string, turn: ConversationTurnResponse): Promise<void> {
-    await this.reply(channelId, turn.assistantMessage.content);
+  private async deliverTurn(channelId: string, respond: Respond, turn: ConversationTurnResponse): Promise<void> {
+    await respond(turn.assistantMessage.content);
     const payload = turn.assistantMessage.confirmationPayload;
     if (payload) await this.sendCard(channelId, confirmationCardLines(payload), payload.confirmationToken);
   }
@@ -439,8 +449,13 @@ export class SlackService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    // The card itself is the held message: stripping it to "One moment…" is
+    // the typing signal, and the outcome is edited into that same message so
+    // the DM reads card → result, not card → stub → result.
+    const respond: Respond = (reply) => this.finish(channelId, messageTs ?? null, reply);
+
     try {
-      const actor = await this.actorFor(userId, channelId);
+      const actor = await this.actorFor(userId, respond);
       if (!actor) return;
 
       // Route the tap by the proposal's own token, not the user's conversation
@@ -449,14 +464,13 @@ export class SlackService implements OnModuleInit, OnModuleDestroy {
       const proposal = await this.proposals.findByToken(parsed.token);
       if (!proposal || proposal.actorUserId !== actor.userId) {
         // Unknown, or somebody else's — indistinguishable on purpose.
-        if (messageTs) await this.stripCard(channelId, messageTs);
-        await this.reply(channelId, "I don't recognise that confirmation any more. If you still want to book leave, just ask me again.");
+        await respond("I don't recognise that confirmation any more. If you still want to book leave, just ask me again.");
         return;
       }
 
       if (messageTs) await this.stripCard(channelId, messageTs);
 
-      const turn = await this.runWithTimeout(channelId, () =>
+      const turn = await this.runWithTimeout(channelId, respond, () =>
         this.conversations.sendMessage(proposal.conversationId, actor, {
           message: parsed.action === 'confirm' ? 'Confirm' : 'Cancel',
           confirmed: parsed.action === 'confirm',
@@ -465,15 +479,10 @@ export class SlackService implements OnModuleInit, OnModuleDestroy {
       );
       if (!turn) return;
 
-      if (turn.actionOutcome) {
-        await this.reply(channelId, outcomeLines(turn.actionOutcome).footer);
-      } else {
-        await this.reply(channelId, turn.assistantMessage.content);
-      }
+      await respond(turn.actionOutcome ? outcomeLines(turn.actionOutcome).footer : turn.assistantMessage.content);
     } catch (err: unknown) {
       this.logger.error(`Slack interactive callback failed for user ${userId}: ${this.errorMessage(err)}`);
-      await this.reply(
-        channelId,
+      await respond(
         'Something went wrong while handling that tap. Please check the Leaves page in the web app before trying again — the booking may already have gone through.',
       );
     } finally {
@@ -488,15 +497,53 @@ export class SlackService implements OnModuleInit, OnModuleDestroy {
    * Prisma read the equivalent Telegram path doesn't need either (grammY's
    * callback context already holds the message it came from). Reducing to a
    * plain "processing" line is an accepted simplification for v1 — the
-   * outcome message that follows immediately after carries the full result,
-   * and the DB-level conditional update (not this UI edit) is what actually
-   * prevents a double-submit.
+   * outcome is edited into this same message right after, and the DB-level
+   * conditional update (not this UI edit) is what actually prevents a
+   * double-submit.
    */
   private async stripCard(channelId: string, ts: string): Promise<void> {
     if (!this.web) return;
     await this.web.chat
       .update({ channel: channelId, ts, text: 'One moment…', blocks: [] })
       .catch(() => undefined);
+  }
+
+  /**
+   * WHY a placeholder instead of a typing indicator: Slack has no typing API
+   * for a classic bot — assistant.threads.setStatus needs the Agents & AI
+   * Apps feature, an extra scope and a reinstall. Posting "Thinking…" at
+   * once and editing that same message into the answer gives the user the
+   * same signal with the chat:write scope the app already has. Returns null
+   * when the post fails so the reply degrades to a fresh message.
+   */
+  private async postPlaceholder(channelId: string): Promise<string | null> {
+    if (!this.web) return null;
+    try {
+      const posted = await this.web.chat.postMessage({ channel: channelId, text: PLACEHOLDER_TEXT });
+      return typeof posted.ts === 'string' ? posted.ts : null;
+    } catch (err: unknown) {
+      this.logger.warn(`Slack placeholder to channel ${channelId} failed: ${this.errorMessage(err)}`);
+      return null;
+    }
+  }
+
+  /**
+   * Edits the held message (placeholder or stripped card) into `text`, or
+   * posts `text` fresh when there is nothing to edit or the edit is rejected
+   * (message deleted, ts stale). The user always gets the text; the only
+   * thing at stake in the fallback is a stranded "Thinking…" line.
+   */
+  private async finish(channelId: string, ts: string | null, text: string): Promise<void> {
+    if (!this.web) return;
+    if (ts) {
+      try {
+        await this.web.chat.update({ channel: channelId, ts, text, blocks: [] });
+        return;
+      } catch (err: unknown) {
+        this.logger.warn(`Slack edit of ${ts} in channel ${channelId} failed; posting fresh: ${this.errorMessage(err)}`);
+      }
+    }
+    await this.reply(channelId, text);
   }
 
   /**
@@ -532,14 +579,14 @@ export class SlackService implements OnModuleInit, OnModuleDestroy {
 
   // ---- Session / actor -----------------------------------------------------
 
-  private async actorFor(userId: string, channelId: string): Promise<AiActorContext | null> {
+  private async actorFor(userId: string, respond: Respond): Promise<AiActorContext | null> {
     const session = await this.resolveSession(userId);
     if (session.kind === 'unlinked') {
-      await this.reply(channelId, `This Slack account isn't linked to a Sentient account yet. ${LINK_HINT}`);
+      await respond(`This Slack account isn't linked to a Sentient account yet. ${LINK_HINT}`);
       return null;
     }
     if (session.kind === 'unavailable') {
-      await this.reply(channelId, "I can't reach your account right now. Please try again in a moment.");
+      await respond("I can't reach your account right now. Please try again in a moment.");
       return null;
     }
     try {
@@ -550,7 +597,7 @@ export class SlackService implements OnModuleInit, OnModuleDestroy {
     } catch (err: unknown) {
       this.logger.warn(`Rejected channel token for Slack user ${userId}: ${this.errorMessage(err)}`);
       this.sessionCache.delete(userId);
-      await this.reply(channelId, `Your session couldn't be verified. Please re-link this account: ${LINK_HINT}`);
+      await respond(`Your session couldn't be verified. Please re-link this account: ${LINK_HINT}`);
       return null;
     }
   }
@@ -596,11 +643,10 @@ export class SlackService implements OnModuleInit, OnModuleDestroy {
    * Bounds a turn by the same requestTimeoutMs the HTTP path enforces. On
    * timeout the turn keeps running and persists its own result — the reply
    * points at the web app and never claims failure, because the work may
-   * well complete. No typing indicator: Slack has none that fits a plain
-   * Web API bot (assistant.threads.setStatus needs the Agents/AI Apps
-   * feature, not enabled here) — skipped rather than faked.
+   * well complete. The deferral goes through `respond` so it replaces the
+   * placeholder rather than leaving "Thinking…" stranded above it.
    */
-  private async runWithTimeout<T>(channelId: string, work: () => Promise<T>): Promise<T | null> {
+  private async runWithTimeout<T>(channelId: string, respond: Respond, work: () => Promise<T>): Promise<T | null> {
     const timeoutMs = this.config.get<AiAgenticConfig>('aiAgentic')?.requestTimeoutMs ?? 60_000;
 
     let timer: NodeJS.Timeout | undefined;
@@ -614,8 +660,7 @@ export class SlackService implements OnModuleInit, OnModuleDestroy {
       const result = await Promise.race([job, timeout]);
       if (result === null) {
         this.logger.warn(`Slack turn for channel ${channelId} exceeded ${timeoutMs}ms; replying with a deferral.`);
-        await this.reply(
-          channelId,
+        await respond(
           "This is taking longer than usual. I'm still working on it — you'll find the answer in the Sentient web app under AI Assistant in a moment.",
         );
       }

@@ -1,5 +1,5 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
-import { AgentActionKind, AgentRunStatus, AgentType, PermissionDecision } from '../../../generated/prisma';
+import { AgentActionKind, AgentRunStatus, AgentType, MessageRole, PermissionDecision } from '../../../generated/prisma';
 import {
   DownstreamRequestContext,
   DownstreamResult,
@@ -20,9 +20,33 @@ import {
   DateRange,
   iso,
   parseBookingRequest,
+  parseDateRange,
 } from './leave-booking-request.parser';
 
 const ACTIVE_REQUEST_STATUSES = new Set(['PENDING', 'APPROVED']);
+
+/**
+ * The clarifying questions this service asks, by their fixed openers. A reply
+ * to one of them is merged with the request that prompted it (see
+ * continuationText). Fixed text is what makes the match exact rather than
+ * fuzzy: `question()` content is persisted verbatim by FinalAnswerNodeService,
+ * so the previous assistant message either starts with one of these or the
+ * chain ends. Declines (REFUSED) are deliberately not here — the final-answer
+ * policy may rewrite those.
+ */
+const CLARIFICATION_OPENERS = [
+  'Which type of leave should I book?',
+  'Which dates should I book for ',
+  'Those dates (',
+];
+
+/** How many question→answer pairs a booking may span (type, then dates, then a past-date correction). */
+const MAX_CLARIFICATION_HOPS = 3;
+
+export function isBookingClarification(content: string): boolean {
+  const trimmed = content.trim();
+  return CLARIFICATION_OPENERS.some((opener) => trimmed.startsWith(opener));
+}
 
 /** Everything Reason resolved about who is asking, before any leave logic runs (spec 017 T026). */
 interface ResolvedIdentity {
@@ -70,8 +94,21 @@ export class LeaveBookingReasonService {
     if (input.constraints.readOnlyOfficialRecords !== false) return null;
     if (!input.constraints.permittedActions.includes(AgentActionKind.LEAVE_BOOKING)) return null;
 
-    const parsed = parseBookingRequest(input.userMessage);
-    if (!parsed.isBookingRequest) return null;
+    let parsed = parseBookingRequest(input.userMessage);
+    if (!parsed.isBookingRequest) {
+      const continuation = this.continuationText(input);
+      if (!continuation) return null;
+      parsed = parseBookingRequest(continuation);
+      if (!parsed.isBookingRequest) return null;
+      /**
+       * WHY the reply's dates win: after "Those dates are in the past — which
+       * upcoming dates?" the merged text carries both the old dates and the
+       * new ones, and two explicit dates would otherwise parse as a range
+       * spanning them. Dates named in the answer replace dates named earlier.
+       */
+      const replyRange = parseDateRange(input.userMessage);
+      if (replyRange) parsed = { ...parsed, range: replyRange };
+    }
 
     const reqContext: DownstreamRequestContext = {
       jwt: input.actorContext.jwt,
@@ -209,6 +246,36 @@ export class LeaveBookingReasonService {
   }
 
   // ---------------------------------------------------------------------------
+
+  /**
+   * WHY: a user answering "Which dates should I book for Annual Leave?" with
+   * "20 September" has not restated the booking, and parseBookingRequest on
+   * that reply alone finds no intent — the live Slack transcript of 2026-09-15
+   * fell through to the LLM at exactly this point. Walk back through the
+   * recent messages: for as long as the previous assistant turn was one of
+   * this service's own clarifying questions, prepend the user message that
+   * prompted it. Anything else — an LLM-phrased question, a turn that moved on
+   * — ends the chain, so stale context can never mint a proposal (spec 017
+   * FR-001: one clarifying question, never a guess).
+   */
+  private continuationText(input: SpecialistInput): string | null {
+    const history = input.conversationContext.recentMessages;
+    // The current user message is persisted before the context window is built, so it rides at the end.
+    let index = history.length - 1;
+    const last = history[index];
+    if (last && last.role === MessageRole.USER && last.content === input.userMessage) index -= 1;
+
+    const parts: string[] = [];
+    for (let hops = 0; hops < MAX_CLARIFICATION_HOPS && index >= 1; hops += 1) {
+      const assistant = history[index]!;
+      const user = history[index - 1]!;
+      if (assistant.role !== MessageRole.ASSISTANT || !isBookingClarification(assistant.content)) break;
+      if (user.role !== MessageRole.USER) break;
+      parts.unshift(user.content);
+      index -= 2;
+    }
+    return parts.length > 0 ? `${parts.join(' ')} ${input.userMessage}` : null;
+  }
 
   private async resolveIdentity(
     input: SpecialistInput,

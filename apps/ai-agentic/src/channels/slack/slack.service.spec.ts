@@ -257,11 +257,46 @@ describe('SlackService.handleEvent — free text (agent pipeline)', () => {
     await service.handleEvent(dm({ text: 'book 1 day off' }));
 
     expect(sendMessage).toHaveBeenCalledWith('conv-1', expect.objectContaining({ userId: 'user-1' }), { message: 'book 1 day off' });
-    // First call is the text reply, second is the card (with Confirm/Cancel blocks).
-    expect(postMessage).toHaveBeenNthCalledWith(1, { channel: 'D123', text: "Here's what I found." });
-    const cardCall = postMessage.mock.calls[1][0] as { blocks: Array<{ type: string; elements?: Array<{ action_id?: string }> }> };
+    // Placeholder, then (no ts came back, so a fresh post) the text reply, then the card with Confirm/Cancel blocks.
+    expect(postMessage).toHaveBeenNthCalledWith(1, { channel: 'D123', text: '_Thinking…_' });
+    expect(postMessage).toHaveBeenNthCalledWith(2, { channel: 'D123', text: "Here's what I found." });
+    const cardCall = postMessage.mock.calls[2][0] as { blocks: Array<{ type: string; elements?: Array<{ action_id?: string }> }> };
     const actionsBlock = cardCall.blocks.find((b) => b.type === 'actions');
     expect(actionsBlock?.elements?.map((e) => e.action_id)).toEqual(['confirm_action', 'cancel_action']);
+  });
+});
+
+describe('SlackService — typing placeholder', () => {
+  it('posts "Thinking…" first and edits that same message into the answer', async () => {
+    const exchangeChannelIdentity = jest.fn().mockResolvedValue({ accessToken: 'jwt', refreshToken: 'r', expiresIn: 900 });
+    const createConversation = jest.fn().mockResolvedValue({ conversation: { id: 'conv-1' }, assistantMessage: { content: 'Answer.' } });
+    const service = buildService({
+      hrCore: { exchangeChannelIdentity },
+      actors: { fromChannelToken: jest.fn().mockReturnValue({ userId: 'user-1', jwt: 'jwt', roles: ['EMPLOYEE'] }) },
+      conversations: { createConversation } as unknown as Partial<ConversationsService>,
+    });
+    const postMessage = jest.fn().mockResolvedValue({ ok: true, ts: '777.1' });
+    const update = jest.fn().mockResolvedValue({ ok: true });
+    internals(service).web = { chat: { postMessage, update } };
+
+    await service.handleEvent(dm({ text: 'my leave balance' }));
+
+    expect(postMessage).toHaveBeenCalledTimes(1);
+    expect(postMessage).toHaveBeenCalledWith({ channel: 'D123', text: '_Thinking…_' });
+    expect(update).toHaveBeenCalledWith({ channel: 'D123', ts: '777.1', text: 'Answer.', blocks: [] });
+  });
+
+  it('edits the placeholder into the "not linked" hint too, and falls back to a fresh post when the edit is rejected', async () => {
+    const exchangeChannelIdentity = jest.fn().mockRejectedValue(new NotFoundException());
+    const service = buildService({ hrCore: { exchangeChannelIdentity } });
+    const postMessage = jest.fn().mockResolvedValue({ ok: true, ts: '777.2' });
+    const update = jest.fn().mockRejectedValue(new Error('message_not_found'));
+    internals(service).web = { chat: { postMessage, update } };
+
+    await service.handleEvent(dm({ text: 'my leave balance' }));
+
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ ts: '777.2', text: expect.stringContaining("isn't linked") }));
+    expect(postMessage).toHaveBeenLastCalledWith({ channel: 'D123', text: expect.stringContaining("isn't linked") });
   });
 });
 
@@ -301,13 +336,15 @@ describe('SlackService — interactive Confirm/Cancel taps', () => {
 
     await internals(service).handleInteractive(interactiveBody('confirm', token));
 
-    expect(update).toHaveBeenCalledWith(expect.objectContaining({ channel: 'D123', ts: '999.1', blocks: [] }));
+    expect(update).toHaveBeenNthCalledWith(1, expect.objectContaining({ channel: 'D123', ts: '999.1', text: 'One moment…', blocks: [] }));
     expect(sendMessage).toHaveBeenCalledWith(
       'conv-1',
       expect.objectContaining({ userId: 'user-1' }),
       { message: 'Confirm', confirmed: true, confirmationToken: token },
     );
-    expect(postMessage).toHaveBeenCalledWith({ channel: 'D123', text: 'Done — booked and verified.' });
+    // The outcome replaces the stripped card in place; nothing new is posted.
+    expect(update).toHaveBeenNthCalledWith(2, { channel: 'D123', ts: '999.1', text: 'Done — booked and verified.', blocks: [] });
+    expect(postMessage).not.toHaveBeenCalled();
   });
 
   it("refuses a tap for another user's proposal without revealing why", async () => {
@@ -323,9 +360,12 @@ describe('SlackService — interactive Confirm/Cancel taps', () => {
     });
     const postMessage = withWeb(service);
 
+    const update = internals(service).web.chat.update as jest.Mock;
+
     await internals(service).handleInteractive(interactiveBody('confirm', token));
 
     expect(sendMessage).not.toHaveBeenCalled();
-    expect(postMessage).toHaveBeenCalledWith({ channel: 'D123', text: expect.stringContaining("don't recognise that confirmation") });
+    expect(update).toHaveBeenCalledWith({ channel: 'D123', ts: '999.1', text: expect.stringContaining("don't recognise that confirmation"), blocks: [] });
+    expect(postMessage).not.toHaveBeenCalled();
   });
 });

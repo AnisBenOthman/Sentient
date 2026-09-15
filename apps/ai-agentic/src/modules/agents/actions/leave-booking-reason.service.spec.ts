@@ -59,7 +59,15 @@ function buildClient(overrides: ClientOverrides = {}) {
   return { client, calls };
 }
 
-function buildInput(userMessage: string, options: { readOnly?: boolean; employeeId?: string | null; businessUnitId?: string | null } = {}): SpecialistInput {
+interface RecentMessage { role: 'USER' | 'ASSISTANT'; content: string }
+
+function buildInput(
+  userMessage: string,
+  options: { readOnly?: boolean; employeeId?: string | null; businessUnitId?: string | null; history?: RecentMessage[] } = {},
+): SpecialistInput {
+  // Mirrors ConversationsService: the current user message is persisted before the window is built, so it rides last.
+  const recentMessages = [...(options.history ?? []), { role: 'USER' as const, content: userMessage }]
+    .map((message, index) => ({ id: `m${index}`, ...message }));
   return {
     conversationId: 'conversation-1',
     parentTaskLogId: 'task-1',
@@ -72,7 +80,7 @@ function buildInput(userMessage: string, options: { readOnly?: boolean; employee
       businessUnitId: options.businessUnitId === undefined ? 'bu-1' : options.businessUnitId,
       roleAssignments: [], correlationId: 'corr-1',
     },
-    conversationContext: { recentMessages: [], priorHandoffAgents: [] },
+    conversationContext: { recentMessages, priorHandoffAgents: [] },
     sourceHints: [],
     isDraftRequest: false,
     constraints: options.readOnly
@@ -299,5 +307,80 @@ describe('LeaveBookingReasonService — policy citations (T024)', () => {
     const result = await service.tryPropose(buildInput(`book annual leave ${text}`));
     expect(result!.status).toBe(AgentRunStatus.PENDING_CONFIRMATION);
     expect(result!.policyCitations).toEqual([]);
+  });
+});
+
+describe('LeaveBookingReasonService — clarification follow-ups', () => {
+  it('asks for dates when the booking names none, then proposes from the reply alone', async () => {
+    const { client } = buildClient({ leaveTypes: [ANNUAL, SICK] });
+    const service = new LeaveBookingReasonService(client);
+
+    const question = await service.tryPropose(buildInput('I want to book some annual leave'));
+    expect(question?.status).toBe(AgentRunStatus.SUCCESS);
+    expect(question?.userVisibleContent).toMatch(/^Which dates should I book for Annual Leave\?/);
+
+    const { text, startDate, endDate } = futureRange();
+    const proposal = await service.tryPropose(buildInput(text, {
+      history: [
+        { role: 'USER', content: 'I want to book some annual leave' },
+        { role: 'ASSISTANT', content: question!.userVisibleContent },
+      ],
+    }));
+    expect(proposal?.status).toBe(AgentRunStatus.PENDING_CONFIRMATION);
+    expect(proposal?.confirmationPayload).toEqual(expect.objectContaining({ leaveTypeName: 'Annual Leave', startDate, endDate }));
+  });
+
+  it('chains type then dates across two clarifications', async () => {
+    const { client } = buildClient({ leaveTypes: [ANNUAL, SICK] });
+    const service = new LeaveBookingReasonService(client);
+    const { text, startDate } = futureRange();
+
+    const proposal = await service.tryPropose(buildInput(text, {
+      history: [
+        { role: 'USER', content: 'book leave' },
+        { role: 'ASSISTANT', content: 'Which type of leave should I book? Your options are: Annual Leave, Sick Leave.' },
+        { role: 'USER', content: 'annual' },
+        { role: 'ASSISTANT', content: 'Which dates should I book for Annual Leave? You can say something like "next Monday to Wednesday".' },
+      ],
+    }));
+    expect(proposal?.status).toBe(AgentRunStatus.PENDING_CONFIRMATION);
+    expect(proposal?.confirmationPayload).toEqual(expect.objectContaining({ leaveTypeName: 'Annual Leave', startDate }));
+  });
+
+  it('lets dates in the reply replace the past dates that prompted the correction', async () => {
+    const { client } = buildClient({ leaveTypes: [ANNUAL, SICK] });
+    const service = new LeaveBookingReasonService(client);
+    const { text, startDate, endDate } = futureRange();
+
+    const proposal = await service.tryPropose(buildInput(text, {
+      history: [
+        { role: 'USER', content: 'book annual leave from 2020-01-06 to 2020-01-07' },
+        { role: 'ASSISTANT', content: 'Those dates (2020-01-06 to 2020-01-07) are in the past. Which upcoming dates should I book?' },
+      ],
+    }));
+    expect(proposal?.status).toBe(AgentRunStatus.PENDING_CONFIRMATION);
+    expect(proposal?.confirmationPayload).toEqual(expect.objectContaining({ startDate, endDate }));
+  });
+
+  it('does not continue from a question the LLM asked, nor from an unrelated turn', async () => {
+    const { client } = buildClient({ leaveTypes: [ANNUAL, SICK] });
+    const service = new LeaveBookingReasonService(client);
+    const { text } = futureRange();
+
+    expect(await service.tryPropose(buildInput(`paid leave, ${text}`, {
+      history: [
+        { role: 'USER', content: 'i want to book one day' },
+        { role: 'ASSISTANT', content: 'I can help you book your leave. Could you please specify the leave type and confirm the date?' },
+      ],
+    }))).toBeNull();
+
+    expect(await service.tryPropose(buildInput(text, {
+      history: [
+        { role: 'USER', content: 'book annual leave' },
+        { role: 'ASSISTANT', content: 'Which dates should I book for Annual Leave?' },
+        { role: 'USER', content: 'what is the sick leave policy?' },
+        { role: 'ASSISTANT', content: 'Sick leave requires a certificate after 3 days.' },
+      ],
+    }))).toBeNull();
   });
 });

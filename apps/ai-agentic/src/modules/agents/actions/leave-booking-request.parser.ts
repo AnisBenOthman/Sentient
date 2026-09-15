@@ -48,6 +48,15 @@ const BOOKING_VERBS = [
   'give me',
 ];
 
+/**
+ * Verbs strong enough to mark a booking on their own when paired with a bare
+ * duration ("book one day", "take 2 days") — no leave noun required. The
+ * softer verbs ("want", "need", "give me") still need a leave noun or "off",
+ * so "I need two days to finish the report" is not mistaken for a request.
+ * Matched on word boundaries so "take" does not fire inside "mistake".
+ */
+const STRONG_BOOKING_VERBS = ['book', 'request', 'apply for', 'submit', 'schedule', 'put in', 'take'];
+
 const LEAVE_NOUNS = [
   'leave',
   'day off',
@@ -84,6 +93,7 @@ const READ_ONLY_SIGNALS = [
   'coverage',
   'cancel',
   'withdraw',
+  'ago',
 ];
 
 const ILLNESS_TERMS = ['sick', 'ill', 'unwell', 'fever', 'flu', 'not feeling well', "don't feel well", 'malade'];
@@ -109,7 +119,18 @@ export function parseBookingRequest(message: string, today: Date = new Date()): 
 
   const hasLeaveNoun = LEAVE_NOUNS.some((noun) => lower.includes(noun));
   const hasBookingVerb = BOOKING_VERBS.some((verb) => lower.includes(verb));
+  const hasStrongVerb = STRONG_BOOKING_VERBS.some((verb) => new RegExp(`\\b${verb}\\b`).test(lower));
   const readOnly = READ_ONLY_SIGNALS.some((signal) => lower.includes(signal));
+
+  /**
+   * WHY the implied noun: "book one day on 20 September" and "take Friday off"
+   * are unmistakable booking requests in an HR assistant, yet neither contains
+   * a LEAVE_NOUNS entry ("one day" is not "day off"). Left to the LLM, the live
+   * Slack transcript of 2026-09-15 shows what happens next: the model asked its
+   * own clarifying question, then claimed to have booked. A duration with a
+   * strong verb, or "off" with any booking verb, therefore counts as the noun.
+   */
+  const impliedLeaveNoun = (hasStrongVerb && extractDurationDays(lower) !== null) || (hasBookingVerb && /\boff\b/.test(lower));
 
   /**
    * "I'm sick today" carries no booking verb and no leave noun but is the
@@ -117,7 +138,7 @@ export function parseBookingRequest(message: string, today: Date = new Date()): 
    * a booking request; the compassionate specifics (default to today, ask no
    * diagnostic questions) are applied by the caller.
    */
-  const isBookingRequest = !readOnly && ((hasLeaveNoun && hasBookingVerb) || mentionsIllness);
+  const isBookingRequest = !readOnly && (((hasLeaveNoun || impliedLeaveNoun) && hasBookingVerb) || mentionsIllness);
 
   return {
     isBookingRequest,
@@ -125,6 +146,15 @@ export function parseBookingRequest(message: string, today: Date = new Date()): 
     leaveTypeHint: detectLeaveTypeHint(lower),
     mentionsIllness,
   };
+}
+
+/**
+ * Dates alone, with no intent gate — for a reply to "Which dates should I
+ * book?" that names dates but restates nothing else. The caller has already
+ * established booking intent from the turn that prompted the question.
+ */
+export function parseDateRange(message: string, today: Date = new Date()): DateRange | null {
+  return extractDateRange(message.toLowerCase().replace(/\s+/g, ' ').trim(), today);
 }
 
 function detectLeaveTypeHint(lower: string): string | null {
@@ -152,7 +182,11 @@ function extractDateRange(lower: string, today: Date): DateRange | null {
   const durationDays = extractDurationDays(lower);
 
   if (explicit.length === 1) {
-    const start = explicit[0]!;
+    // A lone date on a weekend ("on 20 September" when that is a Sunday) starts
+    // on the following Monday rather than producing a Sun-to-Mon record. The
+    // card shows the resolved dates, so the user settles it before anything is
+    // booked; two explicit dates are left exactly as stated.
+    const start = nextWeekday(explicit[0]!);
     return { startDate: iso(start), endDate: iso(addBusinessDays(start, durationDays ?? 1)) };
   }
 
@@ -312,6 +346,12 @@ function addBusinessDays(start: Date, businessDays: number): Date {
     cursor = addDays(cursor, 1);
     if (!isWeekend(cursor)) remaining -= 1;
   }
+  return cursor;
+}
+
+function nextWeekday(date: Date): Date {
+  let cursor = date;
+  while (isWeekend(cursor)) cursor = addDays(cursor, 1);
   return cursor;
 }
 

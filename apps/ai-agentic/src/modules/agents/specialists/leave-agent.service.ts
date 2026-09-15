@@ -38,6 +38,20 @@ You cannot book, change, or cancel leave yourself, and you must never claim to h
 ${FEW_SHOT_LEAVE_EXAMPLES}
 ${CONVERSATIONAL_STYLE}`;
 
+/**
+ * First-person claims of having performed a write. The leave toolset is
+ * read-only and LEAVE_SYSTEM_PROMPT says so, yet the 2026-09-15 Slack
+ * transcript has the fallback model answering "I have booked 1 day of Annual
+ * Leave for you" and "I have canceled your pending leave requests" with
+ * nothing written to HR Core. A prompt line is not a guarantee; this check is.
+ * Negations ("I haven't booked", "I have not booked") do not match.
+ */
+const COMPLETION_CLAIM =
+  /\bi(?:'ve| have)?\s+(?:just\s+|now\s+|successfully\s+|already\s+)?(?:booked|submitted|cancel+ed|created|scheduled|logged|registered|filed|put in)\b|\b(?:booked|submitted|cancel+ed|scheduled)\s+(?:it|that|this|them|the request)?\s*for you\b/i;
+
+const COMPLETION_CLAIM_REPLACEMENT =
+  "I can't book, change, or cancel leave from a chat answer, and I haven't done so. To book leave, tell me the leave type and exact dates — for example \"book 2 days of annual leave from 12 June\" — and I'll prepare a booking for you to confirm. To cancel an existing request, use the Leaves page in the web app.";
+
 /** Capitalized sentence starters that must not be mistaken for a person's name. */
 const NAME_STOPWORDS = new Set([
   'What', 'Whats', 'Who', 'Whos', 'Where', 'When', 'How', 'Why', 'Whose',
@@ -116,7 +130,7 @@ export class LeaveAgentService implements SpecialistAgent {
         callOptions,
       );
       if (outcome) {
-        return toolCallerResult(input, this.agentType, outcome, {
+        const result = toolCallerResult(input, this.agentType, outcome, {
           sourceType: 'LEAVE',
           title: 'Leave context',
           referencePrefix: 'leave',
@@ -125,6 +139,7 @@ export class LeaveAgentService implements SpecialistAgent {
           limitedSummary: 'Leave guidance prepared with limited data access.',
           draftLabel: 'Leave request draft',
         });
+        return this.withoutCompletionClaims(result);
       }
     }
 
@@ -161,6 +176,21 @@ export class LeaveAgentService implements SpecialistAgent {
     return downstreamResult(input, this.agentType, context, 'Leave context prepared.', content, {
       draftLabel: 'Leave request draft',
     });
+  }
+
+  /**
+   * Replaces an LLM answer that claims a write happened. Only the Reason/Propose
+   * path above can lead to a write, and it never returns through here, so any
+   * such claim in this branch is false by construction.
+   */
+  private withoutCompletionClaims(result: SpecialistResult): SpecialistResult {
+    if (!COMPLETION_CLAIM.test(result.userVisibleContent)) return result;
+    return {
+      ...result,
+      status: AgentRunStatus.DEGRADED,
+      summary: 'Leave answer replaced: the model claimed to have booked or cancelled leave, which this path cannot do.',
+      userVisibleContent: COMPLETION_CLAIM_REPLACEMENT,
+    };
   }
 
   private refusal(summary: string, userVisibleContent: string): SpecialistResult {

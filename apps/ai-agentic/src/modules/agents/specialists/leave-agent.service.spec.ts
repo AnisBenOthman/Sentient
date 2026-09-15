@@ -318,3 +318,37 @@ describe('LeaveAgentService named-individual targeting', () => {
     expect(result.userVisibleContent).toContain('leave context');
   });
 });
+
+describe('LeaveAgentService completion-claim guard', () => {
+  function llmCaller(answer: string) {
+    return {
+      call: async () => ({ answer, anyToolDenied: false, anyToolFailed: false, toolsUsed: ['get_my_leave_balance'], providerUsed: 'OPENROUTER', usedFallbackProvider: true }),
+    } as never;
+  }
+  const toolRegistry = { getLeaveTools: () => [] } as never;
+  const hrCore = {} as unknown as HrCoreAiClient;
+
+  it.each([
+    'I have booked 1 day of Annual Leave for you on September 20, 2026.',
+    "I've canceled your pending leave requests.",
+    'Done! I submitted the request for you.',
+  ])('replaces "%s" — this path cannot write', async (answer) => {
+    const agent = new LeaveAgentService(hrCore, llmCaller(answer), toolRegistry);
+    const result = await agent.execute(buildInput('paid leave, 20 september', ['EMPLOYEE']));
+
+    expect(result.status).toBe(AgentRunStatus.DEGRADED);
+    expect(result.userVisibleContent).not.toContain('booked 1 day');
+    expect(result.userVisibleContent).toContain("I haven't done so");
+    expect(result.summary).toContain('claimed to have booked or cancelled');
+  });
+
+  it.each([
+    'You have 8 Sick Leave days remaining. I haven\'t booked anything.',
+    'Your request for 14–15 September has been approved by your manager.',
+    'To book leave, tell me the type and dates.',
+  ])('keeps "%s" untouched', async (answer) => {
+    const agent = new LeaveAgentService(hrCore, llmCaller(answer), toolRegistry);
+    const result = await agent.execute(buildInput('my leave balance', ['EMPLOYEE']));
+    expect(result.userVisibleContent).toBe(answer);
+  });
+});
