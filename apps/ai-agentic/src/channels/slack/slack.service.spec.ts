@@ -1,13 +1,34 @@
 import { createHmac } from 'crypto';
 import { ConfigService } from '@nestjs/config';
+import { NotFoundException } from '@nestjs/common';
 import { ChannelType } from '@sentient/shared';
 import { HrCoreClient } from '../../common/clients/hr-core.client';
+import { ActorContextFactory } from '../../common/graph';
+import { ActionProposalService } from '../../modules/agents/actions/action-proposal.service';
+import { ConversationsService } from '../../modules/conversations/conversations.service';
+import { ChannelConversationLinkService } from '../channel-conversation-link.service';
+import { encodeCallbackData } from '../telegram/callback-data';
 import { SlackService } from './slack.service';
 
 const mockConfig = { get: jest.fn() } as unknown as ConfigService;
 
-function buildService(hrCore: Partial<HrCoreClient> = {}): SlackService {
-  return new SlackService(mockConfig, hrCore as unknown as HrCoreClient);
+interface Deps {
+  hrCore: Partial<HrCoreClient>;
+  actors: Partial<ActorContextFactory>;
+  conversations: Partial<ConversationsService>;
+  links: Partial<ChannelConversationLinkService>;
+  proposals: Partial<ActionProposalService>;
+}
+
+function buildService(overrides: Partial<Deps> = {}): SlackService {
+  return new SlackService(
+    mockConfig,
+    (overrides.hrCore ?? {}) as unknown as HrCoreClient,
+    (overrides.actors ?? {}) as unknown as ActorContextFactory,
+    (overrides.conversations ?? {}) as unknown as ConversationsService,
+    (overrides.links ?? { find: jest.fn().mockResolvedValue(null), set: jest.fn(), clear: jest.fn() }) as unknown as ChannelConversationLinkService,
+    (overrides.proposals ?? {}) as unknown as ActionProposalService,
+  );
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,6 +50,13 @@ function dm(overrides: Record<string, unknown> = {}): never {
   } as never;
 }
 
+function withWeb(service: SlackService): jest.Mock {
+  const postMessage = jest.fn().mockResolvedValue({ ok: true });
+  const update = jest.fn().mockResolvedValue({ ok: true });
+  internals(service).web = { chat: { postMessage, update } };
+  return postMessage;
+}
+
 describe('SlackService.sendMessage', () => {
   it('no-ops without throwing when the Slack channel is disabled (web client is null)', async () => {
     const service = buildService();
@@ -38,8 +66,7 @@ describe('SlackService.sendMessage', () => {
 
   it('delivers through chat.postMessage addressed to the Slack user id', async () => {
     const service = buildService();
-    const postMessage = jest.fn().mockResolvedValue({ ok: true });
-    internals(service).web = { chat: { postMessage } };
+    const postMessage = withWeb(service);
 
     const result = await service.sendMessage('U42', 'hello');
 
@@ -49,8 +76,7 @@ describe('SlackService.sendMessage', () => {
 
   it('swallows a Slack API rejection (e.g. app uninstalled) instead of throwing', async () => {
     const service = buildService();
-    const postMessage = jest.fn().mockRejectedValue(new Error('An API error occurred: account_inactive'));
-    internals(service).web = { chat: { postMessage } };
+    internals(service).web = { chat: { postMessage: jest.fn().mockRejectedValue(new Error('An API error occurred: account_inactive')) } };
 
     await expect(service.sendMessage('U42', 'hello')).resolves.toEqual({ delivered: false });
   });
@@ -103,21 +129,20 @@ describe('SlackService — events mode', () => {
   });
 });
 
-describe('SlackService.handleEvent — inbound DMs', () => {
+describe('SlackService.handleEvent — commands', () => {
   it('ignores everything when the channel is not running', async () => {
     const redeemLinkCode = jest.fn();
-    const service = buildService({ redeemLinkCode });
+    const service = buildService({ hrCore: { redeemLinkCode } });
 
     await service.handleEvent(dm({ text: 'link 123456' }));
 
     expect(redeemLinkCode).not.toHaveBeenCalled();
   });
 
-  it('ignores the bot\'s own messages and non-DM channels', async () => {
+  it("ignores the bot's own messages and non-DM channels", async () => {
     const redeemLinkCode = jest.fn();
-    const service = buildService({ redeemLinkCode });
-    const postMessage = jest.fn().mockResolvedValue({ ok: true });
-    internals(service).web = { chat: { postMessage } };
+    const service = buildService({ hrCore: { redeemLinkCode } });
+    const postMessage = withWeb(service);
     internals(service).botUserId = 'UBOT';
 
     await service.handleEvent(dm({ text: 'link 123456', bot_id: 'B1' }));
@@ -131,9 +156,8 @@ describe('SlackService.handleEvent — inbound DMs', () => {
 
   it('redeems "link <code>" against HR Core with the Slack user id as externalId and confirms in the DM', async () => {
     const redeemLinkCode = jest.fn().mockResolvedValue(undefined);
-    const service = buildService({ redeemLinkCode });
-    const postMessage = jest.fn().mockResolvedValue({ ok: true });
-    internals(service).web = { chat: { postMessage } };
+    const service = buildService({ hrCore: { redeemLinkCode } });
+    const postMessage = withWeb(service);
 
     await service.handleEvent(dm({ text: '/link 123456' }));
 
@@ -143,20 +167,37 @@ describe('SlackService.handleEvent — inbound DMs', () => {
 
   it('reports an invalid code without throwing when HR Core rejects it', async () => {
     const redeemLinkCode = jest.fn().mockRejectedValue(new Error('Invalid or expired link code'));
-    const service = buildService({ redeemLinkCode });
-    const postMessage = jest.fn().mockResolvedValue({ ok: true });
-    internals(service).web = { chat: { postMessage } };
+    const service = buildService({ hrCore: { redeemLinkCode } });
+    const postMessage = withWeb(service);
 
     await expect(service.handleEvent(dm({ text: 'link 000000' }))).resolves.toBeUndefined();
 
     expect(postMessage).toHaveBeenCalledWith({ channel: 'D123', text: expect.stringContaining('invalid or expired') });
   });
 
-  it('tells an unlinked user how to link when they send free text', async () => {
-    const exchangeChannelIdentity = jest.fn().mockRejectedValue(new Error('404'));
-    const service = buildService({ exchangeChannelIdentity });
-    const postMessage = jest.fn().mockResolvedValue({ ok: true });
-    internals(service).web = { chat: { postMessage } };
+  it('does not let a command word hijack a full sentence starting with it (e.g. "new leave request")', async () => {
+    const exchangeChannelIdentity = jest.fn().mockRejectedValue(new NotFoundException());
+    const clear = jest.fn();
+    const service = buildService({ hrCore: { exchangeChannelIdentity }, links: { clear, find: jest.fn(), set: jest.fn() } });
+    const postMessage = withWeb(service);
+
+    await service.handleEvent(dm({ text: 'new leave request please' }));
+
+    // Reaches the "not linked" reply from the free-text path, not the `new` command's clear+confirm.
+    expect(clear).not.toHaveBeenCalled();
+    expect(postMessage).toHaveBeenCalledWith({ channel: 'D123', text: expect.stringContaining("isn't linked") });
+  });
+});
+
+describe('SlackService.handleEvent — free text (agent pipeline)', () => {
+  function actorStub() {
+    return { fromChannelToken: jest.fn().mockReturnValue({ userId: 'user-1', jwt: 'jwt', roles: ['EMPLOYEE'] }) };
+  }
+
+  it('tells an unlinked user how to link instead of reaching the agent pipeline', async () => {
+    const exchangeChannelIdentity = jest.fn().mockRejectedValue(new NotFoundException());
+    const service = buildService({ hrCore: { exchangeChannelIdentity } });
+    const postMessage = withWeb(service);
 
     await service.handleEvent(dm({ text: 'how many leave days do I have?' }));
 
@@ -164,18 +205,127 @@ describe('SlackService.handleEvent — inbound DMs', () => {
     expect(postMessage).toHaveBeenCalledWith({ channel: 'D123', text: expect.stringContaining("isn't linked") });
   });
 
-  it('caches the exchanged session so a second message does not hit HR Core again', async () => {
-    const exchangeChannelIdentity = jest
-      .fn()
-      .mockResolvedValue({ accessToken: 'jwt', refreshToken: 'r', expiresIn: 900 });
-    const service = buildService({ exchangeChannelIdentity });
-    const postMessage = jest.fn().mockResolvedValue({ ok: true });
-    internals(service).web = { chat: { postMessage } };
+  it('starts a new conversation and posts the assistant reply for a linked user', async () => {
+    const exchangeChannelIdentity = jest.fn().mockResolvedValue({ accessToken: 'jwt', refreshToken: 'r', expiresIn: 900 });
+    const createConversation = jest.fn().mockResolvedValue({
+      conversation: { id: 'conv-1' },
+      assistantMessage: { content: 'You have 10 days remaining.' },
+    });
+    const set = jest.fn();
+    const service = buildService({
+      hrCore: { exchangeChannelIdentity },
+      actors: actorStub(),
+      conversations: { createConversation } as unknown as Partial<ConversationsService>,
+      links: { find: jest.fn().mockResolvedValue(null), set, clear: jest.fn() },
+    });
+    const postMessage = withWeb(service);
 
-    await service.handleEvent(dm({ text: 'whoami' }));
-    await service.handleEvent(dm({ text: 'whoami' }));
+    await service.handleEvent(dm({ text: 'my current leave balance' }));
 
-    expect(exchangeChannelIdentity).toHaveBeenCalledTimes(1);
-    expect(postMessage).toHaveBeenLastCalledWith({ channel: 'D123', text: expect.stringContaining('is linked') });
+    expect(createConversation).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1' }), { message: 'my current leave balance' });
+    expect(set).toHaveBeenCalledWith('SLACK', 'U42', 'conv-1');
+    expect(postMessage).toHaveBeenCalledWith({ channel: 'D123', text: 'You have 10 days remaining.' });
+  });
+
+  it('continues the linked conversation and renders a confirmation card when the turn proposes one', async () => {
+    const exchangeChannelIdentity = jest.fn().mockResolvedValue({ accessToken: 'jwt', refreshToken: 'r', expiresIn: 900 });
+    const sendMessage = jest.fn().mockResolvedValue({
+      conversation: { id: 'conv-1' },
+      assistantMessage: {
+        content: "Here's what I found.",
+        confirmationPayload: {
+          confirmationToken: '11111111-1111-1111-1111-111111111111',
+          leaveTypeName: 'Annual Leave',
+          startDate: '2026-06-01',
+          endDate: '2026-06-01',
+          businessDays: 1,
+          currentBalance: 10,
+          balanceAfter: 9,
+          expiresAt: new Date().toISOString(),
+          policyCitations: [],
+        },
+      },
+    });
+    const service = buildService({
+      hrCore: { exchangeChannelIdentity },
+      actors: actorStub(),
+      conversations: { sendMessage } as unknown as Partial<ConversationsService>,
+      links: { find: jest.fn().mockResolvedValue('conv-1'), set: jest.fn(), clear: jest.fn() },
+    });
+    const postMessage = withWeb(service);
+
+    await service.handleEvent(dm({ text: 'book 1 day off' }));
+
+    expect(sendMessage).toHaveBeenCalledWith('conv-1', expect.objectContaining({ userId: 'user-1' }), { message: 'book 1 day off' });
+    // First call is the text reply, second is the card (with Confirm/Cancel blocks).
+    expect(postMessage).toHaveBeenNthCalledWith(1, { channel: 'D123', text: "Here's what I found." });
+    const cardCall = postMessage.mock.calls[1][0] as { blocks: Array<{ type: string; elements?: Array<{ action_id?: string }> }> };
+    const actionsBlock = cardCall.blocks.find((b) => b.type === 'actions');
+    expect(actionsBlock?.elements?.map((e) => e.action_id)).toEqual(['confirm_action', 'cancel_action']);
+  });
+});
+
+describe('SlackService — interactive Confirm/Cancel taps', () => {
+  function actorStub() {
+    return { fromChannelToken: jest.fn().mockReturnValue({ userId: 'user-1', jwt: 'jwt', roles: ['EMPLOYEE'] }) };
+  }
+
+  function interactiveBody(action: 'confirm' | 'cancel', token: string, overrides: Record<string, unknown> = {}) {
+    return {
+      type: 'block_actions',
+      user: { id: 'U42' },
+      channel: { id: 'D123' },
+      message: { ts: '999.1' },
+      actions: [{ action_id: `${action}_action`, value: encodeCallbackData(action, token) }],
+      ...overrides,
+    };
+  }
+
+  it('routes a Confirm tap to sendMessage with confirmed:true and the proposal token, and strips the card', async () => {
+    const token = '22222222-2222-2222-2222-222222222222';
+    const exchangeChannelIdentity = jest.fn().mockResolvedValue({ accessToken: 'jwt', refreshToken: 'r', expiresIn: 900 });
+    const sendMessage = jest.fn().mockResolvedValue({
+      conversation: { id: 'conv-1' },
+      assistantMessage: { content: 'ok' },
+      actionOutcome: { status: 'SUCCESS', summary: 'Done — booked and verified.' },
+    });
+    const findByToken = jest.fn().mockResolvedValue({ conversationId: 'conv-1', actorUserId: 'user-1' });
+    const service = buildService({
+      hrCore: { exchangeChannelIdentity },
+      actors: actorStub(),
+      conversations: { sendMessage } as unknown as Partial<ConversationsService>,
+      proposals: { findByToken },
+    });
+    const postMessage = withWeb(service);
+    const update = internals(service).web.chat.update as jest.Mock;
+
+    await internals(service).handleInteractive(interactiveBody('confirm', token));
+
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ channel: 'D123', ts: '999.1', blocks: [] }));
+    expect(sendMessage).toHaveBeenCalledWith(
+      'conv-1',
+      expect.objectContaining({ userId: 'user-1' }),
+      { message: 'Confirm', confirmed: true, confirmationToken: token },
+    );
+    expect(postMessage).toHaveBeenCalledWith({ channel: 'D123', text: 'Done — booked and verified.' });
+  });
+
+  it("refuses a tap for another user's proposal without revealing why", async () => {
+    const token = '33333333-3333-3333-3333-333333333333';
+    const exchangeChannelIdentity = jest.fn().mockResolvedValue({ accessToken: 'jwt', refreshToken: 'r', expiresIn: 900 });
+    const sendMessage = jest.fn();
+    const findByToken = jest.fn().mockResolvedValue({ conversationId: 'conv-1', actorUserId: 'someone-else' });
+    const service = buildService({
+      hrCore: { exchangeChannelIdentity },
+      actors: actorStub(),
+      conversations: { sendMessage } as unknown as Partial<ConversationsService>,
+      proposals: { findByToken },
+    });
+    const postMessage = withWeb(service);
+
+    await internals(service).handleInteractive(interactiveBody('confirm', token));
+
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(postMessage).toHaveBeenCalledWith({ channel: 'D123', text: expect.stringContaining("don't recognise that confirmation") });
   });
 });
