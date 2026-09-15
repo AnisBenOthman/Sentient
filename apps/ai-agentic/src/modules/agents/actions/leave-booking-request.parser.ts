@@ -157,6 +157,18 @@ export function parseDateRange(message: string, today: Date = new Date()): DateR
   return extractDateRange(message.toLowerCase().replace(/\s+/g, ' ').trim(), today);
 }
 
+/**
+ * The message with its explicit dates blanked out, durations and relative
+ * phrasing ("2 days", "next week") left intact. Used when a clarification
+ * reply supplies new dates: the request that prompted the question keeps its
+ * verb, leave type and duration, but its (rejected) dates must not compete
+ * with the reply's — two explicit dates would otherwise parse as a range
+ * spanning the old and the new.
+ */
+export function removeExplicitDates(message: string): string {
+  return EXPLICIT_DATE_PATTERNS.reduce((text, pattern) => text.replace(pattern, ' '), message).replace(/\s+/g, ' ').trim();
+}
+
 function detectLeaveTypeHint(lower: string): string | null {
   for (const { hint, terms } of LEAVE_TYPE_HINTS) {
     if (terms.some((term) => lower.includes(term))) return hint;
@@ -213,23 +225,38 @@ function extractDateRange(lower: string, today: Date): DateRange | null {
   return null;
 }
 
-/** ISO dates, "12 June", "June 12", "12/06", "12th of June". */
+/**
+ * ISO, "12 June [2026]", "June 12[, 2026]", "12/06[/2026]" — the one list
+ * both extractExplicitDates and removeExplicitDates read, so a new date form
+ * is recognised and blanked in the same edit. The month-word forms accept any
+ * word here and are filtered by monthIndex() when extracting; when removing,
+ * MONTH_WORD keeps "12 days" from being blanked as if it were a date.
+ */
+const MONTH_WORD = 'jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?';
+const EXPLICIT_DATE_PATTERNS: RegExp[] = [
+  /\b(\d{4})-(\d{2})-(\d{2})\b/g,
+  new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?(?:\\s+of)?\\s+(${MONTH_WORD})(?:\\s+(\\d{4}))?\\b`, 'gi'),
+  new RegExp(`\\b(${MONTH_WORD})\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?\\b`, 'gi'),
+  /\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/g,
+];
+
 function extractExplicitDates(lower: string, base: Date): Date[] {
   const found: Date[] = [];
+  const [isoPattern, dayMonthPattern, monthDayPattern, numericPattern] = EXPLICIT_DATE_PATTERNS as [RegExp, RegExp, RegExp, RegExp];
 
-  for (const match of lower.matchAll(/\b(\d{4})-(\d{2})-(\d{2})\b/g)) {
+  for (const match of lower.matchAll(isoPattern)) {
     const date = makeUtc(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
     if (date) found.push(date);
   }
 
-  for (const match of lower.matchAll(/\b(\d{1,2})(?:st|nd|rd|th)?(?:\s+of)?\s+([a-z]+)(?:\s+(\d{4}))?\b/g)) {
+  for (const match of lower.matchAll(dayMonthPattern)) {
     const month = monthIndex(match[2]!);
     if (month === null) continue;
     const date = resolveDayMonth(Number(match[1]), month, match[3] ? Number(match[3]) : null, base);
     if (date) found.push(date);
   }
 
-  for (const match of lower.matchAll(/\b([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?\b/g)) {
+  for (const match of lower.matchAll(monthDayPattern)) {
     const month = monthIndex(match[1]!);
     if (month === null) continue;
     const date = resolveDayMonth(Number(match[2]), month, match[3] ? Number(match[3]) : null, base);
@@ -237,7 +264,7 @@ function extractExplicitDates(lower: string, base: Date): Date[] {
   }
 
   // DD/MM or DD/MM/YYYY — day-first, matching the project's locale conventions.
-  for (const match of lower.matchAll(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/g)) {
+  for (const match of lower.matchAll(numericPattern)) {
     const year = match[3] ? normalizeYear(Number(match[3])) : null;
     const date = resolveDayMonth(Number(match[1]), Number(match[2]) - 1, year, base);
     if (date) found.push(date);

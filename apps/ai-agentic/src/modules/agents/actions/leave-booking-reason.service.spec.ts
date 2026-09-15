@@ -1,4 +1,4 @@
-import { AgentActionKind, AgentRunStatus, PermissionDecision } from '../../../generated/prisma';
+import { AgentActionKind, AgentRunStatus, MessageRole, PermissionDecision } from '../../../generated/prisma';
 import { HrCoreAiClient, LeaveTypeContext } from '../../../common/clients';
 import { SpecialistInput } from '../../../common/graph';
 import { KnowledgeRepository } from '../../knowledge/knowledge.repository';
@@ -59,14 +59,15 @@ function buildClient(overrides: ClientOverrides = {}) {
   return { client, calls };
 }
 
-interface RecentMessage { role: 'USER' | 'ASSISTANT'; content: string }
+interface RecentMessage { role: MessageRole; content: string }
 
 function buildInput(
   userMessage: string,
   options: { readOnly?: boolean; employeeId?: string | null; businessUnitId?: string | null; history?: RecentMessage[] } = {},
 ): SpecialistInput {
   // Mirrors ConversationsService: the current user message is persisted before the window is built, so it rides last.
-  const recentMessages = [...(options.history ?? []), { role: 'USER' as const, content: userMessage }]
+  // Roles come from the Prisma enum, as ConversationsService passes them, so a renamed enum value would fail here first.
+  const recentMessages = [...(options.history ?? []), { role: MessageRole.USER, content: userMessage }]
     .map((message, index) => ({ id: `m${index}`, ...message }));
   return {
     conversationId: 'conversation-1',
@@ -322,8 +323,8 @@ describe('LeaveBookingReasonService — clarification follow-ups', () => {
     const { text, startDate, endDate } = futureRange();
     const proposal = await service.tryPropose(buildInput(text, {
       history: [
-        { role: 'USER', content: 'I want to book some annual leave' },
-        { role: 'ASSISTANT', content: question!.userVisibleContent },
+        { role: MessageRole.USER, content: 'I want to book some annual leave' },
+        { role: MessageRole.ASSISTANT, content: question!.userVisibleContent },
       ],
     }));
     expect(proposal?.status).toBe(AgentRunStatus.PENDING_CONFIRMATION);
@@ -337,10 +338,10 @@ describe('LeaveBookingReasonService — clarification follow-ups', () => {
 
     const proposal = await service.tryPropose(buildInput(text, {
       history: [
-        { role: 'USER', content: 'book leave' },
-        { role: 'ASSISTANT', content: 'Which type of leave should I book? Your options are: Annual Leave, Sick Leave.' },
-        { role: 'USER', content: 'annual' },
-        { role: 'ASSISTANT', content: 'Which dates should I book for Annual Leave? You can say something like "next Monday to Wednesday".' },
+        { role: MessageRole.USER, content: 'book leave' },
+        { role: MessageRole.ASSISTANT, content: 'Which type of leave should I book? Your options are: Annual Leave, Sick Leave.' },
+        { role: MessageRole.USER, content: 'annual' },
+        { role: MessageRole.ASSISTANT, content: 'Which dates should I book for Annual Leave? You can say something like "next Monday to Wednesday".' },
       ],
     }));
     expect(proposal?.status).toBe(AgentRunStatus.PENDING_CONFIRMATION);
@@ -354,12 +355,27 @@ describe('LeaveBookingReasonService — clarification follow-ups', () => {
 
     const proposal = await service.tryPropose(buildInput(text, {
       history: [
-        { role: 'USER', content: 'book annual leave from 2020-01-06 to 2020-01-07' },
-        { role: 'ASSISTANT', content: 'Those dates (2020-01-06 to 2020-01-07) are in the past. Which upcoming dates should I book?' },
+        { role: MessageRole.USER, content: 'book annual leave from 2020-01-06 to 2020-01-07' },
+        { role: MessageRole.ASSISTANT, content: 'Those dates (2020-01-06 to 2020-01-07) are in the past. Which upcoming dates should I book?' },
       ],
     }));
     expect(proposal?.status).toBe(AgentRunStatus.PENDING_CONFIRMATION);
     expect(proposal?.confirmationPayload).toEqual(expect.objectContaining({ startDate, endDate }));
+  });
+
+  it('keeps the original duration when the reply gives only a relative week', async () => {
+    const { client } = buildClient({ leaveTypes: [ANNUAL, SICK] });
+    const service = new LeaveBookingReasonService(client);
+
+    const proposal = await service.tryPropose(buildInput('next week', {
+      history: [
+        { role: MessageRole.USER, content: 'book 2 days of annual leave on 2020-01-06' },
+        { role: MessageRole.ASSISTANT, content: 'Those dates (2020-01-06 to 2020-01-06) are in the past. Which upcoming dates should I book?' },
+      ],
+    }));
+    expect(proposal?.status).toBe(AgentRunStatus.PENDING_CONFIRMATION);
+    // Two business days from next Monday — not the Mon–Fri a bare "next week" would default to.
+    expect(proposal?.confirmationPayload).toEqual(expect.objectContaining({ businessDays: 2 }));
   });
 
   it('does not continue from a question the LLM asked, nor from an unrelated turn', async () => {
@@ -369,17 +385,17 @@ describe('LeaveBookingReasonService — clarification follow-ups', () => {
 
     expect(await service.tryPropose(buildInput(`paid leave, ${text}`, {
       history: [
-        { role: 'USER', content: 'i want to book one day' },
-        { role: 'ASSISTANT', content: 'I can help you book your leave. Could you please specify the leave type and confirm the date?' },
+        { role: MessageRole.USER, content: 'i want to book one day' },
+        { role: MessageRole.ASSISTANT, content: 'I can help you book your leave. Could you please specify the leave type and confirm the date?' },
       ],
     }))).toBeNull();
 
     expect(await service.tryPropose(buildInput(text, {
       history: [
-        { role: 'USER', content: 'book annual leave' },
-        { role: 'ASSISTANT', content: 'Which dates should I book for Annual Leave?' },
-        { role: 'USER', content: 'what is the sick leave policy?' },
-        { role: 'ASSISTANT', content: 'Sick leave requires a certificate after 3 days.' },
+        { role: MessageRole.USER, content: 'book annual leave' },
+        { role: MessageRole.ASSISTANT, content: 'Which dates should I book for Annual Leave?' },
+        { role: MessageRole.USER, content: 'what is the sick leave policy?' },
+        { role: MessageRole.ASSISTANT, content: 'Sick leave requires a certificate after 3 days.' },
       ],
     }))).toBeNull();
   });

@@ -21,6 +21,7 @@ import {
   iso,
   parseBookingRequest,
   parseDateRange,
+  removeExplicitDates,
 } from './leave-booking-request.parser';
 
 const ACTIVE_REQUEST_STATUSES = new Set(['PENDING', 'APPROVED']);
@@ -100,14 +101,6 @@ export class LeaveBookingReasonService {
       if (!continuation) return null;
       parsed = parseBookingRequest(continuation);
       if (!parsed.isBookingRequest) return null;
-      /**
-       * WHY the reply's dates win: after "Those dates are in the past — which
-       * upcoming dates?" the merged text carries both the old dates and the
-       * new ones, and two explicit dates would otherwise parse as a range
-       * spanning them. Dates named in the answer replace dates named earlier.
-       */
-      const replyRange = parseDateRange(input.userMessage);
-      if (replyRange) parsed = { ...parsed, range: replyRange };
     }
 
     const reqContext: DownstreamRequestContext = {
@@ -274,7 +267,18 @@ export class LeaveBookingReasonService {
       parts.unshift(user.content);
       index -= 2;
     }
-    return parts.length > 0 ? `${parts.join(' ')} ${input.userMessage}` : null;
+    if (parts.length === 0) return null;
+
+    /**
+     * WHY blank the earlier dates only when the reply brings its own: after
+     * "Those dates are in the past — which upcoming dates?" the old dates
+     * must not compete with the new ones, but the earlier turn's duration
+     * ("2 days") still applies, so "next week" in the reply books two days
+     * from Monday, not the whole week. A reply with no dates at all ("annual",
+     * answering the type question) keeps whatever dates were said before.
+     */
+    const earlier = parseDateRange(input.userMessage) ? parts.map(removeExplicitDates) : parts;
+    return `${earlier.join(' ')} ${input.userMessage}`;
   }
 
   private async resolveIdentity(

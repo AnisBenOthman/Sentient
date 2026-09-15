@@ -1,4 +1,4 @@
-import { countAdvisoryBusinessDays, parseBookingRequest, parseDateRange } from './leave-booking-request.parser';
+import { countAdvisoryBusinessDays, parseBookingRequest, parseDateRange, removeExplicitDates } from './leave-booking-request.parser';
 
 // A fixed Tuesday so weekday arithmetic is deterministic: 2026-06-09 is a Tuesday.
 const TUESDAY = new Date('2026-06-09T15:30:00.000Z');
@@ -96,6 +96,12 @@ describe('parseBookingRequest — date extraction (T022)', () => {
   it('parseDateRange reads dates with no intent gate, for clarification replies', () => {
     expect(parseDateRange('20 september', TUESDAY)).toEqual({ startDate: '2026-09-21', endDate: '2026-09-21' });
     expect(parseDateRange('annual', TUESDAY)).toBeNull();
+  });
+
+  it('removeExplicitDates blanks dates but keeps durations and relative phrasing', () => {
+    expect(removeExplicitDates('book 2 days of annual leave from 2020-01-06 to 2020-01-07')).toBe('book 2 days of annual leave from to');
+    expect(removeExplicitDates('take 3 days from 12th of June, June 15 and 12/06/2026 next week')).toBe('take 3 days from , and next week');
+    expect(removeExplicitDates('I need 12 days off')).toBe('I need 12 days off');
   });
 
   it('accepts day-first numeric dates', () => {
