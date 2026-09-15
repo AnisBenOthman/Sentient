@@ -36,6 +36,7 @@ export interface GatewayConfig {
   port: number;
   corsOrigins: string[];
   trustProxy: boolean;
+  requestLoggingEnabled: boolean;
   jwtSecret: string;
   defaultJsonBodyLimitBytes: number;
   uploadBodyLimitBytes: number;

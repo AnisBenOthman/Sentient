@@ -43,6 +43,27 @@ describe('Proxy routes', () => {
     expect(response.body).toEqual({ ok: true, path: upstreamPath });
   });
 
+  it('forwards public AI health without a caller JWT', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/ai/health')
+      .expect(200);
+
+    expect(response.body).toEqual({ ok: true, path: '/health' });
+  });
+
+  it('forwards authenticated AI conversation starts with the JSON body', async () => {
+    const token = sign({ sub: 'user-1' }, secret, { expiresIn: '5m' });
+    const response = await request(app.getHttpServer())
+      .post('/api/ai/conversations')
+      .set('authorization', `Bearer ${token}`)
+      .send({ message: 'What is my leave balance?' })
+      .expect(200);
+
+    expect(response.body).toEqual({ ok: true, path: '/conversations' });
+    const record = upstream.records.find((item) => item.method === 'POST' && item.url === '/conversations');
+    expect(record?.body.toString()).toContain('leave balance');
+  });
+
   it('returns a structured 404 for unmapped routes', async () => {
     await request(app.getHttpServer())
       .get('/api/unknown/example')
@@ -52,4 +73,3 @@ describe('Proxy routes', () => {
       });
   });
 });
-

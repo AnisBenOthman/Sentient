@@ -26,6 +26,7 @@ export class BusinessUnitsService {
       data: {
         name: dto.name,
         address: dto.address,
+        currency: dto.currency,
       },
     });
   }
@@ -92,6 +93,7 @@ export class BusinessUnitsService {
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.address !== undefined && { address: dto.address }),
+        ...(dto.currency !== undefined && { currency: dto.currency }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
       },
     });

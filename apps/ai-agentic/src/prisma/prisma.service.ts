@@ -1,18 +1,13 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { PrismaClient } from '../generated/prisma';
 
-/**
- * WHY: Schema has no models yet — the Prisma client cannot be generated
- * until at least one model is defined. This stub is replaced with the
- * real `extends PrismaClient` implementation when the first AI Agentic module
- * (Conversation, VectorDocument, etc.) is scaffolded and `prisma migrate dev` is run.
- */
 @Injectable()
-export class PrismaService implements OnModuleInit, OnModuleDestroy {
+export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   async onModuleInit(): Promise<void> {
-    // Replaced with `await this.$connect()` once client is generated.
+    await this.$connect();
   }
 
   async onModuleDestroy(): Promise<void> {
-    // Replaced with `await this.$disconnect()` once client is generated.
+    await this.$disconnect();
   }
 }

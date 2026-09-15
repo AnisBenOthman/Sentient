@@ -9,7 +9,6 @@ import {
   ObjectiveLevel,
 } from '@sentient/shared';
 
-import { Decimal } from '../../../generated/prisma/runtime/library';
 import {
   KeyResult,
   KeyResultMetricType as PrismaKeyResultMetricType,
@@ -45,7 +44,7 @@ export class KeyResultsService {
       throw new ForbiddenException('Insufficient permissions to add Key Results to this Objective');
     }
 
-    const targetDecimal = new Decimal(dto.targetValue);
+    const targetDecimal = new Prisma.Decimal(dto.targetValue);
 
     if (dto.metricType === KeyResultMetricType.BOOLEAN) {
       if (!targetDecimal.equals(1)) {
@@ -107,7 +106,7 @@ export class KeyResultsService {
 
       if (dto.targetValue !== undefined) {
         data.targetValue = dto.targetValue;
-        const newTarget = new Decimal(dto.targetValue);
+        const newTarget = new Prisma.Decimal(dto.targetValue);
         const newScore = computeScore(
           kr.metricType as unknown as KeyResultMetricType,
           kr.currentValue,

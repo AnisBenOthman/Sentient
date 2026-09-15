@@ -1,7 +1,6 @@
 import { ChannelType, JwtPayload, PermissionScope } from '@sentient/shared';
 import { AnalyticsService } from './analytics.service';
 import { ContractType, EmploymentStatus, Gender, MaritalStatus, Prisma } from '../../generated/prisma';
-import { Decimal } from '../../generated/prisma/runtime/library';
 import { PrismaService } from '../../prisma/prisma.service';
 
 const mockPrisma = {
@@ -34,14 +33,16 @@ function employeeRow(
     contractType: ContractType;
     dateOfBirth: Date | null;
     hireDate: Date;
+    currency: string;
   }> = {},
 ): Prisma.EmployeeGetPayload<{
   include: {
-    department: { select: { id: true; name: true; businessUnitId: true } };
-    team: { select: { id: true; name: true; businessUnitId: true } };
+    department: { select: { id: true; name: true; businessUnitId: true; businessUnit: { select: { currency: true } } } };
+    team: { select: { id: true; name: true; businessUnitId: true; businessUnit: { select: { currency: true } } } };
     position: { select: { id: true; title: true } };
   };
 }> {
+  const currency = overrides.currency ?? 'USD';
   return {
     id,
     employeeCode: id.toUpperCase(),
@@ -53,7 +54,7 @@ function employeeRow(
     hireDate: overrides.hireDate ?? new Date('2024-01-01T00:00:00.000Z'),
     employmentStatus,
     contractType: overrides.contractType ?? ContractType.FULL_TIME,
-    grossSalary: new Decimal(grossSalary),
+    grossSalary: new Prisma.Decimal(grossSalary),
     netSalary: null,
     gender: overrides.contractType === ContractType.FIXED_TERM ? Gender.FEMALE : Gender.MALE,
     maritalStatus: null,
@@ -66,8 +67,8 @@ function employeeRow(
     createdAt: new Date('2024-01-01T00:00:00.000Z'),
     updatedAt: new Date('2024-01-01T00:00:00.000Z'),
     deletedAt: null,
-    department: { id: 'dept-finance', name: 'Finance', businessUnitId: 'bu-hq' },
-    team: { id: 'team-accounting', name: 'Accounting', businessUnitId: 'bu-hq' },
+    department: { id: 'dept-finance', name: 'Finance', businessUnitId: 'bu-hq', businessUnit: { currency } },
+    team: { id: 'team-accounting', name: 'Accounting', businessUnitId: 'bu-hq', businessUnit: { currency } },
     position: { id: 'pos-analyst', title: 'Finance Analyst' },
   };
 }
@@ -116,6 +117,7 @@ describe('AnalyticsService', () => {
     const analytics = await service.getDashboard({ departmentId: 'dept-finance' }, hrUser);
 
     expect(analytics.payroll.totalCost).toBe(1000);
+    expect(analytics.payroll.currency).toBe('USD');
     expect(mockPrisma.salaryHistory.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -241,5 +243,127 @@ describe('AnalyticsService', () => {
         },
       }),
     );
+  });
+
+  describe('payroll currency resolution', () => {
+    it('returns null when scoped employees span more than one business unit currency', async () => {
+      mockPrisma.employee.findMany.mockResolvedValue([
+        employeeRow('emp-dz', EmploymentStatus.ACTIVE, '1000', { currency: 'DZD' }),
+        employeeRow('emp-us', EmploymentStatus.ACTIVE, '1000', { currency: 'USD' }),
+      ]);
+
+      const analytics = await service.getDashboard({}, hrUser);
+
+      expect(analytics.payroll.currency).toBeNull();
+      expect(analytics.payroll.totalCost).toBe(2000);
+    });
+
+    it('resolves the shared currency when all scoped employees share one business unit', async () => {
+      mockPrisma.employee.findMany.mockResolvedValue([
+        employeeRow('emp-a', EmploymentStatus.ACTIVE, '1000', { currency: 'DZD' }),
+        employeeRow('emp-b', EmploymentStatus.ACTIVE, '2000', { currency: 'DZD' }),
+      ]);
+
+      const analytics = await service.getDashboard({}, hrUser);
+
+      expect(analytics.payroll.currency).toBe('DZD');
+    });
+  });
+
+  describe('getEmployeesWithoutLeave', () => {
+    function rosterRow(id: string, employmentStatus: EmploymentStatus = EmploymentStatus.ACTIVE) {
+      return { id, firstName: 'Test', lastName: id, departmentId: 'dept-finance', employmentStatus };
+    }
+
+    it('returns the roster minus employees with an approved leave request in the window', async () => {
+      mockPrisma.employee.findMany.mockResolvedValue([rosterRow('emp-a'), rosterRow('emp-b'), rosterRow('emp-c')]);
+      mockPrisma.leaveRequest.findMany.mockResolvedValue([{ employeeId: 'emp-b' }]);
+
+      const result = await service.getEmployeesWithoutLeave({ departmentId: 'dept-finance' }, hrUser);
+
+      expect(result.entries.map((e) => e.employeeId)).toEqual(['emp-a', 'emp-c']);
+      expect(result.totalConsidered).toBe(3);
+    });
+
+    it('returns every roster employee when none have an approved leave request', async () => {
+      mockPrisma.employee.findMany.mockResolvedValue([rosterRow('emp-a'), rosterRow('emp-b')]);
+      mockPrisma.leaveRequest.findMany.mockResolvedValue([]);
+
+      const result = await service.getEmployeesWithoutLeave({}, hrUser);
+
+      expect(result.entries).toHaveLength(2);
+      expect(result.totalConsidered).toBe(2);
+    });
+
+    it('returns an empty result for an empty roster', async () => {
+      mockPrisma.employee.findMany.mockResolvedValue([]);
+      mockPrisma.leaveRequest.findMany.mockResolvedValue([]);
+
+      const result = await service.getEmployeesWithoutLeave({}, hrUser);
+
+      expect(result.entries).toEqual([]);
+      expect(result.totalConsidered).toBe(0);
+    });
+
+    it('applies the current-workforce filter and the same scope to both the roster and leave-request queries', async () => {
+      mockPrisma.employee.findMany.mockResolvedValue([]);
+      mockPrisma.leaveRequest.findMany.mockResolvedValue([]);
+
+      await service.getEmployeesWithoutLeave({ departmentId: 'dept-finance' }, hrUser);
+
+      const expectedWhere = expect.objectContaining({
+        AND: expect.arrayContaining([
+          { employmentStatus: { notIn: [EmploymentStatus.TERMINATED, EmploymentStatus.RESIGNED] } },
+        ]),
+      });
+      expect(mockPrisma.employee.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expectedWhere }),
+      );
+      expect(mockPrisma.leaveRequest.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: 'APPROVED', employee: expectedWhere }),
+        }),
+      );
+    });
+
+    it('returns a trailing ~365-day window ending today', async () => {
+      mockPrisma.employee.findMany.mockResolvedValue([]);
+      mockPrisma.leaveRequest.findMany.mockResolvedValue([]);
+
+      const result = await service.getEmployeesWithoutLeave({}, hrUser);
+
+      const today = new Date().toISOString().slice(0, 10);
+      expect(result.windowEnd).toBe(today);
+      const spanDays = Math.round(
+        (new Date(result.windowEnd).getTime() - new Date(result.windowStart).getTime()) / (24 * 60 * 60 * 1000),
+      );
+      expect(spanDays).toBe(365);
+    });
+
+    it('applies department manager scope to the roster query, matching getDashboard', async () => {
+      const managerUser: JwtPayload = {
+        ...hrUser,
+        sub: 'user-manager',
+        roles: ['MANAGER'],
+        roleAssignments: [
+          { roleCode: 'MANAGER', scope: PermissionScope.DEPARTMENT, scopeEntityId: 'dept-finance' },
+        ],
+      };
+      mockPrisma.employee.findMany.mockResolvedValue([]);
+      mockPrisma.leaveRequest.findMany.mockResolvedValue([]);
+
+      await service.getEmployeesWithoutLeave({}, managerUser);
+
+      expect(mockPrisma.employee.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            AND: [
+              { AND: [{ departmentId: 'dept-finance' }, { deletedAt: null }] },
+              { employmentStatus: { notIn: [EmploymentStatus.TERMINATED, EmploymentStatus.RESIGNED] } },
+            ],
+          },
+        }),
+      );
+    });
   });
 });

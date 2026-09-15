@@ -45,10 +45,10 @@ faker.seed(42);
 const DEMO_PASSWORD = "Sentient@2026!";
 
 const BU_CONFIGS = [
-  { name: "Sentient HQ",     code: "HQ",  address: "Algiers, Algeria", salaryTiers: { jr: 18000,  mid: 28000,  sr: 42000,  ex: 58000  } },
-  { name: "Sentient France", code: "FR",  address: "Paris, France",    salaryTiers: { jr: 48000,  mid: 62000,  sr: 80000,  ex: 100000 } },
-  { name: "Sentient UAE",    code: "UAE", address: "Dubai, UAE",       salaryTiers: { jr: 52000,  mid: 68000,  sr: 85000,  ex: 110000 } },
-  { name: "Sentient UK",     code: "UK",  address: "London, UK",       salaryTiers: { jr: 55000,  mid: 70000,  sr: 90000,  ex: 118000 } },
+  { name: "Sentient HQ",     code: "HQ",  address: "Algiers, Algeria", currency: "DZD", salaryTiers: { jr: 18000,  mid: 28000,  sr: 42000,  ex: 58000  } },
+  { name: "Sentient France", code: "FR",  address: "Paris, France",    currency: "EUR", salaryTiers: { jr: 48000,  mid: 62000,  sr: 80000,  ex: 100000 } },
+  { name: "Sentient UAE",    code: "UAE", address: "Dubai, UAE",       currency: "AED", salaryTiers: { jr: 52000,  mid: 68000,  sr: 85000,  ex: 110000 } },
+  { name: "Sentient UK",     code: "UK",  address: "London, UK",       currency: "GBP", salaryTiers: { jr: 55000,  mid: 70000,  sr: 90000,  ex: 118000 } },
 ] as const;
 
 const BU_HEADCOUNTS: Record<string, number> = {
@@ -568,8 +568,8 @@ async function seedFoundation(): Promise<FoundationMaps> {
   for (const bc of BU_CONFIGS) {
     const bu = await prisma.businessUnit.upsert({
       where:  { name: bc.name },
-      update: { address: bc.address },
-      create: { name: bc.name, address: bc.address },
+      update: { address: bc.address, currency: bc.currency },
+      create: { name: bc.name, address: bc.address, currency: bc.currency },
     });
     buMap.set(bc.name, bu.id);
   }
@@ -713,7 +713,7 @@ async function seedFoundation(): Promise<FoundationMaps> {
 
     for (const year of [2024, 2025, 2026]) {
       for (const h of hDefs) {
-        const date = new Date(year, h.m - 1, h.d);
+        const date = new Date(Date.UTC(year, h.m - 1, h.d));
         await prisma.holiday.upsert({
           where:  { date_businessUnitId_year: { date, businessUnitId: buId, year } },
           update: {},

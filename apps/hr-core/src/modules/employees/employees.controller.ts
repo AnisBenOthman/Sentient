@@ -20,7 +20,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { JwtPayload, RbacGuard, Roles, SharedJwtGuard } from '@sentient/shared';
-import { Employee, SalaryHistory } from '../../generated/prisma';
+import { Employee } from '../../generated/prisma';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserStatusGuard } from '../iam/guards/user-status.guard';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
@@ -28,7 +28,13 @@ import { EmployeeQueryDto } from './dto/employee-query.dto';
 import { SkillsGapQueryDto } from './dto/skills-gap-query.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { UpdateEmployeeStatusDto } from './dto/update-employee-status.dto';
-import { EmployeesService, EmployeeProfile, PaginatedEmployees, SkillsGapResult } from './employees.service';
+import {
+  EmployeesService,
+  EmployeeProfile,
+  PaginatedEmployees,
+  SalaryHistoryWithCurrency,
+  SkillsGapResult,
+} from './employees.service';
 
 @Controller('employees')
 @UseGuards(SharedJwtGuard, UserStatusGuard, RbacGuard)
@@ -150,7 +156,7 @@ export class EmployeesController {
     @Param('id', ParseUUIDPipe) id: string,
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
     @CurrentUser() user: JwtPayload,
-  ): Promise<SalaryHistory[]> {
+  ): Promise<SalaryHistoryWithCurrency[]> {
     return this.employeesService.getSalaryHistory(id, limit, user);
   }
 }

@@ -37,8 +37,8 @@ function makeEmployee(overrides: Partial<{
   };
 }
 
-const bu1 = { id: 'bu-1', name: 'BU 1', address: 'Algiers', isActive: true, createdAt: new Date(), updatedAt: new Date() };
-const bu2 = { id: 'bu-2', name: 'BU 2', address: 'Oran', isActive: true, createdAt: new Date(), updatedAt: new Date() };
+const bu1 = { id: 'bu-1', name: 'BU 1', address: 'Algiers', currency: 'DZD', country: 'DZ', isActive: true, createdAt: new Date(), updatedAt: new Date() };
+const bu2 = { id: 'bu-2', name: 'BU 2', address: 'Oran', currency: 'DZD', country: 'DZ', isActive: true, createdAt: new Date(), updatedAt: new Date() };
 
 describe('resolveEmployeeBusinessUnitId', () => {
   it('returns team businessUnit id when team is present', () => {

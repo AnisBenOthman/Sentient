@@ -13,6 +13,7 @@ import {
 } from "@/lib/api/hr-core";
 import { getGatewayErrorMessage } from "@/lib/api/gateway-error";
 import { useAuth } from "@/components/providers/auth-provider";
+import { LeaveRequestSummary } from "@/components/leave-request-summary";
 import {
   Table,
   TableBody,
@@ -21,7 +22,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -59,14 +59,6 @@ import {
   Check,
   X,
 } from "lucide-react";
-
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 function LeaveBalanceCard({ balance }: { balance: LeaveBalance }) {
   const color = balance.leaveType?.color ?? "#6366f1";
@@ -380,12 +372,10 @@ export default function Leaves() {
                   return (
                     <TableRow key={req.id} data-testid={`row-leave-${req.id}`}>
                       <TableCell>
-                        <Badge variant="outline">
-                          {req.leaveType?.name ?? req.leaveTypeId}
-                        </Badge>
+                        <LeaveRequestSummary request={req} mode="type" />
                       </TableCell>
                       <TableCell className="text-sm">
-                        {fmtDate(req.startDate)} → {fmtDate(req.endDate)}
+                        <LeaveRequestSummary request={req} mode="duration" />
                       </TableCell>
                       <TableCell>{req.totalDays}</TableCell>
                       <TableCell>
@@ -455,12 +445,10 @@ export default function Leaves() {
                       : req.employeeId}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">
-                      {req.leaveType?.name ?? req.leaveTypeId}
-                    </Badge>
+                    <LeaveRequestSummary request={req} mode="type" />
                   </TableCell>
                   <TableCell className="text-sm">
-                    {fmtDate(req.startDate)} → {fmtDate(req.endDate)}
+                    <LeaveRequestSummary request={req} mode="duration" />
                   </TableCell>
                   <TableCell>{req.totalDays}</TableCell>
                   <TableCell className="text-right">

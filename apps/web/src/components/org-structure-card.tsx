@@ -70,6 +70,7 @@ export default function OrgStructureCard() {
 
   // ── Add forms ────────────────────────────────────────────────────────────────
   const [newBuName, setNewBuName] = useState("");
+  const [newBuCurrency, setNewBuCurrency] = useState("USD");
   const [newBuError, setNewBuError] = useState<string | null>(null);
 
   const [showAddDept, setShowAddDept] = useState(false);
@@ -87,6 +88,7 @@ export default function OrgStructureCard() {
   // ── Inline edit ──────────────────────────────────────────────────────────────
   const [editingBuId, setEditingBuId] = useState<string | null>(null);
   const [editingBuName, setEditingBuName] = useState("");
+  const [editingBuCurrency, setEditingBuCurrency] = useState("");
 
   const [editingDeptId, setEditingDeptId] = useState<string | null>(null);
   const [editingDeptName, setEditingDeptName] = useState("");
@@ -105,7 +107,7 @@ export default function OrgStructureCard() {
 
   const createBuMut = useMutation({
     mutationFn: createBusinessUnit,
-    onSuccess: () => { invBu(); setNewBuName(""); setNewBuError(null); },
+    onSuccess: () => { invBu(); setNewBuName(""); setNewBuCurrency("USD"); setNewBuError(null); },
     onError: () => setNewBuError("Failed to create business unit."),
   });
   const updateBuMut = useMutation({
@@ -193,10 +195,20 @@ export default function OrgStructureCard() {
                       autoFocus
                       data-testid={`input-edit-bu-${bu.id}`}
                     />
+                    <Input
+                      value={editingBuCurrency}
+                      onChange={(e) => setEditingBuCurrency(e.target.value.toUpperCase().slice(0, 3))}
+                      className="h-8 w-20"
+                      maxLength={3}
+                      data-testid={`input-edit-bu-currency-${bu.id}`}
+                    />
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => updateBuMut.mutate({ id: bu.id, dto: { name: editingBuName } })}
+                      onClick={() => {
+                        if (!/^[A-Z]{3}$/.test(editingBuCurrency)) return;
+                        updateBuMut.mutate({ id: bu.id, dto: { name: editingBuName, currency: editingBuCurrency } });
+                      }}
                       data-testid={`button-save-bu-${bu.id}`}
                     >
                       <Check className="h-4 w-4" />
@@ -207,11 +219,14 @@ export default function OrgStructureCard() {
                   </>
                 ) : (
                   <>
-                    <span className="flex-1 text-sm font-medium">{bu.name}</span>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">{bu.name}</div>
+                      <div className="text-xs text-muted-foreground">{bu.currency}</div>
+                    </div>
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => { setEditingBuId(bu.id); setEditingBuName(bu.name); }}
+                      onClick={() => { setEditingBuId(bu.id); setEditingBuName(bu.name); setEditingBuCurrency(bu.currency); }}
                       data-testid={`button-edit-bu-${bu.id}`}
                     >
                       <Pencil className="h-4 w-4" />
@@ -244,10 +259,20 @@ export default function OrgStructureCard() {
               />
               {newBuError && <p className="text-xs text-red-500" data-testid="error-new-bu">{newBuError}</p>}
             </div>
+            <Input
+              aria-label="New business unit currency"
+              placeholder="USD"
+              value={newBuCurrency}
+              onChange={(e) => { setNewBuCurrency(e.target.value.toUpperCase().slice(0, 3)); setNewBuError(null); }}
+              className="h-9 w-24"
+              maxLength={3}
+              data-testid="input-new-bu-currency"
+            />
             <Button
               onClick={() => {
                 if (!newBuName.trim()) { setNewBuError("Name is required."); return; }
-                createBuMut.mutate({ name: newBuName.trim(), address: "" });
+                if (!/^[A-Z]{3}$/.test(newBuCurrency)) { setNewBuError("Currency must be a 3-letter code."); return; }
+                createBuMut.mutate({ name: newBuName.trim(), address: "", currency: newBuCurrency });
               }}
               size="sm"
               className="gap-1"

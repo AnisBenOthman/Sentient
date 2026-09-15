@@ -1,6 +1,8 @@
 import { Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import { DomainEvent, EVENT_BUS, IEventBus } from '@sentient/shared';
+import { ChannelType, DomainEvent, EVENT_BUS, IEventBus } from '@sentient/shared';
+import { AiAgenticClient } from '../../../common/clients/ai-agentic.client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { NotificationResponseDto } from '../dto/notification-response.dto';
 import { NotificationRouter } from '../notification-router';
 import { NotificationRenderers } from '../notifications.renderers';
 import { NotificationsService } from '../notifications.service';
@@ -9,6 +11,20 @@ import { RoutingRule } from './routing-rules/routing-rule.interface';
 import * as leaveRules from './routing-rules/leave.rules';
 import * as okrRules from './routing-rules/okr.rules';
 import * as promotionRules from './routing-rules/promotion.rules';
+
+/**
+ * WHY only these two event types: NotificationsEventsBridge.dispatch() runs
+ * synchronously inside the awaited eventBus.emit() call on the leave
+ * approve/reject request path (requests.service.ts). Pushing to chat apps
+ * for every notification category (OKR reminders, performance cycles,
+ * announcements...) would put an identity lookup plus an HTTP round-trip on
+ * a dozen endpoints nobody asked to touch. Scoped to the one thing the
+ * feature actually is: a Telegram/Slack ping when a manager decides your leave.
+ */
+const CHAT_PUSH_ELIGIBLE_EVENT_TYPES = new Set(['leave.approved', 'leave.rejected']);
+
+/** Channels AI Agentic exposes a `POST /channels/<x>/notify` relay for. */
+const CHAT_PUSH_CHANNELS = [ChannelType.TELEGRAM, ChannelType.SLACK];
 
 const SUBSCRIBED_EVENT_TYPES = [
   'leave.requested',
@@ -40,6 +56,8 @@ const SUBSCRIBED_EVENT_TYPES = [
   'exit_survey.sent',
   'exit_survey.completed',
   'okr.cycle_activated',
+  'okr.objective_created',
+  'okr.objective_activated',
   'okr.checkin_submitted',
   'okr.checkin_approved',
   'okr.checkin_rejected',
@@ -58,6 +76,8 @@ export class NotificationsEventsBridge implements OnApplicationBootstrap {
     ['promotion.approved', promotionRules.onApproved],
     ['promotion.rejected', promotionRules.onRejected],
     ['okr.cycle_activated', okrRules.onCycleActivated],
+    ['okr.objective_created', okrRules.onObjectiveCreated],
+    ['okr.objective_activated', okrRules.onObjectiveActivated],
     ['okr.checkin_submitted', okrRules.onCheckInSubmitted],
     ['okr.checkin_approved', okrRules.onCheckInApproved],
     ['okr.checkin_rejected', okrRules.onCheckInRejected],
@@ -72,6 +92,7 @@ export class NotificationsEventsBridge implements OnApplicationBootstrap {
     private readonly prisma: PrismaService,
     private readonly renderers: NotificationRenderers,
     private readonly sseRegistry: NotificationsSseRegistry,
+    private readonly aiAgentic: AiAgenticClient,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -103,11 +124,46 @@ export class NotificationsEventsBridge implements OnApplicationBootstrap {
           data: notification,
         });
       }
+
+      if (CHAT_PUSH_ELIGIBLE_EVENT_TYPES.has(event.type)) {
+        await Promise.all(created.map((notification) => this.pushChatChannels(notification)));
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
         `Notification dispatch failed for ${event.type} correlationId=${event.metadata.correlationId}: ${message}`,
       );
+    }
+  }
+
+  /**
+   * WHY a dedicated try/catch here rather than letting failures bubble into
+   * dispatch()'s own catch: a Telegram/Slack/AI-Agentic outage must never
+   * look like "notification dispatch failed" in logs when the in-app
+   * Notification row and SSE push above already succeeded. AiAgenticClient
+   * itself never throws; this also guards the Prisma lookup. One findMany
+   * covers every linked chat app, so a user linked to both gets both pings
+   * from a single query.
+   */
+  private async pushChatChannels(notification: NotificationResponseDto): Promise<void> {
+    try {
+      const identities = await this.prisma.channelIdentity.findMany({
+        where: { userId: notification.recipientUserId, channel: { in: CHAT_PUSH_CHANNELS } },
+      });
+      if (identities.length === 0) return;
+
+      const text = `${notification.title}\n\n${notification.body}`;
+      await Promise.all(
+        identities.map((identity) => {
+          const channel: string = identity.channel;
+          return channel === ChannelType.SLACK
+            ? this.aiAgentic.notifySlack(identity.externalId, text)
+            : this.aiAgentic.notifyTelegram(identity.externalId, text);
+        }),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Chat push skipped for notification ${notification.id}: ${message}`);
     }
   }
 }

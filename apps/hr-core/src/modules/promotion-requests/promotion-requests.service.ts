@@ -9,7 +9,6 @@ import {
 import { randomUUID } from 'crypto';
 import { DomainEvent, EVENT_BUS, IEventBus, JwtPayload, PermissionScope } from '@sentient/shared';
 import { EmploymentStatus, Prisma, PromotionRequestStatus, SalaryChangeReason } from '../../generated/prisma';
-import { Decimal } from '../../generated/prisma/runtime/library';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePromotionRequestDto } from './dto/create-promotion-request.dto';
 import { PromotionRequestQueryDto } from './dto/promotion-request-query.dto';
@@ -138,13 +137,13 @@ export class PromotionRequestsService {
         requestedById,
         currentRole: employee.position.title,
         newRole: newPosition.title,
-        currentGrossSalary: new Decimal(currentGrossSalary),
-        newGrossSalary: new Decimal(newGrossSalary),
-        salaryDelta: new Decimal(salaryDelta),
-        salaryDeltaPercentage: new Decimal(salaryDeltaPercentage),
-        currentTeamBudget: new Decimal(currentTeamBudget),
-        newTeamBudget: new Decimal(newTeamBudget),
-        budgetImpactPercentage: new Decimal(budgetImpactPercentage),
+        currentGrossSalary: new Prisma.Decimal(currentGrossSalary),
+        newGrossSalary: new Prisma.Decimal(newGrossSalary),
+        salaryDelta: new Prisma.Decimal(salaryDelta),
+        salaryDeltaPercentage: new Prisma.Decimal(salaryDeltaPercentage),
+        currentTeamBudget: new Prisma.Decimal(currentTeamBudget),
+        newTeamBudget: new Prisma.Decimal(newTeamBudget),
+        budgetImpactPercentage: new Prisma.Decimal(budgetImpactPercentage),
         responsibilities,
       },
       include: this.includeRequestRelations(),
@@ -532,15 +531,15 @@ export class PromotionRequestsService {
     return this.mapRequest(updated);
   }
 
-  private decimalToNumber(value: Decimal | number | string): number {
+  private decimalToNumber(value: Prisma.Decimal | number | string): number {
     return Number(value);
   }
 
   private deriveNetSalary(
-    previousGrossSalary: Decimal,
-    previousNetSalary: Decimal,
-    newGrossSalary: Decimal,
-  ): Decimal {
+    previousGrossSalary: Prisma.Decimal,
+    previousNetSalary: Prisma.Decimal,
+    newGrossSalary: Prisma.Decimal,
+  ): Prisma.Decimal {
     if (previousGrossSalary.isZero()) return previousNetSalary;
     return previousNetSalary
       .div(previousGrossSalary)

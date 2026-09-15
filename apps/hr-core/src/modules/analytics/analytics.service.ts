@@ -5,10 +5,10 @@ import {
   ProficiencyLevel,
   SalaryChangeReason,
 } from '../../generated/prisma';
-import { Decimal } from '../../generated/prisma/runtime/library';
 import { JwtPayload, PermissionScope } from '@sentient/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DashboardAnalyticsQueryDto } from './dto/dashboard-analytics-query.dto';
+import { EmployeesWithoutLeaveQueryDto } from './dto/employees-without-leave-query.dto';
 
 export interface ChartPoint {
   label: string;
@@ -49,6 +49,10 @@ export interface DashboardAnalytics {
     visible: boolean;
     totalCost: number | null;
     averageSalary: number | null;
+    // WHY: null means the scoped employees span more than one BusinessUnit
+    // currency (or none resolve to a BU at all) — totalCost/averageSalary are
+    // still computed, but the caller must not label them with a guessed currency.
+    currency: string | null;
     costByDepartment: ChartPoint[];
     costTrendByTeam: SeriesPoint[];
   };
@@ -85,10 +89,40 @@ export interface DashboardAnalytics {
   };
 }
 
+export interface EmployeeWithoutLeaveEntry {
+  employeeId: string;
+  employeeName: string;
+  departmentId: string | null;
+  employmentStatus: EmploymentStatus;
+}
+
+export interface EmployeesWithoutLeaveResult {
+  entries: EmployeeWithoutLeaveEntry[];
+  totalConsidered: number;
+  /** ISO date (YYYY-MM-DD) — trailing 365-day window start. */
+  windowStart: string;
+  /** ISO date (YYYY-MM-DD) — trailing 365-day window end (today). */
+  windowEnd: string;
+}
+
 type EmployeeRow = Prisma.EmployeeGetPayload<{
   include: {
-    department: { select: { id: true; name: true; businessUnitId: true } };
-    team: { select: { id: true; name: true; businessUnitId: true } };
+    department: {
+      select: {
+        id: true;
+        name: true;
+        businessUnitId: true;
+        businessUnit: { select: { currency: true } };
+      };
+    };
+    team: {
+      select: {
+        id: true;
+        name: true;
+        businessUnitId: true;
+        businessUnit: { select: { currency: true } };
+      };
+    };
     position: { select: { id: true; title: true } };
   };
 }>;
@@ -125,6 +159,13 @@ type SkillRow = Prisma.EmployeeSkillGetPayload<{
 type SkillHistoryRow = Prisma.SkillHistoryGetPayload<{
   include: { skill: { select: { name: true } } };
 }>;
+
+/** Common shape shared by every scope-filterable analytics query DTO. */
+interface EmployeeScopeFilterQuery {
+  businessUnitId?: string;
+  departmentId?: string;
+  teamId?: string;
+}
 
 const MONTH_COUNT = 12;
 const QUARTER_COUNT = 8;
@@ -184,8 +225,22 @@ export class AnalyticsService {
       this.prisma.employee.findMany({
         where: employeeWhere,
         include: {
-          department: { select: { id: true, name: true, businessUnitId: true } },
-          team: { select: { id: true, name: true, businessUnitId: true } },
+          department: {
+            select: {
+              id: true,
+              name: true,
+              businessUnitId: true,
+              businessUnit: { select: { currency: true } },
+            },
+          },
+          team: {
+            select: {
+              id: true,
+              name: true,
+              businessUnitId: true,
+              businessUnit: { select: { currency: true } },
+            },
+          },
           position: { select: { id: true, title: true } },
         },
       }),
@@ -251,6 +306,59 @@ export class AnalyticsService {
         message: 'Engagement analytics are waiting for the backend performance/engagement module.',
       },
     };
+  }
+
+  /**
+   * WHY: The roster half and the leave half of this diff must derive from the
+   * exact same scope filter (currentEmployeeWhere), or the "zero-leave" result
+   * can silently leak out-of-scope employees or drop in-scope employees who
+   * legitimately have zero leave. Reusing buildScopedEmployeeWhere +
+   * buildCurrentWorkforceFilter — the same combination getDashboard uses —
+   * guarantees both queries see the identical population.
+   */
+  async getEmployeesWithoutLeave(
+    query: EmployeesWithoutLeaveQueryDto,
+    user: JwtPayload,
+  ): Promise<EmployeesWithoutLeaveResult> {
+    const employeeWhere = this.buildScopedEmployeeWhere(query, user);
+    const currentEmployeeWhere = this.andEmployeeWhere(
+      employeeWhere,
+      this.buildCurrentWorkforceFilter(),
+    );
+
+    const windowEndDate = new Date();
+    const windowStartDate = new Date(windowEndDate.getTime() - 365 * 24 * 60 * 60 * 1000);
+    const windowStart = windowStartDate.toISOString().slice(0, 10);
+    const windowEnd = windowEndDate.toISOString().slice(0, 10);
+
+    const [roster, leaveTakers] = await Promise.all([
+      this.prisma.employee.findMany({
+        where: currentEmployeeWhere,
+        select: { id: true, firstName: true, lastName: true, departmentId: true, employmentStatus: true },
+      }),
+      this.prisma.leaveRequest.findMany({
+        where: {
+          status: 'APPROVED',
+          employee: currentEmployeeWhere,
+          startDate: { lte: windowEndDate },
+          endDate: { gte: windowStartDate },
+        },
+        select: { employeeId: true },
+        distinct: ['employeeId'],
+      }),
+    ]);
+
+    const takenSet = new Set(leaveTakers.map((row) => row.employeeId));
+    const entries: EmployeeWithoutLeaveEntry[] = roster
+      .filter((employee) => !takenSet.has(employee.id))
+      .map((employee) => ({
+        employeeId: employee.id,
+        employeeName: `${employee.firstName} ${employee.lastName}`,
+        departmentId: employee.departmentId,
+        employmentStatus: employee.employmentStatus,
+      }));
+
+    return { entries, totalConsidered: roster.length, windowStart, windowEnd };
   }
 
   private buildEmployeeAnalytics(
@@ -343,6 +451,7 @@ export class AnalyticsService {
         visible: false,
         totalCost: null,
         averageSalary: null,
+        currency: null,
         costByDepartment: [],
         costTrendByTeam: [],
       };
@@ -362,6 +471,7 @@ export class AnalyticsService {
       visible: true,
       totalCost,
       averageSalary: visibleEmployees.length > 0 ? Math.round(totalCost / visibleEmployees.length) : null,
+      currency: this.resolveSharedCurrency(visibleEmployees),
       costByDepartment: this.sortPoints(
         this.sumBy(
           visibleEmployees,
@@ -529,7 +639,7 @@ export class AnalyticsService {
 
   private salaryAt(
     date: Date,
-    currentGrossSalary: Decimal | number | string | null,
+    currentGrossSalary: Prisma.Decimal | number | string | null,
     history: SalaryRow[],
   ): number {
     const latest = history
@@ -544,7 +654,7 @@ export class AnalyticsService {
   }
 
   private buildScopedEmployeeWhere(
-    query: DashboardAnalyticsQueryDto,
+    query: EmployeeScopeFilterQuery,
     user: JwtPayload,
   ): Prisma.EmployeeWhereInput {
     const filters: Prisma.EmployeeWhereInput[] = [
@@ -689,9 +799,26 @@ export class AnalyticsService {
     return points.sort((a, b) => b.value - a.value);
   }
 
-  private decimalToNumber(value: Decimal | number | string | null): number {
+  private resolveEmployeeCurrency(employee: EmployeeRow): string | null {
+    return employee.department?.businessUnit?.currency ?? employee.team?.businessUnit?.currency ?? null;
+  }
+
+  /**
+   * WHY: totalCost/averageSalary are a raw sum across the scoped employees.
+   * That sum is only meaningful if every one of them resolves to the same
+   * BusinessUnit currency. Returns that shared currency, or null when the
+   * set is empty, mixed, or unresolvable — callers must not guess a symbol
+   * for a null result.
+   */
+  private resolveSharedCurrency(employees: EmployeeRow[]): string | null {
+    const distinct = new Set(employees.map((employee) => this.resolveEmployeeCurrency(employee)));
+    if (distinct.size !== 1) return null;
+    return distinct.values().next().value ?? null;
+  }
+
+  private decimalToNumber(value: Prisma.Decimal | number | string | null): number {
     if (value === null) return 0;
-    if (value instanceof Decimal) return value.toNumber();
+    if (value instanceof Prisma.Decimal) return value.toNumber();
     return Number(value);
   }
 

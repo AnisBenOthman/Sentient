@@ -52,7 +52,9 @@
     "hrAdmin": "HR Admin",
     "manager": "Manager",
     "teamLead": "Team Lead",
-    "employee": "Employee"
+    "employee": "Employee",
+    "executive": "Executive",
+    "systemAdmin": "System Admin"
   },
   "pagination": {
     "page": "Page",

@@ -12,71 +12,80 @@ import {
   Sparkles,
   ArrowRight,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { getEmployees, getEmployee, getMyLeaveRequests } from "@/lib/api/hr-core";
 import { useAuth } from "@/components/providers/auth-provider";
-import { getRoleTier, roleLabel, type RoleTier } from "@/lib/auth";
+import { LeaveRequestSummary } from "@/components/leave-request-summary";
+import { getRoleTier, roleLabelKey, type RoleTier } from "@/lib/auth";
 
-function getGreeting(): string {
+type GreetingKey = "greeting.morning" | "greeting.afternoon" | "greeting.evening";
+
+function getGreetingKey(): GreetingKey {
   const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
+  if (hour < 12) return "greeting.morning";
+  if (hour < 18) return "greeting.afternoon";
+  return "greeting.evening";
 }
 
+/**
+ * WHY: `linkKey` indexes home.json's `links` block and `testId` is a fixed slug —
+ * deriving the test-id from the translated title would rename selectors per locale.
+ */
 const quickLinks = [
   {
-    title: "Dashboard",
-    description: "Analytics, headcount trends, and payroll overview",
+    linkKey: "dashboard",
+    testId: "dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
     color: "#2563eb",
     tiers: ["hr_admin", "dept_manager", "team_lead"] as RoleTier[],
   },
   {
-    title: "Employees",
-    description: "Browse the employee directory and org context",
+    linkKey: "employees",
+    testId: "employees",
     href: "/employees",
     icon: Users,
     color: "#7c3aed",
     tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[],
   },
   {
-    title: "Leave Requests",
-    description: "Review and approve pending time-off requests",
+    linkKey: "leaveRequests",
+    testId: "leave-requests",
     href: "/leaves",
     icon: CalendarDays,
     color: "#d97706",
     tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[],
   },
   {
-    title: "Org Chart",
-    description: "Visual hierarchy by department, team, and people",
+    linkKey: "orgChart",
+    testId: "org-chart",
     href: "/org-chart",
     icon: GitFork,
     color: "#059669",
     tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[],
   },
   {
-    title: "Performance Reviews",
-    description: "Submit and track performance review work",
+    linkKey: "performanceReviews",
+    testId: "performance-reviews",
     href: "/performance-reviews",
     icon: ClipboardList,
     color: "#0ea5e9",
     tiers: ["hr_admin", "dept_manager", "team_lead", "employee"] as RoleTier[],
   },
   {
-    title: "Simulation",
-    description: "Model promotion budget impact in your scope",
+    linkKey: "simulation",
+    testId: "simulation",
     href: "/simulation",
     icon: Sparkles,
     color: "#c026d3",
     tiers: ["hr_admin", "dept_manager", "team_lead"] as RoleTier[],
   },
-];
+] as const;
 
 export default function Home() {
   const { user } = useAuth();
-  const greeting = getGreeting();
+  const { t, i18n } = useTranslation(["home", "common"]);
+  const greeting = t(getGreetingKey());
 
   const { data: profile } = useQuery({
     queryKey: ["employee-profile", user?.employeeId],
@@ -110,32 +119,36 @@ export default function Home() {
   });
 
   const firstName = profile?.firstName ?? "…";
-  const userRole = user ? roleLabel(user.roles) : "";
+  const userRole = user ? t(roleLabelKey(user.roles), { ns: "common" }) : "";
   const roleTier = user ? getRoleTier(user) : "employee";
   const department = profile?.department?.name ?? "";
   const visibleQuickLinks = quickLinks.filter((link) => link.tiers.includes(roleTier));
 
   const stats = [
     {
-      label: "Total Employees",
+      key: "totalEmployees",
+      label: t("stats.totalEmployees"),
       value: totalResult?.total ?? "—",
       icon: Users,
       color: "#2563eb",
     },
     {
-      label: "Active Today",
+      key: "activeToday",
+      label: t("stats.activeToday"),
       value: activeResult?.total ?? "—",
       icon: UserCheck,
       color: "#059669",
     },
     {
-      label: "On Leave",
+      key: "onLeave",
+      label: t("stats.onLeave"),
       value: onLeaveResult?.total ?? "—",
       icon: Briefcase,
       color: "#d97706",
     },
     {
-      label: "Pending Approvals",
+      key: "pendingApprovals",
+      label: t("stats.pendingApprovals"),
       value: pendingLeaves?.length ?? "—",
       icon: ClipboardList,
       color: "#7c3aed",
@@ -155,11 +168,11 @@ export default function Home() {
           className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100"
           data-testid="home-greeting"
         >
-          Welcome back, {firstName} 👋
+          {t("welcomeBack", { name: firstName })}
         </h1>
         <p className="text-sm text-muted-foreground">
           {userRole}{department ? ` · ${department}` : ""} ·{" "}
-          {new Date().toLocaleDateString("en-US", {
+          {new Date().toLocaleDateString(i18n.language, {
             weekday: "long",
             month: "long",
             day: "numeric",
@@ -172,7 +185,7 @@ export default function Home() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-testid="home-stats">
         {stats.map((s) => (
           <div
-            key={s.label}
+            key={s.key}
             className="relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm hover:shadow-md transition-shadow"
           >
             <div className="absolute inset-y-0 left-0 w-1 rounded-l-xl" style={{ backgroundColor: s.color }} />
@@ -197,14 +210,14 @@ export default function Home() {
       {/* Quick access */}
       <div>
         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wider">
-          Quick Access
+          {t("quickAccess")}
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="home-quick-links">
           {visibleQuickLinks.map((link) => (
             <Link key={link.href} href={link.href}>
               <div
                 className="relative overflow-hidden rounded-xl border bg-card p-4 flex items-start gap-3 shadow-sm hover:shadow-md transition-all cursor-pointer group"
-                data-testid={`home-link-${link.title.toLowerCase().replace(/\s+/g, "-")}`}
+                data-testid={`home-link-${link.testId}`}
               >
                 <div className="absolute inset-y-0 left-0 w-1 rounded-l-xl" style={{ backgroundColor: link.color }} />
                 <div
@@ -215,10 +228,10 @@ export default function Home() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 group-hover:underline underline-offset-2">
-                    {link.title}
+                    {t(`links.${link.linkKey}.title`)}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                    {link.description}
+                    {t(`links.${link.linkKey}.desc`)}
                   </p>
                 </div>
                 <ArrowRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors flex-shrink-0 mt-0.5" />
@@ -232,13 +245,13 @@ export default function Home() {
       {recentlyApproved.length > 0 && (
         <div>
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wider">
-            Recently Approved Leave
+            {t("recentlyApprovedLeave")}
           </h2>
           <div className="rounded-xl border bg-card shadow-sm divide-y divide-gray-100 dark:divide-gray-800">
             {recentlyApproved.map((req) => {
               const empName = req.employee
                 ? `${req.employee.firstName} ${req.employee.lastName}`
-                : "Employee";
+                : t("leave.employee");
               const initials = empName
                 .split(" ")
                 .map((n) => n[0])
@@ -260,14 +273,13 @@ export default function Home() {
                       {empName}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {req.leaveType?.name ?? "Leave"} · {req.totalDays} day{req.totalDays !== 1 ? "s" : ""} ·{" "}
-                      {req.startDate}
+                      <LeaveRequestSummary request={req} />
                     </p>
                   </div>
                 </div>
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
                   <CheckCircle2 className="w-3 h-3" />
-                  Approved
+                  {t("leave.approved")}
                 </span>
               </div>
               );

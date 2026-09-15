@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Decimal } from '../../generated/prisma/runtime/library';
+import { Prisma } from '../../generated/prisma';
 import { EVENT_BUS, JwtPayload, EmploymentStatus, ContractType, PermissionScope } from '@sentient/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
@@ -57,8 +57,8 @@ const baseEmployee = {
   hireDate: new Date('2024-01-15'),
   employmentStatus: 'ACTIVE' as EmploymentStatus,
   contractType: 'FULL_TIME' as ContractType,
-  grossSalary: new Decimal('70000'),
-  netSalary: new Decimal('58000'),
+  grossSalary: new Prisma.Decimal('70000'),
+  netSalary: new Prisma.Decimal('58000'),
   maritalStatus: null,
   educationLevel: null,
   educationField: null,

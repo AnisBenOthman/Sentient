@@ -44,10 +44,22 @@ export const OKR_ERROR_MESSAGES: Record<string, string> = {
   KrNotFound: 'Key Result no longer exists.',
   NotAssigned: 'You are not assigned to this Key Result.',
   KrNotActive: 'This Key Result is not active.',
+  ObjectiveNotActive: 'You can only add Key Results to active objectives.',
+  BooleanTargetMustBeOne: 'Boolean Key Results must have target value 1.',
+  TargetMustBePositive: 'Target value must be greater than zero.',
+  AssigneeNotFound: 'One of the selected assignees no longer exists.',
   BooleanValueInvalid: 'Value must be 0 or 1 for boolean Key Results.',
   CheckInNotPending: 'This check-in was already reviewed.',
   WrongDepartment: 'You can only review check-ins for your own department.',
   ReasonRequired: 'A reason is required to reject a check-in.',
+};
+
+export const AI_ERROR_MESSAGES: Record<string, string> = {
+  AiOutOfScope: 'The assistant can only help with Sentient HR and workplace context.',
+  AiSpecialistUnavailable: 'One of the assistant specialists is temporarily unavailable.',
+  AiFeedbackNotFound: 'This assistant response is not available for feedback.',
+  AiConversationNotFound: 'This AI conversation is no longer available.',
+  AiScopeRefusal: 'The assistant cannot access or reveal information outside your permissions.',
 };
 
 export const GATEWAY_ERROR_MESSAGES: Record<string, string> = {
@@ -64,6 +76,7 @@ export const GATEWAY_ERROR_MESSAGES: Record<string, string> = {
   ...ANNOUNCEMENT_ERROR_MESSAGES,
   ...DOCUMENT_ERROR_MESSAGES,
   ...OKR_ERROR_MESSAGES,
+  ...AI_ERROR_MESSAGES,
 };
 
 export function isGatewayErrorEnvelope(value: unknown): value is GatewayErrorEnvelope {

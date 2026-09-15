@@ -10,5 +10,536 @@ generator client {
   previewFeatures = ["multiSchema"]
 }
 
-// Models are added feature-by-feature.
-// Next: AI Agentic module (Conversation, Message, VectorDocument, AgentTaskLog, OrgScenario).
+enum AgentType {
+  HR_ASSISTANT
+  SUPERVISOR_AGENT
+  OKR_AGENT
+  LEAVE_AGENT
+  CAREER_AGENT
+  LINGUISTIC_AGENT
+  LANGUAGE_AGENT
+  ANALYTICS_AGENT
+  ENGAGEMENT_AGENT
+  ONBOARDING_COMPANION
+  ONBOARDING_AGENT
+  GENERAL_HELP_AGENT
+  HUMAN_ESCALATION_AGENT
+
+  @@schema("ai_agent")
+}
+
+/// Mirrors packages/shared/src/enums/channel-type.enum.ts. Declared here because
+/// services never share schema objects — the hr_core enum is not reachable.
+enum ChannelType {
+  WEB
+  SLACK
+  TELEGRAM
+  WHATSAPP
+  EMAIL
+  IN_APP
+
+  @@schema("ai_agent")
+}
+
+enum ConversationStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+
+  @@schema("ai_agent")
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+  AGENT
+
+  @@schema("ai_agent")
+}
+
+enum AgentNodeType {
+  SUPERVISOR
+  CLARIFICATION
+  SPECIALIST
+  HUMAN_ESCALATION
+  FINAL_ANSWER
+
+  @@schema("ai_agent")
+}
+
+enum AgentRunStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  DEGRADED
+  PARTIAL
+  ESCALATED
+  REFUSED
+  OUT_OF_SCOPE
+  /// A mutating action was proposed and awaits the user's explicit confirm/cancel tap.
+  PENDING_CONFIRMATION
+  /// The downstream write apparently succeeded but the independent read-back did not confirm it.
+  UNVERIFIED
+
+  @@schema("ai_agent")
+}
+
+/// WHY a dedicated enum rather than a string: its existence is what makes the
+/// five-phase action-execution framework specialist-agnostic (spec 017 FR-011) —
+/// a future mutating action (e.g. leave cancellation) adds a member here, not a
+/// new state machine.
+enum AgentActionKind {
+  LEAVE_BOOKING
+
+  @@schema("ai_agent")
+}
+
+enum ActionProposalStatus {
+  /// Minted, awaiting confirm or cancel.
+  PENDING
+  /// Claimed by exactly one execute or cancel — terminal. Retry after failure
+  /// requires a new proposal (spec 017 FR-006).
+  CONSUMED
+  /// Swept past expiresAt without a decision.
+  EXPIRED
+
+  @@schema("ai_agent")
+}
+
+enum PermissionDecision {
+  ALLOWED
+  PARTIAL
+  DENIED
+  UNAVAILABLE
+
+  @@schema("ai_agent")
+}
+
+enum TaskTrigger {
+  USER_MESSAGE
+  SYSTEM
+  SCHEDULED
+  EVENT
+
+  @@schema("ai_agent")
+}
+
+enum ClarificationStatus {
+  OPEN
+  RESOLVED
+
+  @@schema("ai_agent")
+}
+
+enum HumanEscalationTargetType {
+  MANAGER
+  HR_BUSINESS_PARTNER
+  PEOPLE_TEAM
+  EMERGENCY_PROCESS
+  OTHER
+
+  @@schema("ai_agent")
+}
+
+enum HumanEscalationStatus {
+  RECORDED
+  SENT
+  CANCELLED
+  RESOLVED
+
+  @@schema("ai_agent")
+}
+
+enum FeedbackRating {
+  POSITIVE
+  NEGATIVE
+
+  @@schema("ai_agent")
+}
+
+enum KnowledgeSourceType {
+  HANDBOOK
+  POLICY
+  SOCIAL_DOCUMENT
+  FAQ
+  SYSTEM_GUIDE
+
+  @@schema("ai_agent")
+}
+
+enum KnowledgeItemStatus {
+  ACTIVE
+  STALE
+  DELETED
+
+  @@schema("ai_agent")
+}
+
+model Conversation {
+  id                 String             @id @default(uuid())
+  ownerUserId        String             @map("owner_user_id")
+  ownerEmployeeId    String?            @map("owner_employee_id")
+  title              String
+  status             ConversationStatus @default(ACTIVE)
+  lastAgentType      AgentType?         @map("last_agent_type")
+  lastMessagePreview String?            @map("last_message_preview")
+  /// Rolling summary of messages that no longer fit the recent-message window.
+  contextSummary     String?            @map("context_summary")
+  /// How many of the oldest messages the current contextSummary already covers.
+  summarizedMessageCount Int            @default(0) @map("summarized_message_count")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  archivedAt         DateTime?          @map("archived_at")
+  deletedAt          DateTime?          @map("deleted_at")
+
+  messages            Message[]
+  taskLogs            AgentTaskLog[]
+  handoffs            AgentHandoff[]
+  nodeRuns            AgentNodeRun[]
+  clarificationRequests ClarificationRequest[]
+  humanEscalations    HumanEscalation[]
+  responseFeedback    ResponseFeedback[]
+  permissionDecisions PermissionDecisionRecord[]
+  actionProposals     AgentActionProposal[]
+  scheduledFollowUps  ScheduledFollowUp[]
+  channelLinks        ChannelConversationLink[]
+
+  @@index([ownerUserId, updatedAt])
+  @@schema("ai_agent")
+  @@map("conversations")
+}
+
+/// Which conversation a chat-channel thread (a Telegram chat, later a Slack DM)
+/// currently continues. One row per (channel, externalId); "/new" deletes it.
+/// Cascades from Conversation so deleting a thread in the web app drops the pointer.
+model ChannelConversationLink {
+  id             String      @id @default(uuid())
+  channel        ChannelType
+  externalId     String      @map("external_id")
+  conversationId String      @map("conversation_id")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([channel, externalId])
+  @@index([conversationId])
+  @@schema("ai_agent")
+  @@map("channel_conversation_links")
+}
+
+model Message {
+  id             String          @id @default(uuid())
+  conversationId String          @map("conversation_id")
+  role           MessageRole
+  content        String
+  agentType      AgentType?      @map("agent_type")
+  nodeType       AgentNodeType?  @map("node_type")
+  sourceSummary  Json?           @map("source_summary")
+  status         AgentRunStatus  @default(SUCCESS)
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  conversation   Conversation          @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  feedback       ResponseFeedback[]
+  actionProposal AgentActionProposal?
+
+  @@index([conversationId, createdAt])
+  @@schema("ai_agent")
+  @@map("messages")
+}
+
+/// The frozen payload plus the single-use confirmation token for a mutating
+/// specialist action (spec 017). A row, not a JSON blob on the conversation —
+/// a read-modify-write on a JSON blob cannot enforce single-use under a
+/// double-tap (spec 017 research.md R3). Consume is always a conditional
+/// updateMany, never read-then-write:
+///   updateMany({ where: { token, status: PENDING, expiresAt: { gt: now } },
+///                data:  { status: CONSUMED, consumedAt: now } })
+///   count === 1 → this caller owns the execution; count === 0 → refuse.
+model AgentActionProposal {
+  id             String               @id @default(uuid())
+  conversationId String               @map("conversation_id")
+  messageId      String               @unique @map("message_id")
+  token          String               @unique
+  actionKind     AgentActionKind      @map("action_kind")
+  status         ActionProposalStatus @default(PENDING)
+
+  /// WHY: scoping the token to the minting user and employee is what makes
+  /// cross-user replay impossible (FR-004). Re-checked at confirm time.
+  actorUserId     String @map("actor_user_id")
+  actorEmployeeId String @map("actor_employee_id")
+
+  /// The exact computed payload, frozen at propose time. Execute sends THIS,
+  /// never a payload re-derived from the confirm message (FR-001).
+  payload Json
+
+  /// Citations shown on the card before the user confirmed (FR-047/FR-048).
+  policyCitations Json? @map("policy_citations")
+
+  /// Set by Execute. Null until a downstream write is attempted.
+  executedAt       DateTime? @map("executed_at")
+  resultRecordId   String?   @map("result_record_id")
+  resultStatusCode Int?      @map("result_status_code")
+  resultErrorCode  String?   @map("result_error_code")
+
+  /// Set by Verify. Null when Execute failed or verification has not run.
+  verifiedAt        DateTime? @map("verified_at")
+  /// MATCHED | MISMATCHED | UNAVAILABLE
+  verificationState String?   @map("verification_state")
+
+  proposalLogId String?   @map("proposal_log_id")
+  expiresAt     DateTime  @map("expires_at")
+  consumedAt    DateTime? @map("consumed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message      Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([status, expiresAt])
+  @@index([conversationId, createdAt])
+  @@schema("ai_agent")
+  @@map("agent_action_proposals")
+}
+
+/// A pending proactive check-in bound to a conversation, user, and (optionally)
+/// the originating leave request (spec 017). Re-read at fire time under a
+/// SYSTEM context — the event bus is in-process only and cannot deliver
+/// leave.cancelled across services (FR-040).
+model ScheduledFollowUp {
+  id                String   @id @default(uuid())
+  conversationId    String   @map("conversation_id")
+  actorUserId       String   @map("actor_user_id")
+  employeeFirstName String   @map("employee_first_name")
+  /// SICK_LEAVE_WELLNESS_CHECK
+  followUpType      String   @map("follow_up_type")
+  followUpAt        DateTime @map("follow_up_at")
+
+  /// The booking this check-in is about. Null = no specific leave request
+  /// context was available at schedule time.
+  leaveRequestId String? @map("leave_request_id")
+
+  /// Null = pending. Non-null = handled, whether sent or suppressed.
+  resolvedAt DateTime? @map("resolved_at")
+  /// SENT | SUPPRESSED_CANCELLED | SUPPRESSED_STALE | SUPPRESSED_CONVERSATION_GONE
+  resolution String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([followUpAt, resolvedAt])
+  @@schema("ai_agent")
+  @@map("scheduled_follow_ups")
+}
+
+model AgentTaskLog {
+  id                 String              @id @default(uuid())
+  conversationId     String?             @map("conversation_id")
+  parentLogId        String?             @map("parent_log_id")
+  agentType          AgentType           @map("agent_type")
+  nodeType           AgentNodeType       @map("node_type")
+  taskType           String              @map("task_type")
+  trigger            TaskTrigger         @default(USER_MESSAGE)
+  actorUserId        String?             @map("actor_user_id")
+  actorEmployeeId    String?             @map("actor_employee_id")
+  status             AgentRunStatus      @default(PENDING)
+  permissionDecision PermissionDecision? @map("permission_decision")
+  sourceCategories   String[]            @default([]) @map("source_categories")
+  inputSummary       String?             @map("input_summary")
+  outputSummary      String?             @map("output_summary")
+  /// Verbatim SQL generated by the analytics Text-to-SQL branch, stored WITHOUT
+  /// redactSensitiveText. WHY: this is the forensic artifact for "what did the model
+  /// actually run against HR data". The \d{6,} redaction applied to the summary fields
+  /// would silently rewrite salary thresholds and date literals, making the audit trail
+  /// unreliable for exactly the query it exists to record. Generated SQL references only
+  /// hr_analytics view names and literals drawn from the user's own question, so it is
+  /// not the fetched-PII risk that redaction was written for. Null on every other task.
+  generatedSql       String?             @map("generated_sql")
+  errorCode          String?             @map("error_code")
+  errorMessage       String?             @map("error_message")
+  /// Prompt tokens consumed by LLM calls attributed to this task (summed across rounds).
+  tokensIn           Int?                @map("tokens_in")
+  /// Completion/thinking tokens produced by LLM calls attributed to this task.
+  tokensOut          Int?                @map("tokens_out")
+  correlationId      String              @map("correlation_id")
+  startedAt          DateTime            @default(now()) @map("started_at")
+  finishedAt         DateTime?           @map("finished_at")
+
+  conversation              Conversation?              @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  parent                    AgentTaskLog?              @relation("AgentTaskLogChildren", fields: [parentLogId], references: [id], onDelete: SetNull)
+  children                  AgentTaskLog[]             @relation("AgentTaskLogChildren")
+  parentHandoffs            AgentHandoff[]             @relation("AgentHandoffParentLog")
+  specialistHandoffs        AgentHandoff[]             @relation("AgentHandoffSpecialistLog")
+  nodeRuns                  AgentNodeRun[]
+  clarificationRequests     ClarificationRequest[]
+  humanEscalations          HumanEscalation[]
+  permissionDecisionRecords PermissionDecisionRecord[]
+
+  @@index([conversationId, startedAt])
+  @@index([parentLogId])
+  @@schema("ai_agent")
+  @@map("agent_task_logs")
+}
+
+model AgentHandoff {
+  id                  String             @id @default(uuid())
+  conversationId      String             @map("conversation_id")
+  parentTaskLogId     String             @map("parent_task_log_id")
+  specialistTaskLogId String?            @map("specialist_task_log_id")
+  fromAgentType       AgentType          @map("from_agent_type")
+  toAgentType         AgentType          @map("to_agent_type")
+  reason              String
+  requestedIntent     String             @map("requested_intent")
+  permissionDecision  PermissionDecision @map("permission_decision")
+  status              AgentRunStatus     @default(PENDING)
+  summary             String?
+  createdAt           DateTime           @default(now()) @map("created_at")
+  completedAt         DateTime?          @map("completed_at")
+
+  conversation      Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  parentTaskLog     AgentTaskLog  @relation("AgentHandoffParentLog", fields: [parentTaskLogId], references: [id], onDelete: Cascade)
+  specialistTaskLog AgentTaskLog? @relation("AgentHandoffSpecialistLog", fields: [specialistTaskLogId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+  @@schema("ai_agent")
+  @@map("agent_handoffs")
+}
+
+model AgentNodeRun {
+  id             String         @id @default(uuid())
+  conversationId String         @map("conversation_id")
+  taskLogId      String         @map("task_log_id")
+  nodeType       AgentNodeType  @map("node_type")
+  agentType      AgentType      @map("agent_type")
+  sequence       Int
+  stateBefore    Json?          @map("state_before")
+  stateAfter     Json?          @map("state_after")
+  status         AgentRunStatus
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  taskLog      AgentTaskLog @relation(fields: [taskLogId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, sequence])
+  @@schema("ai_agent")
+  @@map("agent_node_runs")
+}
+
+model ClarificationRequest {
+  id                String              @id @default(uuid())
+  conversationId    String              @map("conversation_id")
+  taskLogId         String              @map("task_log_id")
+  question          String
+  reason            String
+  status            ClarificationStatus @default(OPEN)
+  resolvedMessageId String?             @map("resolved_message_id")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  resolvedAt        DateTime?           @map("resolved_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  taskLog      AgentTaskLog @relation(fields: [taskLogId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, status])
+  @@schema("ai_agent")
+  @@map("clarification_requests")
+}
+
+model HumanEscalation {
+  id                String                    @id @default(uuid())
+  conversationId    String                    @map("conversation_id")
+  taskLogId         String                    @map("task_log_id")
+  requestedByUserId String                    @map("requested_by_user_id")
+  targetType        HumanEscalationTargetType @map("target_type")
+  targetLabel       String                    @map("target_label")
+  reason            String
+  summaryForHuman   String                    @map("summary_for_human")
+  status            HumanEscalationStatus     @default(RECORDED)
+  createdAt         DateTime                  @default(now()) @map("created_at")
+  updatedAt         DateTime                  @updatedAt @map("updated_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  taskLog      AgentTaskLog @relation(fields: [taskLogId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@schema("ai_agent")
+  @@map("human_escalations")
+}
+
+model ResponseFeedback {
+  id             String         @id @default(uuid())
+  conversationId String         @map("conversation_id")
+  messageId      String         @map("message_id")
+  userId         String         @map("user_id")
+  rating         FeedbackRating
+  comment        String?
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message      Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([conversationId, createdAt])
+  @@schema("ai_agent")
+  @@map("response_feedback")
+}
+
+model KnowledgeItem {
+  id          String              @id @default(uuid())
+  sourceType  KnowledgeSourceType @map("source_type")
+  sourceId    String?             @map("source_id")
+  title       String
+  contentHash String              @map("content_hash")
+  status      KnowledgeItemStatus @default(ACTIVE)
+  metadata    Json                @default("{}")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  vectorDocuments VectorDocument[]
+
+  @@index([sourceType, sourceId])
+  @@schema("ai_agent")
+  @@map("knowledge_items")
+}
+
+model VectorDocument {
+  id              String              @id @default(uuid())
+  knowledgeItemId String?             @map("knowledge_item_id")
+  sourceType      KnowledgeSourceType @map("source_type")
+  sourceId        String?             @map("source_id")
+  chunkIndex      Int                 @map("chunk_index")
+  content         String
+  embedding       Json?
+  /// pgvector embedding (Gemini text-embedding-004, 768 dims). Written and
+  /// queried via raw SQL only — Prisma cannot represent vector natively.
+  embeddingVec    Unsupported("vector(768)")? @map("embedding_vec")
+  metadata        Json                @default("{}")
+  createdAt       DateTime            @default(now()) @map("created_at")
+
+  knowledgeItem KnowledgeItem? @relation(fields: [knowledgeItemId], references: [id], onDelete: SetNull)
+
+  @@index([knowledgeItemId, chunkIndex])
+  @@schema("ai_agent")
+  @@map("vector_documents")
+}
+
+model PermissionDecisionRecord {
+  id             String             @id @default(uuid())
+  conversationId String?            @map("conversation_id")
+  taskLogId      String             @map("task_log_id")
+  agentType      AgentType          @map("agent_type")
+  decision       PermissionDecision
+  resourceType   String             @map("resource_type")
+  resourceId     String?            @map("resource_id")
+  reason         String
+  createdAt      DateTime           @default(now()) @map("created_at")
+
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  taskLog      AgentTaskLog  @relation(fields: [taskLogId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([taskLogId])
+  @@schema("ai_agent")
+  @@map("permission_decisions")
+}

@@ -370,11 +370,21 @@ function getInitials(firstName: string, lastName: string): string {
   return `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase();
 }
 
-function formatMoney(value: number | null): string {
+// WHY: currency is resolved server-side from the scoped employees' business
+// unit. `undefined` (arg omitted) preserves the historical USD default for
+// call sites that aren't BU-scoped money (e.g. promotion simulation deltas).
+// An explicit `null` means the scoped employees span more than one currency
+// (or none resolve to a BU) — that sum must never be labeled with a guess.
+const LEGACY_DEFAULT_CURRENCY = "USD";
+
+function formatMoney(value: number | null, currency?: string | null): string {
   if (value === null) return "Restricted";
+  if (currency === null) {
+    return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
+  }
   return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "USD",
+    currency: currency ?? LEGACY_DEFAULT_CURRENCY,
     maximumFractionDigits: 0,
   }).format(value);
 }
@@ -1399,8 +1409,20 @@ function PayTab({
     <div className="space-y-6">
       <SectionHeader icon={Wallet} title="Payroll" subtitle="Compensation analytics from employee salaries and salary history" color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30" />
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard title="Total Payroll Cost" value={formatMoney(analytics?.payroll.totalCost ?? null)} sub="Current gross salary total" icon={Wallet} color="#059669" />
-        <StatCard title="Average Salary" value={formatMoney(analytics?.payroll.averageSalary ?? null)} sub="Visible to HR/Admin roles" icon={LineChartIcon} color="#2563eb" />
+        <StatCard
+          title="Total Payroll Cost"
+          value={formatMoney(analytics?.payroll.totalCost ?? null, analytics?.payroll.currency ?? null)}
+          sub={analytics?.payroll.currency ? "Current gross salary total" : "Spans multiple currencies — not directly comparable"}
+          icon={Wallet}
+          color="#059669"
+        />
+        <StatCard
+          title="Average Salary"
+          value={formatMoney(analytics?.payroll.averageSalary ?? null, analytics?.payroll.currency ?? null)}
+          sub={analytics?.payroll.currency ? "Visible to HR/Admin roles" : "Spans multiple currencies — not directly comparable"}
+          icon={LineChartIcon}
+          color="#2563eb"
+        />
         <StatCard title="Payroll Access" value={analytics?.payroll.visible ? "Visible" : "Restricted"} sub="Based on role permissions" icon={ShieldCheck} color="#7c3aed" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">

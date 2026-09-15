@@ -34,6 +34,8 @@ import {
 } from '@/lib/api/hr-core';
 import { useAuth } from '@/components/providers/auth-provider';
 import { getGatewayErrorMessage } from '@/lib/api/gateway-error';
+import { scoreObjective } from '@/lib/okr-quality';
+import { OkrQualityPanel } from './okr-quality-panel';
 
 function formatEmployeeName(employee: EmployeeProfile): string {
   const name = `${employee.firstName} ${employee.lastName}`.trim();
@@ -58,9 +60,10 @@ interface ObjectiveFormProps {
   cycleId: string;
   initialLevel: ObjectiveLevel;
   initialParentObjectiveId?: string;
+  initialOwnerId?: string;
 }
 
-export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialParentObjectiveId }: ObjectiveFormProps) {
+export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialParentObjectiveId, initialOwnerId }: ObjectiveFormProps) {
   const { user } = useAuth();
   const [level, setLevel] = useState<ObjectiveLevel>(initialLevel);
   const [formError, setFormError] = useState<string | null>(null);
@@ -78,6 +81,7 @@ export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialPar
     resolver: zodResolver(schema),
     defaultValues: {
       parentObjectiveId: initialParentObjectiveId,
+      ownerId: initialOwnerId,
     },
   });
   const watchedOwner = watch('ownerId');
@@ -158,15 +162,39 @@ export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialPar
   });
 
   const watchedParent = watch('parentObjectiveId');
+  const watchedTitle = watch('title');
+  const watchedDescription = watch('description');
+
+  const shouldShowPanel = (watchedTitle ?? '').trim().length >= 3;
+
+  const qualityReport = scoreObjective({
+    title: watchedTitle,
+    description: watchedDescription,
+    level,
+    parentObjectiveId: watchedParent,
+  });
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Create Objective</DialogTitle>
+          <p className="text-xs text-muted-foreground">
+            An Objective is a qualitative goal — inspiring, not measured. You'll add measurable Key Results to it next.
+          </p>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
+        <form onSubmit={handleSubmit((v) => {
+            if (level !== 'COMPANY' && !v.parentObjectiveId) {
+              setFormError('Please select a parent objective before creating.');
+              return;
+            }
+            if (level === 'EMPLOYEE' && (isHrAdmin || isManager) && !v.ownerId) {
+              setFormError('Please select an owner for this employee objective.');
+              return;
+            }
+            mutation.mutate(v);
+          })} className="space-y-4">
           <div className="space-y-1">
             <Label>Level</Label>
             <Select
@@ -176,6 +204,7 @@ export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialPar
                 setValue('parentObjectiveId', undefined);
                 setValue('departmentId', undefined);
                 setValue('ownerId', undefined);
+                setFormError(null);
               }}
             >
               <SelectTrigger>
@@ -202,6 +231,8 @@ export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialPar
             <Textarea id="description" {...register('description')} rows={3} />
           </div>
 
+          {shouldShowPanel && <OkrQualityPanel report={qualityReport} />}
+
           {level === 'EMPLOYEE' && (isHrAdmin || isManager) && (
             <div className="space-y-1">
               <Label>Owner *</Label>
@@ -209,7 +240,7 @@ export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialPar
                 value={watchedOwner}
                 onValueChange={(v) => {
                   setValue('ownerId', v, { shouldValidate: true });
-                  setValue('parentObjectiveId', undefined);
+                  setFormError(null);
                 }}
               >
                 <SelectTrigger>
@@ -245,7 +276,7 @@ export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialPar
               <Label>Parent Objective *</Label>
               <Select
                 value={watchedParent}
-                onValueChange={(v) => setValue('parentObjectiveId', v, { shouldValidate: true })}
+                onValueChange={(v) => { setValue('parentObjectiveId', v, { shouldValidate: true }); setFormError(null); }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select parent…" />

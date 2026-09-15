@@ -94,6 +94,7 @@ export class ProxyService {
       headers.host = targetUrl.host;
       headers['x-correlation-id'] = correlationId;
 
+      let timedOut = false;
       const upstreamRequest = client.request(
         targetUrl,
         {
@@ -143,6 +144,7 @@ export class ProxyService {
       });
 
       upstreamRequest.on('timeout', () => {
+        timedOut = true;
         upstreamRequest.destroy(Object.assign(new Error('Upstream timeout'), { code: 'ETIMEDOUT' }));
       });
       upstreamRequest.on('error', (error: NodeJS.ErrnoException) => {
@@ -150,7 +152,10 @@ export class ProxyService {
           resolve();
           return;
         }
-        const mapped = mapUpstreamFailure(error, correlationId);
+        const mapped = mapUpstreamFailure(
+          timedOut ? Object.assign(error, { code: 'ETIMEDOUT' }) : error,
+          correlationId,
+        );
         response.status(mapped.statusCode).json(mapped.body);
         resolve();
       });

@@ -75,7 +75,7 @@ describeIf('Leave Module Integration', () => {
 
     // Seed: BusinessUnit
     const bu = await prismaService.businessUnit.create({
-      data: { name: 'Test BU', address: 'Algiers' },
+      data: { name: 'Test BU', address: 'Algiers', currency: 'DZD' },
     });
     buId = bu.id;
 

@@ -14,7 +14,8 @@ export class TimeoutInterceptor implements NestInterceptor {
   constructor(private readonly configService: ConfigService) {}
 
   intercept(_ctx: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const ms = this.configService.get<number>('REQUEST_TIMEOUT_MS') ?? 30_000;
+    const configured = Number(this.configService.get<string>('REQUEST_TIMEOUT_MS'));
+    const ms = Number.isFinite(configured) && configured > 0 ? configured : 30_000;
     return next.handle().pipe(
       timeout(ms),
       catchError((err: unknown) => {

@@ -19,7 +19,6 @@ import {
   SalaryChangeReason,
   SalaryHistory,
 } from '../../generated/prisma';
-import { Decimal } from '../../generated/prisma/runtime/library';
 import { IEventBus, EVENT_BUS, JwtPayload, PermissionScope, ProficiencyLevel, SkillDomain, SkillRequirementLevel } from '@sentient/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InviteService } from '../iam/services/invite.service';
@@ -41,18 +40,30 @@ export type EmployeeProfile = Employee & {
     id: string;
     name: string;
     businessUnitId: string;
-    businessUnit: { id: string; name: string } | null;
+    businessUnit: { id: string; name: string; currency: string; country: string | null } | null;
   } | null;
   team: {
     id: string;
     name: string;
     businessUnitId: string;
-    businessUnit: { id: string; name: string } | null;
+    businessUnit: { id: string; name: string; currency: string; country: string | null } | null;
   } | null;
   position: { id: string; title: string } | null;
   manager: { id: string; firstName: string; lastName: string } | null;
   salaryHistory?: SalaryHistory[];
+  // WHY: Employee has no currency of its own — it is resolved at read time
+  // from the employee's department (falling back to team) business unit.
+  // `null` means the employee has no department/team assignment yet, so the
+  // currency is genuinely unknown — never guessed.
+  currency: string | null;
+  // WHY the same resolution as currency: country lives on BusinessUnit, not
+  // Employee, and an employee's department BU is preferred over their team
+  // BU. `null` means unassigned or the BU's own country is unset (spec 017) —
+  // consumers must handle absence, never infer a region from currency.
+  country: string | null;
 };
+
+export type SalaryHistoryWithCurrency = SalaryHistory & { currency: string | null };
 
 export interface PaginatedEmployees {
   data: EmployeeProfile[];
@@ -139,8 +150,8 @@ export class EmployeesService {
         dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
         hireDate: new Date(dto.hireDate),
         contractType: dto.contractType as ContractType,
-        grossSalary: dto.grossSalary ? new Decimal(dto.grossSalary) : undefined,
-        netSalary: dto.netSalary ? new Decimal(dto.netSalary) : undefined,
+        grossSalary: dto.grossSalary ? new Prisma.Decimal(dto.grossSalary) : undefined,
+        netSalary: dto.netSalary ? new Prisma.Decimal(dto.netSalary) : undefined,
         gender: dto.gender as Gender | undefined,
         maritalStatus: dto.maritalStatus as MaritalStatus | undefined,
         educationLevel: dto.educationLevel as EducationLevel | undefined,
@@ -177,7 +188,7 @@ export class EmployeesService {
       );
     }
 
-    return employee as EmployeeProfile;
+    return this.attachCurrency(employee as EmployeeProfile);
   }
 
   // ============================================================
@@ -217,7 +228,7 @@ export class EmployeesService {
       throw new NotFoundException(`Employee ${id} not found`);
     }
 
-    return this.stripSensitiveFields(employee as EmployeeProfile, user.roles, canViewSensitive);
+    return this.stripSensitiveFields(this.attachCurrency(employee as EmployeeProfile), user.roles, canViewSensitive);
   }
 
   // ============================================================
@@ -251,10 +262,10 @@ export class EmployeesService {
       await this.resolveTeamDepartmentAlignment(effectiveTeamId, effectiveDeptId);
     }
 
-    const incomingGross = dto.grossSalary ? new Decimal(dto.grossSalary) : undefined;
-    const incomingNet   = dto.netSalary   ? new Decimal(dto.netSalary)   : undefined;
-    const prevGross     = existing.grossSalary ?? new Decimal(0);
-    const prevNet       = existing.netSalary   ?? new Decimal(0);
+    const incomingGross = dto.grossSalary ? new Prisma.Decimal(dto.grossSalary) : undefined;
+    const incomingNet   = dto.netSalary   ? new Prisma.Decimal(dto.netSalary)   : undefined;
+    const prevGross     = existing.grossSalary ?? new Prisma.Decimal(0);
+    const prevNet       = existing.netSalary   ?? new Prisma.Decimal(0);
     const salaryChanged = incomingGross !== undefined && !incomingGross.equals(prevGross);
 
     let updated: EmployeeProfile;
@@ -308,7 +319,7 @@ export class EmployeesService {
       metadata: { userId: actorUserId, correlationId: randomUUID() },
     });
 
-    return updated;
+    return this.attachCurrency(updated);
   }
 
   // ============================================================
@@ -363,11 +374,12 @@ export class EmployeesService {
       this.prisma.employee.count({ where }),
     ]);
 
-    const data = (employees as EmployeeProfile[]).map((e) =>
-      includeCompensation
-        ? this.stripDirectoryFieldsForCompensationScope(e, user.roles)
-        : this.stripSensitiveFields(e, user.roles),
-    );
+    const data = (employees as EmployeeProfile[]).map((e) => {
+      const withCurrency = this.attachCurrency(e);
+      return includeCompensation
+        ? this.stripDirectoryFieldsForCompensationScope(withCurrency, user.roles)
+        : this.stripSensitiveFields(withCurrency, user.roles);
+    });
 
     return { data, total, page, limit };
   }
@@ -422,10 +434,19 @@ export class EmployeesService {
   // US6: Salary History
   // ============================================================
 
-  async getSalaryHistory(employeeId: string, limit: number, user: JwtPayload): Promise<SalaryHistory[]> {
+  async getSalaryHistory(
+    employeeId: string,
+    limit: number,
+    user: JwtPayload,
+  ): Promise<SalaryHistoryWithCurrency[]> {
     const exists = await this.prisma.employee.findUnique({
       where: { id: employeeId },
-      select: { id: true, deletedAt: true },
+      select: {
+        id: true,
+        deletedAt: true,
+        department: { select: { businessUnit: { select: { currency: true } } } },
+        team: { select: { businessUnit: { select: { currency: true } } } },
+      },
     });
     if (!exists || exists.deletedAt) throw new NotFoundException(`Employee ${employeeId} not found`);
 
@@ -437,11 +458,18 @@ export class EmployeesService {
       throw new ForbiddenException('You do not have permission to view this salary history');
     }
 
-    return this.prisma.salaryHistory.findMany({
+    // WHY: History rows are labeled with the employee's CURRENT department/team
+    // currency, not a reconstructed point-in-time one — Employee/BU reassignment
+    // history isn't tracked, so "at read time" is the only resolvable answer.
+    const currency = this.resolveCurrency(exists);
+
+    const history = await this.prisma.salaryHistory.findMany({
       where: { employeeId },
       orderBy: { effectiveDate: 'desc' },
       take: limit,
     });
+
+    return history.map((entry) => ({ ...entry, currency }));
   }
 
   // ============================================================
@@ -713,8 +741,8 @@ export class EmployeesService {
 
   private buildUpdateData(
     dto: UpdateEmployeeDto,
-    incomingGross: Decimal | undefined,
-    incomingNet: Decimal | undefined,
+    incomingGross: Prisma.Decimal | undefined,
+    incomingNet: Prisma.Decimal | undefined,
   ): Prisma.EmployeeUpdateInput {
     return {
       ...(dto.firstName !== undefined && { firstName: dto.firstName }),
@@ -743,7 +771,7 @@ export class EmployeesService {
           id: true,
           name: true,
           businessUnitId: true,
-          businessUnit: { select: { id: true, name: true } },
+          businessUnit: { select: { id: true, name: true, currency: true, country: true } },
         },
       },
       team: {
@@ -751,12 +779,37 @@ export class EmployeesService {
           id: true,
           name: true,
           businessUnitId: true,
-          businessUnit: { select: { id: true, name: true } },
+          businessUnit: { select: { id: true, name: true, currency: true, country: true } },
         },
       },
       position: { select: { id: true, title: true } },
       manager: { select: { id: true, firstName: true, lastName: true } },
     } as const;
+  }
+
+  /**
+   * WHY: Currency lives on BusinessUnit, not Employee. Resolving it here
+   * (department's BU first, falling back to team's BU) means a BU currency
+   * change is reflected immediately for every employee under it, with no
+   * denormalized column to keep in sync.
+   */
+  private resolveCurrency(employee: {
+    department: { businessUnit: { currency: string } | null } | null;
+    team: { businessUnit: { currency: string } | null } | null;
+  }): string | null {
+    return employee.department?.businessUnit?.currency ?? employee.team?.businessUnit?.currency ?? null;
+  }
+
+  /** WHY the same precedence as resolveCurrency: department's BU wins over team's BU (spec 017). */
+  private resolveCountry(employee: {
+    department: { businessUnit: { country: string | null } | null } | null;
+    team: { businessUnit: { country: string | null } | null } | null;
+  }): string | null {
+    return employee.department?.businessUnit?.country ?? employee.team?.businessUnit?.country ?? null;
+  }
+
+  private attachCurrency<T extends EmployeeProfile>(employee: T): T {
+    return { ...employee, currency: this.resolveCurrency(employee), country: this.resolveCountry(employee) };
   }
 
   private async generateEmployeeCode(): Promise<string> {

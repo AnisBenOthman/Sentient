@@ -1,0 +1,355 @@
+openapi: 3.0.3
+info:
+  title: Sentient AI Module API
+  version: 0.1.0
+  description: Conversation and governance contracts for the Sentient supervisor-agent scaffold.
+servers:
+  - url: /api/ai
+paths:
+  /health:
+    get:
+      summary: AI Agentic health
+      security: []
+      responses:
+        '200':
+          description: Service health with supervisor and specialist availability.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiHealthResponse'
+  /conversations:
+    get:
+      summary: List current user's conversations
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Paginated conversations owned by the current user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationListResponse'
+    post:
+      summary: Start a new conversation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateConversationRequest'
+      responses:
+        '201':
+          description: Created conversation, first assistant message, and routing trace summary.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationTurnResponse'
+  /conversations/{conversationId}:
+    get:
+      summary: Get one conversation with messages
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      responses:
+        '200':
+          description: Conversation detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationDetailResponse'
+        '404':
+          description: Conversation not found or not visible.
+    patch:
+      summary: Archive or restore a conversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateConversationRequest'
+      responses:
+        '200':
+          description: Updated conversation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationSummary'
+    delete:
+      summary: Remove a conversation from active user view
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      responses:
+        '204':
+          description: Conversation removed from active list.
+  /conversations/{conversationId}/messages:
+    post:
+      summary: Send a message to the supervisor
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMessageRequest'
+      responses:
+        '200':
+          description: User message, assistant response, and safe routing trace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationTurnResponse'
+  /messages/{messageId}/feedback:
+    put:
+      summary: Rate an assistant response
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: messageId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackRequest'
+      responses:
+        '200':
+          description: Saved response feedback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackResponse'
+  /governance/agent-activity:
+    get:
+      summary: Aggregate supervisor and specialist activity
+      description: HR/admin governance view. Must not expose private conversation content by default.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          schema: { type: string, format: date-time }
+        - in: query
+          name: agentType
+          schema: { $ref: '#/components/schemas/AgentType' }
+      responses:
+        '200':
+          description: Aggregate usage and safety metrics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GovernanceActivityResponse'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    ConversationId:
+      in: path
+      name: conversationId
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    AgentType:
+      type: string
+      enum:
+        - SUPERVISOR_AGENT
+        - OKR_AGENT
+        - CAREER_AGENT
+        - ANALYTICS_AGENT
+        - ONBOARDING_AGENT
+        - LEAVE_AGENT
+        - LANGUAGE_AGENT
+        - GENERAL_HELP_AGENT
+        - HUMAN_ESCALATION_AGENT
+    ConversationStatus:
+      type: string
+      enum: [ACTIVE, ARCHIVED, DELETED]
+    AgentRunStatus:
+      type: string
+      enum: [PENDING, RUNNING, SUCCESS, FAILED, DEGRADED, PARTIAL, ESCALATED, REFUSED, OUT_OF_SCOPE]
+    NodeType:
+      type: string
+      enum: [SUPERVISOR, CLARIFICATION, SPECIALIST, HUMAN_ESCALATION, FINAL_ANSWER]
+    AiHealthResponse:
+      type: object
+      required: [service, status, agents]
+      properties:
+        service: { type: string, example: ai-agentic }
+        status: { type: string, enum: [healthy, degraded, down] }
+        agents:
+          type: array
+          items:
+            type: object
+            required: [agentType, available]
+            properties:
+              agentType: { $ref: '#/components/schemas/AgentType' }
+              available: { type: boolean }
+              degradedReason: { type: string, nullable: true }
+    CreateConversationRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 8000
+        clientContext:
+          type: object
+          additionalProperties: true
+          description: Optional UI context such as current page or selected dashboard tab.
+    CreateMessageRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 8000
+        clientContext:
+          type: object
+          additionalProperties: true
+    UpdateConversationRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ACTIVE, ARCHIVED]
+    ConversationSummary:
+      type: object
+      required: [id, title, status, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        status: { $ref: '#/components/schemas/ConversationStatus' }
+        lastAgentType: { $ref: '#/components/schemas/AgentType', nullable: true }
+        lastMessagePreview: { type: string, nullable: true }
+        updatedAt: { type: string, format: date-time }
+    ConversationListResponse:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ConversationSummary' }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+    ConversationDetailResponse:
+      type: object
+      required: [conversation, messages]
+      properties:
+        conversation: { $ref: '#/components/schemas/ConversationSummary' }
+        messages:
+          type: array
+          items: { $ref: '#/components/schemas/MessageResponse' }
+    MessageResponse:
+      type: object
+      required: [id, role, content, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        role: { type: string, enum: [USER, ASSISTANT, SYSTEM, AGENT] }
+        content: { type: string }
+        agentType: { $ref: '#/components/schemas/AgentType', nullable: true }
+        status: { $ref: '#/components/schemas/AgentRunStatus' }
+        sourceContext:
+          type: array
+          items: { $ref: '#/components/schemas/SourceContext' }
+        createdAt: { type: string, format: date-time }
+    SourceContext:
+      type: object
+      required: [sourceType, title]
+      properties:
+        sourceType: { type: string }
+        title: { type: string }
+        referenceId: { type: string, nullable: true }
+    RoutingTraceSummary:
+      type: object
+      required: [status, nodes]
+      properties:
+        status: { $ref: '#/components/schemas/AgentRunStatus' }
+        nodes:
+          type: array
+          items:
+            type: object
+            required: [nodeType, agentType, status]
+            properties:
+              nodeType: { $ref: '#/components/schemas/NodeType' }
+              agentType: { $ref: '#/components/schemas/AgentType' }
+              status: { $ref: '#/components/schemas/AgentRunStatus' }
+              summary: { type: string, nullable: true }
+    ConversationTurnResponse:
+      type: object
+      required: [conversation, userMessage, assistantMessage, routing]
+      properties:
+        conversation: { $ref: '#/components/schemas/ConversationSummary' }
+        userMessage: { $ref: '#/components/schemas/MessageResponse' }
+        assistantMessage: { $ref: '#/components/schemas/MessageResponse' }
+        routing: { $ref: '#/components/schemas/RoutingTraceSummary' }
+    FeedbackRequest:
+      type: object
+      required: [rating]
+      properties:
+        rating:
+          type: string
+          enum: [POSITIVE, NEGATIVE]
+        comment:
+          type: string
+          maxLength: 1000
+    FeedbackResponse:
+      type: object
+      required: [id, messageId, rating, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        messageId: { type: string, format: uuid }
+        rating: { type: string, enum: [POSITIVE, NEGATIVE] }
+        comment: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+    GovernanceActivityResponse:
+      type: object
+      required: [totalTurns, byAgent, safety]
+      properties:
+        totalTurns: { type: integer }
+        byAgent:
+          type: array
+          items:
+            type: object
+            required: [agentType, count]
+            properties:
+              agentType: { $ref: '#/components/schemas/AgentType' }
+              count: { type: integer }
+        safety:
+          type: object
+          required: [outOfScope, refused, escalated, degraded]
+          properties:
+            outOfScope: { type: integer }
+            refused: { type: integer }
+            escalated: { type: integer }
+            degraded: { type: integer }

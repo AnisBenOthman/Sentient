@@ -1,6 +1,9 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+// Side-effect import: initialises the i18next singleton before React mounts so
+// the first render already has the detected language. Must precede App.
+import "./i18n";
 import "./index.css";
 
 // Catch module-init / runtime errors that happen before React mounts

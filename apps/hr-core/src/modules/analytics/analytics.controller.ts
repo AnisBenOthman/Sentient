@@ -3,8 +3,9 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtPayload, RbacGuard, Roles, SharedJwtGuard } from '@sentient/shared';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserStatusGuard } from '../iam/guards/user-status.guard';
-import { AnalyticsService, DashboardAnalytics } from './analytics.service';
+import { AnalyticsService, DashboardAnalytics, EmployeesWithoutLeaveResult } from './analytics.service';
 import { DashboardAnalyticsQueryDto } from './dto/dashboard-analytics-query.dto';
+import { EmployeesWithoutLeaveQueryDto } from './dto/employees-without-leave-query.dto';
 
 @Controller('analytics')
 @UseGuards(SharedJwtGuard, UserStatusGuard, RbacGuard)
@@ -21,5 +22,16 @@ export class AnalyticsController {
     @CurrentUser() user: JwtPayload,
   ): Promise<DashboardAnalytics> {
     return this.analyticsService.getDashboard(query, user);
+  }
+
+  @Get('employees-without-leave')
+  @Roles('MANAGER', 'HR_ADMIN', 'EXECUTIVE')
+  @ApiOperation({ summary: 'Get scoped employees with no approved leave in the trailing 12 months' })
+  @ApiResponse({ status: 200, description: 'Employees-without-leave payload' })
+  async getEmployeesWithoutLeave(
+    @Query() query: EmployeesWithoutLeaveQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<EmployeesWithoutLeaveResult> {
+    return this.analyticsService.getEmployeesWithoutLeave(query, user);
   }
 }

@@ -95,8 +95,21 @@ export class NotificationRenderers {
       },
     ],
     [
+      this.key(NotificationCategory.OKR, NotificationEventType.REQUEST_APPROVED),
+      (payload) => ({
+        title: `Your objective "${asText(payload.objectiveTitle)}" was approved`,
+        body: `${asText(payload.approverName)} activated your objective. You can now add Key Results and start tracking progress.`,
+      }),
+    ],
+    [
       this.key(NotificationCategory.OKR, NotificationEventType.DECISION_PENDING),
       (payload) => {
+        if (payload.ownerName !== undefined) {
+          return {
+            title: `OKR approval needed — ${asText(payload.objectiveTitle)}`,
+            body: `${asText(payload.ownerName)} submitted a personal objective for approval: "${asText(payload.objectiveTitle)}". Review it in the OKR Management queue.`,
+          };
+        }
         if (payload.submitterName !== undefined) {
           return {
             title: `Check-in awaiting review on ${asText(payload.keyResultTitle)}`,

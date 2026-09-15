@@ -17,6 +17,7 @@ const publicRoutes: PublicRouteRule[] = [
   { method: 'POST', pathPattern: '/api/hr/auth/invite/claim', reason: 'invite claim by scoped token' },
   { method: '*', pathPattern: '/api/social/exit-surveys/respond*', reason: 'exit survey scoped token' },
   { method: '*', pathPattern: '/api/social/exit-survey-responses*', reason: 'exit survey scoped token' },
+  { method: 'GET', pathPattern: '/api/ai/health', reason: 'ai-agentic health' },
 ];
 
 export const DEFAULT_DEV_JWT_SECRET = 'change-me-in-production-minimum-32-random-characters';
@@ -47,6 +48,11 @@ export const gatewayConfig = registerAs('gateway', (): GatewayConfig => {
     process.env.API_GATEWAY_UPSTREAM_TIMEOUT_MS,
     15_000,
     'API_GATEWAY_UPSTREAM_TIMEOUT_MS',
+  );
+  const aiTimeoutMs = parsePositiveInt(
+    process.env.API_GATEWAY_AI_UPSTREAM_TIMEOUT_MS,
+    60_000,
+    'API_GATEWAY_AI_UPSTREAM_TIMEOUT_MS',
   );
   const defaultJsonBodyLimitBytes = parsePositiveInt(
     process.env.API_GATEWAY_DEFAULT_JSON_BODY_LIMIT_BYTES,
@@ -135,7 +141,7 @@ export const gatewayConfig = registerAs('gateway', (): GatewayConfig => {
     'ai',
     '/api/ai',
     parseHttpUrl(process.env.AI_AGENTIC_URL, 'http://localhost:3003', 'AI_AGENTIC_URL'),
-    timeoutMs * 2,
+    aiTimeoutMs,
     defaultJsonBodyLimitBytes,
     authenticatedRateLimit,
   );
@@ -154,6 +160,11 @@ export const gatewayConfig = registerAs('gateway', (): GatewayConfig => {
     port: parsePositiveInt(process.env.API_GATEWAY_PORT, 3004, 'API_GATEWAY_PORT'),
     corsOrigins: parseCsv(process.env.API_GATEWAY_CORS_ORIGINS, ['http://localhost:3000']),
     trustProxy: parseBoolean(process.env.API_GATEWAY_TRUST_PROXY, false, 'API_GATEWAY_TRUST_PROXY'),
+    requestLoggingEnabled: parseBoolean(
+      process.env.API_GATEWAY_REQUEST_LOGGING,
+      true,
+      'API_GATEWAY_REQUEST_LOGGING',
+    ),
     jwtSecret: process.env.API_GATEWAY_JWT_SECRET ?? process.env.JWT_SECRET ?? DEFAULT_DEV_JWT_SECRET,
     defaultJsonBodyLimitBytes,
     uploadBodyLimitBytes,

@@ -104,3 +104,52 @@ describe('Gateway error envelopes', () => {
       });
   });
 });
+
+describe('Gateway AI route timeout policy', () => {
+  let app: INestApplication;
+  let upstream: UpstreamTestServer;
+  const secret = 'ai-timeout-secret';
+
+  beforeAll(async () => {
+    upstream = await createUpstreamTestServer(async (requestMessage, response) => {
+      if (requestMessage.url === '/slow-ai') {
+        await new Promise((resolve) => setTimeout(resolve, 120));
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ ok: true }));
+        return;
+      }
+      response.writeHead(404, { 'content-type': 'application/json' });
+      response.end(JSON.stringify({ message: 'Not found' }));
+    });
+    process.env.API_GATEWAY_JWT_SECRET = secret;
+    process.env.API_GATEWAY_UPSTREAM_TIMEOUT_MS = '50';
+    delete process.env.API_GATEWAY_AI_UPSTREAM_TIMEOUT_MS;
+    process.env.API_GATEWAY_DEFAULT_JSON_BODY_LIMIT_BYTES = '1024';
+    process.env.HR_CORE_URL = upstream.url;
+    process.env.SOCIAL_URL = upstream.url;
+    process.env.AI_AGENTIC_URL = upstream.url;
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    app = moduleRef.createNestApplication({ bodyParser: false });
+    app.useGlobalFilters(new GatewayExceptionFilter());
+    await app.init();
+  });
+
+  afterAll(async () => {
+    delete process.env.API_GATEWAY_UPSTREAM_TIMEOUT_MS;
+    delete process.env.API_GATEWAY_AI_UPSTREAM_TIMEOUT_MS;
+    delete process.env.API_GATEWAY_DEFAULT_JSON_BODY_LIMIT_BYTES;
+    await app.close();
+    await upstream.close();
+  });
+
+  it('lets AI upstream calls exceed the shared upstream timeout by default', async () => {
+    const token = sign({ sub: 'user-1' }, secret, { expiresIn: '5m' });
+    await request(app.getHttpServer())
+      .get('/api/ai/slow-ai')
+      .set('authorization', `Bearer ${token}`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual({ ok: true });
+      });
+  });
+});
