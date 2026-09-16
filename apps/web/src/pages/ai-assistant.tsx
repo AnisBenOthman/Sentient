@@ -8,6 +8,7 @@ import { ActionConfirmationCard, ActionOutcomeNotice } from "@/components/ai/act
 import { AiConversationList } from "@/components/ai/ai-conversation-list";
 import { AiDraftToolbar } from "@/components/ai/ai-draft-toolbar";
 import { RoutingTraceSummary } from "@/components/ai/routing-trace-summary";
+import { TypingIndicator } from "@/components/ai/typing-indicator";
 import {
   archiveConversation,
   decideOnProposal,
@@ -43,6 +44,8 @@ export default function AiAssistantPage() {
   /** Outcome per outcome-message id, and per proposal token (to re-enable Confirm on FAILED). */
   const [outcomes, setOutcomes] = useState<Record<string, ActionOutcome>>({});
   const [outcomeByToken, setOutcomeByToken] = useState<Record<string, ActionOutcome["status"]>>({});
+  /** The one assistant message currently allowed to play its typing animation. */
+  const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
 
   const conversationsQuery = useQuery({
     queryKey: ["ai-conversations"],
@@ -58,6 +61,7 @@ export default function AiAssistantPage() {
       setConversationId(turn.conversation.id);
       setMessages((current) => [...current, ...(turn.userMessage ? [turn.userMessage] : []), turn.assistantMessage]);
       setRouting(turn.routing);
+      setTypingMessageId(turn.assistantMessage.id);
       setError("");
       void queryClient.invalidateQueries({ queryKey: ["ai-conversations"] });
     },
@@ -91,6 +95,7 @@ export default function AiAssistantPage() {
         setOutcomeByToken((current) => ({ ...current, [token]: outcome.status }));
       }
       setRouting(turn.routing);
+      setTypingMessageId(turn.assistantMessage.id);
       setError("");
       void queryClient.invalidateQueries({ queryKey: ["ai-conversations"] });
     },
@@ -108,6 +113,7 @@ export default function AiAssistantPage() {
       setMessages(detail.messages);
       setRouting(null);
       setOutcomes({});
+      setTypingMessageId(null);
       setError("");
     },
     onError: (err: unknown) => {
@@ -183,7 +189,17 @@ export default function AiAssistantPage() {
         <aside className="min-h-0 overflow-y-auto rounded-md border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Conversations</h2>
-            <Button size="sm" variant="outline" className="h-8" onClick={() => { setConversationId(null); setMessages([]); setRouting(null); }}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8"
+              onClick={() => {
+                setConversationId(null);
+                setMessages([]);
+                setRouting(null);
+                setTypingMessageId(null);
+              }}
+            >
               New
             </Button>
           </div>
@@ -224,6 +240,7 @@ export default function AiAssistantPage() {
                   <AiMessage
                     message={message}
                     feedbackDisabled={feedbackMutation.isPending}
+                    animate={message.id === typingMessageId}
                     onRate={(ratedMessage, rating) => feedbackMutation.mutate({ messageId: ratedMessage.id, rating })}
                   />
                   {message.role === "ASSISTANT" && /^draft/i.test(message.content) && (
@@ -249,15 +266,24 @@ export default function AiAssistantPage() {
                 </div>
               ))}
               {turnMutation.isPending && (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Bot className="h-4 w-4 animate-pulse" />
-                  Routing through supervisor...
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-blue-600 text-white">
+                    <Bot className="h-4 w-4" />
+                  </div>
+                  <div className="flex items-center rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                    <TypingIndicator className="text-gray-400 dark:text-gray-500" />
+                  </div>
                 </div>
               )}
               {decideMutation.isPending && (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Bot className="h-4 w-4 animate-pulse" />
-                  Submitting to HR Core and verifying...
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-blue-600 text-white">
+                    <Bot className="h-4 w-4" />
+                  </div>
+                  <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-3 text-sm text-gray-500 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
+                    <TypingIndicator className="text-gray-400 dark:text-gray-500" />
+                    Submitting to HR Core and verifying...
+                  </div>
                 </div>
               )}
             </div>

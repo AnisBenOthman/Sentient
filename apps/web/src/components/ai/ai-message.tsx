@@ -1,6 +1,7 @@
 import { Bot, UserRound } from "lucide-react";
 import type { AiMessageResponse } from "@/lib/api/ai";
 import { cn } from "@/lib/utils";
+import { useTypewriter } from "@/hooks/use-typewriter";
 import { AiResponseFeedback } from "./ai-response-feedback";
 import { SourceContextList } from "./source-context-list";
 
@@ -8,12 +9,17 @@ export function AiMessage({
   message,
   onRate,
   feedbackDisabled,
+  animate = false,
 }: {
   message: AiMessageResponse;
   onRate?: (message: AiMessageResponse, rating: "POSITIVE" | "NEGATIVE") => void;
   feedbackDisabled?: boolean;
+  /** Reveals the assistant's content with a typing effect. Set only for the message that just arrived. */
+  animate?: boolean;
 }) {
   const isAssistant = message.role === "ASSISTANT";
+  const displayedContent = useTypewriter(message.content, animate && isAssistant);
+  const isTyping = animate && isAssistant && displayedContent.length < message.content.length;
 
   return (
     <div className={cn("flex gap-3", isAssistant ? "items-start" : "items-start justify-end")}>
@@ -30,9 +36,14 @@ export function AiMessage({
             : "border-blue-200 bg-blue-50 text-blue-950 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-100",
         )}
       >
-        <p className="whitespace-pre-wrap">{message.content}</p>
-        <SourceContextList sources={message.sourceContext} />
-        {isAssistant && onRate && (
+        <p className="whitespace-pre-wrap">
+          {displayedContent}
+          {isTyping && (
+            <span className="ml-0.5 inline-block h-4 w-0.5 -mb-0.5 animate-pulse bg-current align-text-bottom" />
+          )}
+        </p>
+        {!isTyping && <SourceContextList sources={message.sourceContext} />}
+        {isAssistant && onRate && !isTyping && (
           <AiResponseFeedback disabled={feedbackDisabled} onRate={(rating) => onRate(message, rating)} />
         )}
       </div>

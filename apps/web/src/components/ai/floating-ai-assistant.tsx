@@ -14,6 +14,8 @@ import {
 } from "@/lib/api/ai";
 import { getGatewayErrorMessage } from "@/lib/api/gateway-error";
 import { cn } from "@/lib/utils";
+import { useTypewriter } from "@/hooks/use-typewriter";
+import { TypingIndicator } from "@/components/ai/typing-indicator";
 
 interface ChatLine {
   id: string;
@@ -71,6 +73,25 @@ function SentientBotMark({ compact = false }: { compact?: boolean }) {
   );
 }
 
+function FloatingChatBubble({ line, animate }: { line: ChatLine; animate: boolean }) {
+  const assistant = line.role === "ASSISTANT";
+  const displayed = useTypewriter(line.content, animate && assistant);
+  return (
+    <div className={cn("flex", assistant ? "justify-start" : "justify-end")}>
+      <div
+        className={cn(
+          "max-w-[82%] rounded-2xl px-3 py-2 text-sm leading-6 shadow-sm",
+          assistant
+            ? "rounded-tl-md border border-slate-200 bg-white text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+            : "rounded-tr-md bg-blue-600 text-white",
+        )}
+      >
+        <p className="whitespace-pre-wrap">{displayed}</p>
+      </div>
+    </div>
+  );
+}
+
 export function FloatingAiAssistant() {
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -81,6 +102,8 @@ export function FloatingAiAssistant() {
   const [error, setError] = useState("");
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
   const [loadedLatest, setLoadedLatest] = useState(false);
+  /** The one assistant line currently allowed to play its typing animation. */
+  const [typingLineId, setTypingLineId] = useState<string | null>(null);
 
   const conversationsQuery = useQuery({
     queryKey: ["ai-conversations", "floating"],
@@ -102,6 +125,7 @@ export function FloatingAiAssistant() {
       setConversationId(detail.conversation.id);
       setLines(toChatLines(detail.messages).slice(-8));
       setLoadedLatest(true);
+      setTypingLineId(null);
       setError("");
     },
     onError: (err: unknown) => {
@@ -121,6 +145,7 @@ export function FloatingAiAssistant() {
     onSuccess: (turn: ConversationTurnResponse) => {
       setConversationId(turn.conversation.id);
       setLines((current) => [...current, ...toChatLines(turn.userMessage ? [turn.userMessage, turn.assistantMessage] : [turn.assistantMessage])].slice(-10));
+      setTypingLineId(turn.assistantMessage.id);
       setError("");
       setPendingPrompt(null);
       setLoadedLatest(true);
@@ -212,23 +237,9 @@ export function FloatingAiAssistant() {
               </div>
             ) : (
               <div className="space-y-3">
-                {lines.map((line) => {
-                  const assistant = line.role === "ASSISTANT";
-                  return (
-                    <div key={line.id} className={cn("flex", assistant ? "justify-start" : "justify-end")}>
-                      <div
-                        className={cn(
-                          "max-w-[82%] rounded-2xl px-3 py-2 text-sm leading-6 shadow-sm",
-                          assistant
-                            ? "rounded-tl-md border border-slate-200 bg-white text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                            : "rounded-tr-md bg-blue-600 text-white",
-                        )}
-                      >
-                        <p className="whitespace-pre-wrap">{line.content}</p>
-                      </div>
-                    </div>
-                  );
-                })}
+                {lines.map((line) => (
+                  <FloatingChatBubble key={line.id} line={line} animate={line.id === typingLineId} />
+                ))}
                 {pendingPrompt && (
                   <>
                     <div className="flex justify-end">
@@ -237,9 +248,8 @@ export function FloatingAiAssistant() {
                       </div>
                     </div>
                     <div className="flex justify-start">
-                      <div className="flex items-center gap-2 rounded-2xl rounded-tl-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        Routing through supervisor
+                      <div className="flex items-center rounded-2xl rounded-tl-md border border-slate-200 bg-white px-3 py-2 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                        <TypingIndicator className="text-slate-400 dark:text-slate-500" />
                       </div>
                     </div>
                   </>
