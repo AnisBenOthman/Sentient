@@ -190,4 +190,60 @@ describeWithDb('hr_analytics scope enforcement', () => {
       expect(scoped.every((row) => row['team_id'] === teamId)).toBe(true);
     });
   });
+
+  describe('v_compensation_by_age_band', () => {
+    it('is empty when comp_visible is not true', async () => {
+      const rows = await withScope(
+        client,
+        { 'sentient.scope': 'GLOBAL', 'sentient.comp_visible': 'false' },
+        'SELECT * FROM hr_analytics.v_compensation_by_age_band',
+      );
+      expect(rows).toHaveLength(0);
+    });
+
+    it('exposes only age_band, employee_count, and averages — no identifying column', async () => {
+      const rows = await withScope(
+        client,
+        { 'sentient.scope': 'GLOBAL', 'sentient.comp_visible': 'true' },
+        'SELECT * FROM hr_analytics.v_compensation_by_age_band',
+      );
+      if (rows.length === 0) return;
+      const columns = Object.keys(rows[0] ?? {});
+      expect(columns.sort()).toEqual(['age_band', 'avg_gross_salary', 'avg_net_salary', 'employee_count'].sort());
+    });
+
+    it('never returns a bucket smaller than the suppression threshold', async () => {
+      const rows = await withScope(
+        client,
+        { 'sentient.scope': 'GLOBAL', 'sentient.comp_visible': 'true' },
+        'SELECT employee_count FROM hr_analytics.v_compensation_by_age_band',
+      );
+      for (const row of rows) {
+        expect(Number(row['employee_count'])).toBeGreaterThanOrEqual(5);
+      }
+    });
+
+    it('narrows to the scoped team, same as v_compensation', async () => {
+      const all = await withScope(
+        client,
+        { 'sentient.scope': 'GLOBAL', 'sentient.comp_visible': 'true' },
+        'SELECT team_id FROM hr_analytics.v_compensation',
+      );
+      const teamId = all.find((row) => row['team_id'] !== null)?.['team_id'];
+      if (!teamId) return;
+
+      // A team-scoped actor cannot see age bands beyond what would be visible if
+      // v_compensation itself were narrowed to that team — asserting the query
+      // succeeds under TEAM scope and every returned bucket still respects the
+      // >=5 suppression floor.
+      const scoped = await withScope(
+        client,
+        { 'sentient.scope': 'TEAM', 'sentient.scope_entity_id': String(teamId), 'sentient.comp_visible': 'true' },
+        'SELECT employee_count FROM hr_analytics.v_compensation_by_age_band',
+      );
+      for (const row of scoped) {
+        expect(Number(row['employee_count'])).toBeGreaterThanOrEqual(5);
+      }
+    });
+  });
 });

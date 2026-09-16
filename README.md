@@ -20,11 +20,9 @@ docker compose up -d
 # 3. Initialize schemas and DB roles (idempotent, safe to run again)
 psql -U postgres -d sentient -f scripts/init-schemas.sql
 
-# 4. Configure environment files (one per service)
-cp apps/hr-core/.env.example apps/hr-core/.env
-cp apps/social/.env.example apps/social/.env
-cp apps/ai-agentic/.env.example apps/ai-agentic/.env
-cp apps/api-gateway/.env.example apps/api-gateway/.env
+# 4. Configure environment files (one per service — .env.example is gitignored,
+#    so create each apps/<service>/.env by hand; see "Environment Variables" below)
+touch apps/hr-core/.env apps/social/.env apps/ai-agentic/.env apps/api-gateway/.env
 
 # 5. Build all packages
 pnpm build
@@ -80,4 +78,28 @@ scripts/
   init-schemas.sql  # Idempotent DB setup (schemas + roles + pgvector)
 ```
 
-See `.env.example` for all environment variables.
+## Environment Variables
+
+There is no tracked `.env.example` — env files are gitignored repo-wide and each
+service reads its own `apps/<service>/.env`. The authoritative list of variables
+per service is its `src/config/*.config.ts` (e.g. `apps/ai-agentic/src/config/ai-agentic.config.ts`),
+where every variable has a typed default; an unset variable falls back to that
+default rather than failing to boot, so a minimal `.env` (or none at all, for a
+service with no required secrets) is enough to start locally. See
+`.claude/rules/security.md` §7 for the full shared/per-service variable reference.
+
+### Enabling the AI Analytics SQL branch (dev)
+
+The Text-to-SQL analytics agent (`apps/ai-agentic`) ships disabled by default
+(`AI_AGENT_ANALYTICS_SQL_ENABLED=false`) — merging it is inert until explicitly
+turned on. To exercise it locally, add to `apps/ai-agentic/.env`:
+
+```env
+AI_AGENT_ANALYTICS_SQL_ENABLED=true
+AI_AGENT_INTENT_DEBUG_LOGS=true   # optional: logs supervisor routing + gate diagnostics
+```
+
+Requires a role in `MANAGER`, `TEAM_LEAD`, `HR_ADMIN`, `GLOBAL_HR_ADMIN`,
+`EXECUTIVE` (see `apps/ai-agentic/src/modules/analytics-sql/analytics-schema-context.ts`)
+and `scripts/init-schemas.sql` to have been run so the `ai_analytics_readonly`
+role and `hr_analytics` schema exist.

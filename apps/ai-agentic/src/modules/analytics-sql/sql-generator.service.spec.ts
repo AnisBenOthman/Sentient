@@ -119,4 +119,33 @@ describe('SqlGeneratorService', () => {
     await service.generate('headcount', ['MANAGER']);
     expect(body).toContain('v_compensation');
   });
+
+  it('includes the age-band view for a role with compensation access, omits it for one without', async () => {
+    let body = '';
+    global.fetch = jest.fn(async (_url: unknown, init: unknown) => {
+      body = String((init as { body?: unknown }).body ?? '');
+      return jsonResponse('{"sql":"SELECT 1 FROM hr_analytics.v_employees","explanation":"x"}');
+    }) as unknown as typeof fetch;
+
+    const service = new SqlGeneratorService(configFor(['OPENROUTER']));
+
+    await service.generate('average salary by age', ['EMPLOYEE']);
+    expect(body).not.toContain('v_compensation_by_age_band');
+
+    await service.generate('average salary by age', ['MANAGER']);
+    expect(body).toContain('v_compensation_by_age_band');
+  });
+
+  it('tells the generator to use v_compensation_by_age_band instead of joining v_compensation to v_employees', async () => {
+    let body = '';
+    global.fetch = jest.fn(async (_url: unknown, init: unknown) => {
+      body = String((init as { body?: unknown }).body ?? '');
+      return jsonResponse('{"sql":"SELECT 1 FROM hr_analytics.v_employees","explanation":"x"}');
+    }) as unknown as typeof fetch;
+
+    await new SqlGeneratorService(configFor(['OPENROUTER'])).generate('average salary by age', ['MANAGER']);
+
+    expect(body).toContain('v_compensation_by_age_band');
+    expect(body).toMatch(/share no employee identifier/i);
+  });
 });

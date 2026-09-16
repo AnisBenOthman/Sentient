@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { AgentNodeType, AgentRunStatus, AgentTaskLog, AgentType, PermissionDecision, TaskTrigger } from '../../generated/prisma';
 import {
   AgentGuardrailService,
@@ -563,8 +564,8 @@ describe('SupervisorLangGraphRunnerService', () => {
       };
     }
 
-    function configWith(analyticsSqlEnabled: boolean) {
-      return { get: () => ({ analyticsSqlEnabled, intentConfidenceThreshold: 0.4 }) };
+    function configWith(analyticsSqlEnabled: boolean, intentClassifierDebugLogs = true) {
+      return { get: () => ({ analyticsSqlEnabled, intentConfidenceThreshold: 0.4, intentClassifierDebugLogs }) };
     }
 
     function runnerFor(options: {
@@ -650,6 +651,99 @@ describe('SupervisorLangGraphRunnerService', () => {
       await runner.execute(turnFor(['HR_ADMIN']));
 
       expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('routes the originally-reported salary-by-age question to the SQL branch for an HR admin', async () => {
+      const execute = jest.fn(async () => specialistOk());
+      const runner = createRunner({
+        parentLog: buildParentLog('average salary for people aged more than 45 years old'),
+        classifier: analyticalClassifier([AgentType.ANALYTICS_AGENT]),
+        config: configWith(true),
+        analyticsSql: { execute },
+        leaveAgent: { agentType: AgentType.LEAVE_AGENT, execute: async () => specialistOk() },
+      });
+
+      await runner.execute({
+        ...turnInput('average salary for people aged more than 45 years old'),
+        actor: { ...actor, roles: ['HR_ADMIN'] },
+      });
+
+      expect(execute).toHaveBeenCalledTimes(1);
+    });
+
+    describe('gate-closed trace logging', () => {
+      function captureRouteLog(logSpy: jest.SpyInstance): Record<string, unknown> | null {
+        const call = logSpy.mock.calls.find(([message]: [string]) => message.includes('supervisor.route'));
+        if (!call) return null;
+        const [message] = call as [string];
+        const jsonStart = message.indexOf('\n') + 1;
+        return JSON.parse(message.slice(jsonStart)) as Record<string, unknown>;
+      }
+
+      let logSpy: jest.SpyInstance;
+
+      beforeEach(() => {
+        logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+      });
+
+      afterEach(() => {
+        logSpy.mockRestore();
+      });
+
+      it('logs a closed-gate reason when the feature flag is off', async () => {
+        const runner = runnerFor({ roles: ['HR_ADMIN'], enabled: false, execute: jest.fn(async () => specialistOk()) });
+
+        await runner.execute(turnFor(['HR_ADMIN']));
+
+        const payload = captureRouteLog(logSpy);
+        expect(payload?.analyticsSqlGate).toMatchObject({ eligible: false, flagEnabled: false });
+        expect(payload?.reason).toMatch(/gate is closed/i);
+        expect(payload?.reason).toMatch(/flag is off/i);
+      });
+
+      it('logs a closed-gate reason when the role is not permitted', async () => {
+        const runner = runnerFor({ roles: ['EMPLOYEE'], enabled: true, execute: jest.fn(async () => specialistOk()) });
+
+        await runner.execute(turnFor(['EMPLOYEE']));
+
+        const payload = captureRouteLog(logSpy);
+        expect(payload?.analyticsSqlGate).toMatchObject({ eligible: false, roleAllowed: false });
+        expect(payload?.reason).toMatch(/role.*not.*allowlist/i);
+      });
+
+      it('logs a closed-gate reason for a mixed operational turn', async () => {
+        const runner = runnerFor({
+          roles: ['HR_ADMIN'],
+          enabled: true,
+          execute: jest.fn(async () => specialistOk()),
+          requiredAgents: [AgentType.ANALYTICS_AGENT, AgentType.LEAVE_AGENT],
+        });
+
+        await runner.execute(turnFor(['HR_ADMIN']));
+
+        const payload = captureRouteLog(logSpy);
+        expect(payload?.analyticsSqlGate).toMatchObject({ eligible: false, specialistsAnalyticsOnly: false });
+        expect(payload?.reason).toMatch(/operational/i);
+      });
+
+      it('omits analyticsSqlGate when the question is not analytical', async () => {
+        const runner = createRunner({
+          config: configWith(true),
+          greetingAgent: {
+            compose: () => ({
+              status: AgentRunStatus.SUCCESS,
+              content: 'Hi. How can I help you with Sentient today?',
+              sourceContext: [],
+              routingSummary: 'Greeting handled.',
+            }),
+          },
+        });
+
+        await runner.execute({ ...turnInput('hello'), actor: { ...actor, roles: ['HR_ADMIN'] } });
+
+        const payload = captureRouteLog(logSpy);
+        expect(payload?.analyticsSqlGate).toBeNull();
+      });
     });
   });
 });

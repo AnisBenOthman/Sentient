@@ -119,6 +119,17 @@ export const ANALYTICS_VIEWS: readonly AnalyticsView[] = [
       'contract_type, gross_salary, net_salary, business_unit_id',
     compensation: true,
   },
+  {
+    name: 'v_compensation_by_age_band',
+    description:
+      'Pre-aggregated salary by coarse age band — already averaged and count-suppressed (buckets ' +
+      'below 5 employees are omitted), NOT row-per-employee like v_compensation. age_band is one of ' +
+      "'<30', '30-45', '45+'. Use this directly for any \"average/median salary by age\" question; " +
+      'do not join v_compensation to v_employees to get salary by age — they share no employee ' +
+      'identifier by design.',
+    columns: 'age_band, employee_count, avg_gross_salary, avg_net_salary',
+    compensation: true,
+  },
 ] as const;
 
 /** Roles permitted to use the analytics SQL branch at all. */

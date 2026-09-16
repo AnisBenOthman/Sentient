@@ -473,11 +473,20 @@ export class SupervisorLangGraphRunnerService {
 
   private routeAfterSupervisor(state: LangGraphState): SupervisorRoute {
     const route = this.resolveSupervisorRoute(state);
+    // WHY surface this even when it did not decide the route: an analytical
+    // question that fell through to specialistsNode because the gate was closed
+    // (flag off, wrong role, mixed turn) looks identical in every other log field
+    // to one that was never analytical at all. Without this, the only trace of
+    // "text-to-SQL was implemented but never reached" is silence.
+    const analyticsSqlGate = state.classification?.isAnalyticalQuestion
+      ? this.analyticsSqlGateDiagnostics(state.classification, state.input.actor)
+      : null;
     this.logTrace('supervisor.route', {
       route,
       classifierSource: state.classification?.source ?? null,
       requiredAgents: state.classification?.requiredAgents ?? [],
       safetyClassification: state.safety?.classification ?? null,
+      analyticsSqlGate,
       reason: this.routeReason(state, route),
     });
     return route;
@@ -944,13 +953,33 @@ export class SupervisorLangGraphRunnerService {
     actor: AiActorContext,
   ): boolean {
     if (!classification.isAnalyticalQuestion) return false;
-    if (!this.config?.get<AiAgenticConfig>('aiAgentic')?.analyticsSqlEnabled) return false;
-    if (!hasAnalyticsSqlAccess(actor.roles)) return false;
+    return this.analyticsSqlGateDiagnostics(classification, actor).eligible;
+  }
+
+  /**
+   * WHY split out from shouldRouteToAnalyticsSql: routeReason() and
+   * routeAfterSupervisor()'s trace log need to explain WHICH condition closed the
+   * gate (flag off vs. wrong role vs. mixed operational turn), not just that it
+   * did. Computing this twice per turn (once to decide the route, once to log or
+   * explain it) is cheap and keeps the early-return boolean above simple.
+   */
+  private analyticsSqlGateDiagnostics(
+    classification: SupervisorIntentClassification,
+    actor: AiActorContext,
+  ): { eligible: boolean; flagEnabled: boolean; roleAllowed: boolean; specialistsAnalyticsOnly: boolean } {
+    const flagEnabled = this.config?.get<AiAgenticConfig>('aiAgentic')?.analyticsSqlEnabled ?? false;
+    const roleAllowed = hasAnalyticsSqlAccess(actor.roles);
     // A turn that also asks for something operational keeps the tool-calling path,
     // which can act; the SQL branch only reads.
-    return this.runnableSpecialists(classification).every(
+    const specialistsAnalyticsOnly = this.runnableSpecialists(classification).every(
       (agentType) => agentType === AgentType.ANALYTICS_AGENT,
     );
+    return {
+      eligible: flagEnabled && roleAllowed && specialistsAnalyticsOnly,
+      flagEnabled,
+      roleAllowed,
+      specialistsAnalyticsOnly,
+    };
   }
 
   private classifierRequestsEscalation(classification: SupervisorIntentClassification): boolean {
@@ -984,6 +1013,21 @@ export class SupervisorLangGraphRunnerService {
     if (route === 'humanEscalationNode') return 'Classifier identified an explicit human-support request.';
     if (state.classification.requiresClarification && route === 'clarificationNode') return 'Classifier requested clarification.';
     if (route === 'analyticsSqlNode') return 'Classifier identified an analytical reporting question; routed to generated SQL.';
+    if (state.classification.isAnalyticalQuestion) {
+      const gate = this.analyticsSqlGateDiagnostics(state.classification, state.input.actor);
+      if (!gate.eligible) {
+        const reasons = [
+          !gate.flagEnabled && 'analyticsSqlEnabled flag is off',
+          !gate.roleAllowed && "actor's role is not in the analytics SQL allowlist",
+          !gate.specialistsAnalyticsOnly && 'turn also needs an operational (non-analytics) specialist',
+        ].filter((r): r is string => Boolean(r));
+        const fallback =
+          route === 'specialistsNode'
+            ? 'falling back to the fixed tool-calling Analytics Agent, which may not be able to answer it'
+            : 'no specialist route available, finishing with a generic supervisor response';
+        return `Analytical question but the analytics SQL gate is closed (${reasons.join('; ')}); ${fallback}.`;
+      }
+    }
     if (state.classification.requiredAgents.length > 0 && route === 'specialistsNode') return 'Classifier selected specialist agents.';
     return 'No specialist route selected; finishing with supervisor response.';
   }
