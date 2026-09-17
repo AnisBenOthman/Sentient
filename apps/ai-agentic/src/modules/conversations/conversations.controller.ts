@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiCreatedResponse, ApiNoContentResponse, ApiOkResponse,
 import { Roles } from '@sentient/shared';
 import { Request } from 'express';
 import { ActorContextFactory, AI_USER_ROLES } from '../../common/graph';
-import { ConversationTurnResponse } from './conversation-response.mapper';
+import { ConversationTurnResponse, ConversationTurnStreamingResponse } from './conversation-response.mapper';
 import { ConversationsService } from './conversations.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
@@ -34,7 +34,7 @@ export class ConversationsController {
   create(
     @Req() request: Request,
     @Body() dto: CreateConversationDto,
-  ): Promise<ConversationTurnResponse> {
+  ): Promise<ConversationTurnResponse | ConversationTurnStreamingResponse> {
     return this.conversations.createConversation(this.actorFactory.fromRequest(request), dto);
   }
 
@@ -46,7 +46,7 @@ export class ConversationsController {
     @Req() request: Request,
     @Param('conversationId') conversationId: string,
     @Body() dto: CreateMessageDto,
-  ): Promise<ConversationTurnResponse> {
+  ): Promise<ConversationTurnResponse | ConversationTurnStreamingResponse> {
     return this.conversations.sendMessage(conversationId, this.actorFactory.fromRequest(request), dto);
   }
 

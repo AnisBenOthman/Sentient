@@ -219,4 +219,19 @@ export interface AgentNodeExecution {
 export interface SpecialistAgent {
   readonly agentType: AgentType;
   execute(input: SpecialistInput): Promise<SpecialistResult>;
+  /**
+   * WHY optional: only specialists registered for token streaming (see
+   * `AI_AGENT_STREAMING_AGENT_TYPES`) implement this. `onToken` fires for the
+   * specialist's own final natural-language answer text only — never for tool-
+   * calling rounds, and never for content a specialist produces deterministically
+   * (a refusal, a booking proposal) without ever calling the LLM. `signal`, when
+   * provided, is aborted if the client's SSE connection closes before the turn
+   * completes — providers whose transport supports cancellation (fetch-based
+   * calls) honor it; others simply ignore it and run to completion.
+   */
+  executeStream?(
+    input: SpecialistInput,
+    onToken: (delta: string) => void,
+    signal?: AbortSignal,
+  ): Promise<SpecialistResult>;
 }

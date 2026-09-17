@@ -71,6 +71,15 @@ export class LeaveAgentService implements SpecialistAgent {
   ) {}
 
   async execute(input: SpecialistInput): Promise<SpecialistResult> {
+    return this.run(input);
+  }
+
+  /** WHY registered as a streaming specialist (AI_AGENT_STREAMING_AGENT_TYPES): its ordinary Q&A path is a single LLM call producing prose — the common case worth streaming. */
+  async executeStream(input: SpecialistInput, onToken: (delta: string) => void): Promise<SpecialistResult> {
+    return this.run(input, onToken);
+  }
+
+  private async run(input: SpecialistInput, onToken?: (delta: string) => void): Promise<SpecialistResult> {
     const hasTeamLeaveScope = this.hasTeamLeaveScope(input);
     const reqContext: DownstreamRequestContext = {
       jwt: input.actorContext.jwt,
@@ -122,13 +131,22 @@ export class LeaveAgentService implements SpecialistAgent {
         ? `${LEAVE_SYSTEM_PROMPT}\n\n${DRAFT_MODE_DIRECTIVE}`
         : LEAVE_SYSTEM_PROMPT;
       const callOptions: GeminiCallOptions = { thinkingLevel: 'medium' };
-      const outcome = await this.llmCaller.call(
-        systemPrompt,
-        input.userMessage,
-        tools,
-        input.conversationContext.recentMessages,
-        callOptions,
-      );
+      const outcome = onToken
+        ? await this.llmCaller.callStream(
+            systemPrompt,
+            input.userMessage,
+            tools,
+            input.conversationContext.recentMessages,
+            callOptions,
+            onToken,
+          )
+        : await this.llmCaller.call(
+            systemPrompt,
+            input.userMessage,
+            tools,
+            input.conversationContext.recentMessages,
+            callOptions,
+          );
       if (outcome) {
         const result = toolCallerResult(input, this.agentType, outcome, {
           sourceType: 'LEAVE',

@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   getConversation,
+  isStreamingTurnResponse,
   listConversations,
   sendConversationMessage,
   startConversation,
   type AiMessageResponse,
-  type ConversationTurnResponse,
+  type ConversationTurnApiResponse,
 } from "@/lib/api/ai";
+import { openConversationStream } from "@/lib/api/ai-stream";
 import { getGatewayErrorMessage } from "@/lib/api/gateway-error";
 import { cn } from "@/lib/utils";
 import { useTypewriter } from "@/hooks/use-typewriter";
@@ -73,9 +75,21 @@ function SentientBotMark({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function FloatingChatBubble({ line, animate }: { line: ChatLine; animate: boolean }) {
+function FloatingChatBubble({
+  line,
+  animate,
+  streaming,
+}: {
+  line: ChatLine;
+  /** Fake typing reveal for a non-streamed line that just arrived complete. */
+  animate: boolean;
+  /** Content is growing from real server-sent token deltas. Mutually exclusive with `animate`. */
+  streaming: boolean;
+}) {
   const assistant = line.role === "ASSISTANT";
-  const displayed = useTypewriter(line.content, animate && assistant);
+  // WHY unconditional: same hook-order requirement as AiMessage — see its comment.
+  const typedContent = useTypewriter(line.content, !streaming && animate && assistant);
+  const displayed = streaming ? line.content : typedContent;
   return (
     <div className={cn("flex", assistant ? "justify-start" : "justify-end")}>
       <div
@@ -104,6 +118,8 @@ export function FloatingAiAssistant() {
   const [loadedLatest, setLoadedLatest] = useState(false);
   /** The one assistant line currently allowed to play its typing animation. */
   const [typingLineId, setTypingLineId] = useState<string | null>(null);
+  /** The one assistant line currently receiving real token deltas from an open SSE stream. */
+  const [streamingLineId, setStreamingLineId] = useState<string | null>(null);
 
   const conversationsQuery = useQuery({
     queryKey: ["ai-conversations", "floating"],
@@ -126,6 +142,7 @@ export function FloatingAiAssistant() {
       setLines(toChatLines(detail.messages).slice(-8));
       setLoadedLatest(true);
       setTypingLineId(null);
+      setStreamingLineId(null);
       setError("");
     },
     onError: (err: unknown) => {
@@ -142,13 +159,48 @@ export function FloatingAiAssistant() {
       activeConversationId
         ? sendConversationMessage(activeConversationId, { message })
         : startConversation({ message }),
-    onSuccess: (turn: ConversationTurnResponse) => {
+    onSuccess: (turn: ConversationTurnApiResponse) => {
       setConversationId(turn.conversation.id);
-      setLines((current) => [...current, ...toChatLines(turn.userMessage ? [turn.userMessage, turn.assistantMessage] : [turn.assistantMessage])].slice(-10));
-      setTypingLineId(turn.assistantMessage.id);
       setError("");
       setPendingPrompt(null);
       setLoadedLatest(true);
+
+      if (isStreamingTurnResponse(turn)) {
+        const placeholderId = `pending-${turn.streaming.turnId}`;
+        const placeholder: ChatLine = { id: placeholderId, role: "ASSISTANT", content: "" };
+        setLines((current) => [
+          ...current,
+          ...(turn.userMessage ? toChatLines([turn.userMessage]) : []),
+          placeholder,
+        ].slice(-10));
+        setStreamingLineId(placeholderId);
+        void openConversationStream({
+          streamPath: turn.streaming.streamPath,
+          onToken: (delta) =>
+            setLines((current) =>
+              current.map((line) => (line.id === placeholderId ? { ...line, content: line.content + delta } : line)),
+            ),
+          onDone: (event) => {
+            const finalLine = toChatLine(event.assistantMessage);
+            setLines((current) =>
+              finalLine ? current.map((line) => (line.id === placeholderId ? finalLine : line)) : current.filter((line) => line.id !== placeholderId),
+            );
+            setStreamingLineId(null);
+            void queryClient.invalidateQueries({ queryKey: ["ai-conversations"] });
+            void queryClient.invalidateQueries({ queryKey: ["ai-conversations", "floating"] });
+          },
+          onError: (message) => {
+            setStreamingLineId(null);
+            getConversation(turn.conversation.id)
+              .then((detail) => setLines(toChatLines(detail.messages).slice(-8)))
+              .catch(() => setError(message));
+          },
+        });
+        return;
+      }
+
+      setLines((current) => [...current, ...toChatLines(turn.userMessage ? [turn.userMessage, turn.assistantMessage] : [turn.assistantMessage])].slice(-10));
+      setTypingLineId(turn.assistantMessage.id);
       void queryClient.invalidateQueries({ queryKey: ["ai-conversations"] });
       void queryClient.invalidateQueries({ queryKey: ["ai-conversations", "floating"] });
     },
@@ -238,7 +290,12 @@ export function FloatingAiAssistant() {
             ) : (
               <div className="space-y-3">
                 {lines.map((line) => (
-                  <FloatingChatBubble key={line.id} line={line} animate={line.id === typingLineId} />
+                  <FloatingChatBubble
+                    key={line.id}
+                    line={line}
+                    animate={line.id === typingLineId}
+                    streaming={line.id === streamingLineId}
+                  />
                 ))}
                 {pendingPrompt && (
                   <>

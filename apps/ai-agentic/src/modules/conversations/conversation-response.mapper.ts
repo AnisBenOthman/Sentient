@@ -52,6 +52,25 @@ export interface ConversationTurnResponse {
   actionOutcome?: ActionOutcomeResponse;
 }
 
+/**
+ * WHY a separate response type rather than widening ConversationTurnResponse:
+ * `assistantMessage` genuinely does not exist yet on this path — the turn is
+ * still resolving on the SSE stream the client is about to open. Keeping it a
+ * distinct shape (checked via `streaming` being present) means every existing
+ * consumer of ConversationTurnResponse is unaffected.
+ */
+export interface ConversationTurnStreamingResponse {
+  conversation: ConversationSummaryResponse;
+  userMessage: MessageResponse | null;
+  assistantMessage: null;
+  routing: RoutingTrace;
+  streaming: {
+    turnId: string;
+    streamPath: string;
+    agentType: string;
+  };
+}
+
 export class ConversationResponseMapper {
   static toSummary(conversation: Conversation): ConversationSummaryResponse {
     return {
@@ -93,6 +112,23 @@ export class ConversationResponseMapper {
         status: routing.status ?? AgentRunStatus.SUCCESS,
         nodes: routing.nodes,
       },
+    };
+  }
+
+  static toStreamingTurn(
+    conversation: Conversation,
+    userMessage: Message,
+    routingNodes: RoutingTrace['nodes'],
+    turnId: string,
+    streamPath: string,
+    agentType: string,
+  ): ConversationTurnStreamingResponse {
+    return {
+      conversation: ConversationResponseMapper.toSummary(conversation),
+      userMessage: ConversationResponseMapper.toMessage(userMessage),
+      assistantMessage: null,
+      routing: { status: AgentRunStatus.RUNNING, nodes: routingNodes },
+      streaming: { turnId, streamPath, agentType },
     };
   }
 

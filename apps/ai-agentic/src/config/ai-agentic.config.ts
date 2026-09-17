@@ -1,6 +1,7 @@
 import { registerAs } from '@nestjs/config';
 import { parseBoolean, parseHttpUrl, parseNonEmptyString, parseOptionalString, parsePositiveInt, parseRatio } from './validation';
 import type { IntentClassifierProvider } from '../modules/agents/intent-classifier.types';
+import { AgentType } from '../generated/prisma';
 
 export interface AiAgenticConfig {
   port: number;
@@ -45,6 +46,14 @@ export interface AiAgenticConfig {
   followUpDelayHours: number;
   /** A due follow-up older than this after downtime is suppressed rather than sent late (FR-038). */
   followUpStaleAfterHours: number;
+  /** Ships false: token-by-token streaming is inert until explicitly enabled. */
+  streamingEnabled: boolean;
+  /** Only a turn resolving to exactly one of these specialists is stream-eligible. */
+  streamingAgentTypes: AgentType[];
+  /** How long an unclaimed pending streaming turn survives before the sweeper drops it. */
+  streamingTurnTtlMs: number;
+  /** SSE keep-alive interval — must stay well under the request-timeout window. */
+  streamingKeepAliveMs: number;
 }
 
 function parseIntentClassifierProvider(value: string | undefined): IntentClassifierProvider {
@@ -68,6 +77,20 @@ function parseGeminiApiUrl(value: string | undefined): string {
 function parseProviderOrder(value: string | undefined): string[] {
   const raw = (value ?? 'GEMINI').trim();
   return raw.split(',').map((s) => s.trim().toUpperCase()).filter((s) => s.length > 0);
+}
+
+/**
+ * WHY silently drop an unrecognized entry rather than throw: this list only ever
+ * narrows what can stream — an operator typo here should degrade to "that agent
+ * doesn't stream" (the existing complete-answer flow), never crash the service.
+ */
+function parseStreamingAgentTypes(value: string | undefined): AgentType[] {
+  const raw = (value ?? 'LEAVE_AGENT,GENERAL_HELP_AGENT').trim();
+  const known = new Set<string>(Object.values(AgentType));
+  return raw
+    .split(',')
+    .map((entry) => entry.trim().toUpperCase())
+    .filter((entry): entry is AgentType => known.has(entry));
 }
 
 export const aiAgenticConfig = registerAs('aiAgentic', (): AiAgenticConfig => ({
@@ -185,5 +208,21 @@ export const aiAgenticConfig = registerAs('aiAgentic', (): AiAgenticConfig => ({
     process.env.AI_AGENT_FOLLOWUP_STALE_AFTER_HOURS,
     24,
     'AI_AGENT_FOLLOWUP_STALE_AFTER_HOURS',
+  ),
+  streamingEnabled: parseBoolean(
+    process.env.AI_AGENT_STREAMING_ENABLED,
+    false,
+    'AI_AGENT_STREAMING_ENABLED',
+  ),
+  streamingAgentTypes: parseStreamingAgentTypes(process.env.AI_AGENT_STREAMING_AGENT_TYPES),
+  streamingTurnTtlMs: parsePositiveInt(
+    process.env.AI_AGENT_STREAMING_TURN_TTL_MS,
+    120_000,
+    'AI_AGENT_STREAMING_TURN_TTL_MS',
+  ),
+  streamingKeepAliveMs: parsePositiveInt(
+    process.env.AI_AGENT_STREAMING_KEEPALIVE_MS,
+    15_000,
+    'AI_AGENT_STREAMING_KEEPALIVE_MS',
   ),
 }));

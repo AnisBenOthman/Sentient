@@ -9,6 +9,7 @@ import {
   GeminiToolCallOutcome,
 } from './agent-tool.types';
 import { LlmToolCallerAdapter } from './llm-tool-caller.interface';
+import { readSseDataLines } from './sse-line-reader.util';
 
 /** Injection tokens for the configured instances registered in AgentsModule. */
 export const OPENROUTER_TOOL_CALLER = Symbol('OPENROUTER_TOOL_CALLER');
@@ -39,6 +40,20 @@ interface OpenAiChatResponse {
     prompt_tokens?: number;
     completion_tokens?: number;
   };
+}
+
+interface OpenAiStreamToolCallFragment {
+  index: number;
+  id?: string;
+  function?: { name?: string; arguments?: string };
+}
+
+interface OpenAiStreamChunk {
+  choices?: Array<{
+    delta?: { content?: string | null; tool_calls?: OpenAiStreamToolCallFragment[] };
+    finish_reason?: string | null;
+  }>;
+  usage?: { prompt_tokens?: number; completion_tokens?: number };
 }
 
 interface ToolRunResult {
@@ -161,6 +176,172 @@ export class OpenAiCompatibleToolCallerService implements LlmToolCallerAdapter {
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  /**
+   * WHY a separate loop rather than sharing call()'s: this one requests
+   * `stream: true` and reads incremental SSE frames instead of one resolved
+   * JSON body per round, accumulating `tool_calls` delta fragments (OpenAI's
+   * incremental reconstruction contract: concatenate `function.arguments`
+   * string fragments by `index`) instead of reading them whole.
+   */
+  async callStream(
+    systemPrompt: string,
+    userMessage: string,
+    tools: AgentTool[],
+    history: ConversationHistoryMessage[] = [],
+    _options: GeminiCallOptions = {},
+    onToken: (delta: string) => void,
+    signal?: AbortSignal,
+  ): Promise<GeminiToolCallOutcome | null> {
+    const settings = this.resolveSettings();
+    if (!settings || tools.length === 0) return null;
+
+    const toolMap = new Map(tools.map((t) => [t.declaration.name, t]));
+    const toolDefs = tools.map((t) => toOpenAiToolDef(t.declaration));
+    const messages: OpenAiMessage[] = [
+      { role: 'system', content: systemPrompt },
+      ...this.historyMessages(history, userMessage),
+      { role: 'user', content: userMessage },
+    ];
+
+    let anyToolDenied = false;
+    let anyToolFailed = false;
+    const toolsUsed: string[] = [];
+    const usage = { tokensIn: 0, tokensOut: 0, reported: false };
+    const recordUsage = (raw?: { prompt_tokens?: number; completion_tokens?: number }): void => {
+      if (!raw) return;
+      usage.reported = true;
+      usage.tokensIn += raw.prompt_tokens ?? 0;
+      usage.tokensOut += raw.completion_tokens ?? 0;
+    };
+    const usageFields = (): { tokensIn?: number; tokensOut?: number } =>
+      usage.reported ? { tokensIn: usage.tokensIn, tokensOut: usage.tokensOut } : {};
+
+    const controller = new AbortController();
+    const downstreamTimeoutMs = this.aiConfig()?.downstreamTimeoutMs ?? 8_000;
+    const timer = setTimeout(() => controller.abort(), downstreamTimeoutMs * MAX_TOOL_ROUNDS);
+    signal?.addEventListener('abort', () => controller.abort(), { once: true });
+
+    try {
+      for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+        const toolChoice = round === 0 ? 'required' : 'auto';
+        const outcome = await this.streamChatCompletion(settings, messages, toolDefs, controller.signal, toolChoice, onToken, recordUsage);
+        if (outcome === null) return null;
+
+        if (outcome.kind === 'toolCalls') {
+          messages.push({ role: 'assistant', content: outcome.content, tool_calls: outcome.toolCalls });
+          for (const toolCall of outcome.toolCalls) {
+            const args = parseArguments(toolCall.function.arguments);
+            const ran = await this.runTool(toolMap, toolCall.function.name, args);
+            if (ran.denied) anyToolDenied = true;
+            if (ran.failed) anyToolFailed = true;
+            toolsUsed.push(toolCall.function.name);
+            messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(ran.output) });
+          }
+          continue;
+        }
+
+        if (!outcome.answer) return null;
+        return { answer: outcome.answer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() };
+      }
+
+      /** WHY mode 'none' guarantees a text-only round: safe to stream unconditionally. */
+      const final = await this.streamChatCompletion(settings, messages, toolDefs, controller.signal, 'none', onToken, recordUsage);
+      if (final === null || final.kind !== 'answer' || !final.answer) return null;
+      return { answer: final.answer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() };
+    } catch (err: unknown) {
+      this.logger.warn(`${this.providerName} streaming tool call failed: ${err instanceof Error ? err.message : 'unknown'}`);
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * Streams one round and classifies it exactly like the non-streaming loop
+   * does: any `tool_calls` delta fragment means "tool round" — content already
+   * forwarded to `onToken` before the first such fragment arrived is safe by
+   * construction (the caller never returns `answer` for a tool round, and the
+   * eventual `done` event carries the authoritative reviewed text, not this
+   * provisional stream).
+   */
+  private async streamChatCompletion(
+    settings: ProviderSettings,
+    messages: OpenAiMessage[],
+    tools: unknown[],
+    signal: AbortSignal,
+    toolChoice: 'required' | 'auto' | 'none',
+    onToken: (delta: string) => void,
+    recordUsage: (raw?: { prompt_tokens?: number; completion_tokens?: number }) => void,
+  ): Promise<
+    | { kind: 'toolCalls'; content: string | null; toolCalls: OpenAiToolCall[] }
+    | { kind: 'answer'; answer: string | null }
+    | null
+  > {
+    const url = `${settings.apiUrl}/chat/completions`;
+    const requestBody = JSON.stringify({ model: settings.model, messages, tools, tool_choice: toolChoice, stream: true });
+
+    let resp: Response;
+    try {
+      resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${settings.apiKey}` },
+        signal,
+        body: requestBody,
+      });
+    } catch {
+      return null;
+    }
+
+    if (!resp.ok || !resp.body) {
+      this.logger.warn(`${this.providerName} streaming API returned ${resp.status}: ${await safeReadBody(resp)}`);
+      return null;
+    }
+
+    const toolCallFragments = new Map<number, { id?: string; name?: string; arguments: string }>();
+    let content = '';
+    let sawToolCall = false;
+
+    for await (const payload of readSseDataLines(resp.body)) {
+      let chunk: OpenAiStreamChunk;
+      try {
+        chunk = JSON.parse(payload) as OpenAiStreamChunk;
+      } catch {
+        continue;
+      }
+      recordUsage(chunk.usage);
+      const choice = chunk.choices?.[0];
+      if (!choice?.delta) continue;
+
+      if (choice.delta.tool_calls?.length) {
+        sawToolCall = true;
+        for (const fragment of choice.delta.tool_calls) {
+          const existing = toolCallFragments.get(fragment.index) ?? { arguments: '' };
+          if (fragment.id) existing.id = fragment.id;
+          if (fragment.function?.name) existing.name = fragment.function.name;
+          if (fragment.function?.arguments) existing.arguments += fragment.function.arguments;
+          toolCallFragments.set(fragment.index, existing);
+        }
+      }
+
+      if (!sawToolCall && choice.delta.content) {
+        content += choice.delta.content;
+        onToken(choice.delta.content);
+      }
+    }
+
+    if (sawToolCall) {
+      const toolCalls: OpenAiToolCall[] = [...toolCallFragments.entries()]
+        .sort(([a], [b]) => a - b)
+        .map(([, fragment]) => ({
+          id: fragment.id ?? '',
+          type: 'function' as const,
+          function: { name: fragment.name ?? '', arguments: fragment.arguments },
+        }));
+      return { kind: 'toolCalls', content: content || null, toolCalls };
+    }
+    return { kind: 'answer', answer: content.trim() || null };
   }
 
   private resolveSettings(): ProviderSettings | null {

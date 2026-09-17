@@ -6,6 +6,7 @@ import {
 } from '../../common/safety';
 import { IntentClassifier } from './intent-classifier.types';
 import { FinalAnswerNodeService } from './nodes/final-answer-node.service';
+import { SupervisorGateService } from './supervisor-gate.service';
 import { SupervisorIntentClassifierService } from './supervisor-intent-classifier.service';
 import { SupervisorLangGraphRunnerService } from './supervisor-langgraph-runner.service';
 
@@ -52,10 +53,27 @@ function createRunner(overrides: RunnerOverrides = {}): SupervisorLangGraphRunne
   const parentLog = overrides.parentLog ?? buildParentLog('test');
   const guardrails = new AgentGuardrailService();
   const realFinalAnswerNode = new FinalAnswerNodeService(new FinalAnswerPolicyService(guardrails));
-  return new SupervisorLangGraphRunnerService(
+  const taskLogs = {
+    start: async () => parentLog,
+    finish: async (_id: string, input: { status: AgentRunStatus }) => ({ ...parentLog, status: input.status }),
+  } as never;
+  const nodeRuns = {
+    record: async (input: { status: AgentRunStatus }) => {
+      overrides.nodeStatuses?.push(input.status);
+      return {};
+    },
+  } as never;
+  const gate = new SupervisorGateService(
     guardrails,
     new DraftPolicyService(),
     overrides.classifier ?? new SupervisorIntentClassifierService(),
+    taskLogs,
+    nodeRuns,
+    overrides.config as never,
+  );
+  return new SupervisorLangGraphRunnerService(
+    gate,
+    guardrails,
     (overrides.greetingAgent ?? {
       compose: () => ({
         status: AgentRunStatus.SUCCESS,
@@ -64,20 +82,12 @@ function createRunner(overrides: RunnerOverrides = {}): SupervisorLangGraphRunne
         routingSummary: 'Greeting handled.',
       }),
     }) as never,
-    {
-      start: async () => parentLog,
-      finish: async (_id: string, input: { status: AgentRunStatus }) => ({ ...parentLog, status: input.status }),
-    } as never,
+    taskLogs,
     {
       create: async () => ({ id: 'handoff-1' }),
       complete: async () => ({}),
     } as never,
-    {
-      record: async (input: { status: AgentRunStatus }) => {
-        overrides.nodeStatuses?.push(input.status);
-        return {};
-      },
-    } as never,
+    nodeRuns,
     {
       record: async () => ({}),
     } as never,

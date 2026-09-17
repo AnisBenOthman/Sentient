@@ -175,6 +175,188 @@ export class GeminiToolCallerService implements LlmToolCallerAdapter {
   }
 
   /**
+   * WHY a separate loop rather than sharing call()'s: the non-streaming loop
+   * commits to `generateContent` per round and reads the whole answer off the
+   * resolved response; this one commits to `generateContentStream` and has to
+   * accumulate parts/text across chunks as they arrive to reconstruct the same
+   * per-round outcome (function-call replay content, or a final answer) — the
+   * two control flows diverge enough that inlining a flag into call() would
+   * make both harder to follow.
+   */
+  async callStream(
+    systemPrompt: string,
+    userMessage: string,
+    tools: AgentTool[],
+    history: ConversationHistoryMessage[] = [],
+    options: GeminiCallOptions = {},
+    onToken: (delta: string) => void,
+    signal?: AbortSignal,
+  ): Promise<GeminiToolCallOutcome | null> {
+    const aiConfig = this.config?.get<AiAgenticConfig>('aiAgentic');
+    const apiKey = aiConfig?.geminiApiKey;
+    if (!aiConfig || !apiKey || tools.length === 0) return null;
+
+    const thinkingLevel = options.thinkingLevel ?? aiConfig.geminiThinkingLevel;
+    const enableSearch = options.enableSearch ?? false;
+
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: { timeout: (aiConfig.downstreamTimeoutMs ?? 8_000) * MAX_TOOL_ROUNDS },
+    });
+
+    const toolMap = new Map(tools.map((t) => [t.declaration.name, t]));
+    const functionDeclarations = tools.map((t) => toSdkDeclaration(t.declaration));
+    const sdkTools: object[] = [{ functionDeclarations }];
+    if (enableSearch) sdkTools.push({ googleSearch: {} });
+
+    const contents: Content[] = [
+      ...this.buildHistoryContents(history, userMessage),
+      { role: 'user', parts: [{ text: userMessage }] },
+    ];
+
+    let anyToolDenied = false;
+    let anyToolFailed = false;
+    const toolsUsed: string[] = [];
+    const usage = { tokensIn: 0, tokensOut: 0, reported: false };
+    const recordUsage = (metadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number }): void => {
+      if (!metadata) return;
+      usage.reported = true;
+      usage.tokensIn += metadata.promptTokenCount ?? 0;
+      usage.tokensOut += (metadata.candidatesTokenCount ?? 0) + (metadata.thoughtsTokenCount ?? 0);
+    };
+    const usageFields = (): { tokensIn?: number; tokensOut?: number } =>
+      usage.reported ? { tokensIn: usage.tokensIn, tokensOut: usage.tokensOut } : {};
+
+    try {
+      for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+        if (signal?.aborted) return null;
+        const mode = round === 0 ? FunctionCallingConfigMode.ANY : FunctionCallingConfigMode.AUTO;
+
+        const outcome = await this.runStreamingRound(ai, {
+          model: aiConfig.geminiModel,
+          contents,
+          systemPrompt,
+          sdkTools,
+          mode,
+          thinkingLevel,
+          onToken,
+          signal,
+          recordUsage,
+        });
+
+        if (outcome.kind === 'toolCalls') {
+          contents.push(outcome.modelContent);
+          const responseParts: Part[] = [];
+          for (const part of outcome.functionCalls) {
+            const { name, args, id } = part.functionCall;
+            const ran = await this.runTool(toolMap, name ?? '', (args as Record<string, unknown>) ?? {});
+            if (ran.denied) anyToolDenied = true;
+            if (ran.failed) anyToolFailed = true;
+            toolsUsed.push(name ?? '');
+            responseParts.push({
+              functionResponse: { id, name: name ?? '', response: { result: ran.output as Record<string, unknown> } },
+            });
+          }
+          contents.push({ role: 'user', parts: responseParts });
+          continue;
+        }
+
+        if (!outcome.answer) return null;
+        return { answer: outcome.answer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() };
+      }
+
+      /** WHY mode NONE guarantees a text-only round: safe to stream unconditionally. */
+      const finalOutcome = await this.runStreamingRound(ai, {
+        model: aiConfig.geminiModel,
+        contents,
+        systemPrompt,
+        sdkTools,
+        mode: FunctionCallingConfigMode.NONE,
+        thinkingLevel,
+        onToken,
+        signal,
+        recordUsage,
+      });
+      if (finalOutcome.kind !== 'answer' || !finalOutcome.answer) return null;
+      return {
+        answer: finalOutcome.answer,
+        anyToolDenied,
+        anyToolFailed,
+        toolsUsed,
+        providerUsed: this.providerName,
+        ...usageFields(),
+      };
+    } catch (err: unknown) {
+      this.logger.warn(`Gemini SDK streaming call failed: ${err instanceof Error ? err.message : 'unknown'}`);
+      return null;
+    }
+  }
+
+  /**
+   * Runs one streamed round and classifies it exactly like the non-streaming
+   * loop does: any functionCall part anywhere in the round means "tool round" —
+   * nothing is forwarded to onToken (or, if a few characters already were
+   * because text preceded the function call in the same round, no more are
+   * after detection — the caller's `answer` is discarded either way, since a
+   * tool round never returns one). No functionCall parts at all means the whole
+   * round's text was genuinely streamed as it arrived, thought-parts already
+   * excluded by the SDK's own `.text` getter.
+   */
+  private async runStreamingRound(
+    ai: GoogleGenAI,
+    params: {
+      model: string;
+      contents: Content[];
+      systemPrompt: string;
+      sdkTools: object[];
+      mode: FunctionCallingConfigMode;
+      thinkingLevel: string | undefined;
+      onToken: (delta: string) => void;
+      signal?: AbortSignal;
+      recordUsage: (metadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number }) => void;
+    },
+  ): Promise<
+    | { kind: 'toolCalls'; modelContent: Content; functionCalls: Array<Part & { functionCall: NonNullable<Part['functionCall']> }> }
+    | { kind: 'answer'; answer: string | null }
+  > {
+    const stream = await ai.models.generateContentStream({
+      model: params.model,
+      contents: params.contents,
+      config: {
+        systemInstruction: params.systemPrompt,
+        tools: params.sdkTools,
+        toolConfig: { functionCallingConfig: { mode: params.mode } },
+        ...resolveThinkingConfig(params.thinkingLevel),
+      },
+    });
+
+    const accumulatedParts: Part[] = [];
+    let sawFunctionCall = false;
+    let answer = '';
+
+    for await (const chunk of stream) {
+      if (params.signal?.aborted) break;
+      params.recordUsage(chunk.usageMetadata);
+      const parts: Part[] = chunk.candidates?.[0]?.content?.parts ?? [];
+      accumulatedParts.push(...parts);
+      if (parts.some((part) => part.functionCall != null)) sawFunctionCall = true;
+
+      if (!sawFunctionCall && chunk.text) {
+        answer += chunk.text;
+        params.onToken(chunk.text);
+      }
+    }
+
+    if (sawFunctionCall) {
+      const functionCalls = accumulatedParts.filter(
+        (p): p is Part & { functionCall: NonNullable<Part['functionCall']> } => p.functionCall != null,
+      );
+      return { kind: 'toolCalls', modelContent: { role: 'model', parts: accumulatedParts }, functionCalls };
+    }
+    return { kind: 'answer', answer: answer.trim() || null };
+  }
+
+  /**
    * WHY: Follow-up questions only resolve when Gemini sees prior turns.
    * The current user message is persisted before the turn executes, so it
    * arrives duplicated as the last history entry — drop it to avoid sending

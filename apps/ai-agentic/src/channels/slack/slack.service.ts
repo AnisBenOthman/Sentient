@@ -400,14 +400,14 @@ export class SlackService implements OnModuleInit, OnModuleDestroy {
     const linked = await this.links.find(PRISMA_SLACK, userId);
     if (linked) {
       try {
-        return await this.conversations.sendMessage(linked, actor, { message: text });
+        return await this.conversations.sendMessage(linked, actor, { message: text }, false);
       } catch (err: unknown) {
         if (!(err instanceof NotFoundException) && !(err instanceof BadRequestException)) throw err;
         this.logger.log(`Dropping stale conversation link for Slack user ${userId}: ${this.errorMessage(err)}`);
         await this.links.clear(PRISMA_SLACK, userId);
       }
     }
-    const turn = await this.conversations.createConversation(actor, { message: text });
+    const turn = await this.conversations.createConversation(actor, { message: text }, false);
     await this.links.set(PRISMA_SLACK, userId, turn.conversation.id);
     return turn;
   }
@@ -471,11 +471,16 @@ export class SlackService implements OnModuleInit, OnModuleDestroy {
       if (messageTs) await this.stripCard(channelId, messageTs);
 
       const turn = await this.runWithTimeout(channelId, respond, () =>
-        this.conversations.sendMessage(proposal.conversationId, actor, {
-          message: parsed.action === 'confirm' ? 'Confirm' : 'Cancel',
-          confirmed: parsed.action === 'confirm',
-          confirmationToken: parsed.token,
-        }),
+        this.conversations.sendMessage(
+          proposal.conversationId,
+          actor,
+          {
+            message: parsed.action === 'confirm' ? 'Confirm' : 'Cancel',
+            confirmed: parsed.action === 'confirm',
+            confirmationToken: parsed.token,
+          },
+          false,
+        ),
       );
       if (!turn) return;
 

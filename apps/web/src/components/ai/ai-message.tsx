@@ -10,16 +10,23 @@ export function AiMessage({
   onRate,
   feedbackDisabled,
   animate = false,
+  streaming = false,
 }: {
   message: AiMessageResponse;
   onRate?: (message: AiMessageResponse, rating: "POSITIVE" | "NEGATIVE") => void;
   feedbackDisabled?: boolean;
-  /** Reveals the assistant's content with a typing effect. Set only for the message that just arrived. */
+  /** Reveals the assistant's content with a fake typing effect. Set only for a non-streamed message that just arrived complete. */
   animate?: boolean;
+  /** Content is growing from real server-sent token deltas. Mutually exclusive with `animate`. */
+  streaming?: boolean;
 }) {
   const isAssistant = message.role === "ASSISTANT";
-  const displayedContent = useTypewriter(message.content, animate && isAssistant);
-  const isTyping = animate && isAssistant && displayedContent.length < message.content.length;
+  // WHY unconditional: React requires the same hooks every render. When
+  // `streaming` is true the RAF reveal is simply unused — real deltas already
+  // grow message.content, so the two mechanisms never fight over the same text.
+  const typedContent = useTypewriter(message.content, !streaming && animate && isAssistant);
+  const displayedContent = streaming ? message.content : typedContent;
+  const isTyping = streaming || (animate && isAssistant && displayedContent.length < message.content.length);
 
   return (
     <div className={cn("flex gap-3", isAssistant ? "items-start" : "items-start justify-end")}>

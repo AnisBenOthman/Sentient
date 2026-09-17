@@ -94,6 +94,9 @@ describe('conversation resume context', () => {
           };
         },
       } as never,
+      { evaluate: async () => ({ route: 'specialistsNode' }) } as never,
+      { check: () => ({ eligible: false }) } as never,
+      {} as never,
       new ConversationContextService(prisma),
       { titleFrom: (value: string) => value, previewFrom: (value: string) => value, initialTitle: () => 'Sentient AI conversation' } as never,
       { maybeSummarize: async () => undefined } as never,

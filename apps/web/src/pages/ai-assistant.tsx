@@ -14,6 +14,7 @@ import {
   decideOnProposal,
   deleteConversation,
   getConversation,
+  isStreamingTurnResponse,
   listConversations,
   restoreConversation,
   saveResponseFeedback,
@@ -22,9 +23,11 @@ import {
   type ActionOutcome,
   type ConversationSummary,
   type AiMessageResponse,
+  type ConversationTurnApiResponse,
   type ConversationTurnResponse,
   type RoutingTrace,
 } from "@/lib/api/ai";
+import { openConversationStream } from "@/lib/api/ai-stream";
 import { getGatewayErrorMessage } from "@/lib/api/gateway-error";
 
 const EXAMPLE_PROMPTS = [
@@ -46,6 +49,8 @@ export default function AiAssistantPage() {
   const [outcomeByToken, setOutcomeByToken] = useState<Record<string, ActionOutcome["status"]>>({});
   /** The one assistant message currently allowed to play its typing animation. */
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
+  /** The one assistant message currently receiving real token deltas from an open SSE stream. */
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
 
   const conversationsQuery = useQuery({
     queryKey: ["ai-conversations"],
@@ -57,12 +62,56 @@ export default function AiAssistantPage() {
       conversationId
         ? sendConversationMessage(conversationId, { message })
         : startConversation({ message }),
-    onSuccess: (turn: ConversationTurnResponse) => {
+    onSuccess: (turn: ConversationTurnApiResponse) => {
       setConversationId(turn.conversation.id);
+      setError("");
+
+      if (isStreamingTurnResponse(turn)) {
+        const placeholderId = `pending-${turn.streaming.turnId}`;
+        setMessages((current) => [
+          ...current,
+          ...(turn.userMessage ? [turn.userMessage] : []),
+          {
+            id: placeholderId,
+            role: "ASSISTANT",
+            content: "",
+            agentType: turn.streaming.agentType,
+            status: "RUNNING",
+            sourceContext: [],
+            createdAt: new Date().toISOString(),
+          },
+        ]);
+        setRouting(turn.routing);
+        setStreamingMessageId(placeholderId);
+        void openConversationStream({
+          streamPath: turn.streaming.streamPath,
+          onToken: (delta) =>
+            setMessages((current) =>
+              current.map((message) => (message.id === placeholderId ? { ...message, content: message.content + delta } : message)),
+            ),
+          onDone: (event) => {
+            setMessages((current) => current.map((message) => (message.id === placeholderId ? event.assistantMessage : message)));
+            setRouting(event.routing);
+            setStreamingMessageId(null);
+            void queryClient.invalidateQueries({ queryKey: ["ai-conversations"] });
+          },
+          onError: (message) => {
+            // WHY a refetch rather than surfacing `message` directly: the backend's
+            // error path always leaves either a FAILED or a completed message
+            // persisted (never a half-written row), so reconciling with the server
+            // is more honest than trusting whatever the client last saw.
+            setStreamingMessageId(null);
+            getConversation(turn.conversation.id)
+              .then((detail) => setMessages(detail.messages))
+              .catch(() => setError(message));
+          },
+        });
+        return;
+      }
+
       setMessages((current) => [...current, ...(turn.userMessage ? [turn.userMessage] : []), turn.assistantMessage]);
       setRouting(turn.routing);
       setTypingMessageId(turn.assistantMessage.id);
-      setError("");
       void queryClient.invalidateQueries({ queryKey: ["ai-conversations"] });
     },
     onError: (err: unknown) => {
@@ -114,6 +163,7 @@ export default function AiAssistantPage() {
       setRouting(null);
       setOutcomes({});
       setTypingMessageId(null);
+      setStreamingMessageId(null);
       setError("");
     },
     onError: (err: unknown) => {
@@ -198,6 +248,7 @@ export default function AiAssistantPage() {
                 setMessages([]);
                 setRouting(null);
                 setTypingMessageId(null);
+                setStreamingMessageId(null);
               }}
             >
               New
@@ -241,6 +292,7 @@ export default function AiAssistantPage() {
                     message={message}
                     feedbackDisabled={feedbackMutation.isPending}
                     animate={message.id === typingMessageId}
+                    streaming={message.id === streamingMessageId}
                     onRate={(ratedMessage, rating) => feedbackMutation.mutate({ messageId: ratedMessage.id, rating })}
                   />
                   {message.role === "ASSISTANT" && /^draft/i.test(message.content) && (

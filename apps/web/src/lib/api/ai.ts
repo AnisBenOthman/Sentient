@@ -126,6 +126,48 @@ export interface ConversationTurnResponse {
   actionOutcome?: ActionOutcome;
 }
 
+/**
+ * Returned instead of ConversationTurnResponse when the turn resolved to a
+ * single-specialist plain-text answer with token streaming enabled server-side.
+ * `assistantMessage` genuinely does not exist yet — open `streaming.streamPath`
+ * (via openConversationStream) to receive it token-by-token.
+ */
+export interface ConversationTurnStreamingResponse {
+  conversation: ConversationSummary;
+  userMessage: AiMessageResponse | null;
+  assistantMessage: null;
+  routing: RoutingTrace;
+  streaming: {
+    turnId: string;
+    /** Relative to the AI gateway route prefix, e.g. "/conversations/:id/turns/:turnId/stream". */
+    streamPath: string;
+    agentType: string;
+  };
+}
+
+export type ConversationTurnApiResponse = ConversationTurnResponse | ConversationTurnStreamingResponse;
+
+export function isStreamingTurnResponse(turn: ConversationTurnApiResponse): turn is ConversationTurnStreamingResponse {
+  return 'streaming' in turn && turn.streaming != null;
+}
+
+export interface StreamTokenEvent {
+  turnId: string;
+  delta: string;
+}
+
+export interface StreamDoneEvent {
+  turnId: string;
+  conversation: ConversationSummary;
+  assistantMessage: AiMessageResponse;
+  routing: RoutingTrace;
+}
+
+export interface StreamErrorEvent {
+  turnId: string;
+  message: string;
+}
+
 export interface ConversationTurnRequest {
   message: string;
   clientContext?: Record<string, unknown>;
@@ -160,16 +202,16 @@ export interface FeedbackResponse {
   createdAt: string;
 }
 
-export async function startConversation(dto: ConversationTurnRequest): Promise<ConversationTurnResponse> {
-  const response = await aiClient.post<ConversationTurnResponse>('/conversations', dto);
+export async function startConversation(dto: ConversationTurnRequest): Promise<ConversationTurnApiResponse> {
+  const response = await aiClient.post<ConversationTurnApiResponse>('/conversations', dto);
   return response.data;
 }
 
 export async function sendConversationMessage(
   conversationId: string,
   dto: ConversationTurnRequest,
-): Promise<ConversationTurnResponse> {
-  const response = await aiClient.post<ConversationTurnResponse>(
+): Promise<ConversationTurnApiResponse> {
+  const response = await aiClient.post<ConversationTurnApiResponse>(
     `/conversations/${encodeURIComponent(conversationId)}/messages`,
     dto,
   );
@@ -186,11 +228,15 @@ export async function decideOnProposal(
   confirmationToken: string,
   confirmed: boolean,
 ): Promise<ConversationTurnResponse> {
-  return sendConversationMessage(conversationId, {
+  // WHY the cast: a confirm/cancel decision never resolves through the
+  // streaming turn path server-side (it never reaches the specialist/LLM
+  // gate at all), so this response is always the complete-turn shape.
+  const turn = await sendConversationMessage(conversationId, {
     message: confirmed ? 'Confirm' : 'Cancel',
     confirmed,
     confirmationToken,
   });
+  return turn as ConversationTurnResponse;
 }
 
 export async function listConversations(params: { page?: number; pageSize?: number } = {}): Promise<ConversationListResponse> {

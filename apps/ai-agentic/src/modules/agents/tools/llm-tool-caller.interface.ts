@@ -22,4 +22,22 @@ export interface LlmToolCallerAdapter {
     history?: ConversationHistoryMessage[],
     options?: GeminiCallOptions,
   ): Promise<GeminiToolCallOutcome | null>;
+
+  /**
+   * WHY optional: only providers whose transport supports incremental delivery
+   * implement this. Behaves exactly like `call()` — same tool-calling loop, same
+   * return contract — except `onToken` fires with each incremental text delta of
+   * the *final* round (the one with no more tool calls) as it arrives, instead of
+   * the caller only seeing the complete `answer` once the whole call resolves.
+   * `signal`, when provided, is honored by transports that support cancellation.
+   */
+  callStream?(
+    systemPrompt: string,
+    userMessage: string,
+    tools: AgentTool[],
+    history: ConversationHistoryMessage[] | undefined,
+    options: GeminiCallOptions | undefined,
+    onToken: (delta: string) => void,
+    signal?: AbortSignal,
+  ): Promise<GeminiToolCallOutcome | null>;
 }

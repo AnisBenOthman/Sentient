@@ -34,6 +34,15 @@ export class GeneralHelpAgentService implements SpecialistAgent {
   ) {}
 
   async execute(input: SpecialistInput): Promise<SpecialistResult> {
+    return this.run(input);
+  }
+
+  /** WHY registered as a streaming specialist (AI_AGENT_STREAMING_AGENT_TYPES): its ordinary Q&A path is a single LLM call producing prose — the common case worth streaming. */
+  async executeStream(input: SpecialistInput, onToken: (delta: string) => void): Promise<SpecialistResult> {
+    return this.run(input, onToken);
+  }
+
+  private async run(input: SpecialistInput, onToken?: (delta: string) => void): Promise<SpecialistResult> {
     const reqContext: DownstreamRequestContext = {
       jwt: input.actorContext.jwt,
       correlationId: input.actorContext.correlationId,
@@ -44,13 +53,22 @@ export class GeneralHelpAgentService implements SpecialistAgent {
       const systemPrompt = input.isDraftRequest
         ? `${GENERAL_HELP_SYSTEM_PROMPT}\n\n${DRAFT_MODE_DIRECTIVE}`
         : GENERAL_HELP_SYSTEM_PROMPT;
-      const outcome = await this.llmCaller.call(
-        systemPrompt,
-        input.userMessage,
-        tools,
-        input.conversationContext.recentMessages,
-        { enableSearch: true },
-      );
+      const outcome = onToken
+        ? await this.llmCaller.callStream(
+            systemPrompt,
+            input.userMessage,
+            tools,
+            input.conversationContext.recentMessages,
+            { enableSearch: true },
+            onToken,
+          )
+        : await this.llmCaller.call(
+            systemPrompt,
+            input.userMessage,
+            tools,
+            input.conversationContext.recentMessages,
+            { enableSearch: true },
+          );
       if (outcome) {
         return toolCallerResult(input, this.agentType, outcome, {
           sourceType: 'POLICY',

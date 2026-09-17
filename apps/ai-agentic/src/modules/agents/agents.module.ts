@@ -35,6 +35,7 @@ import { LeaveAgentService } from './specialists/leave-agent.service';
 import { OkrAgentService } from './specialists/okr-agent.service';
 import { OnboardingAgentService } from './specialists/onboarding-agent.service';
 import { SupervisorAgentService } from './supervisor-agent.service';
+import { SupervisorGateService } from './supervisor-gate.service';
 import { SupervisorLangGraphRunnerService } from './supervisor-langgraph-runner.service';
 import { SupervisorIntentClassifierService } from './supervisor-intent-classifier.service';
 import { GeminiToolCallerService } from './tools/gemini-tool-caller.service';
@@ -84,6 +85,7 @@ import { ToolRegistryService } from './tools/tool-registry.service';
     PermissionDecisionService,
     SocialAiClient,
     SupervisorAgentService,
+    SupervisorGateService,
     SupervisorLangGraphRunnerService,
     SupervisorIntentClassifierService,
     ToolRegistryService,
@@ -155,6 +157,7 @@ import { ToolRegistryService } from './tools/tool-registry.service';
     PermissionDecisionService,
     SocialAiClient,
     SupervisorAgentService,
+    SupervisorGateService,
     SupervisorLangGraphRunnerService,
     SupervisorIntentClassifierService,
     ToolRegistryService,
