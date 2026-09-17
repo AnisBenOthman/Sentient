@@ -95,9 +95,11 @@ function futureRange(): { text: string; startDate: string; endDate: string } {
   const start = new Date();
   start.setUTCHours(0, 0, 0, 0);
   start.setUTCDate(start.getUTCDate() + 14);
-  while (start.getUTCDay() === 0 || start.getUTCDay() === 6) start.setUTCDate(start.getUTCDate() + 1);
-  // start is a weekday; if it is Thu/Fri a +2 span crosses a weekend, so pin to Mon-Wed.
-  while (start.getUTCDay() > 3) start.setUTCDate(start.getUTCDate() + 1);
+  // Pin to Mon-Wed in one pass: Sat/Sun are not valid starts, and a Thu/Fri start
+  // makes the +2 span cross a weekend so businessDays is 2, not 3. Advancing past
+  // Thu/Fri in a second loop would walk into Sat/Sun with nothing left to re-check
+  // the weekend — which failed every Thursday and Friday.
+  while (start.getUTCDay() === 0 || start.getUTCDay() > 3) start.setUTCDate(start.getUTCDate() + 1);
   const end = new Date(start.getTime() + 2 * 86_400_000);
   const startDate = start.toISOString().slice(0, 10);
   const endDate = end.toISOString().slice(0, 10);

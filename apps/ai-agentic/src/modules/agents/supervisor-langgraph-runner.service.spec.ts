@@ -564,7 +564,10 @@ describe('SupervisorLangGraphRunnerService', () => {
       };
     }
 
-    function configWith(analyticsSqlEnabled: boolean, intentClassifierDebugLogs = true) {
+    // WHY debug logs default to false: it mirrors the production default
+    // (AI_AGENT_INTENT_DEBUG_LOGS), and leaving it on dumps a pretty-printed JSON
+    // trace per node for every test in this block, burying real failures.
+    function configWith(analyticsSqlEnabled: boolean, intentClassifierDebugLogs = false) {
       return { get: () => ({ analyticsSqlEnabled, intentConfidenceThreshold: 0.4, intentClassifierDebugLogs }) };
     }
 
@@ -573,11 +576,12 @@ describe('SupervisorLangGraphRunnerService', () => {
       enabled: boolean;
       execute: jest.Mock;
       requiredAgents?: AgentType[];
+      debugLogs?: boolean;
     }) {
       return createRunner({
         parentLog: buildParentLog(ANALYTICAL_QUESTION),
         classifier: analyticalClassifier(options.requiredAgents),
-        config: configWith(options.enabled),
+        config: configWith(options.enabled, options.debugLogs ?? false),
         analyticsSql: { execute: options.execute },
         leaveAgent: { agentType: AgentType.LEAVE_AGENT, execute: async () => specialistOk() },
       });
@@ -691,7 +695,12 @@ describe('SupervisorLangGraphRunnerService', () => {
       });
 
       it('logs a closed-gate reason when the feature flag is off', async () => {
-        const runner = runnerFor({ roles: ['HR_ADMIN'], enabled: false, execute: jest.fn(async () => specialistOk()) });
+        const runner = runnerFor({
+          roles: ['HR_ADMIN'],
+          enabled: false,
+          execute: jest.fn(async () => specialistOk()),
+          debugLogs: true,
+        });
 
         await runner.execute(turnFor(['HR_ADMIN']));
 
@@ -702,7 +711,12 @@ describe('SupervisorLangGraphRunnerService', () => {
       });
 
       it('logs a closed-gate reason when the role is not permitted', async () => {
-        const runner = runnerFor({ roles: ['EMPLOYEE'], enabled: true, execute: jest.fn(async () => specialistOk()) });
+        const runner = runnerFor({
+          roles: ['EMPLOYEE'],
+          enabled: true,
+          execute: jest.fn(async () => specialistOk()),
+          debugLogs: true,
+        });
 
         await runner.execute(turnFor(['EMPLOYEE']));
 
@@ -717,6 +731,7 @@ describe('SupervisorLangGraphRunnerService', () => {
           enabled: true,
           execute: jest.fn(async () => specialistOk()),
           requiredAgents: [AgentType.ANALYTICS_AGENT, AgentType.LEAVE_AGENT],
+          debugLogs: true,
         });
 
         await runner.execute(turnFor(['HR_ADMIN']));
@@ -728,7 +743,7 @@ describe('SupervisorLangGraphRunnerService', () => {
 
       it('omits analyticsSqlGate when the question is not analytical', async () => {
         const runner = createRunner({
-          config: configWith(true),
+          config: configWith(true, true),
           greetingAgent: {
             compose: () => ({
               status: AgentRunStatus.SUCCESS,
@@ -743,6 +758,17 @@ describe('SupervisorLangGraphRunnerService', () => {
 
         const payload = captureRouteLog(logSpy);
         expect(payload?.analyticsSqlGate).toBeNull();
+      });
+
+      // The trace is a debugging aid, not an audit record: AgentTaskLog is the
+      // audit trail. Production runs with AI_AGENT_INTENT_DEBUG_LOGS unset, and
+      // the gate diagnostics must not be computed or emitted in that default.
+      it('emits no routing trace when debug logs are off', async () => {
+        const runner = runnerFor({ roles: ['HR_ADMIN'], enabled: false, execute: jest.fn(async () => specialistOk()) });
+
+        await runner.execute(turnFor(['HR_ADMIN']));
+
+        expect(captureRouteLog(logSpy)).toBeNull();
       });
     });
   });

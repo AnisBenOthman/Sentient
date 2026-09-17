@@ -204,25 +204,5 @@ describe('SqlValidatorService', () => {
       );
       expect(reason).toMatch(/not permitted/i);
     });
-
-    it('permits v_compensation_by_age_band for a manager', () => {
-      const result = validator.validate(
-        'SELECT age_band, avg_gross_salary FROM hr_analytics.v_compensation_by_age_band',
-        MANAGER,
-        ROW_LIMIT,
-      );
-      expect(result.ok).toBe(true);
-    });
-
-    it('refuses v_compensation_by_age_band for a role without compensation access', () => {
-      const reason = reject(
-        validator.validate(
-          'SELECT age_band, avg_gross_salary FROM hr_analytics.v_compensation_by_age_band',
-          EMPLOYEE,
-          ROW_LIMIT,
-        ),
-      );
-      expect(reason).toMatch(/not permitted/i);
-    });
   });
 });

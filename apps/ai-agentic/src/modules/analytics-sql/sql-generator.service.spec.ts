@@ -120,7 +120,13 @@ describe('SqlGeneratorService', () => {
     expect(body).toContain('v_compensation');
   });
 
-  it('includes the age-band view for a role with compensation access, omits it for one without', async () => {
+  // WHY assert the band labels and not just the column name: salary-by-age is
+  // answerable only because v_compensation carries age_band, and the model can
+  // only filter on it if the prompt states the exact literals ('45+', not '46+'
+  // or 'over_45') and their boundaries. A column renamed or re-banded in the
+  // view without updating ANALYTICS_VIEWS silently produces queries that match
+  // no rows and read as "nobody is over 45".
+  it('describes the age_band dimension and its literals to a compensation role', async () => {
     let body = '';
     global.fetch = jest.fn(async (_url: unknown, init: unknown) => {
       body = String((init as { body?: unknown }).body ?? '');
@@ -129,23 +135,12 @@ describe('SqlGeneratorService', () => {
 
     const service = new SqlGeneratorService(configFor(['OPENROUTER']));
 
-    await service.generate('average salary by age', ['EMPLOYEE']);
-    expect(body).not.toContain('v_compensation_by_age_band');
+    await service.generate('average salary for people aged more than 45', ['EMPLOYEE']);
+    expect(body).not.toContain('age_band');
 
-    await service.generate('average salary by age', ['MANAGER']);
-    expect(body).toContain('v_compensation_by_age_band');
-  });
-
-  it('tells the generator to use v_compensation_by_age_band instead of joining v_compensation to v_employees', async () => {
-    let body = '';
-    global.fetch = jest.fn(async (_url: unknown, init: unknown) => {
-      body = String((init as { body?: unknown }).body ?? '');
-      return jsonResponse('{"sql":"SELECT 1 FROM hr_analytics.v_employees","explanation":"x"}');
-    }) as unknown as typeof fetch;
-
-    await new SqlGeneratorService(configFor(['OPENROUTER'])).generate('average salary by age', ['MANAGER']);
-
-    expect(body).toContain('v_compensation_by_age_band');
-    expect(body).toMatch(/share no employee identifier/i);
+    await service.generate('average salary for people aged more than 45', ['MANAGER']);
+    expect(body).toContain('age_band');
+    expect(body).toContain('45+');
+    expect(body).toMatch(/45 and over/i);
   });
 });

@@ -20,14 +20,20 @@ docker compose up -d
 # 3. Initialize schemas and DB roles (idempotent, safe to run again)
 psql -U postgres -d sentient -f scripts/init-schemas.sql
 
-# 4. Configure environment files (one per service — .env.example is gitignored,
-#    so create each apps/<service>/.env by hand; see "Environment Variables" below)
-touch apps/hr-core/.env apps/social/.env apps/ai-agentic/.env apps/api-gateway/.env
+# 4. Configure environment files — one per service, created by hand.
+#    .env.example is gitignored repo-wide, so there is nothing to copy;
+#    see "Environment Variables" below for what each service requires.
 
-# 5. Build all packages
+# 5. Apply migrations (creates the hr_core/social/ai_agent tables and the
+#    hr_analytics reporting views that init-schemas.sql only reserves space for)
+pnpm --filter hr-core exec prisma migrate deploy
+pnpm --filter @sentient/social exec prisma migrate deploy
+pnpm --filter @sentient/ai-agentic exec prisma migrate deploy
+
+# 6. Build all packages
 pnpm build
 
-# 6. Start all services in watch mode
+# 7. Start all services in watch mode
 pnpm dev
 ```
 
@@ -81,12 +87,21 @@ scripts/
 ## Environment Variables
 
 There is no tracked `.env.example` — env files are gitignored repo-wide and each
-service reads its own `apps/<service>/.env`. The authoritative list of variables
-per service is its `src/config/*.config.ts` (e.g. `apps/ai-agentic/src/config/ai-agentic.config.ts`),
-where every variable has a typed default; an unset variable falls back to that
-default rather than failing to boot, so a minimal `.env` (or none at all, for a
-service with no required secrets) is enough to start locally. See
-`.claude/rules/security.md` §7 for the full shared/per-service variable reference.
+service reads its own `apps/<service>/.env`. `.claude/rules/security.md` §7 lists
+the full shared and per-service set; these are the ones a service will not start
+without:
+
+| Service | Required | Notes |
+|---------|----------|-------|
+| `hr-core` | `HR_CORE_DATABASE_URL`, `JWT_SECRET` | Unset DB URL silently falls back to libpq `PG*` defaults and fails to connect |
+| `social` | `SOCIAL_DATABASE_URL` | Read with `getOrThrow` — the service throws on boot if it is missing |
+| `ai-agentic` | `AI_AGENT_DATABASE_URL` | Plus at least one LLM provider key (`GEMINI_API_KEY`, `GROQ_API_KEY`, or `OPENROUTER_API_KEY`) for anything beyond the rules classifier |
+| `api-gateway` | `JWT_SECRET` | Upstream URLs default to the local ports |
+
+Everything else is optional and defaulted. `ai-agentic` and `api-gateway` declare
+their full variable set with typed defaults in `src/config/*.config.ts`;
+`hr-core` and `social` read theirs through `ConfigService`/`process.env` at the
+point of use, so grep for `getOrThrow` and `config.get` in those two.
 
 ### Enabling the AI Analytics SQL branch (dev)
 
@@ -99,7 +114,22 @@ AI_AGENT_ANALYTICS_SQL_ENABLED=true
 AI_AGENT_INTENT_DEBUG_LOGS=true   # optional: logs supervisor routing + gate diagnostics
 ```
 
-Requires a role in `MANAGER`, `TEAM_LEAD`, `HR_ADMIN`, `GLOBAL_HR_ADMIN`,
-`EXECUTIVE` (see `apps/ai-agentic/src/modules/analytics-sql/analytics-schema-context.ts`)
-and `scripts/init-schemas.sql` to have been run so the `ai_analytics_readonly`
-role and `hr_analytics` schema exist.
+Prerequisites, all three required — the branch fails closed on any of them, and a
+missing view surfaces to the user as a generic "could not complete that query"
+rather than a setup error:
+
+1. `scripts/init-schemas.sql` has been run — creates the `ai_analytics_readonly`
+   role, the `hr_analytics` schema, and the `USAGE` grant.
+2. **HR Core migrations have been deployed** (`pnpm --filter hr-core exec prisma migrate deploy`)
+   — `init-schemas.sql` only reserves the schema; migration
+   `20260729000000_ai_analytics_views` is what creates the views themselves and
+   their per-view `SELECT` grants.
+3. The asking user holds a role in `MANAGER`, `TEAM_LEAD`, `HR_ADMIN`,
+   `GLOBAL_HR_ADMIN`, or `EXECUTIVE` (`ANALYTICS_SQL_ROLES` in
+   `apps/ai-agentic/src/modules/analytics-sql/analytics-schema-context.ts`).
+   An `EMPLOYEE` is routed to the tool-calling Analytics Agent instead.
+
+Before enabling it in any shared environment, satisfy the ship gate in
+`apps/ai-agentic/test/integration/analytics-sql-scope.integration-spec.ts` by
+running the suite with `AI_ANALYTICS_TEST_DATABASE_URL` set against a migrated,
+seeded database. It is skipped — not failed — when that variable is absent.

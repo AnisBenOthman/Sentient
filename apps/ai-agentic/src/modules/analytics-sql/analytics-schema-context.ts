@@ -113,21 +113,14 @@ export const ANALYTICS_VIEWS: readonly AnalyticsView[] = [
     name: 'v_compensation',
     description:
       'Salary rows with NO employee identifier or name — aggregate use only. Already filtered to ' +
-      'the caller\'s permitted scope.',
+      "the caller's permitted scope. age_band segments salary by age and is exactly one of " +
+      "'<30' (under 30), '30-44' (30 to 44 inclusive), '45+' (45 and over), or NULL when the " +
+      'employee has no recorded date of birth. Bands are the only age detail available, so a ' +
+      'question about employees "over 45" is answered by age_band = \'45+\' and must be reported ' +
+      'as employees aged 45 and over.',
     columns:
       'department_id, department_name, team_id, team_name, position_title, position_level, ' +
-      'contract_type, gross_salary, net_salary, business_unit_id',
-    compensation: true,
-  },
-  {
-    name: 'v_compensation_by_age_band',
-    description:
-      'Pre-aggregated salary by coarse age band — already averaged and count-suppressed (buckets ' +
-      'below 5 employees are omitted), NOT row-per-employee like v_compensation. age_band is one of ' +
-      "'<30', '30-45', '45+'. Use this directly for any \"average/median salary by age\" question; " +
-      'do not join v_compensation to v_employees to get salary by age — they share no employee ' +
-      'identifier by design.',
-    columns: 'age_band, employee_count, avg_gross_salary, avg_net_salary',
+      'contract_type, gross_salary, net_salary, business_unit_id, age_band',
     compensation: true,
   },
 ] as const;

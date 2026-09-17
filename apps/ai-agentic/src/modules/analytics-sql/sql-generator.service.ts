@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { GoogleGenAI } from '@google/genai';
 import { extractJson } from '../../common/util';
 import { AiAgenticConfig } from '../../config';
-import { ANALYTICS_SCHEMA, hasCompensationAccess, schemaPrompt } from './analytics-schema-context';
+import { ANALYTICS_SCHEMA, schemaPrompt } from './analytics-schema-context';
 
 export interface GeneratedSql {
   sql: string;
@@ -84,7 +84,14 @@ export class SqlGeneratorService {
    * and in the database grants.
    */
   private prompt(question: string, roles: readonly string[]): string {
-    const rules = [
+    return [
+      'You write a single PostgreSQL SELECT query answering an HR analytics question.',
+      'Return JSON only, no markdown.',
+      '',
+      `Readable views (schema ${ANALYTICS_SCHEMA}) — these are the ONLY readable relations:`,
+      schemaPrompt(roles),
+      '',
+      'Rules:',
       `- Always schema-qualify: ${ANALYTICS_SCHEMA}.v_employees, never v_employees.`,
       '- One statement only. No semicolons. SELECT or WITH only.',
       '- Use explicit JOIN ... ON syntax. Never comma joins.',
@@ -94,29 +101,6 @@ export class SqlGeneratorService {
       '- For "leave taken", filter status = \'APPROVED\' on v_leave_requests.',
       '- Use date arithmetic like start_date >= CURRENT_DATE - INTERVAL \'3 years\' for time windows.',
       '- Do not reference current_setting, set_config, pg_catalog, or information_schema.',
-    ];
-    // WHY conditional: these view names must never appear in the prompt for a role
-    // without compensation access — schemaPrompt() already omits the views
-    // themselves for that role, and this rule would otherwise leak their existence
-    // (and unusable names) into a prompt that is supposed to list ONLY relations
-    // the caller may reference.
-    if (hasCompensationAccess(roles)) {
-      rules.push(
-        '- For "average/median salary by age" questions, use hr_analytics.v_compensation_by_age_band ' +
-          'directly — it is already grouped by age_band with avg_gross_salary/avg_net_salary/employee_count. ' +
-          'Do not attempt to join v_compensation to v_employees to combine salary with age — they ' +
-          'intentionally share no employee identifier.',
-      );
-    }
-    return [
-      'You write a single PostgreSQL SELECT query answering an HR analytics question.',
-      'Return JSON only, no markdown.',
-      '',
-      `Readable views (schema ${ANALYTICS_SCHEMA}) — these are the ONLY readable relations:`,
-      schemaPrompt(roles),
-      '',
-      'Rules:',
-      ...rules,
       '',
       'explanation: one plain sentence describing what the query measures, for the end user.',
       'Schema: {"sql":"SELECT ...","explanation":"..."}',

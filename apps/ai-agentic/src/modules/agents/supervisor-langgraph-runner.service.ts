@@ -473,22 +473,27 @@ export class SupervisorLangGraphRunnerService {
 
   private routeAfterSupervisor(state: LangGraphState): SupervisorRoute {
     const route = this.resolveSupervisorRoute(state);
-    // WHY surface this even when it did not decide the route: an analytical
-    // question that fell through to specialistsNode because the gate was closed
-    // (flag off, wrong role, mixed turn) looks identical in every other log field
-    // to one that was never analytical at all. Without this, the only trace of
-    // "text-to-SQL was implemented but never reached" is silence.
-    const analyticsSqlGate = state.classification?.isAnalyticalQuestion
-      ? this.analyticsSqlGateDiagnostics(state.classification, state.input.actor)
-      : null;
-    this.logTrace('supervisor.route', {
-      route,
-      classifierSource: state.classification?.source ?? null,
-      requiredAgents: state.classification?.requiredAgents ?? [],
-      safetyClassification: state.safety?.classification ?? null,
-      analyticsSqlGate,
-      reason: this.routeReason(state, route),
-    });
+    // WHY the explicit guard rather than letting logTrace drop it: every argument
+    // below — the gate diagnostics and routeReason's string building — is pure
+    // work whose only consumer is the trace, and debug logs are off by default.
+    if (this.debugLogsEnabled()) {
+      // WHY report the gate even when it did not decide the route: an analytical
+      // question that fell through to specialistsNode because the gate was closed
+      // (flag off, wrong role, mixed turn) looks identical in every other field to
+      // one that was never analytical. Without this, the only trace of
+      // "text-to-SQL is built but never reached" is silence.
+      const analyticsSqlGate = state.classification?.isAnalyticalQuestion
+        ? this.analyticsSqlGateDiagnostics(state.classification, state.input.actor)
+        : null;
+      this.logTrace('supervisor.route', {
+        route,
+        classifierSource: state.classification?.source ?? null,
+        requiredAgents: state.classification?.requiredAgents ?? [],
+        safetyClassification: state.safety?.classification ?? null,
+        analyticsSqlGate,
+        reason: this.routeReason(state, route),
+      });
+    }
     return route;
   }
 
@@ -960,8 +965,10 @@ export class SupervisorLangGraphRunnerService {
    * WHY split out from shouldRouteToAnalyticsSql: routeReason() and
    * routeAfterSupervisor()'s trace log need to explain WHICH condition closed the
    * gate (flag off vs. wrong role vs. mixed operational turn), not just that it
-   * did. Computing this twice per turn (once to decide the route, once to log or
-   * explain it) is cheap and keeps the early-return boolean above simple.
+   * did. It is recomputed rather than threaded through graph state because the
+   * repeat calls only happen on an analytical turn with debug logs on — two cheap
+   * boolean checks and one array filter — and a state channel for a value that
+   * exists purely to explain a decision would outlive its usefulness.
    */
   private analyticsSqlGateDiagnostics(
     classification: SupervisorIntentClassification,
