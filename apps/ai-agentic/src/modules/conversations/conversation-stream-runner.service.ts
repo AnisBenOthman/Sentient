@@ -31,6 +31,22 @@ export class ConversationStreamRunnerService implements OnModuleInit {
 
   onModuleInit(): void {
     this.pendingTurns.onExpired((entry) => this.finalizeAbandonedTurn(entry));
+
+    /**
+     * WHY this is logged rather than left implicit: streaming now ships on by
+     * default, and it carries a deployment constraint that is invisible until
+     * it breaks — a turn is handed off in-process from the POST that resolved
+     * its routing to the GET that streams it, so a second replica without
+     * sticky sessions would fail every streamed turn.
+     */
+    const aiConfig = this.config?.get<AiAgenticConfig>('aiAgentic');
+    if (aiConfig?.streamingEnabled) {
+      this.logger.log(
+        `Token streaming enabled for ${aiConfig.streamingAgentTypes.join(', ')}. ` +
+          'Each turn must reach this same instance for both its POST and its stream GET: ' +
+          'run one replica, use sticky sessions, or set AI_AGENT_STREAMING_ENABLED=false.',
+      );
+    }
   }
 
   /**

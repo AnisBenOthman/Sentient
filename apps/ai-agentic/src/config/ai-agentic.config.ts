@@ -46,7 +46,19 @@ export interface AiAgenticConfig {
   followUpDelayHours: number;
   /** A due follow-up older than this after downtime is suppressed rather than sent late (FR-038). */
   followUpStaleAfterHours: number;
-  /** Ships false: token-by-token streaming is inert until explicitly enabled. */
+  /**
+   * Ships true. Set AI_AGENT_STREAMING_ENABLED=false to fall back to the
+   * synchronous complete-answer turn.
+   *
+   * WHY this is a deployment-relevant switch and not just a feature toggle:
+   * a streamed turn is handed off from the POST that resolves routing to the
+   * GET that streams it through an in-process PendingTurnStore, so both
+   * requests must reach the SAME ai-agentic instance. Running more than one
+   * replica behind a load balancer without sticky sessions will land the GET
+   * on an instance that holds no pending turn, and every streamed turn will
+   * be finalized as FAILED. Turn this off (or make the store shared) before
+   * scaling this service horizontally.
+   */
   streamingEnabled: boolean;
   /** Only a turn resolving to exactly one of these specialists is stream-eligible. */
   streamingAgentTypes: AgentType[];
@@ -211,7 +223,7 @@ export const aiAgenticConfig = registerAs('aiAgentic', (): AiAgenticConfig => ({
   ),
   streamingEnabled: parseBoolean(
     process.env.AI_AGENT_STREAMING_ENABLED,
-    false,
+    true,
     'AI_AGENT_STREAMING_ENABLED',
   ),
   streamingAgentTypes: parseStreamingAgentTypes(process.env.AI_AGENT_STREAMING_AGENT_TYPES),

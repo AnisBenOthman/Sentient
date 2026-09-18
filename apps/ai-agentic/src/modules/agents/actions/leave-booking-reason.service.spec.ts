@@ -95,9 +95,14 @@ function futureRange(): { text: string; startDate: string; endDate: string } {
   const start = new Date();
   start.setUTCHours(0, 0, 0, 0);
   start.setUTCDate(start.getUTCDate() + 14);
-  while (start.getUTCDay() === 0 || start.getUTCDay() === 6) start.setUTCDate(start.getUTCDate() + 1);
-  // start is a weekday; if it is Thu/Fri a +2 span crosses a weekend, so pin to Mon-Wed.
-  while (start.getUTCDay() > 3) start.setUTCDate(start.getUTCDate() + 1);
+  /**
+   * Pin to Mon-Wed in ONE loop so a +2 span never crosses a weekend. Skipping
+   * weekends first and then advancing past Thu/Fri lands back on Sat/Sun and
+   * stops there (Sunday is 0, which is not > 3), yielding a 2-business-day
+   * range — a fixture bug that only surfaced on run dates where today+14 is a
+   * Thursday or Friday.
+   */
+  while (start.getUTCDay() < 1 || start.getUTCDay() > 3) start.setUTCDate(start.getUTCDate() + 1);
   const end = new Date(start.getTime() + 2 * 86_400_000);
   const startDate = start.toISOString().slice(0, 10);
   const endDate = end.toISOString().slice(0, 10);
