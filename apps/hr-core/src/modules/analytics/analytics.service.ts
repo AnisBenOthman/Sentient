@@ -186,11 +186,14 @@ const AGE_BANDS = [
   { label: '45-54', min: 45, max: 54 },
   { label: '55+', min: 55, max: Number.POSITIVE_INFINITY },
 ];
+// Bands are whole completed years (see completedYearsBetween), so every
+// boundary is an integer and the ranges are contiguous — a value between two
+// bands is not possible, and the distribution always sums to headcount.
 const TENURE_BANDS = [
-  { label: '<1 year', min: 0, max: 0.99 },
-  { label: '1-2 years', min: 1, max: 2.99 },
-  { label: '3-5 years', min: 3, max: 5.99 },
-  { label: '6-10 years', min: 6, max: 10.99 },
+  { label: '<1 year', min: 0, max: 0 },
+  { label: '1-2 years', min: 1, max: 2 },
+  { label: '3-5 years', min: 3, max: 5 },
+  { label: '6-10 years', min: 6, max: 10 },
   { label: '10+ years', min: 11, max: Number.POSITIVE_INFINITY },
 ];
 
@@ -370,10 +373,10 @@ export class AnalyticsService {
     );
     const now = new Date();
     const ages = currentEmployees
-      .map((employee) => this.yearsBetween(employee.dateOfBirth, now))
+      .map((employee) => this.completedYearsBetween(employee.dateOfBirth, now))
       .filter((value): value is number => value !== null);
     const tenures = currentEmployees
-      .map((employee) => this.yearsBetween(employee.hireDate, now))
+      .map((employee) => this.completedYearsBetween(employee.hireDate, now))
       .filter((value): value is number => value !== null);
     const terminalCount = employees.filter((employee) => TERMINAL_STATUSES.has(employee.employmentStatus)).length;
     const terminalEmployees = employees.filter((employee) => TERMINAL_STATUSES.has(employee.employmentStatus));
@@ -822,11 +825,30 @@ export class AnalyticsService {
     return Number(value);
   }
 
-  private yearsBetween(start: Date | null, end: Date): number | null {
+  /**
+   * WHY whole completed years and not elapsed/365.25: this must agree with
+   * `hr_analytics.v_employees.age_years`, which the AI answers from. Age in HR
+   * terms is completed years — nobody is 34.7 — and the old fractional measure
+   * disagreed with the views for almost everyone, so the dashboard and the
+   * assistant gave different answers to "what is the average age".
+   *
+   * It also silently broke the band charts: AGE_BANDS are integer ranges
+   * (25-34, 35-44), so a fractional 34.5 matched neither and the employee
+   * vanished from the distribution entirely — roughly one band boundary's worth
+   * of headcount per boundary, never summing back to total.
+   *
+   * Mirrors `date_part('year', age(x::date))`: date-only comparison (so a stored
+   * time component cannot shift the result — see migration
+   * 20260918000000_fix_age_derivation_time_component) and the anniversary
+   * counts, i.e. someone is 45 on their 45th birthday, not the day after.
+   */
+  private completedYearsBetween(start: Date | null, end: Date): number | null {
     if (!start) return null;
-    const elapsed = end.getTime() - start.getTime();
-    if (elapsed < 0) return null;
-    return this.round(elapsed / (365.25 * 24 * 60 * 60 * 1000));
+    let years = end.getUTCFullYear() - start.getUTCFullYear();
+    const monthDelta = end.getUTCMonth() - start.getUTCMonth();
+    const dayDelta = end.getUTCDate() - start.getUTCDate();
+    if (monthDelta < 0 || (monthDelta === 0 && dayDelta < 0)) years -= 1;
+    return years < 0 ? null : years;
   }
 
   private average(values: number[]): number | null {

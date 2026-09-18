@@ -145,6 +145,52 @@ describeWithDb('hr_analytics scope enforcement', () => {
     expect(deleted.rowCount).toBeGreaterThanOrEqual(0);
   });
 
+  /**
+   * WHY this is pinned in two directions: `age(ts)` compares against current_date
+   * (midnight), so a "dateOfBirth"/"hireDate" carrying a time component came up
+   * short by those hours and read a year young on the exact anniversary — an
+   * employee was 44 on the morning of their 45th birthday and 45 the next day,
+   * which also moved them between age bands. The test role is SELECT-only by
+   * design, so it cannot seed a birthday-today row to check the behaviour
+   * directly. Instead: assert the idiom is correct, and assert the views use it.
+   * Either half alone would pass while the bug was live.
+   */
+  describe('age derivation is immune to a time component', () => {
+    it('counts a whole year on the anniversary even when the timestamp carries hours', async () => {
+      const [row] = await withScope(
+        client,
+        { 'sentient.scope': 'GLOBAL' },
+        `SELECT
+           date_part('year', age(((current_date - interval '45 years' + interval '18 hours')::timestamp)::date))::int AS fixed,
+           date_part('year', age((current_date - interval '45 years' + interval '18 hours')::timestamp))::int AS unfixed`,
+      );
+
+      expect(Number(row?.['fixed'])).toBe(45);
+      // The pre-fix expression, kept as a live demonstration that the cast is
+      // what does the work rather than the test asserting a tautology.
+      expect(Number(row?.['unfixed'])).toBe(44);
+    });
+
+    it.each([
+      ['v_employees', 'dateOfBirth'],
+      ['v_employees', 'hireDate'],
+      ['v_compensation', 'dateOfBirth'],
+    ])('%s casts %s to date before age()', async (view, column) => {
+      const [row] = await withScope(
+        client,
+        { 'sentient.scope': 'GLOBAL' },
+        `SELECT pg_get_viewdef('hr_analytics.${view}'::regclass) AS ddl`,
+      );
+      const ddl = String(row?.['ddl'] ?? '');
+
+      expect(ddl).toContain(column);
+      // Postgres renders the cast as age(((e."col")::date)::timestamp with time zone).
+      expect(ddl).toMatch(new RegExp(`"${column}"\\)::date`));
+      // No bare age("col") may survive anywhere in the definition.
+      expect(ddl).not.toMatch(new RegExp(`age\\(e\\."${column}"\\)`));
+    });
+  });
+
   describe('v_compensation', () => {
     it('is empty when comp_visible is not true', async () => {
       const rows = await withScope(
@@ -188,6 +234,93 @@ describeWithDb('hr_analytics scope enforcement', () => {
       );
 
       expect(scoped.every((row) => row['team_id'] === teamId)).toBe(true);
+    });
+
+    /**
+     * WHY these assert against a non-empty result rather than tolerating zero
+     * rows: age_band is the only age detail the compensation surface exposes, and
+     * the generator prompt hardcodes its literals ('<30', '30-44', '45+'). A band
+     * renamed or re-bucketed in the view produces queries that match nothing and
+     * read to the user as "nobody is over 45" — a silent wrong answer, not an
+     * error. A test that passes on an empty view cannot catch that, so each case
+     * below fails loudly when the seed cannot supply a row to check.
+     */
+    describe('age_band', () => {
+      async function compensationRows(): Promise<Array<Record<string, unknown>>> {
+        const rows = await withScope(
+          client,
+          { 'sentient.scope': 'GLOBAL', 'sentient.comp_visible': 'true' },
+          'SELECT age_band FROM hr_analytics.v_compensation',
+        );
+        if (rows.length === 0) {
+          throw new Error('Seed data must contain at least one employee with a gross salary.');
+        }
+        return rows;
+      }
+
+      it('uses only the literals the generator prompt documents', async () => {
+        const rows = await compensationRows();
+        const bands = new Set(rows.map((row) => row['age_band']).filter((band) => band !== null));
+
+        expect(bands.size).toBeGreaterThan(0);
+        for (const band of bands) {
+          expect(['<30', '30-44', '45+']).toContain(band);
+        }
+      });
+
+      /**
+       * A future WHERE clause excluding employees without a date of birth would
+       * shrink every unfiltered salary aggregate — average company salary would
+       * quietly start meaning "average salary of employees whose DOB we recorded".
+       * Banding must classify rows, never drop them.
+       */
+      it('classifies every salary row rather than dropping the ones without a date of birth', async () => {
+        const rows = await compensationRows();
+        const banded = rows.filter((row) => row['age_band'] !== null).length;
+        const unbanded = rows.filter((row) => row['age_band'] === null).length;
+
+        expect(banded + unbanded).toBe(rows.length);
+      });
+
+      it('narrows age_band rows to the scoped team, exactly as the salary columns do', async () => {
+        const all = await withScope(
+          client,
+          { 'sentient.scope': 'GLOBAL', 'sentient.comp_visible': 'true' },
+          'SELECT team_id, age_band FROM hr_analytics.v_compensation',
+        );
+        const teamId = all.find((row) => row['team_id'] !== null)?.['team_id'];
+        if (!teamId) throw new Error('Seed data must contain at least one salaried employee with a team.');
+
+        const scoped = await withScope(
+          client,
+          {
+            'sentient.scope': 'TEAM',
+            'sentient.scope_entity_id': String(teamId),
+            'sentient.comp_visible': 'true',
+          },
+          'SELECT team_id, age_band FROM hr_analytics.v_compensation',
+        );
+        const expected = all.filter((row) => row['team_id'] === teamId);
+
+        // Row-for-row equality with the GLOBAL result filtered to the same team:
+        // a view whose scope predicate was dropped would return every company row
+        // here and fail, which a bare "every row is this team" check would not.
+        expect(scoped).toHaveLength(expected.length);
+        expect(scoped.length).toBeLessThan(all.length + 1);
+        expect(scoped.every((row) => row['team_id'] === teamId)).toBe(true);
+      });
+
+      it('is withheld with the rest of the compensation surface when comp_visible is not true', async () => {
+        const visible = await compensationRows();
+        expect(visible.length).toBeGreaterThan(0);
+
+        const withheld = await withScope(
+          client,
+          { 'sentient.scope': 'GLOBAL', 'sentient.comp_visible': 'false' },
+          'SELECT age_band FROM hr_analytics.v_compensation',
+        );
+        expect(withheld).toHaveLength(0);
+      });
     });
   });
 });

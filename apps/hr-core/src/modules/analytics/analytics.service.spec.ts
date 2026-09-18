@@ -195,6 +195,76 @@ describe('AnalyticsService', () => {
     );
   });
 
+  /**
+   * WHY this is pinned: age must mean the same thing on the dashboard and in
+   * hr_analytics.v_employees.age_years, which the assistant answers from. The
+   * previous elapsed/365.25 measure produced fractional years, which disagreed
+   * with the views and — because AGE_BANDS are integer ranges — also fell
+   * between bands, dropping those employees out of the chart entirely.
+   */
+  describe('age and tenure are whole completed years', () => {
+    const NOW = new Date('2026-09-18T12:00:00.000Z');
+
+    beforeEach(() => jest.useFakeTimers().setSystemTime(NOW.getTime()));
+    afterEach(() => jest.useRealTimers());
+
+    async function analyticsFor(rows: Array<{ dateOfBirth: Date; hireDate: Date }>) {
+      mockPrisma.employee.findMany.mockResolvedValue(
+        rows.map((row, index) =>
+          employeeRow(`emp-${index}`, EmploymentStatus.ACTIVE, '1000', row),
+        ) as never,
+      );
+      return service.getDashboard({}, hrUser);
+    }
+
+    it('counts an employee whose age falls between two integer bands', async () => {
+      // Turns 35 in four months: 34.7 fractional years. Under the old measure
+      // this matched neither 25-34 (max 34) nor 35-44 (min 35) and vanished.
+      const analytics = await analyticsFor([
+        { dateOfBirth: new Date('1992-01-01T00:00:00.000Z'), hireDate: new Date('2020-01-01T00:00:00.000Z') },
+      ]);
+
+      expect(analytics.employees.ageBands.reduce((sum, band) => sum + band.value, 0)).toBe(1);
+      expect(analytics.employees.ageBands).toEqual(
+        expect.arrayContaining([{ label: '25-34', value: 1 }]),
+      );
+    });
+
+    it('counts the anniversary itself, matching age(x::date) in the views', async () => {
+      const analytics = await analyticsFor([
+        // 45 today, and 5 years of service today.
+        { dateOfBirth: new Date('1981-09-18T00:00:00.000Z'), hireDate: new Date('2021-09-18T00:00:00.000Z') },
+      ]);
+
+      expect(analytics.employees.averageAge).toBe(45);
+      expect(analytics.employees.averageTenureYears).toBe(5);
+      expect(analytics.employees.ageBands).toEqual(
+        expect.arrayContaining([{ label: '45-54', value: 1 }]),
+      );
+    });
+
+    it('ignores a stored time component, as the ::date cast does', async () => {
+      const analytics = await analyticsFor([
+        // Same birthday, 18:30 — the case that read a year young in SQL.
+        { dateOfBirth: new Date('1981-09-18T18:30:00.000Z'), hireDate: new Date('2021-09-18T18:30:00.000Z') },
+      ]);
+
+      expect(analytics.employees.averageAge).toBe(45);
+      expect(analytics.employees.averageTenureYears).toBe(5);
+    });
+
+    it('never drops an employee from the tenure distribution', async () => {
+      const analytics = await analyticsFor([
+        { dateOfBirth: new Date('1990-01-01T00:00:00.000Z'), hireDate: new Date('2026-03-01T00:00:00.000Z') }, // 0 yrs
+        { dateOfBirth: new Date('1990-01-01T00:00:00.000Z'), hireDate: new Date('2023-09-18T00:00:00.000Z') }, // 3 yrs
+        { dateOfBirth: new Date('1990-01-01T00:00:00.000Z'), hireDate: new Date('2016-09-18T00:00:00.000Z') }, // 10 yrs
+        { dateOfBirth: new Date('1990-01-01T00:00:00.000Z'), hireDate: new Date('2010-01-01T00:00:00.000Z') }, // 16 yrs
+      ]);
+
+      expect(analytics.employees.tenureBands.reduce((sum, band) => sum + band.value, 0)).toBe(4);
+    });
+  });
+
   it('builds attrition slices by marital status and job', async () => {
     mockPrisma.employee.findMany.mockResolvedValue([
       {

@@ -231,13 +231,27 @@ export class SupervisorLangGraphRunnerService {
 
   private routeAfterSupervisor(state: LangGraphState): SupervisorRoute {
     const route = this.gate.resolveRoute(state);
-    this.logTrace('supervisor.route', {
-      route,
-      classifierSource: state.classification?.source ?? null,
-      requiredAgents: state.classification?.requiredAgents ?? [],
-      safetyClassification: state.safety?.classification ?? null,
-      reason: this.gate.routeReason(state, route),
-    });
+    // WHY the explicit guard rather than letting logTrace drop it: every argument
+    // below — the gate diagnostics and routeReason's string building — is pure
+    // work whose only consumer is the trace, and debug logs are off by default.
+    if (this.debugLogsEnabled()) {
+      // WHY report the gate even when it did not decide the route: an analytical
+      // question that fell through to specialistsNode because the gate was closed
+      // (flag off, wrong role, mixed turn) looks identical in every other field to
+      // one that was never analytical. Without this, the only trace of
+      // "text-to-SQL is built but never reached" is silence.
+      const analyticsSqlGate = state.classification?.isAnalyticalQuestion
+        ? this.gate.analyticsSqlGateDiagnostics(state.classification, state.input.actor)
+        : null;
+      this.logTrace('supervisor.route', {
+        route,
+        classifierSource: state.classification?.source ?? null,
+        requiredAgents: state.classification?.requiredAgents ?? [],
+        safetyClassification: state.safety?.classification ?? null,
+        analyticsSqlGate,
+        reason: this.gate.routeReason(state, route),
+      });
+    }
     return route;
   }
 
