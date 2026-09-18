@@ -145,6 +145,52 @@ describeWithDb('hr_analytics scope enforcement', () => {
     expect(deleted.rowCount).toBeGreaterThanOrEqual(0);
   });
 
+  /**
+   * WHY this is pinned in two directions: `age(ts)` compares against current_date
+   * (midnight), so a "dateOfBirth"/"hireDate" carrying a time component came up
+   * short by those hours and read a year young on the exact anniversary — an
+   * employee was 44 on the morning of their 45th birthday and 45 the next day,
+   * which also moved them between age bands. The test role is SELECT-only by
+   * design, so it cannot seed a birthday-today row to check the behaviour
+   * directly. Instead: assert the idiom is correct, and assert the views use it.
+   * Either half alone would pass while the bug was live.
+   */
+  describe('age derivation is immune to a time component', () => {
+    it('counts a whole year on the anniversary even when the timestamp carries hours', async () => {
+      const [row] = await withScope(
+        client,
+        { 'sentient.scope': 'GLOBAL' },
+        `SELECT
+           date_part('year', age(((current_date - interval '45 years' + interval '18 hours')::timestamp)::date))::int AS fixed,
+           date_part('year', age((current_date - interval '45 years' + interval '18 hours')::timestamp))::int AS unfixed`,
+      );
+
+      expect(Number(row?.['fixed'])).toBe(45);
+      // The pre-fix expression, kept as a live demonstration that the cast is
+      // what does the work rather than the test asserting a tautology.
+      expect(Number(row?.['unfixed'])).toBe(44);
+    });
+
+    it.each([
+      ['v_employees', 'dateOfBirth'],
+      ['v_employees', 'hireDate'],
+      ['v_compensation', 'dateOfBirth'],
+    ])('%s casts %s to date before age()', async (view, column) => {
+      const [row] = await withScope(
+        client,
+        { 'sentient.scope': 'GLOBAL' },
+        `SELECT pg_get_viewdef('hr_analytics.${view}'::regclass) AS ddl`,
+      );
+      const ddl = String(row?.['ddl'] ?? '');
+
+      expect(ddl).toContain(column);
+      // Postgres renders the cast as age(((e."col")::date)::timestamp with time zone).
+      expect(ddl).toMatch(new RegExp(`"${column}"\\)::date`));
+      // No bare age("col") may survive anywhere in the definition.
+      expect(ddl).not.toMatch(new RegExp(`age\\(e\\."${column}"\\)`));
+    });
+  });
+
   describe('v_compensation', () => {
     it('is empty when comp_visible is not true', async () => {
       const rows = await withScope(
