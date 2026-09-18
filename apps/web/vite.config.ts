@@ -67,5 +67,18 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    commonjsOptions: {
+      /**
+       * WHY the workspace package has to be named explicitly: Vite's default is
+       * `include: [/node_modules/]`, matched against the RESOLVED path. pnpm
+       * links `@sentient/shared` to `packages/shared`, which lives outside
+       * node_modules, so the CJS-to-ESM transform skipped it entirely and
+       * Rollup saw raw `__exportStar` calls it cannot trace. Every runtime value
+       * from the package (enums, in practice) then failed to link with
+       * "X is not exported by packages/shared/dist/index.js" -- at build time
+       * only, since the dev server pre-bundles the package with esbuild instead.
+       */
+      include: [/node_modules/, /packages[\\/]shared/],
+    },
   },
 });
