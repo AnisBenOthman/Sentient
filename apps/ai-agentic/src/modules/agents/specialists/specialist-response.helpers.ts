@@ -1,7 +1,7 @@
 import { AgentRunStatus, AgentType, PermissionDecision } from '../../../generated/prisma';
 import { SpecialistInput, SpecialistResult } from '../../../common/graph';
 import { DownstreamResult, DownstreamSummary } from '../../../common/clients';
-import { GeminiToolCallOutcome } from '../tools';
+import { GeminiToolCallOutcome, LlmUnavailable, llmOutageNotice, llmUnavailableMessage, llmUnavailableSummary } from '../tools';
 
 export function deterministicResult(
   input: SpecialistInput,
@@ -115,5 +115,52 @@ export function toolCallerResult(
     draftLabel: input.isDraftRequest ? meta.draftLabel : undefined,
     tokensIn: outcome.tokensIn,
     tokensOut: outcome.tokensOut,
+  };
+}
+
+/**
+ * Applies an honest LLM-outage banner to a deterministic result produced while
+ * every configured provider was down.
+ *
+ * WHY the deterministic answer is kept rather than discarded: a leave balance or
+ * an OKR list read straight from HR Core is genuinely useful without a model in
+ * front of it. WHY it can never stay SUCCESS: it is a strictly reduced answer,
+ * and the whole point of the honest status taxonomy is that a degraded turn is
+ * recorded and displayed as degraded. Reporting an outage as SUCCESS is exactly
+ * the silent failure this helper exists to prevent.
+ *
+ * A status that is already worse than DEGRADED (REFUSED, FAILED) is left alone —
+ * the outage does not make a refusal less of a refusal.
+ */
+export function withLlmOutageNotice(result: SpecialistResult, failure: LlmUnavailable): SpecialistResult {
+  return {
+    ...result,
+    status: result.status === AgentRunStatus.SUCCESS ? AgentRunStatus.DEGRADED : result.status,
+    summary: `${result.summary} ${llmUnavailableSummary(failure)}`,
+    userVisibleContent: `${llmOutageNotice(failure)}\n\n${result.userVisibleContent}`,
+  };
+}
+
+/**
+ * The result for a turn where the LLM was down AND there was no deterministic
+ * answer worth serving. States what happened, what to do next, and — because
+ * this assistant can propose leave bookings — that nothing was submitted.
+ *
+ * WHY DEGRADED rather than FAILED: the turn completed and produced a truthful,
+ * actionable response; the agent pipeline did not crash. FAILED is reserved for
+ * a turn that threw, which the conversation layer already handles separately
+ * with TURN_FAILURE_MESSAGE.
+ */
+export function llmUnavailableResult(
+  agentType: AgentType,
+  failure: LlmUnavailable,
+): SpecialistResult {
+  return {
+    agentType,
+    status: AgentRunStatus.DEGRADED,
+    summary: llmUnavailableSummary(failure),
+    userVisibleContent: llmUnavailableMessage(failure),
+    sourceContext: [],
+    permissionDecision: PermissionDecision.UNAVAILABLE,
   };
 }

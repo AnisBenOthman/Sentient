@@ -7,10 +7,11 @@ import {
   DRAFT_MODE_DIRECTIVE,
   FEW_SHOT_OKR_EXAMPLES,
   LlmFallbackOrchestratorService,
+  LlmUnavailable,
   SENTIENT_IDENTITY,
   ToolRegistryService,
 } from '../tools';
-import { downstreamResult, toolCallerResult } from './specialist-response.helpers';
+import { downstreamResult, toolCallerResult, withLlmOutageNotice } from './specialist-response.helpers';
 
 const AT_RISK_STATUSES = new Set(['AT_RISK', 'BEHIND', 'BLOCKED', 'CANCELLED']);
 const MAX_LISTED_OBJECTIVES = 3;
@@ -37,20 +38,27 @@ export class OkrAgentService implements SpecialistAgent {
       correlationId: input.actorContext.correlationId,
     };
 
+    /**
+     * Holds the classified cause when every configured LLM provider is down, so
+     * the deterministic answer below can say so instead of passing itself off as
+     * a normal, complete answer.
+     */
+    let llmFailure: LlmUnavailable | null = null;
+
     if (this.llmCaller && this.toolRegistry) {
       const tools = this.toolRegistry.getOkrTools(reqContext, input.actorContext.userId);
       const systemPrompt = input.isDraftRequest
         ? `${OKR_SYSTEM_PROMPT}\n\n${DRAFT_MODE_DIRECTIVE}`
         : OKR_SYSTEM_PROMPT;
-      const outcome = await this.llmCaller.call(
+      const result = await this.llmCaller.call(
         systemPrompt,
         input.userMessage,
         tools,
         input.conversationContext.recentMessages,
         { thinkingLevel: 'medium' },
       );
-      if (outcome) {
-        return toolCallerResult(input, this.agentType, outcome, {
+      if (result.ok) {
+        return toolCallerResult(input, this.agentType, result.outcome, {
           sourceType: 'OKR',
           title: 'OKR context',
           referencePrefix: 'okr',
@@ -60,15 +68,17 @@ export class OkrAgentService implements SpecialistAgent {
           draftLabel: 'OKR draft',
         });
       }
+      llmFailure = result.failure;
     }
 
     const context = await this.hrCore.getOkrContext(input.actorContext.userId, reqContext);
     const content = input.isDraftRequest
       ? 'Draft OKR: Objective - improve a focused Sentient work outcome this quarter. Key results - define one measurable quality metric, one delivery metric, and one stakeholder-feedback metric before submitting in OKRs.'
       : this.describeOkrContext(context.data);
-    return downstreamResult(input, this.agentType, context, 'OKR guidance prepared.', content, {
+    const deterministic = downstreamResult(input, this.agentType, context, 'OKR guidance prepared.', content, {
       draftLabel: 'OKR draft',
     });
+    return llmFailure ? withLlmOutageNotice(deterministic, llmFailure) : deterministic;
   }
 
   /**

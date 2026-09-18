@@ -8,6 +8,7 @@ import {
   GeminiFunctionDeclaration,
   GeminiToolCallOutcome,
 } from './agent-tool.types';
+import { LlmCallResult, LlmFailureSink } from './llm-failure';
 import { LlmToolCallerAdapter } from './llm-tool-caller.interface';
 import { readSseDataLines } from './sse-line-reader.util';
 
@@ -102,9 +103,16 @@ export class OpenAiCompatibleToolCallerService implements LlmToolCallerAdapter {
     tools: AgentTool[],
     history: ConversationHistoryMessage[] = [],
     _options: GeminiCallOptions = {},
-  ): Promise<GeminiToolCallOutcome | null> {
+  ): Promise<LlmCallResult> {
+    const sink = new LlmFailureSink(this.providerName);
     const settings = this.resolveSettings();
-    if (!settings || tools.length === 0) return null;
+    if (!settings || tools.length === 0) {
+      sink.record(
+        settings ? 'PROVIDER_ERROR' : 'NOT_CONFIGURED',
+        settings ? 'No tools were supplied for this call.' : `${this.providerName} has no API key configured.`,
+      );
+      return { ok: false, failure: sink.result() };
+    }
 
     const toolMap = new Map(tools.map((t) => [t.declaration.name, t]));
     const toolDefs = tools.map((t) => toOpenAiToolDef(t.declaration));
@@ -138,8 +146,8 @@ export class OpenAiCompatibleToolCallerService implements LlmToolCallerAdapter {
          * instead of answering from nothing.
          */
         const toolChoice = round === 0 ? 'required' : 'auto';
-        const raw = await this.fetchChatCompletion(settings, messages, toolDefs, controller.signal, toolChoice);
-        if (!raw) return null;
+        const raw = await this.fetchChatCompletion(settings, messages, toolDefs, controller.signal, toolChoice, sink);
+        if (!raw) return { ok: false, failure: sink.result() };
 
         recordUsage(raw);
         const message = raw.choices?.[0]?.message;
@@ -159,20 +167,32 @@ export class OpenAiCompatibleToolCallerService implements LlmToolCallerAdapter {
         }
 
         const answer = message?.content?.trim();
-        if (answer) return { answer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() };
-        return null;
+        if (answer) {
+          return {
+            ok: true,
+            outcome: { answer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() },
+          };
+        }
+        sink.record('EMPTY_RESPONSE', `${this.providerName} returned a round with neither tool calls nor text.`);
+        return { ok: false, failure: sink.result() };
       }
 
       /** WHY: mirrors Gemini's final forced-synthesis round — never discard gathered tool results. */
-      const final = await this.fetchChatCompletion(settings, messages, toolDefs, controller.signal, 'none');
+      const final = await this.fetchChatCompletion(settings, messages, toolDefs, controller.signal, 'none', sink);
       if (final) recordUsage(final);
       const finalAnswer = final?.choices?.[0]?.message?.content?.trim();
-      return finalAnswer
-        ? { answer: finalAnswer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() }
-        : null;
+      if (finalAnswer) {
+        return {
+          ok: true,
+          outcome: { answer: finalAnswer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() },
+        };
+      }
+      if (final) sink.record('EMPTY_RESPONSE', `${this.providerName} produced no text in the final synthesis round.`);
+      return { ok: false, failure: sink.result() };
     } catch (err: unknown) {
+      sink.recordThrown(err);
       this.logger.warn(`${this.providerName} tool call failed: ${err instanceof Error ? err.message : 'unknown'}`);
-      return null;
+      return { ok: false, failure: sink.result() };
     } finally {
       clearTimeout(timer);
     }
@@ -193,9 +213,16 @@ export class OpenAiCompatibleToolCallerService implements LlmToolCallerAdapter {
     _options: GeminiCallOptions = {},
     onToken: (delta: string) => void,
     signal?: AbortSignal,
-  ): Promise<GeminiToolCallOutcome | null> {
+  ): Promise<LlmCallResult> {
+    const sink = new LlmFailureSink(this.providerName);
     const settings = this.resolveSettings();
-    if (!settings || tools.length === 0) return null;
+    if (!settings || tools.length === 0) {
+      sink.record(
+        settings ? 'PROVIDER_ERROR' : 'NOT_CONFIGURED',
+        settings ? 'No tools were supplied for this call.' : `${this.providerName} has no API key configured.`,
+      );
+      return { ok: false, failure: sink.result() };
+    }
 
     const toolMap = new Map(tools.map((t) => [t.declaration.name, t]));
     const toolDefs = tools.map((t) => toOpenAiToolDef(t.declaration));
@@ -226,8 +253,8 @@ export class OpenAiCompatibleToolCallerService implements LlmToolCallerAdapter {
     try {
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
         const toolChoice = round === 0 ? 'required' : 'auto';
-        const outcome = await this.streamChatCompletion(settings, messages, toolDefs, controller.signal, toolChoice, onToken, recordUsage);
-        if (outcome === null) return null;
+        const outcome = await this.streamChatCompletion(settings, messages, toolDefs, controller.signal, toolChoice, onToken, recordUsage, sink);
+        if (outcome === null) return { ok: false, failure: sink.result() };
 
         if (outcome.kind === 'toolCalls') {
           messages.push({ role: 'assistant', content: outcome.content, tool_calls: outcome.toolCalls });
@@ -242,17 +269,30 @@ export class OpenAiCompatibleToolCallerService implements LlmToolCallerAdapter {
           continue;
         }
 
-        if (!outcome.answer) return null;
-        return { answer: outcome.answer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() };
+        if (!outcome.answer) {
+          sink.record('EMPTY_RESPONSE', `${this.providerName} streamed a final round with no text.`);
+          return { ok: false, failure: sink.result() };
+        }
+        return {
+          ok: true,
+          outcome: { answer: outcome.answer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() },
+        };
       }
 
       /** WHY mode 'none' guarantees a text-only round: safe to stream unconditionally. */
-      const final = await this.streamChatCompletion(settings, messages, toolDefs, controller.signal, 'none', onToken, recordUsage);
-      if (final === null || final.kind !== 'answer' || !final.answer) return null;
-      return { answer: final.answer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() };
+      const final = await this.streamChatCompletion(settings, messages, toolDefs, controller.signal, 'none', onToken, recordUsage, sink);
+      if (final === null || final.kind !== 'answer' || !final.answer) {
+        if (final !== null) sink.record('EMPTY_RESPONSE', `${this.providerName} streamed no text in the final synthesis round.`);
+        return { ok: false, failure: sink.result() };
+      }
+      return {
+        ok: true,
+        outcome: { answer: final.answer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() },
+      };
     } catch (err: unknown) {
+      sink.recordThrown(err);
       this.logger.warn(`${this.providerName} streaming tool call failed: ${err instanceof Error ? err.message : 'unknown'}`);
-      return null;
+      return { ok: false, failure: sink.result() };
     } finally {
       clearTimeout(timer);
     }
@@ -274,6 +314,7 @@ export class OpenAiCompatibleToolCallerService implements LlmToolCallerAdapter {
     toolChoice: 'required' | 'auto' | 'none',
     onToken: (delta: string) => void,
     recordUsage: (raw?: { prompt_tokens?: number; completion_tokens?: number }) => void,
+    sink: LlmFailureSink,
   ): Promise<
     | { kind: 'toolCalls'; content: string | null; toolCalls: OpenAiToolCall[] }
     | { kind: 'answer'; answer: string | null }
@@ -290,12 +331,15 @@ export class OpenAiCompatibleToolCallerService implements LlmToolCallerAdapter {
         signal,
         body: requestBody,
       });
-    } catch {
+    } catch (err: unknown) {
+      sink.recordThrown(err);
       return null;
     }
 
     if (!resp.ok || !resp.body) {
-      this.logger.warn(`${this.providerName} streaming API returned ${resp.status}: ${await safeReadBody(resp)}`);
+      const body = await safeReadBody(resp);
+      sink.recordHttp(resp.status, body);
+      this.logger.warn(`${this.providerName} streaming API returned ${resp.status}: ${body}`);
       return null;
     }
 
@@ -408,6 +452,7 @@ export class OpenAiCompatibleToolCallerService implements LlmToolCallerAdapter {
     tools: unknown[],
     signal: AbortSignal,
     toolChoice: 'required' | 'auto' | 'none',
+    sink: LlmFailureSink,
   ): Promise<OpenAiChatResponse | null> {
     const url = `${settings.apiUrl}/chat/completions`;
     const requestBody = JSON.stringify({ model: settings.model, messages, tools, tool_choice: toolChoice });
@@ -423,11 +468,17 @@ export class OpenAiCompatibleToolCallerService implements LlmToolCallerAdapter {
       /** WHY: mirrors GeminiToolCallerService's single 429 retry-after-backoff. */
       if (resp.status === 429) {
         await new Promise((resolve) => setTimeout(resolve, 1_500));
-        if (signal.aborted) return null;
+        if (signal.aborted) {
+          sink.record('TIMEOUT', `${this.providerName} request was aborted while backing off from a 429.`);
+          return null;
+        }
         const retry = await fetch(url, { ...fetchOptions, body: requestBody });
         if (!retry.ok) {
+          const retryBody = await safeReadBody(retry);
+          /** WHY the original 429 wins when the retry is also throttled: "try again shortly" is the honest advice. */
+          sink.recordHttp(retry.status === 429 ? 429 : retry.status, `after 429 retry: ${retryBody}`);
           this.logger.warn(
-            `${this.providerName} API returned ${retry.status} (after 429 retry): ${await safeReadBody(retry)}`,
+            `${this.providerName} API returned ${retry.status} (after 429 retry): ${retryBody}`,
           );
           return null;
         }
@@ -439,11 +490,14 @@ export class OpenAiCompatibleToolCallerService implements LlmToolCallerAdapter {
          * can be tool-schema rejection, model incompatibility with tool_choice,
          * or context overflow). The truncated body names the actual reason.
          */
-        this.logger.warn(`${this.providerName} API returned ${resp.status}: ${await safeReadBody(resp)}`);
+        const body = await safeReadBody(resp);
+        sink.recordHttp(resp.status, body);
+        this.logger.warn(`${this.providerName} API returned ${resp.status}: ${body}`);
         return null;
       }
       return (await resp.json()) as OpenAiChatResponse;
-    } catch {
+    } catch (err: unknown) {
+      sink.recordThrown(err);
       return null;
     }
   }

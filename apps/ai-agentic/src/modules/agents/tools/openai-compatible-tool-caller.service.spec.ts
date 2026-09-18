@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
-import { AgentTool } from './agent-tool.types';
+import { AgentTool, GeminiToolCallOutcome } from './agent-tool.types';
+import { LlmCallResult } from './llm-failure';
 import { OpenAiCompatibleToolCallerService } from './openai-compatible-tool-caller.service';
 
 function buildConfig(overrides: Record<string, unknown> = {}): ConfigService {
@@ -55,12 +56,15 @@ function simpleTool(name: string, run: (args: Record<string, unknown>) => Promis
 }
 
 describe('OpenAiCompatibleToolCallerService', () => {
-  it('returns null when the provider is not configured (no API key)', async () => {
+  it('reports NOT_CONFIGURED when the provider has no API key', async () => {
     const service = new OpenAiCompatibleToolCallerService(buildConfig(), 'GROK');
 
-    const outcome = await service.call('prompt', 'question', [simpleTool('t', async () => ({}))]);
+    const result = await service.call('prompt', 'question', [simpleTool('t', async () => ({}))]);
 
-    expect(outcome).toBe(null);
+    expect(result).toEqual({
+      ok: false,
+      failure: { provider: 'GROK', reason: 'NOT_CONFIGURED', detail: expect.any(String) },
+    });
     expect(service.isConfigured()).toBe(false);
   });
 
@@ -71,9 +75,9 @@ describe('OpenAiCompatibleToolCallerService', () => {
 
     try {
       expect(service.isConfigured()).toBe(true);
-      const outcome = await service.call('prompt', 'question', [simpleTool('t', async () => ({}))]);
-      expect(outcome?.providerUsed).toBe('OPENROUTER');
-      expect(outcome?.answer).toBe('Hello from OpenRouter.');
+      const result = await service.call('prompt', 'question', [simpleTool('t', async () => ({}))]);
+      expect(expectOk(result).providerUsed).toBe('OPENROUTER');
+      expect(expectOk(result).answer).toBe('Hello from OpenRouter.');
     } finally {
       global.fetch = originalFetch;
     }
@@ -92,12 +96,12 @@ describe('OpenAiCompatibleToolCallerService', () => {
 
     try {
       expect(service.isConfigured()).toBe(true);
-      const outcome = await service.call('prompt', 'question', [simpleTool('t', async () => ({}))]);
+      const result = await service.call('prompt', 'question', [simpleTool('t', async () => ({}))]);
 
       expect(capturedUrl).toBe('https://api.groq.com/openai/v1/chat/completions');
       expect(capturedRequests[0]?.model).toBe('llama-3.1-8b-instant');
-      expect(outcome?.providerUsed).toBe('GROQ');
-      expect(outcome?.answer).toBe('Hello from Groq.');
+      expect(expectOk(result).providerUsed).toBe('GROQ');
+      expect(expectOk(result).answer).toBe('Hello from Groq.');
     } finally {
       global.fetch = originalFetch;
     }
@@ -119,15 +123,15 @@ describe('OpenAiCompatibleToolCallerService', () => {
     const service = new OpenAiCompatibleToolCallerService(buildConfig(), 'OPENROUTER');
 
     try {
-      const outcome = await service.call('System prompt.', 'How many days?', [
+      const result = await service.call('System prompt.', 'How many days?', [
         simpleTool('get_my_leave_balance', async () => {
           balanceRuns += 1;
           return { remaining: 12 };
         }),
       ]);
 
-      expect(outcome?.answer).toBe('You have 12 days left.');
-      expect(outcome?.toolsUsed).toEqual(['get_my_leave_balance']);
+      expect(expectOk(result).answer).toBe('You have 12 days left.');
+      expect(expectOk(result).toolsUsed).toEqual(['get_my_leave_balance']);
       expect(balanceRuns).toBe(1);
 
       const second = requests[1];
@@ -155,12 +159,12 @@ describe('OpenAiCompatibleToolCallerService', () => {
     const service = new OpenAiCompatibleToolCallerService(buildConfig(), 'OPENROUTER');
 
     try {
-      const outcome = await service.call('prompt', 'question', [
+      const result = await service.call('prompt', 'question', [
         simpleTool('get_team_leave_calendar', async () => ({ denied: true, reason: 'No team scope.' })),
       ]);
 
-      expect(outcome?.anyToolDenied).toBe(true);
-      expect(outcome?.anyToolFailed).toBe(false);
+      expect(expectOk(result).anyToolDenied).toBe(true);
+      expect(expectOk(result).anyToolFailed).toBe(false);
     } finally {
       global.fetch = originalFetch;
     }
@@ -181,11 +185,11 @@ describe('OpenAiCompatibleToolCallerService', () => {
     const service = new OpenAiCompatibleToolCallerService(buildConfig(), 'OPENROUTER');
 
     try {
-      const outcome = await service.call('prompt', 'question', [
+      const result = await service.call('prompt', 'question', [
         simpleTool('get_my_leave_balance', async () => ({ remaining: 12 })),
       ]);
 
-      expect(outcome?.answer).toBe('Final synthesis from gathered results.');
+      expect(expectOk(result).answer).toBe('Final synthesis from gathered results.');
       expect(fetchCount).toBe(6);
       expect(requests[5]?.tool_choice).toBe('none');
     } finally {
@@ -199,16 +203,22 @@ describe('OpenAiCompatibleToolCallerService', () => {
     const service = new OpenAiCompatibleToolCallerService(buildConfig(), 'OPENROUTER');
 
     try {
-      const outcome = await service.call(
+      const result = await service.call(
         'prompt',
         'question',
         [simpleTool('t', async () => ({}))],
         [],
         { enableSearch: true, thinkingLevel: 'high' },
       );
-      expect(outcome?.answer).toBe('Answer without grounding.');
+      expect(expectOk(result).answer).toBe('Answer without grounding.');
     } finally {
       global.fetch = originalFetch;
     }
   });
 });
+
+/** Narrows a successful call result so assertions can read the outcome fields directly. */
+function expectOk(result: LlmCallResult): GeminiToolCallOutcome {
+  if (!result.ok) throw new Error(`Expected a successful LLM call, got ${result.failure.reason}`);
+  return result.outcome;
+}

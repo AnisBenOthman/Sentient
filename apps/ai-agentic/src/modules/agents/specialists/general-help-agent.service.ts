@@ -7,10 +7,11 @@ import {
   CONVERSATIONAL_STYLE,
   DRAFT_MODE_DIRECTIVE,
   LlmFallbackOrchestratorService,
+  LlmUnavailable,
   SENTIENT_IDENTITY,
   ToolRegistryService,
 } from '../tools';
-import { toolCallerResult } from './specialist-response.helpers';
+import { toolCallerResult, withLlmOutageNotice } from './specialist-response.helpers';
 
 const GENERAL_HELP_SYSTEM_PROMPT = `${SENTIENT_IDENTITY}
 
@@ -48,12 +49,19 @@ export class GeneralHelpAgentService implements SpecialistAgent {
       correlationId: input.actorContext.correlationId,
     };
 
+    /**
+     * Holds the classified cause when every configured LLM provider is down, so
+     * the deterministic answer below can say so instead of passing itself off as
+     * a normal, complete answer.
+     */
+    let llmFailure: LlmUnavailable | null = null;
+
     if (this.llmCaller && this.toolRegistry) {
       const tools = this.toolRegistry.getGeneralHelpTools(reqContext);
       const systemPrompt = input.isDraftRequest
         ? `${GENERAL_HELP_SYSTEM_PROMPT}\n\n${DRAFT_MODE_DIRECTIVE}`
         : GENERAL_HELP_SYSTEM_PROMPT;
-      const outcome = onToken
+      const result = onToken
         ? await this.llmCaller.callStream(
             systemPrompt,
             input.userMessage,
@@ -69,8 +77,8 @@ export class GeneralHelpAgentService implements SpecialistAgent {
             input.conversationContext.recentMessages,
             { enableSearch: true },
           );
-      if (outcome) {
-        return toolCallerResult(input, this.agentType, outcome, {
+      if (result.ok) {
+        return toolCallerResult(input, this.agentType, result.outcome, {
           sourceType: 'POLICY',
           title: 'Policy knowledge',
           referencePrefix: 'policy',
@@ -80,6 +88,7 @@ export class GeneralHelpAgentService implements SpecialistAgent {
           draftLabel: 'Policy or announcement draft',
         });
       }
+      llmFailure = result.failure;
     }
 
     const [matches, policyContext] = await Promise.all([
@@ -94,7 +103,7 @@ export class GeneralHelpAgentService implements SpecialistAgent {
     const content = input.isDraftRequest
       ? `Draft ${draftType}: ${sourceText} Review the final wording with People team before publishing or relying on it as official policy.`
       : sourceText;
-    return {
+    const deterministic: SpecialistResult = {
       agentType: this.agentType,
       status: policyContext.permissionDecision === PermissionDecision.ALLOWED ? AgentRunStatus.SUCCESS : AgentRunStatus.DEGRADED,
       summary: policyContext.permissionDecision === PermissionDecision.ALLOWED
@@ -118,6 +127,8 @@ export class GeneralHelpAgentService implements SpecialistAgent {
       permissionDecision: policyContext.permissionDecision,
       draftLabel: input.isDraftRequest ? 'Policy or announcement draft' : undefined,
     };
+
+    return llmFailure ? withLlmOutageNotice(deterministic, llmFailure) : deterministic;
   }
 
 }
