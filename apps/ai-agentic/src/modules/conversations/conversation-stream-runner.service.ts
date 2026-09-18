@@ -1,4 +1,4 @@
-import { Injectable, Logger, MessageEvent } from '@nestjs/common';
+import { Injectable, Logger, MessageEvent, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Observable } from 'rxjs';
 import { AgentNodeType, AgentRunStatus, AgentType, PermissionDecision } from '../../generated/prisma';
@@ -15,7 +15,7 @@ import { ConversationsService, TURN_FAILURE_MESSAGE } from './conversations.serv
 import { PendingTurnEntry, PendingTurnStore } from './pending-turn.store';
 
 @Injectable()
-export class ConversationStreamRunnerService {
+export class ConversationStreamRunnerService implements OnModuleInit {
   private readonly logger = new Logger(ConversationStreamRunnerService.name);
 
   constructor(
@@ -28,6 +28,23 @@ export class ConversationStreamRunnerService {
     private readonly conversations: ConversationsService,
     private readonly config?: ConfigService,
   ) {}
+
+  onModuleInit(): void {
+    this.pendingTurns.onExpired((entry) => this.finalizeAbandonedTurn(entry));
+  }
+
+  /**
+   * A streaming turn whose stream is never successfully claimed — the tab closed
+   * between the POST and the GET, the connection dropped, or a claim was rejected
+   * by the ownership/TTL guards (which consume the entry to close the replay
+   * window). The user's message is already persisted, so leaving it there with no
+   * reply and an AgentTaskLog stuck on RUNNING is the one outcome this path must
+   * not produce: finalize it exactly like a synchronous turn that failed.
+   */
+  private async finalizeAbandonedTurn(entry: PendingTurnEntry): Promise<void> {
+    this.logger.warn(`Finalizing abandoned streaming turn ${entry.turnId} for conversation ${entry.conversationId}.`);
+    await this.recoverFromFailure(entry, { next: () => undefined }, new Error('Streaming turn was never claimed'));
+  }
 
   run(conversationId: string, turnId: string, ownerUserId: string): Observable<MessageEvent> {
     return new Observable<MessageEvent>((subscriber) => {

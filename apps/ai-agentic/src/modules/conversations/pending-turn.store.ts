@@ -24,6 +24,13 @@ export interface PendingTurnEntry {
 const SWEEP_INTERVAL_MS = 30_000;
 
 /**
+ * Notified with an entry the sweeper dropped because it was never claimed.
+ * WHY a callback rather than the store persisting anything itself: the store
+ * stays a dependency-free map; the runner owns what an abandoned turn means.
+ */
+export type PendingTurnExpiryHandler = (entry: PendingTurnEntry) => Promise<void>;
+
+/**
  * WHY in-memory rather than DB-backed: a pending turn is short-lived (claimed
  * within seconds, TTL-bounded at a couple of minutes at most) and exists purely
  * to hand off from the POST that resolved routing to the GET that streams the
@@ -35,10 +42,16 @@ const SWEEP_INTERVAL_MS = 30_000;
 export class PendingTurnStore implements OnModuleDestroy {
   private readonly entries = new Map<string, PendingTurnEntry>();
   private readonly sweeper: ReturnType<typeof setInterval>;
+  private expiryHandler: PendingTurnExpiryHandler | null = null;
 
   constructor(private readonly config?: ConfigService) {
     this.sweeper = setInterval(() => this.sweepExpired(), SWEEP_INTERVAL_MS);
     this.sweeper.unref?.();
+  }
+
+  /** Registered by ConversationStreamRunnerService so an abandoned turn still gets an honest outcome. */
+  onExpired(handler: PendingTurnExpiryHandler): void {
+    this.expiryHandler = handler;
   }
 
   put(entry: PendingTurnEntry): void {
@@ -58,8 +71,17 @@ export class PendingTurnStore implements OnModuleDestroy {
     this.entries.delete(turnId);
 
     const ttlMs = this.config?.get<AiAgenticConfig>('aiAgentic')?.streamingTurnTtlMs ?? 120_000;
-    if (Date.now() - entry.createdAt > ttlMs) return null;
-    if (entry.conversationId !== conversationId || entry.ownerUserId !== ownerUserId) return null;
+    const expired = Date.now() - entry.createdAt > ttlMs;
+    const mismatched = entry.conversationId !== conversationId || entry.ownerUserId !== ownerUserId;
+    if (expired || mismatched) {
+      /**
+       * The entry is consumed either way (that is what closes the replay
+       * window), so the rightful owner can never claim it now — the turn is
+       * abandoned and must still be finalized rather than left dangling.
+       */
+      void this.expiryHandler?.(entry);
+      return null;
+    }
 
     return entry;
   }
@@ -68,11 +90,21 @@ export class PendingTurnStore implements OnModuleDestroy {
     clearInterval(this.sweeper);
   }
 
+  /**
+   * WHY the handler and not a silent delete: the POST already persisted the
+   * user's message, so a turn whose stream is never claimed (tab closed between
+   * the POST and the GET, a claim rejected by the ownership/TTL guards, a
+   * dropped connection) would otherwise strand that message with no reply and
+   * leave its AgentTaskLog RUNNING forever. Dropping the entry is not the same
+   * as finishing the turn.
+   */
   private sweepExpired(): void {
     const ttlMs = this.config?.get<AiAgenticConfig>('aiAgentic')?.streamingTurnTtlMs ?? 120_000;
     const now = Date.now();
     for (const [turnId, entry] of this.entries) {
-      if (now - entry.createdAt > ttlMs) this.entries.delete(turnId);
+      if (now - entry.createdAt <= ttlMs) continue;
+      this.entries.delete(turnId);
+      void this.expiryHandler?.(entry);
     }
   }
 }
