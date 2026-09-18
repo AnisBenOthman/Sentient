@@ -222,7 +222,7 @@ describe('SlackService.handleEvent — free text (agent pipeline)', () => {
 
     await service.handleEvent(dm({ text: 'my current leave balance' }));
 
-    expect(createConversation).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1' }), { message: 'my current leave balance' });
+    expect(createConversation).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1' }), { message: 'my current leave balance' }, false);
     expect(set).toHaveBeenCalledWith('SLACK', 'U42', 'conv-1');
     expect(postMessage).toHaveBeenCalledWith({ channel: 'D123', text: 'You have 10 days remaining.' });
   });
@@ -256,7 +256,7 @@ describe('SlackService.handleEvent — free text (agent pipeline)', () => {
 
     await service.handleEvent(dm({ text: 'book 1 day off' }));
 
-    expect(sendMessage).toHaveBeenCalledWith('conv-1', expect.objectContaining({ userId: 'user-1' }), { message: 'book 1 day off' });
+    expect(sendMessage).toHaveBeenCalledWith('conv-1', expect.objectContaining({ userId: 'user-1' }), { message: 'book 1 day off' }, false);
     // Placeholder, then (no ts came back, so a fresh post) the text reply, then the card with Confirm/Cancel blocks.
     expect(postMessage).toHaveBeenNthCalledWith(1, { channel: 'D123', text: '_Thinking…_' });
     expect(postMessage).toHaveBeenNthCalledWith(2, { channel: 'D123', text: "Here's what I found." });
@@ -341,6 +341,7 @@ describe('SlackService — interactive Confirm/Cancel taps', () => {
       'conv-1',
       expect.objectContaining({ userId: 'user-1' }),
       { message: 'Confirm', confirmed: true, confirmationToken: token },
+      false,
     );
     // The outcome replaces the stripped card in place; nothing new is posted.
     expect(update).toHaveBeenNthCalledWith(2, { channel: 'D123', ts: '999.1', text: 'Done — booked and verified.', blocks: [] });

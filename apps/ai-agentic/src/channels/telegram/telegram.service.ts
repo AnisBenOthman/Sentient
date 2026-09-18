@@ -318,14 +318,14 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     const linked = await this.links.find(PRISMA_TELEGRAM, chatId);
     if (linked) {
       try {
-        return await this.conversations.sendMessage(linked, actor, { message: text });
+        return await this.conversations.sendMessage(linked, actor, { message: text }, false);
       } catch (err: unknown) {
         if (!(err instanceof NotFoundException) && !(err instanceof BadRequestException)) throw err;
         this.logger.log(`Dropping stale conversation link for chat ${chatId}: ${this.errorMessage(err)}`);
         await this.links.clear(PRISMA_TELEGRAM, chatId);
       }
     }
-    const turn = await this.conversations.createConversation(actor, { message: text });
+    const turn = await this.conversations.createConversation(actor, { message: text }, false);
     await this.links.set(PRISMA_TELEGRAM, chatId, turn.conversation.id);
     return turn;
   }
@@ -389,11 +389,16 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       await this.stripKeyboard(ctx);
 
       const turn = await this.runWithTyping(ctx, chatId, () =>
-        this.conversations.sendMessage(proposal.conversationId, actor, {
-          message: parsed.action === 'confirm' ? 'Confirm' : 'Cancel',
-          confirmed: parsed.action === 'confirm',
-          confirmationToken: parsed.token,
-        }),
+        this.conversations.sendMessage(
+          proposal.conversationId,
+          actor,
+          {
+            message: parsed.action === 'confirm' ? 'Confirm' : 'Cancel',
+            confirmed: parsed.action === 'confirm',
+            confirmationToken: parsed.token,
+          },
+          false,
+        ),
       );
       if (!turn) return;
 

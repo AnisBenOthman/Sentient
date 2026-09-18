@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   AgentActionProposal,
@@ -6,6 +7,7 @@ import {
   AgentType,
   Conversation,
   ConversationStatus,
+  Message,
   MessageRole,
   Prisma,
 } from '../../generated/prisma';
@@ -14,11 +16,13 @@ import { AiActorContext, FinalAnswerResult, PendingActionDraft } from '../../com
 import { PrismaService } from '../../prisma/prisma.service';
 import { ActionProposalService } from '../agents/actions/action-proposal.service';
 import { ActionOutcomeResponse, ActionOutcomeStatus } from '../agents/actions/confirmation-card.presenter';
-import { SupervisorAgentService } from '../agents/supervisor-agent.service';
+import { ExecuteConversationTurnInput, SupervisorAgentService } from '../agents/supervisor-agent.service';
+import { SupervisorGateService } from '../agents/supervisor-gate.service';
 import {
   ConversationResponseMapper,
   ConversationSummaryResponse,
   ConversationTurnResponse,
+  ConversationTurnStreamingResponse,
 } from './conversation-response.mapper';
 import { ConversationContextService } from './conversation-context.service';
 import { ConversationSummarizerService } from './conversation-summarizer.service';
@@ -28,8 +32,10 @@ import { CreateMessageDto } from './dto/create-message.dto';
 import { ConversationDetailResponse } from './dto/conversation-detail.dto';
 import { ListConversationsQueryDto } from './dto/list-conversations-query.dto';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
+import { PendingTurnStore } from './pending-turn.store';
+import { StreamEligibilityService } from './stream-eligibility.service';
 
-const TURN_FAILURE_MESSAGE =
+export const TURN_FAILURE_MESSAGE =
   'Something went wrong on my side while processing that request. Your message was saved — please send it again in a moment. If this keeps happening, contact your HR admin.';
 
 @Injectable()
@@ -39,16 +45,29 @@ export class ConversationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly supervisor: SupervisorAgentService,
+    private readonly gate: SupervisorGateService,
+    private readonly streamEligibility: StreamEligibilityService,
+    private readonly pendingTurns: PendingTurnStore,
     private readonly contextBuilder: ConversationContextService,
     private readonly titles: ConversationTitleService,
     private readonly summarizer: ConversationSummarizerService,
     private readonly proposals: ActionProposalService,
   ) {}
 
+  /**
+   * WHY the `allowStreaming: false` overload: channel adapters (Slack, Telegram)
+   * await this call and immediately post the complete text back to their own
+   * transport — they have no way to consume an SSE stream. Passing `false`
+   * both suppresses the streaming branch and narrows the return type at compile
+   * time, so those callers never need a null-check on `assistantMessage`.
+   */
+  async createConversation(actor: AiActorContext, dto: CreateConversationDto, allowStreaming: false): Promise<ConversationTurnResponse>;
+  async createConversation(actor: AiActorContext, dto: CreateConversationDto, allowStreaming?: boolean): Promise<ConversationTurnResponse | ConversationTurnStreamingResponse>;
   async createConversation(
     actor: AiActorContext,
     dto: CreateConversationDto,
-  ): Promise<ConversationTurnResponse> {
+    allowStreaming = true,
+  ): Promise<ConversationTurnResponse | ConversationTurnStreamingResponse> {
     const conversation = await this.prisma.conversation.create({
       data: {
         ownerUserId: actor.userId,
@@ -58,14 +77,17 @@ export class ConversationsService {
       },
     });
 
-    return this.executeTurn(conversation, actor, dto.message);
+    return this.executeTurn(conversation, actor, dto.message, allowStreaming);
   }
 
+  async sendMessage(conversationId: string, actor: AiActorContext, dto: CreateMessageDto, allowStreaming: false): Promise<ConversationTurnResponse>;
+  async sendMessage(conversationId: string, actor: AiActorContext, dto: CreateMessageDto, allowStreaming?: boolean): Promise<ConversationTurnResponse | ConversationTurnStreamingResponse>;
   async sendMessage(
     conversationId: string,
     actor: AiActorContext,
     dto: CreateMessageDto,
-  ): Promise<ConversationTurnResponse> {
+    allowStreaming = true,
+  ): Promise<ConversationTurnResponse | ConversationTurnStreamingResponse> {
     const conversation = await this.findOwnedConversation(conversationId, actor.userId);
     /**
      * A confirm/cancel is a typed control signal, routed straight to the action
@@ -79,7 +101,7 @@ export class ConversationsService {
       }
       return this.executeDecision(conversation, actor, dto.confirmed, dto.confirmationToken);
     }
-    return this.executeTurn(conversation, actor, dto.message);
+    return this.executeTurn(conversation, actor, dto.message, allowStreaming);
   }
 
   private async executeDecision(
@@ -227,7 +249,8 @@ export class ConversationsService {
     conversation: Conversation,
     actor: AiActorContext,
     message: string,
-  ): Promise<ConversationTurnResponse> {
+    allowStreaming: boolean,
+  ): Promise<ConversationTurnResponse | ConversationTurnStreamingResponse> {
     if (conversation.status === ConversationStatus.ARCHIVED) {
       throw new BadRequestException('Archived conversations must be restored before sending messages.');
     }
@@ -240,6 +263,34 @@ export class ConversationsService {
       },
     });
     const conversationContext = await this.contextBuilder.build(conversation.id);
+    const turnInput: ExecuteConversationTurnInput = {
+      conversationId: conversation.id,
+      userMessageId: userMessage.id,
+      userMessage: message,
+      actor,
+      conversationContext: {
+        /**
+         * WHY: The rolling summary rides as a synthetic leading assistant turn
+         * so every consumer (intent classifier, all specialist tool callers)
+         * sees pre-window context without any changes to their history handling.
+         */
+        recentMessages: [
+          ...(conversationContext.contextSummary
+            ? [{
+                id: 'context-summary',
+                role: MessageRole.ASSISTANT as string,
+                content: `Summary of the earlier part of this conversation (for context): ${conversationContext.contextSummary}`,
+              }]
+            : []),
+          ...conversationContext.recentMessages.map((recentMessage) => ({
+            id: recentMessage.id,
+            role: recentMessage.role,
+            content: recentMessage.content,
+          })),
+        ],
+        priorHandoffAgents: conversationContext.priorHandoffAgents,
+      },
+    };
 
     /**
      * WHY: The user message is already persisted; letting a supervisor failure
@@ -252,34 +303,42 @@ export class ConversationsService {
     let pendingAction: PendingActionDraft | undefined;
     let turnFailed = false;
     try {
-      const supervisorResult = await this.supervisor.executeTurn({
-        conversationId: conversation.id,
-        userMessageId: userMessage.id,
-        userMessage: message,
-        actor,
-        conversationContext: {
-          /**
-           * WHY: The rolling summary rides as a synthetic leading assistant turn
-           * so every consumer (intent classifier, all specialist tool callers)
-           * sees pre-window context without any changes to their history handling.
-           */
-          recentMessages: [
-            ...(conversationContext.contextSummary
-              ? [{
-                  id: 'context-summary',
-                  role: MessageRole.ASSISTANT as string,
-                  content: `Summary of the earlier part of this conversation (for context): ${conversationContext.contextSummary}`,
-                }]
-              : []),
-            ...conversationContext.recentMessages.map((recentMessage) => ({
-              id: recentMessage.id,
-              role: recentMessage.role,
-              content: recentMessage.content,
-            })),
-          ],
-          priorHandoffAgents: conversationContext.priorHandoffAgents,
-        },
-      });
+      /**
+       * WHY the gate runs here, once, before deciding whether to stream: Phase
+       * 1-3 (security guardrail, intent classifier, RBAC/scope guardrail) must
+       * never run twice for one turn. When the turn is not stream-eligible, the
+       * already-resolved gate is threaded into supervisor.executeTurn() so the
+       * LangGraph's own supervisorNode reuses it instead of recomputing it.
+       */
+      const gateResult = await this.gate.evaluate(turnInput);
+      const eligibility = allowStreaming ? this.streamEligibility.check(gateResult) : ({ eligible: false } as const);
+      if (eligibility.eligible) {
+        const turnId = randomUUID();
+        this.pendingTurns.put({
+          turnId,
+          conversationId: conversation.id,
+          ownerUserId: actor.userId,
+          actor,
+          gate: gateResult,
+          agentType: eligibility.agentType,
+          normalizedIntent: gateResult.classification.normalizedIntent,
+          isDraftRequest: gateResult.classification.isDraftIntent,
+          input: turnInput,
+          conversation,
+          userMessage,
+          createdAt: Date.now(),
+        });
+        return ConversationResponseMapper.toStreamingTurn(
+          conversation,
+          userMessage,
+          gateResult.routingNodes,
+          turnId,
+          `/conversations/${conversation.id}/turns/${turnId}/stream`,
+          eligibility.agentType,
+        );
+      }
+
+      const supervisorResult = await this.supervisor.executeTurn(turnInput, gateResult);
       finalAnswer = supervisorResult.finalAnswer;
       routing = supervisorResult.routing;
       pendingAction = supervisorResult.pendingAction;
@@ -298,6 +357,25 @@ export class ConversationsService {
       routing = { status: AgentRunStatus.FAILED, nodes: [] };
     }
 
+    return this.persistTurnOutcome(conversation, userMessage, finalAnswer, routing, pendingAction, actor, turnFailed);
+  }
+
+  /**
+   * WHY public and shared: this is the one place a turn's final answer becomes a
+   * persisted Message, an updated conversation, and (when applicable) a minted
+   * action proposal — both the synchronous turn above and
+   * ConversationStreamRunnerService's streaming turn need exactly this tail,
+   * not a second implementation of it.
+   */
+  async persistTurnOutcome(
+    conversation: Conversation,
+    userMessage: Message,
+    finalAnswer: FinalAnswerResult,
+    routing: RoutingTrace,
+    pendingAction: PendingActionDraft | undefined,
+    actor: AiActorContext,
+    turnFailed: boolean,
+  ): Promise<ConversationTurnResponse> {
     let proposalForResponse: AgentActionProposal | null = null;
     let assistantMessage = await this.prisma.message.create({
       data: {

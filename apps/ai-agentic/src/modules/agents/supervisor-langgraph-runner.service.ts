@@ -1,21 +1,24 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AgentNodeType, AgentRunStatus, AgentTaskLog, AgentType, PermissionDecision } from '../../generated/prisma';
 import { RoutingTrace } from '../../common/dto';
-import { AgentGuardrailService, DraftPolicyService, permittedActionsFor, SafetyPolicyResult } from '../../common/safety';
+import { AgentGuardrailService, permittedActionsFor, SafetyPolicyResult } from '../../common/safety';
 import { AiAgenticConfig } from '../../config';
 import {
-  AiActorContext,
   FinalAnswerResult,
   HumanEscalationResult,
-  PendingActionDraft,
   SpecialistAgent,
   SpecialistInput,
   SpecialistResult,
 } from '../../common/graph';
-import { AnalyticsSqlService, hasAnalyticsSqlAccess } from '../analytics-sql';
+import { AnalyticsSqlService } from '../analytics-sql';
 import { AgentHandoffService } from './agent-handoff.service';
 import { AgentNodeRunService } from './agent-node-run.service';
+import {
+  pendingActionFrom,
+  sourceCategories as rollUpSourceCategories,
+  sumTokens as rollUpTokens,
+} from './agent-result.util';
 import { AgentTaskLogService } from './agent-task-log.service';
 import { ClarificationNodeService } from './nodes/clarification-node.service';
 import { FinalAnswerNodeService } from './nodes/final-answer-node.service';
@@ -24,11 +27,8 @@ import {
   ExecuteConversationTurnInput,
   ExecuteConversationTurnResult,
 } from './supervisor-agent.service';
-import {
-  INTENT_CLASSIFIER,
-  IntentClassifier,
-  SupervisorIntentClassification,
-} from './intent-classifier.types';
+import { SupervisorGateResult, SupervisorGateService, SupervisorRoute } from './supervisor-gate.service';
+import { SupervisorIntentClassification } from './intent-classifier.types';
 import { GreetingAgentService } from './greeting-agent.service';
 import { AnalyticsAgentService } from './specialists/analytics-agent.service';
 import { CareerAgentService } from './specialists/career-agent.service';
@@ -39,12 +39,6 @@ import { LeaveAgentService } from './specialists/leave-agent.service';
 import { OkrAgentService } from './specialists/okr-agent.service';
 import { OnboardingAgentService } from './specialists/onboarding-agent.service';
 
-type SupervisorRoute =
-  | 'humanEscalationNode'
-  | 'clarificationNode'
-  | 'specialistsNode'
-  | 'analyticsSqlNode'
-  | 'finalAnswerNode';
 type LangGraphModule = typeof import('@langchain/langgraph');
 type CompiledSupervisorGraph = { invoke(input: SupervisorGraphState): Promise<SupervisorGraphState> };
 
@@ -60,6 +54,8 @@ interface SupervisorGraphState {
   escalation: HumanEscalationResult | null;
   finalAnswer: FinalAnswerResult | null;
   draftBlock: string | null;
+  /** Set by ConversationsService when Phase 1-3 already ran outside the graph (the streaming turn path) — skips re-running them. */
+  precomputedGate: SupervisorGateResult | null;
 }
 
 type LangGraphState = SupervisorGraphState;
@@ -80,9 +76,8 @@ export class SupervisorLangGraphRunnerService {
   private graph: CompiledSupervisorGraph | null = null;
 
   constructor(
+    private readonly gate: SupervisorGateService,
     private readonly guardrails: AgentGuardrailService,
-    private readonly draftPolicy: DraftPolicyService,
-    @Inject(INTENT_CLASSIFIER) private readonly classifier: IntentClassifier,
     private readonly greetingAgent: GreetingAgentService,
     private readonly taskLogs: AgentTaskLogService,
     private readonly handoffs: AgentHandoffService,
@@ -118,7 +113,10 @@ export class SupervisorLangGraphRunnerService {
     };
   }
 
-  async execute(input: ExecuteConversationTurnInput): Promise<ExecuteConversationTurnResult> {
+  async execute(
+    input: ExecuteConversationTurnInput,
+    precomputedGate?: SupervisorGateResult,
+  ): Promise<ExecuteConversationTurnResult> {
     this.logTrace('turn.start', {
       conversationId: input.conversationId,
       userMessageId: input.userMessageId,
@@ -144,6 +142,7 @@ export class SupervisorLangGraphRunnerService {
       escalation: null,
       finalAnswer: null,
       draftBlock: null,
+      precomputedGate: precomputedGate ?? null,
     });
 
     if (!state.finalAnswer) {
@@ -156,43 +155,7 @@ export class SupervisorLangGraphRunnerService {
         status: state.finalAnswer.status,
         nodes: state.routingNodes,
       },
-      pendingAction: this.pendingActionFrom(state),
-    };
-  }
-
-  /**
-   * WHY keyed off the specialist's own status rather than finalAnswer.status: the
-   * final-answer node runs its output through FinalAnswerPolicyService, which can
-   * rewrite content and force REFUSED. Lifting the draft unconditionally here and
-   * letting ConversationsService gate the mint on the REVIEWED status means a swept
-   * turn simply never mints — a refusal can never ship with a live token attached.
-   */
-  private pendingActionFrom(state: SupervisorGraphState): PendingActionDraft | undefined {
-    const pending = state.specialistResults.find(
-      (result) => result.status === AgentRunStatus.PENDING_CONFIRMATION,
-    );
-    if (!pending?.confirmationPayload) return undefined;
-
-    if (!pending.pendingActionKind) return undefined;
-
-    /**
-     * Defence in depth: re-check the capability registry here, not just inside the
-     * specialist. permittedActionsFor is the same source the specialist's own
-     * constraints were built from (T008/T010), so a specialist that somehow emitted
-     * an action kind it was never granted is dropped rather than minted.
-     */
-    if (!permittedActionsFor(pending.agentType).includes(pending.pendingActionKind)) {
-      this.logger.error(
-        `Specialist ${pending.agentType} proposed ${pending.pendingActionKind} without the capability; draft discarded.`,
-      );
-      return undefined;
-    }
-
-    return {
-      agentType: pending.agentType,
-      actionKind: pending.pendingActionKind,
-      payload: pending.confirmationPayload,
-      policyCitations: pending.policyCitations ?? [],
+      pendingAction: pendingActionFrom(state.specialistResults),
     };
   }
 
@@ -219,6 +182,7 @@ export class SupervisorLangGraphRunnerService {
       escalation: langGraph.Annotation<HumanEscalationResult | null>(),
       finalAnswer: langGraph.Annotation<FinalAnswerResult | null>(),
       draftBlock: langGraph.Annotation<string | null>(),
+      precomputedGate: langGraph.Annotation<SupervisorGateResult | null>(),
     });
 
     return new langGraph.StateGraph(graphAnnotation)
@@ -245,234 +209,28 @@ export class SupervisorLangGraphRunnerService {
       .addEdge('finalAnswerNode', langGraph.END);
   }
 
-  private async supervisorNode(state: LangGraphState): Promise<LangGraphUpdate> {
-    const parentLog = await this.taskLogs.start({
-      conversationId: state.input.conversationId,
-      agentType: AgentType.SUPERVISOR_AGENT,
-      nodeType: AgentNodeType.SUPERVISOR,
-      taskType: 'supervisor_turn',
-      actor: state.input.actor,
-      inputSummary: state.input.userMessage,
-    });
-    await this.nodeRuns.record({
-      conversationId: state.input.conversationId,
-      taskLogId: parentLog.id,
-      nodeType: AgentNodeType.SUPERVISOR,
-      agentType: AgentType.SUPERVISOR_AGENT,
-      status: AgentRunStatus.SUCCESS,
-      sequence: state.sequence,
-      stateAfter: {
-        orchestration: 'langgraph',
-        userMessageId: state.input.userMessageId,
-      },
-    });
-
-    /**
-     * PHASE 1 — Security guardrail, before any LLM call.
-     *
-     * WHY: The turn used to evaluate the whole guardrail and then call the
-     * classifier unconditionally, so a prompt-injection or destructive-SQL
-     * payload was still forwarded to the model provider even though the answer
-     * was already decided. Attack patterns are decidable from the message alone,
-     * so they short-circuit here: no tokens spent, no attacker-controlled text
-     * reaching the LLM, and the refusal is deterministic rather than model-dependent.
-     */
-    const securityRefusal = this.guardrails.evaluateSecurity(state.input.userMessage);
-    if (securityRefusal) {
-      this.logTrace('supervisor.securityRefused', {
-        classification: securityRefusal.classification,
-        status: securityRefusal.status,
-        shouldEscalate: securityRefusal.shouldEscalate,
-        declinedTopics: securityRefusal.declinedTopics,
-        intentClassifierInvoked: false,
-      });
-      return {
-        parentLog,
-        sequence: state.sequence + 1,
-        safety: securityRefusal,
-        // WHY: downstream nodes (human escalation, final answer) call
-        // requireClassification() unconditionally. The classifier never ran, so
-        // a neutral rules-sourced stub keeps routing, logging, and the escalation
-        // path working instead of throwing on a null classification.
-        classification: this.securityBlockedClassification(state.input.userMessage),
-        draftBlock: null,
-        routingNodes: [
-          ...state.routingNodes,
-          {
-            nodeType: AgentNodeType.SUPERVISOR,
-            agentType: AgentType.SUPERVISOR_AGENT,
-            status: AgentRunStatus.SUCCESS,
-            summary: 'Security guardrail refused the request before intent classification.',
-          },
-        ],
-      };
-    }
-
-    /** PHASE 2 — Intent classifier (LLM). Only reached by security-clean input. */
-    let classification = await this.classifier.classify(
-      state.input.userMessage,
-      state.input.conversationContext,
-    );
-
-    /**
-     * WHY: A low-confidence classification routed to specialists anyway, which
-     * contradicts the "ask when not confident" edge case. Below the configured
-     * threshold the supervisor asks one focused clarification instead.
-     */
-    const confidenceThreshold = this.confidenceThreshold();
-    if (
-      !classification.isGreeting &&
-      !classification.isHumanEscalationIntent &&
-      !classification.requiresClarification &&
-      classification.confidence < confidenceThreshold
-    ) {
-      classification = {
-        ...classification,
-        requiredAgents: [],
-        requiresClarification: true,
-        clarificationReason: 'The request could not be routed confidently; one more detail is needed.',
-      };
-    }
-
-    /**
-     * PHASE 3 — RBAC / scope guardrail, after intent classification.
-     *
-     * WHY: Everything evaluated here is role-aware (a manager IS entitled to
-     * team leave answers that are refused for an employee) or benefits from the
-     * classifier's context-aware reading of the message. Running it after Phase 2
-     * lets the confident-classification override below consume a real intent
-     * signal instead of patching a verdict that was computed blind.
-     */
-    let safety = this.guardrails.evaluateScope(state.input.userMessage, state.input.actor);
-
-    /**
-     * WHY: The guardrail scope gate is a static keyword list and cannot keep up
-     * with real HR vocabulary ("bank holidays in my country" carried no listed
-     * term and was refused even though the LLM classifier routed it to the
-     * Leave Agent at 0.9 confidence). When an LLM classifier — which sees
-     * the conversation context — confidently selects a specialist or an
-     * escalation, that judgment outranks the keyword gate. Only the benign
-     * OUT_OF_SCOPE verdict is overridable; hard safety refusals (unauthorized
-     * data, unsafe actions, conflict escalations) are never bypassed, and Phase 1
-     * security refusals never reach this point at all.
-     *
-     * The source check is "any LLM classifier, not the rule-based fallback":
-     * pinning it to 'gemini' silently disabled the override for the Groq and
-     * OpenRouter providers, which are selected by AI_AGENT_INTENT_PROVIDER.
-     */
-    if (
-      safety.classification === 'OUT_OF_SCOPE' &&
-      classification.source !== 'rules' &&
-      !classification.requiresClarification &&
-      classification.confidence >= this.scopeOverrideThreshold() &&
-      (this.runnableSpecialists(classification).length > 0 ||
-        this.classifierRequestsEscalation(classification))
-    ) {
-      this.logTrace('supervisor.scopeOverride', {
-        guardrailClassification: safety.classification,
-        classifierSource: classification.source,
-        confidence: classification.confidence,
-        requiredAgents: classification.requiredAgents,
-        isHumanEscalationIntent: classification.isHumanEscalationIntent,
-      });
-      safety = {
-        classification: 'SENTIENT',
-        allowed: true,
-        status: AgentRunStatus.SUCCESS,
-        message: 'Scope allowed by confident intent classification.',
-        shouldEscalate: false,
-        requiresClarification: false,
-        allowedAgents: [],
-        declinedTopics: [],
-        sensitivity: 'LOW',
-      };
-    }
-
-    let draftBlock: string | null = null;
-    if (classification.isDraftIntent) {
-      const draftPolicy = this.draftPolicy.evaluate(
-        classification.requiredAgents[0] ?? AgentType.SUPERVISOR_AGENT,
-        state.input.userMessage,
-      );
-      if (!draftPolicy.allowed) {
-        draftBlock = `I can help prepare a draft, but I cannot submit, approve, publish, or otherwise change official Sentient records. ${draftPolicy.humanReviewReminder}`;
-        this.logTrace('supervisor.draftBlocked', {
-          blockedReason: draftPolicy.blockedReason,
-        });
-      }
-    }
-
-    this.logTrace('supervisor.classified', {
-      safety: {
-        classification: safety.classification,
-        allowed: safety.allowed,
-        status: safety.status,
-        shouldEscalate: safety.shouldEscalate,
-        requiresClarification: safety.requiresClarification,
-        allowedAgents: safety.allowedAgents,
-        declinedTopics: safety.declinedTopics,
-        sensitivity: safety.sensitivity,
-      },
-      intent: {
-        source: classification.source,
-        normalizedIntent: classification.normalizedIntent,
-        requiredAgents: classification.requiredAgents,
-        requiresClarification: classification.requiresClarification,
-        clarificationReason: classification.clarificationReason,
-        isDraftIntent: classification.isDraftIntent,
-        draftCategory: classification.draftCategory,
-        isHumanEscalationIntent: classification.isHumanEscalationIntent,
-        isGreeting: classification.isGreeting,
-        confidence: classification.confidence,
-      },
-    });
-
-    return {
-      parentLog,
-      sequence: state.sequence + 1,
-      safety,
-      classification,
-      draftBlock,
-      routingNodes: [
-        ...state.routingNodes,
-        {
-          nodeType: AgentNodeType.SUPERVISOR,
-          agentType: AgentType.SUPERVISOR_AGENT,
-          status: AgentRunStatus.SUCCESS,
-          summary: 'Intent classified by LangGraph supervisor node.',
-        },
-      ],
-    };
-  }
-
   /**
-   * WHY: A Phase-1 security refusal skips the intent classifier entirely, but the
-   * escalation and final-answer nodes both call requireClassification(). This
-   * neutral stub keeps those nodes total: no specialist is requested, no
-   * clarification is asked, and confidence 0 with source 'rules' records honestly
-   * in the trace that no model judgment backed this turn.
+   * WHY a thin wrapper: Phase 1-3 (security guardrail, intent classifier, RBAC/
+   * scope guardrail) now live in SupervisorGateService so the streaming turn
+   * path (ConversationsService) and this graph share one implementation. When
+   * ConversationsService already ran the gate (a stream-eligible turn that ends
+   * up NOT actually streaming, or any turn where the caller pre-evaluated it),
+   * state.precomputedGate carries the result and the gate is not re-run.
    */
-  private securityBlockedClassification(userMessage: string): SupervisorIntentClassification {
+  private async supervisorNode(state: LangGraphState): Promise<LangGraphUpdate> {
+    const gate = state.precomputedGate ?? (await this.gate.evaluate(state.input, state.sequence));
     return {
-      normalizedIntent: userMessage,
-      requiredAgents: [],
-      requiresClarification: false,
-      clarificationReason: null,
-      isDraftIntent: false,
-      draftCategory: null,
-      isHumanEscalationIntent: false,
-      isGreeting: false,
-      // WHY explicitly false: a Phase-1 security refusal must never reach the
-      // generated-SQL branch. Leaving this to a default would make the guarantee
-      // depend on the field's initialiser rather than on this stub.
-      isAnalyticalQuestion: false,
-      confidence: 0,
-      source: 'rules',
+      parentLog: gate.parentLog,
+      sequence: gate.sequence,
+      safety: gate.safety,
+      classification: gate.classification,
+      draftBlock: gate.draftBlock,
+      routingNodes: [...state.routingNodes, ...gate.routingNodes],
     };
   }
 
   private routeAfterSupervisor(state: LangGraphState): SupervisorRoute {
-    const route = this.resolveSupervisorRoute(state);
+    const route = this.gate.resolveRoute(state);
     // WHY the explicit guard rather than letting logTrace drop it: every argument
     // below — the gate diagnostics and routeReason's string building — is pure
     // work whose only consumer is the trace, and debug logs are off by default.
@@ -483,7 +241,7 @@ export class SupervisorLangGraphRunnerService {
       // one that was never analytical. Without this, the only trace of
       // "text-to-SQL is built but never reached" is silence.
       const analyticsSqlGate = state.classification?.isAnalyticalQuestion
-        ? this.analyticsSqlGateDiagnostics(state.classification, state.input.actor)
+        ? this.gate.analyticsSqlGateDiagnostics(state.classification, state.input.actor)
         : null;
       this.logTrace('supervisor.route', {
         route,
@@ -491,7 +249,7 @@ export class SupervisorLangGraphRunnerService {
         requiredAgents: state.classification?.requiredAgents ?? [],
         safetyClassification: state.safety?.classification ?? null,
         analyticsSqlGate,
-        reason: this.routeReason(state, route),
+        reason: this.gate.routeReason(state, route),
       });
     }
     return route;
@@ -603,7 +361,7 @@ export class SupervisorLangGraphRunnerService {
      * Results keep the classifier's ordering, and a single failing specialist
      * degrades only its own portion instead of aborting the whole turn.
      */
-    const agents = this.runnableSpecialists(classification);
+    const agents = this.gate.runnableSpecialists(classification);
     const specialistResults = await Promise.all(
       agents.map((agentType) =>
         this.executeSpecialist(
@@ -738,11 +496,11 @@ export class SupervisorLangGraphRunnerService {
       status: finalAnswer.status,
       sequence: state.sequence,
     });
-    const turnTokens = this.sumTokens(state.specialistResults);
+    const turnTokens = rollUpTokens(state.specialistResults);
     await this.taskLogs.finish(parentLog.id, {
       status: finalAnswer.status,
       outputSummary: finalAnswer.content,
-      sourceCategories: this.sourceCategories(state.specialistResults),
+      sourceCategories: rollUpSourceCategories(state.specialistResults),
       // WHY: UNAVAILABLE children previously rolled up as ALLOWED, hiding
       // partially-served turns from the governance metrics.
       permissionDecision: state.specialistResults.some(
@@ -776,12 +534,33 @@ export class SupervisorLangGraphRunnerService {
     };
   }
 
+  /**
+   * WHY the streaming turn path (ConversationsService + ConversationStreamRunnerService)
+   * calls this directly rather than reimplementing handoff/task-log/permission
+   * bookkeeping: this is the one place that bookkeeping happens for a specialist
+   * run, LangGraph or not. Passing `onToken` is the only difference from the
+   * graph's own specialistsNode call site.
+   */
+  async executeSpecialistStreaming(
+    input: ExecuteConversationTurnInput,
+    parentTaskLogId: string,
+    agentType: AgentType,
+    normalizedIntent: string,
+    isDraftRequest: boolean,
+    onToken: (delta: string) => void,
+    signal?: AbortSignal,
+  ): Promise<SpecialistResult> {
+    return this.executeSpecialist(input, parentTaskLogId, agentType, normalizedIntent, isDraftRequest, onToken, signal);
+  }
+
   private async executeSpecialist(
     input: ExecuteConversationTurnInput,
     parentTaskLogId: string,
     agentType: AgentType,
     normalizedIntent: string,
     isDraftRequest: boolean,
+    onToken?: (delta: string) => void,
+    signal?: AbortSignal,
   ): Promise<SpecialistResult> {
     const specialist = this.specialists[agentType];
     if (!specialist) {
@@ -821,9 +600,10 @@ export class SupervisorLangGraphRunnerService {
       actor: input.actor,
       inputSummary: normalizedIntent,
     });
-    const result = await specialist.execute(
-      this.specialistInput(input, childLog.id, normalizedIntent, isDraftRequest, agentType),
-    );
+    const specialistInput = this.specialistInput(input, childLog.id, normalizedIntent, isDraftRequest, agentType);
+    const result = onToken && specialist.executeStream
+      ? await specialist.executeStream(specialistInput, onToken, signal)
+      : await specialist.execute(specialistInput);
     await this.taskLogs.finish(childLog.id, {
       status: result.status,
       outputSummary: result.summary,
@@ -908,143 +688,6 @@ export class SupervisorLangGraphRunnerService {
   private requireClassification(state: LangGraphState): SupervisorIntentClassification {
     if (!state.classification) throw new Error('Supervisor LangGraph state is missing intent classification.');
     return state.classification;
-  }
-
-  private sourceCategories(results: SpecialistResult[]): string[] {
-    return [...new Set(results.flatMap((result) => result.sourceContext.map((source) => source.sourceType)))];
-  }
-
-  /** Turn-level token rollup: null when no specialist reported usage (e.g. deterministic paths). */
-  private sumTokens(results: SpecialistResult[]): { tokensIn: number | null; tokensOut: number | null } {
-    const reported = results.filter((result) => result.tokensIn != null || result.tokensOut != null);
-    if (reported.length === 0) return { tokensIn: null, tokensOut: null };
-    return {
-      tokensIn: reported.reduce((sum, result) => sum + (result.tokensIn ?? 0), 0),
-      tokensOut: reported.reduce((sum, result) => sum + (result.tokensOut ?? 0), 0),
-    };
-  }
-
-  private resolveSupervisorRoute(state: LangGraphState): SupervisorRoute {
-    if (!state.safety || !state.classification) return 'finalAnswerNode';
-    if (state.safety.shouldEscalate) return 'humanEscalationNode';
-    if (!state.safety.allowed) return 'finalAnswerNode';
-    if (state.classification.isGreeting) return 'finalAnswerNode';
-    if (state.draftBlock) return 'finalAnswerNode';
-    /**
-     * WHY: The classifier can request a human handoff (FR-043), but no runnable
-     * specialist exists for HUMAN_ESCALATION_AGENT — routing it through the
-     * specialists map produced a dead-end "agent not available" reply with no
-     * recorded handoff. Escalation intents go to the escalation node directly.
-     */
-    if (this.classifierRequestsEscalation(state.classification)) return 'humanEscalationNode';
-    if (state.classification.requiresClarification) return 'clarificationNode';
-    /**
-     * WHY this outranks the specialist check below: the rules classifier already
-     * routes `trend`/`attrition` phrasing to ANALYTICS_AGENT, so an analytical
-     * question usually has a runnable specialist too. Placing the SQL branch after
-     * that check would make it unreachable.
-     *
-     * The gate is deliberately narrow — flag on, actor role permitted, and the
-     * classifier confident it is a pure reporting question. Any miss falls through
-     * to existing behaviour rather than failing the turn.
-     */
-    if (this.shouldRouteToAnalyticsSql(state.classification, state.input.actor)) return 'analyticsSqlNode';
-    if (this.runnableSpecialists(state.classification).length > 0) return 'specialistsNode';
-    return 'finalAnswerNode';
-  }
-
-  private shouldRouteToAnalyticsSql(
-    classification: SupervisorIntentClassification,
-    actor: AiActorContext,
-  ): boolean {
-    if (!classification.isAnalyticalQuestion) return false;
-    return this.analyticsSqlGateDiagnostics(classification, actor).eligible;
-  }
-
-  /**
-   * WHY split out from shouldRouteToAnalyticsSql: routeReason() and
-   * routeAfterSupervisor()'s trace log need to explain WHICH condition closed the
-   * gate (flag off vs. wrong role vs. mixed operational turn), not just that it
-   * did. It is recomputed rather than threaded through graph state because the
-   * repeat calls only happen on an analytical turn with debug logs on — two cheap
-   * boolean checks and one array filter — and a state channel for a value that
-   * exists purely to explain a decision would outlive its usefulness.
-   */
-  private analyticsSqlGateDiagnostics(
-    classification: SupervisorIntentClassification,
-    actor: AiActorContext,
-  ): { eligible: boolean; flagEnabled: boolean; roleAllowed: boolean; specialistsAnalyticsOnly: boolean } {
-    const flagEnabled = this.config?.get<AiAgenticConfig>('aiAgentic')?.analyticsSqlEnabled ?? false;
-    const roleAllowed = hasAnalyticsSqlAccess(actor.roles);
-    // A turn that also asks for something operational keeps the tool-calling path,
-    // which can act; the SQL branch only reads.
-    const specialistsAnalyticsOnly = this.runnableSpecialists(classification).every(
-      (agentType) => agentType === AgentType.ANALYTICS_AGENT,
-    );
-    return {
-      eligible: flagEnabled && roleAllowed && specialistsAnalyticsOnly,
-      flagEnabled,
-      roleAllowed,
-      specialistsAnalyticsOnly,
-    };
-  }
-
-  private classifierRequestsEscalation(classification: SupervisorIntentClassification): boolean {
-    return (
-      classification.isHumanEscalationIntent ||
-      classification.requiredAgents.includes(AgentType.HUMAN_ESCALATION_AGENT)
-    );
-  }
-
-  private runnableSpecialists(classification: SupervisorIntentClassification): AgentType[] {
-    return classification.requiredAgents.filter((agentType) => agentType !== AgentType.HUMAN_ESCALATION_AGENT);
-  }
-
-  private routeReason(state: LangGraphState, route: SupervisorRoute): string {
-    if (!state.safety || !state.classification) return 'Missing supervisor state; finishing safely.';
-    const isSecurityPhase =
-      state.safety.classification === 'UNSAFE_SYSTEM_ACTION' ||
-      state.safety.classification === 'IMMEDIATE_SAFETY_RISK';
-    if (state.safety.shouldEscalate && route === 'humanEscalationNode') {
-      return isSecurityPhase
-        ? 'Security guardrail escalated the request before intent classification.'
-        : 'Guardrail requested human escalation.';
-    }
-    if (!state.safety.allowed && route === 'finalAnswerNode') {
-      return isSecurityPhase
-        ? 'Security guardrail refused the request before intent classification.'
-        : 'Scope guardrail refused the request before specialist routing.';
-    }
-    if (state.classification.isGreeting && route === 'finalAnswerNode') return 'Greeting handled directly by supervisor.';
-    if (state.draftBlock && route === 'finalAnswerNode') return 'Draft policy blocked a mutation-phrased draft request.';
-    if (route === 'humanEscalationNode') return 'Classifier identified an explicit human-support request.';
-    if (state.classification.requiresClarification && route === 'clarificationNode') return 'Classifier requested clarification.';
-    if (route === 'analyticsSqlNode') return 'Classifier identified an analytical reporting question; routed to generated SQL.';
-    if (state.classification.isAnalyticalQuestion) {
-      const gate = this.analyticsSqlGateDiagnostics(state.classification, state.input.actor);
-      if (!gate.eligible) {
-        const reasons = [
-          !gate.flagEnabled && 'analyticsSqlEnabled flag is off',
-          !gate.roleAllowed && "actor's role is not in the analytics SQL allowlist",
-          !gate.specialistsAnalyticsOnly && 'turn also needs an operational (non-analytics) specialist',
-        ].filter((r): r is string => Boolean(r));
-        const fallback =
-          route === 'specialistsNode'
-            ? 'falling back to the fixed tool-calling Analytics Agent, which may not be able to answer it'
-            : 'no specialist route available, finishing with a generic supervisor response';
-        return `Analytical question but the analytics SQL gate is closed (${reasons.join('; ')}); ${fallback}.`;
-      }
-    }
-    if (state.classification.requiredAgents.length > 0 && route === 'specialistsNode') return 'Classifier selected specialist agents.';
-    return 'No specialist route selected; finishing with supervisor response.';
-  }
-
-  private confidenceThreshold(): number {
-    return this.config?.get<AiAgenticConfig>('aiAgentic')?.intentConfidenceThreshold ?? 0.4;
-  }
-
-  private scopeOverrideThreshold(): number {
-    return this.config?.get<AiAgenticConfig>('aiAgentic')?.intentScopeOverrideThreshold ?? 0.7;
   }
 
   private logTrace(event: string, payload: Record<string, unknown>): void {

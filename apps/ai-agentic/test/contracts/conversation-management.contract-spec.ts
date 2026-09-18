@@ -90,6 +90,9 @@ describe('AI conversation management contract', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
     );
 
     const result = await service.detail('conversation-1', actor);
@@ -142,6 +145,9 @@ describe('AI conversation management contract', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
     );
 
     await service.list(actor, { page: 1, pageSize: 20 });
@@ -173,6 +179,9 @@ describe('AI conversation management contract', () => {
           routing: { status: AgentRunStatus.SUCCESS, nodes: [] },
         }),
       } as never,
+      {} as never,
+      {} as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,
@@ -233,6 +242,9 @@ describe('AI conversation management contract', () => {
           throw new Error('Supervisor LangGraph finished without a final answer.');
         },
       } as never,
+      { evaluate: async () => ({ route: 'finalAnswerNode' }) } as never,
+      { check: () => ({ eligible: false }) } as never,
+      {} as never,
       {
         build: async () => ({ recentMessages: [], priorHandoffAgents: [], contextSummary: null }),
       } as never,
@@ -248,7 +260,7 @@ describe('AI conversation management contract', () => {
     const result = await service.sendMessage('conversation-1', actor, { message: 'hello' });
 
     // WHY: the turn must respond with an honest failure, never a dangling user message + 500.
-    expect(result.assistantMessage.status).toBe(AgentRunStatus.FAILED);
+    expect(result.assistantMessage?.status).toBe(AgentRunStatus.FAILED);
     expect(result.routing.status).toBe(AgentRunStatus.FAILED);
     expect(createdMessages.some((message) => message.role === MessageRole.ASSISTANT && message.status === AgentRunStatus.FAILED)).toBe(true);
   });

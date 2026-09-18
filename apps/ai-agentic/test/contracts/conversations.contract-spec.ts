@@ -64,7 +64,7 @@ describe('AI conversation API contract', () => {
     const result = await controller.create({} as never, { message: 'What is my leave balance?' });
 
     expect(result.conversation.id).toBe('conversation-1');
-    expect(result.assistantMessage.role).toBe('ASSISTANT');
+    expect(result.assistantMessage?.role).toBe('ASSISTANT');
   });
 
   it('sends a follow-up message to the supervisor', async () => {

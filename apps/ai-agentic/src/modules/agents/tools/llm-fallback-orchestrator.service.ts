@@ -64,4 +64,48 @@ export class LlmFallbackOrchestratorService {
     }
     return null;
   }
+
+  /**
+   * WHY fallover is disabled once a provider has emitted any token: switching
+   * providers mid-stream would splice two different models' partial answers
+   * into one bubble on the client. A provider that fails before its first
+   * token is exactly the `call()` case — try the next one; a provider that
+   * fails after starting to stream is a dead end for this turn.
+   */
+  async callStream(
+    systemPrompt: string,
+    userMessage: string,
+    tools: AgentTool[],
+    history: ConversationHistoryMessage[] = [],
+    options: GeminiCallOptions = {},
+    onToken: (delta: string) => void,
+    signal?: AbortSignal,
+  ): Promise<GeminiToolCallOutcome | null> {
+    for (const [index, provider] of this.providers.entries()) {
+      if (!provider.isConfigured() || !provider.callStream) continue;
+
+      let started = false;
+      const wrappedOnToken = (delta: string): void => {
+        started = true;
+        onToken(delta);
+      };
+
+      const outcome = await provider.callStream(systemPrompt, userMessage, tools, history, options, wrappedOnToken, signal);
+      if (outcome === null) {
+        if (started) {
+          this.logger.error(`${provider.providerName} streaming failed after emitting partial output; not failing over mid-stream.`);
+          return null;
+        }
+        this.logger.warn(`${provider.providerName} unavailable before streaming began; trying next provider.`);
+        continue;
+      }
+
+      const usedFallbackProvider = index > 0;
+      if (usedFallbackProvider) {
+        this.logger.warn(`Fell back to ${provider.providerName} after an earlier provider was unavailable.`);
+      }
+      return { ...outcome, usedFallbackProvider };
+    }
+    return null;
+  }
 }

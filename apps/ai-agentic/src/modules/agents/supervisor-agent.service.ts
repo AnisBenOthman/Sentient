@@ -6,6 +6,7 @@ import {
   PendingActionDraft,
 } from '../../common/graph';
 import { RoutingTrace } from '../../common/dto';
+import { SupervisorGateResult } from './supervisor-gate.service';
 import { SupervisorLangGraphRunnerService } from './supervisor-langgraph-runner.service';
 
 export interface ExecuteConversationTurnInput {
@@ -35,7 +36,10 @@ export interface ExecuteConversationTurnResult {
 export class SupervisorAgentService {
   constructor(private readonly runner: SupervisorLangGraphRunnerService) {}
 
-  async executeTurn(input: ExecuteConversationTurnInput): Promise<ExecuteConversationTurnResult> {
-    return this.runner.execute(input);
+  async executeTurn(
+    input: ExecuteConversationTurnInput,
+    precomputedGate?: SupervisorGateResult,
+  ): Promise<ExecuteConversationTurnResult> {
+    return this.runner.execute(input, precomputedGate);
   }
 }
