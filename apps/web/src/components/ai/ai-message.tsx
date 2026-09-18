@@ -3,6 +3,7 @@ import type { AiMessageResponse } from "@/lib/api/ai";
 import { cn } from "@/lib/utils";
 import { useTypewriter } from "@/hooks/use-typewriter";
 import { AiResponseFeedback } from "./ai-response-feedback";
+import { MessageStatusNotice } from "./message-status-notice";
 import { SourceContextList } from "./source-context-list";
 
 export function AiMessage({
@@ -43,6 +44,9 @@ export function AiMessage({
             : "border-blue-200 bg-blue-50 text-blue-950 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-100",
         )}
       >
+        {/* WHY only once the reveal finishes: a badge above text that is still
+            typing itself out reads as a failure of the animation, not of the turn. */}
+        {isAssistant && !isTyping && <MessageStatusNotice status={message.status} />}
         <p className="whitespace-pre-wrap">
           {displayedContent}
           {isTyping && (

@@ -6,10 +6,11 @@ import {
   CONVERSATIONAL_STYLE,
   DRAFT_MODE_DIRECTIVE,
   LlmFallbackOrchestratorService,
+  LlmUnavailable,
   SENTIENT_IDENTITY,
   ToolRegistryService,
 } from '../tools';
-import { downstreamResult, toolCallerResult } from './specialist-response.helpers';
+import { downstreamResult, toolCallerResult, withLlmOutageNotice } from './specialist-response.helpers';
 
 const CAREER_SYSTEM_PROMPT = `${SENTIENT_IDENTITY}
 
@@ -36,20 +37,27 @@ export class CareerAgentService implements SpecialistAgent {
       correlationId: input.actorContext.correlationId,
     };
 
+    /**
+     * Holds the classified cause when every configured LLM provider is down, so
+     * the deterministic answer below can say so instead of passing itself off as
+     * a normal, complete answer.
+     */
+    let llmFailure: LlmUnavailable | null = null;
+
     if (this.llmCaller && this.toolRegistry) {
       const tools = this.toolRegistry.getCareerTools(reqContext, input.actorContext.employeeId);
       const systemPrompt = input.isDraftRequest
         ? `${CAREER_SYSTEM_PROMPT}\n\n${DRAFT_MODE_DIRECTIVE}`
         : CAREER_SYSTEM_PROMPT;
-      const outcome = await this.llmCaller.call(
+      const result = await this.llmCaller.call(
         systemPrompt,
         input.userMessage,
         tools,
         input.conversationContext.recentMessages,
         { thinkingLevel: 'medium' },
       );
-      if (outcome) {
-        return toolCallerResult(input, this.agentType, outcome, {
+      if (result.ok) {
+        return toolCallerResult(input, this.agentType, result.outcome, {
           sourceType: 'CAREER',
           title: 'Career context',
           referencePrefix: 'career',
@@ -59,6 +67,7 @@ export class CareerAgentService implements SpecialistAgent {
           draftLabel: 'Career draft',
         });
       }
+      llmFailure = result.failure;
     }
 
     const context = await this.hrCore.getSkillsContext(input.actorContext.employeeId, reqContext);
@@ -66,9 +75,10 @@ export class CareerAgentService implements SpecialistAgent {
     const content = input.isDraftRequest
       ? this.draftContent(lower)
       : 'Career support can cover growth paths, skill gaps, review preparation, learning focus, and next-step planning using only accessible Sentient context.';
-    return downstreamResult(input, this.agentType, context, 'Career guidance prepared.', content, {
+    const deterministic = downstreamResult(input, this.agentType, context, 'Career guidance prepared.', content, {
       draftLabel: 'Career draft',
     });
+    return llmFailure ? withLlmOutageNotice(deterministic, llmFailure) : deterministic;
   }
 
   private draftContent(lower: string): string {

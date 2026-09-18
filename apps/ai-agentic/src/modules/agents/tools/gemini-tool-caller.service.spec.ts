@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
-import { AgentTool } from './agent-tool.types';
+import { AgentTool, GeminiToolCallOutcome } from './agent-tool.types';
+import { LlmCallResult } from './llm-failure';
 import { GeminiToolCallerService } from './gemini-tool-caller.service';
 
 const mockGenerateContent = jest.fn();
@@ -78,22 +79,25 @@ describe('GeminiToolCallerService', () => {
     mockGenerateContent.mockReset();
   });
 
-  it('returns null when Gemini is not configured', async () => {
+  it('reports NOT_CONFIGURED when Gemini has no API key', async () => {
     const config = { get: () => ({ geminiApiKey: null }) } as unknown as ConfigService;
     const service = new GeminiToolCallerService(config);
 
-    const outcome = await service.call('prompt', 'question', [simpleTool('t', async () => ({}))]);
+    const result = await service.call('prompt', 'question', [simpleTool('t', async () => ({}))]);
 
-    expect(outcome).toBe(null);
+    expect(result).toEqual({
+      ok: false,
+      failure: { provider: 'GEMINI', reason: 'NOT_CONFIGURED', detail: expect.any(String) },
+    });
     expect(mockGenerateContent).not.toHaveBeenCalled();
   });
 
-  it('returns null when no tools are provided', async () => {
+  it('reports a provider error when no tools are provided', async () => {
     const service = new GeminiToolCallerService(buildConfig());
 
-    const outcome = await service.call('prompt', 'question', []);
+    const result = await service.call('prompt', 'question', []);
 
-    expect(outcome).toBe(null);
+    expect(result.ok).toBe(false);
     expect(mockGenerateContent).not.toHaveBeenCalled();
   });
 
@@ -101,7 +105,7 @@ describe('GeminiToolCallerService', () => {
     mockGenerateContent.mockResolvedValue(textResponse('You have 12 days left.'));
     const service = new GeminiToolCallerService(buildConfig());
 
-    const outcome = await service.call(
+    const result = await service.call(
       'System prompt here.',
       'How many days do I have left?',
       [simpleTool('get_my_leave_balance', async () => ({ remaining: 12 }))],
@@ -114,7 +118,7 @@ describe('GeminiToolCallerService', () => {
       ],
     );
 
-    expect(outcome?.answer).toBe('You have 12 days left.');
+    expect(expectOk(result).answer).toBe('You have 12 days left.');
 
     const args = firstCallArgs();
     expect(args.config.systemInstruction).toBe('System prompt here.');
@@ -153,15 +157,15 @@ describe('GeminiToolCallerService', () => {
     let holidayRuns = 0;
     const service = new GeminiToolCallerService(buildConfig());
 
-    const outcome = await service.call('prompt', 'question', [
+    const result = await service.call('prompt', 'question', [
       simpleTool('get_my_leave_balance', async () => { balanceRuns++; return { remaining: 12 }; }),
       simpleTool('get_holidays', async () => { holidayRuns++; return { holidays: [] }; }),
     ]);
 
-    expect(outcome?.answer).toBe('Balance plus holidays answer.');
+    expect(expectOk(result).answer).toBe('Balance plus holidays answer.');
     expect(balanceRuns).toBe(1);
     expect(holidayRuns).toBe(1);
-    expect(outcome?.toolsUsed).toEqual(['get_my_leave_balance', 'get_holidays']);
+    expect(expectOk(result).toolsUsed).toEqual(['get_my_leave_balance', 'get_holidays']);
 
     const secondArgs = nthCallArgs(1);
     const lastTurn = secondArgs.contents[secondArgs.contents.length - 1];
@@ -179,13 +183,13 @@ describe('GeminiToolCallerService', () => {
       .mockResolvedValueOnce(textResponse('I could not access the team calendar with your permissions.'));
 
     const service = new GeminiToolCallerService(buildConfig());
-    const outcome = await service.call('prompt', 'question', [
+    const result = await service.call('prompt', 'question', [
       simpleTool('get_team_leave_calendar', async () => ({ denied: true, reason: 'No team scope.' })),
     ]);
 
-    expect(outcome?.anyToolDenied).toBe(true);
-    expect(outcome?.anyToolFailed).toBe(false);
-    expect(outcome?.answer).toContain('team calendar');
+    expect(expectOk(result).anyToolDenied).toBe(true);
+    expect(expectOk(result).anyToolFailed).toBe(false);
+    expect(expectOk(result).answer).toContain('team calendar');
   });
 
   it('flags throwing tools as failed, not denied', async () => {
@@ -194,13 +198,13 @@ describe('GeminiToolCallerService', () => {
       .mockResolvedValueOnce(textResponse('The balance service is unavailable right now.'));
 
     const service = new GeminiToolCallerService(buildConfig());
-    const outcome = await service.call('prompt', 'question', [
+    const result = await service.call('prompt', 'question', [
       simpleTool('get_my_leave_balance', async () => { throw new Error('HR Core timeout'); }),
     ]);
 
-    expect(outcome?.anyToolFailed).toBe(true);
-    expect(outcome?.anyToolDenied).toBe(false);
-    expect(outcome?.answer).toContain('unavailable');
+    expect(expectOk(result).anyToolFailed).toBe(true);
+    expect(expectOk(result).anyToolDenied).toBe(false);
+    expect(expectOk(result).answer).toContain('unavailable');
   });
 
   it('forces a final text answer when tool rounds run out', async () => {
@@ -214,24 +218,31 @@ describe('GeminiToolCallerService', () => {
       .mockResolvedValueOnce(textResponse('Final synthesis from gathered results.'));
 
     const service = new GeminiToolCallerService(buildConfig());
-    const outcome = await service.call('prompt', 'question', [
+    const result = await service.call('prompt', 'question', [
       simpleTool('get_my_leave_balance', async () => ({ remaining: 12 })),
     ]);
 
-    expect(outcome?.answer).toBe('Final synthesis from gathered results.');
+    expect(expectOk(result).answer).toBe('Final synthesis from gathered results.');
     expect(mockGenerateContent).toHaveBeenCalledTimes(6);
     // Final forced-synthesis call must use NONE mode
     expect(nthCallArgs(5).config.toolConfig?.functionCallingConfig.mode).toBe('NONE');
   });
 
-  it('returns null and warns when the SDK throws', async () => {
-    mockGenerateContent.mockRejectedValue(new Error('Network error'));
+  it('classifies a thrown socket error as CONNECTION rather than a bare failure', async () => {
+    mockGenerateContent.mockRejectedValue(new Error('fetch failed: ECONNREFUSED'));
     const service = new GeminiToolCallerService(buildConfig());
 
-    const outcome = await service.call('prompt', 'question', [
+    const result = await service.call('prompt', 'question', [
       simpleTool('get_my_leave_balance', async () => ({ remaining: 12 })),
     ]);
 
-    expect(outcome).toBe(null);
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.failure.reason).toBe('CONNECTION');
   });
 });
+
+/** Narrows a successful call result so assertions can read the outcome fields directly. */
+function expectOk(result: LlmCallResult): GeminiToolCallOutcome {
+  if (!result.ok) throw new Error(`Expected a successful LLM call, got ${result.failure.reason}`);
+  return result.outcome;
+}

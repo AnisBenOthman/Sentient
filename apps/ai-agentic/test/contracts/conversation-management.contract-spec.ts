@@ -93,6 +93,7 @@ describe('AI conversation management contract', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     const result = await service.detail('conversation-1', actor);
@@ -148,6 +149,7 @@ describe('AI conversation management contract', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     await service.list(actor, { page: 1, pageSize: 20 });
@@ -179,6 +181,7 @@ describe('AI conversation management contract', () => {
           routing: { status: AgentRunStatus.SUCCESS, nodes: [] },
         }),
       } as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,
@@ -242,7 +245,7 @@ describe('AI conversation management contract', () => {
           throw new Error('Supervisor LangGraph finished without a final answer.');
         },
       } as never,
-      { evaluate: async () => ({ route: 'finalAnswerNode' }) } as never,
+      { evaluate: async () => ({ route: 'finalAnswerNode', parentLog: { id: 'task-log-1' } }) } as never,
       { check: () => ({ eligible: false }) } as never,
       {} as never,
       {
@@ -254,6 +257,7 @@ describe('AI conversation management contract', () => {
         initialTitle: () => 'Sentient AI conversation',
       } as never,
       { maybeSummarize: async () => undefined } as never,
+      {} as never,
       {} as never,
     );
 

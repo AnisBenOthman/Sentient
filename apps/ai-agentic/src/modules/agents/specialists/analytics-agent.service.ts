@@ -13,10 +13,11 @@ import {
   CONVERSATIONAL_STYLE,
   DRAFT_MODE_DIRECTIVE,
   LlmFallbackOrchestratorService,
+  LlmUnavailable,
   SENTIENT_IDENTITY,
   ToolRegistryService,
 } from '../tools';
-import { downstreamResult, toolCallerResult } from './specialist-response.helpers';
+import { downstreamResult, toolCallerResult, withLlmOutageNotice } from './specialist-response.helpers';
 
 /**
  * WHY: Checked before ABSENCE_INTENT_PATTERN in execute() — "hasn't taken leave"
@@ -68,20 +69,27 @@ export class AnalyticsAgentService implements SpecialistAgent {
       correlationId: input.actorContext.correlationId,
     };
 
+    /**
+     * Holds the classified cause when every configured LLM provider is down, so
+     * the deterministic answer below can say so instead of passing itself off as
+     * a normal, complete answer.
+     */
+    let llmFailure: LlmUnavailable | null = null;
+
     if (this.llmCaller && this.toolRegistry) {
       const tools = this.toolRegistry.getAnalyticsTools(reqContext);
       const systemPrompt = input.isDraftRequest
         ? `${ANALYTICS_SYSTEM_PROMPT}\n\n${DRAFT_MODE_DIRECTIVE}`
         : ANALYTICS_SYSTEM_PROMPT;
-      const outcome = await this.llmCaller.call(
+      const result = await this.llmCaller.call(
         systemPrompt,
         input.userMessage,
         tools,
         input.conversationContext.recentMessages,
         { thinkingLevel: 'high' },
       );
-      if (outcome) {
-        return toolCallerResult(input, this.agentType, outcome, {
+      if (result.ok) {
+        return toolCallerResult(input, this.agentType, result.outcome, {
           sourceType: 'ANALYTICS',
           title: 'Workforce analytics',
           referencePrefix: 'analytics',
@@ -91,8 +99,20 @@ export class AnalyticsAgentService implements SpecialistAgent {
           draftLabel: 'Workforce insight draft',
         });
       }
+      llmFailure = result.failure;
     }
 
+    const deterministic = await this.runDeterministicQuery(input);
+    return llmFailure ? withLlmOutageNotice(deterministic, llmFailure) : deterministic;
+  }
+
+  /**
+   * WHY split out of execute(): every branch here is a real HR Core read that
+   * stays useful with no model in front of it, so when the LLM is down the
+   * caller wraps whichever branch ran in a single outage notice rather than
+   * each handler having to know about LLM failures at all.
+   */
+  private async runDeterministicQuery(input: SpecialistInput): Promise<SpecialistResult> {
     if (ZERO_LEAVE_INTENT_PATTERN.test(input.normalizedIntent)) {
       return this.handleZeroLeaveQuery(input);
     }

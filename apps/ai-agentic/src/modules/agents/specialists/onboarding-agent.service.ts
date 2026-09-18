@@ -6,10 +6,11 @@ import {
   CONVERSATIONAL_STYLE,
   DRAFT_MODE_DIRECTIVE,
   LlmFallbackOrchestratorService,
+  LlmUnavailable,
   SENTIENT_IDENTITY,
   ToolRegistryService,
 } from '../tools';
-import { downstreamResult, toolCallerResult } from './specialist-response.helpers';
+import { downstreamResult, toolCallerResult, withLlmOutageNotice } from './specialist-response.helpers';
 
 const ONBOARDING_SYSTEM_PROMPT = `${SENTIENT_IDENTITY}
 
@@ -33,20 +34,27 @@ export class OnboardingAgentService implements SpecialistAgent {
       correlationId: input.actorContext.correlationId,
     };
 
+    /**
+     * Holds the classified cause when every configured LLM provider is down, so
+     * the deterministic answer below can say so instead of passing itself off as
+     * a normal, complete answer.
+     */
+    let llmFailure: LlmUnavailable | null = null;
+
     if (this.llmCaller && this.toolRegistry) {
       const tools = this.toolRegistry.getOnboardingTools(reqContext);
       const systemPrompt = input.isDraftRequest
         ? `${ONBOARDING_SYSTEM_PROMPT}\n\n${DRAFT_MODE_DIRECTIVE}`
         : ONBOARDING_SYSTEM_PROMPT;
-      const outcome = await this.llmCaller.call(
+      const result = await this.llmCaller.call(
         systemPrompt,
         input.userMessage,
         tools,
         input.conversationContext.recentMessages,
         { thinkingLevel: 'medium' },
       );
-      if (outcome) {
-        return toolCallerResult(input, this.agentType, outcome, {
+      if (result.ok) {
+        return toolCallerResult(input, this.agentType, result.outcome, {
           sourceType: 'ONBOARDING',
           title: 'Onboarding guides',
           referencePrefix: 'onboarding',
@@ -56,15 +64,17 @@ export class OnboardingAgentService implements SpecialistAgent {
           draftLabel: 'Onboarding draft',
         });
       }
+      llmFailure = result.failure;
     }
 
     const context = await this.social.getOnboardingContext(reqContext);
-    return downstreamResult(
+    const deterministic = downstreamResult(
       input,
       this.agentType,
       context,
       'Onboarding guidance prepared.',
       'For onboarding, I can welcome new hires, outline first-week steps, and explain manager or HR onboarding progress where you have access. This scaffold does not change onboarding records.',
     );
+    return llmFailure ? withLlmOutageNotice(deterministic, llmFailure) : deterministic;
   }
 }

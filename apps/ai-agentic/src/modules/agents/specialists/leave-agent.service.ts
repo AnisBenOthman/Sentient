@@ -17,11 +17,12 @@ import {
   FEW_SHOT_LEAVE_EXAMPLES,
   GeminiCallOptions,
   LlmFallbackOrchestratorService,
+  LlmUnavailable,
   SENTIENT_IDENTITY,
   ToolRegistryService,
 } from '../tools';
 import { LeaveBookingReasonService } from '../actions/leave-booking-reason.service';
-import { downstreamResult, toolCallerResult } from './specialist-response.helpers';
+import { downstreamResult, toolCallerResult, withLlmOutageNotice } from './specialist-response.helpers';
 
 const TEAM_LEAVE_SCOPE_ROLES = ['MANAGER', 'HR_ADMIN'];
 
@@ -120,6 +121,14 @@ export class LeaveAgentService implements SpecialistAgent {
       if (proposal) return proposal;
     }
 
+    /**
+     * Holds the classified cause when every configured LLM provider is down, so
+     * the deterministic answers below can say so instead of passing themselves
+     * off as normal, complete answers. Booking proposals never reach here — they
+     * return above from the deterministic Reason/Propose path.
+     */
+    let llmFailure: LlmUnavailable | null = null;
+
     if (this.llmCaller && this.toolRegistry) {
       const tools = this.toolRegistry.getLeaveTools(
         reqContext,
@@ -131,7 +140,7 @@ export class LeaveAgentService implements SpecialistAgent {
         ? `${LEAVE_SYSTEM_PROMPT}\n\n${DRAFT_MODE_DIRECTIVE}`
         : LEAVE_SYSTEM_PROMPT;
       const callOptions: GeminiCallOptions = { thinkingLevel: 'medium' };
-      const outcome = onToken
+      const result = onToken
         ? await this.llmCaller.callStream(
             systemPrompt,
             input.userMessage,
@@ -147,8 +156,8 @@ export class LeaveAgentService implements SpecialistAgent {
             input.conversationContext.recentMessages,
             callOptions,
           );
-      if (outcome) {
-        const result = toolCallerResult(input, this.agentType, outcome, {
+      if (result.ok) {
+        const answered = toolCallerResult(input, this.agentType, result.outcome, {
           sourceType: 'LEAVE',
           title: 'Leave context',
           referencePrefix: 'leave',
@@ -157,14 +166,29 @@ export class LeaveAgentService implements SpecialistAgent {
           limitedSummary: 'Leave guidance prepared with limited data access.',
           draftLabel: 'Leave request draft',
         });
-        return this.withoutCompletionClaims(result);
+        return this.withoutCompletionClaims(answered);
       }
+      llmFailure = result.failure;
     }
 
     /**
      * WHY: Fallback deterministic path preserves existing routing for holiday
      * calendar, team coverage, and own-balance questions when Gemini is unavailable.
      */
+    const deterministic = await this.runDeterministicQuery(input, reqContext);
+    return llmFailure ? withLlmOutageNotice(deterministic, llmFailure) : deterministic;
+  }
+
+  /**
+   * WHY split out: each branch is a real HR Core read that stays useful with no
+   * model in front of it, so when the LLM is down the caller wraps whichever
+   * branch ran in a single outage notice instead of every branch having to know
+   * about LLM failures. Nothing here can write to HR Core.
+   */
+  private async runDeterministicQuery(
+    input: SpecialistInput,
+    reqContext: DownstreamRequestContext,
+  ): Promise<SpecialistResult> {
     if (this.requestsHolidayCalendar(input)) {
       const holidays = await this.hrCore.getHolidaysContext(input.actorContext.businessUnitId, reqContext);
       return downstreamResult(
