@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useParams } from "wouter";
+import { Link, useLocation, useParams, useSearch } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Area,
@@ -435,6 +435,8 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
   const { user } = useAuth();
   const isSelf = !!user?.employeeId && user.employeeId === id;
   const queryClient = useQueryClient();
+  const [location, navigate] = useLocation();
+  const search = useSearch();
   const [editMode, setEditMode] = useState(false);
   const [draft, setDraft] = useState<DraftProfile | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -528,6 +530,36 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
 
   const reviews = useEmployeePerformanceReviews(id);
   const canEditProfile = user ? getRoleTier(user) === "hr_admin" : false;
+
+  /**
+   * WHY the active tab lives in the URL: the guided tour sends the user to
+   * /profile?tab=channels to show where Slack and Telegram link codes come
+   * from, and a tab that only existed in component state could not be reached
+   * that way. It also makes every tab shareable as a link.
+   *
+   * Derived on each render rather than mirrored into state, so a tab that only
+   * becomes available once its query resolves — salary history — still opens
+   * when it was requested before the data arrived.
+   */
+  const availableTabs = useMemo(() => {
+    const tabs = ["details", "leave-history", "skills", "promotions", "performance"];
+    if (salaryHistory.length > 0) tabs.push("salary");
+    if (isSelf) tabs.push("channels");
+    return tabs;
+  }, [salaryHistory.length, isSelf]);
+
+  const requestedTab = new URLSearchParams(search).get("tab");
+  const activeTab = requestedTab && availableTabs.includes(requestedTab) ? requestedTab : "details";
+
+  function selectTab(tab: string): void {
+    const next = new URLSearchParams(search);
+    if (tab === "details") next.delete("tab");
+    else next.set("tab", tab);
+    const query = next.toString();
+    // Replace rather than push: tab switching should not stack history entries
+    // the user has to click Back through to leave the profile.
+    navigate(query ? `${location}?${query}` : location, { replace: true });
+  }
 
   if (loadingEmp) {
     return (
@@ -666,7 +698,7 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
         </div>
       )}
 
-      <Tabs defaultValue="details" className="pt-2">
+      <Tabs value={activeTab} onValueChange={selectTab} className="pt-2">
         <TabsList className="flex h-auto flex-wrap">
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="leave-history">Leave History {leaveRequests.length > 0 ? `(${leaveRequests.length})` : ""}</TabsTrigger>
@@ -674,7 +706,11 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
           <TabsTrigger value="promotions">Promotion History {promotionRequests.length > 0 ? `(${promotionRequests.length})` : ""}</TabsTrigger>
           <TabsTrigger value="performance">Performance {reviews.length > 0 ? `(${reviews.length})` : ""}</TabsTrigger>
           {salaryHistory.length > 0 && <TabsTrigger value="salary">Salary History</TabsTrigger>}
-          {isSelf && <TabsTrigger value="channels">Linked Channels</TabsTrigger>}
+          {isSelf && (
+            <TabsTrigger value="channels" data-tour="linked-channels-tab">
+              Linked Channels
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="details" className="mt-6">

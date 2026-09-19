@@ -1,4 +1,11 @@
 import type { TourStep } from '@/components/guided-tour/types';
+import { SLACK_APP_NAME, TELEGRAM_BOT_HANDLE } from '@/lib/channels/link-channel-copy';
+
+/**
+ * WHY the query string: the Linked Channels steps need the profile page to
+ * open on that tab, and EmployeeProfile reads its active tab from `?tab=`.
+ */
+const LINKED_CHANNELS_ROUTE = '/profile?tab=channels';
 
 export const ALL_TOUR_STEPS: readonly TourStep[] = [
   {
@@ -114,6 +121,33 @@ export const ALL_TOUR_STEPS: readonly TourStep[] = [
     title: 'Dark Mode',
     description: "Prefer working in the dark? Toggle between light and dark themes anytime from the sidebar footer. Your preference is saved automatically.",
     placement: 'right',
+    tiers: ['hr_admin', 'dept_manager', 'team_lead', 'employee'],
+  },
+  {
+    id: 'linked-channels-tab',
+    target: '[data-tour="linked-channels-tab"]',
+    title: 'Linked Channels',
+    description: 'Sentient answers in Slack and Telegram too. Link your account once from this tab on your profile and you can check a balance or book leave without opening the app.',
+    placement: 'bottom',
+    route: LINKED_CHANNELS_ROUTE,
+    tiers: ['hr_admin', 'dept_manager', 'team_lead', 'employee'],
+  },
+  {
+    id: 'linked-channel-telegram',
+    target: '[data-tour="linked-channel-telegram"]',
+    title: 'Get your Telegram code',
+    description: `Press Connect and Sentient issues a single-use 6-digit code. Open Telegram, message ${TELEGRAM_BOT_HANDLE}, and send it "/link" followed by that code — the dialog spells out the exact command and has a copy button.`,
+    placement: 'right',
+    route: LINKED_CHANNELS_ROUTE,
+    tiers: ['hr_admin', 'dept_manager', 'team_lead', 'employee'],
+  },
+  {
+    id: 'linked-channel-slack',
+    target: '[data-tour="linked-channel-slack"]',
+    title: 'Get your Slack code',
+    description: `Same for Slack: press Connect, then direct-message the ${SLACK_APP_NAME} app "link" and the code — with no leading slash, which Slack would swallow as a slash command. Codes are short-lived, so generate a fresh one here if yours expires before you send it.`,
+    placement: 'right',
+    route: LINKED_CHANNELS_ROUTE,
     tiers: ['hr_admin', 'dept_manager', 'team_lead', 'employee'],
   },
 ] as const;

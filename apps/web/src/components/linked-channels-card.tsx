@@ -28,6 +28,12 @@ import {
   type LinkCodeResponse,
 } from "@/lib/api/hr-core";
 import { useToast } from "@/hooks/use-toast";
+import {
+  SLACK_APP_NAME,
+  TELEGRAM_BOT_HANDLE,
+  slackLinkCommand,
+  telegramLinkCommand,
+} from "@/lib/channels/link-channel-copy";
 
 interface ChannelDefinition {
   id: LinkableChannel;
@@ -42,9 +48,8 @@ interface ChannelDefinition {
   disconnectDescription: string;
 }
 
-// WHY the slash differs: Telegram routes "/link" to the bot as a command;
-// Slack intercepts any leading slash as a slash command and, since none is
-// registered, shows an error and never delivers it. See SlackService.
+// The two command shapes live in lib/channels/link-channel-copy — the guided
+// tour quotes them too, and they must not drift apart.
 const CHANNELS: ChannelDefinition[] = [
   {
     id: "TELEGRAM",
@@ -52,11 +57,11 @@ const CHANNELS: ChannelDefinition[] = [
     icon: Send,
     iconClassName: "text-sky-600 dark:text-sky-400",
     iconBgClassName: "bg-sky-100 dark:bg-sky-900/30",
-    command: (code) => `/link ${code}`,
+    command: telegramLinkCommand,
     instructions: (
       <>
         Open Telegram and message{" "}
-        <span className="font-medium text-gray-900 dark:text-gray-100">@Sentient2bot</span>
+        <span className="font-medium text-gray-900 dark:text-gray-100">{TELEGRAM_BOT_HANDLE}</span>
       </>
     ),
     disconnectDescription:
@@ -68,12 +73,12 @@ const CHANNELS: ChannelDefinition[] = [
     icon: Slack,
     iconClassName: "text-purple-600 dark:text-purple-400",
     iconBgClassName: "bg-purple-100 dark:bg-purple-900/30",
-    command: (code) => `link ${code}`,
+    command: slackLinkCommand,
     instructions: (
       <>
         Open Slack, find{" "}
-        <span className="font-medium text-gray-900 dark:text-gray-100">Sentient</span> under Apps, and
-        send it a direct message
+        <span className="font-medium text-gray-900 dark:text-gray-100">{SLACK_APP_NAME}</span> under
+        Apps, and send it a direct message
       </>
     ),
     disconnectDescription:
@@ -135,7 +140,11 @@ export function LinkedChannelsCard() {
           const isUnlinking = unlinkMutation.isPending && unlinkMutation.variables?.id === definition.id;
 
           return (
-            <div key={definition.id} className="flex items-center justify-between rounded-lg border p-4">
+            <div
+              key={definition.id}
+              data-tour={`linked-channel-${definition.id.toLowerCase()}`}
+              className="flex items-center justify-between rounded-lg border p-4"
+            >
               <div className="flex items-center gap-3">
                 <div
                   className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${definition.iconBgClassName}`}
