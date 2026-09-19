@@ -58,6 +58,15 @@
       "PART_TIME": "Part-time",
       "CONTRACTOR": "Contractor",
       "INTERN": "Intern"
+    },
+    "tabs": {
+      "details": "Details",
+      "leaveHistory": "Leave History",
+      "skills": "Skills",
+      "promotions": "Promotion History",
+      "performance": "Performance",
+      "salary": "Salary History",
+      "channels": "Linked Channels"
     }
   },
   "wizard": {
@@ -67,5 +76,32 @@
     "step3": "Access & Role",
     "submit": "Create Employee",
     "submitting": "Creating…"
+  },
+  "channels": {
+    "title": "Linked Channels",
+    "subtitle": "Connect chat apps so you can message Sentient from where you already talk.",
+    "connected": "Connected {{date}}",
+    "notConnected": "Not connected",
+    "connect": "Connect",
+    "generating": "Generating…",
+    "disconnect": "Disconnect",
+    "dialogTitle": "Connect {{channel}}",
+    "sendCommand": "Send it this command:",
+    "expiresAt": "Expires at {{time}} — come back here for a new code if it does.",
+    "done": "Done",
+    "confirmDisconnect": "Disconnect {{channel}}?",
+    "copied": "Copied to clipboard",
+    "copyFailed": "Couldn't copy — select and copy it manually",
+    "codeFailed": "Couldn't generate a link code",
+    "disconnected": "{{channel}} disconnected",
+    "disconnectFailed": "Couldn't disconnect {{channel}}",
+    "telegram": {
+      "instructions": "Open Telegram and message <em>{{handle}}</em>",
+      "disconnectDescription": "Sentient will stop recognizing messages from this Telegram chat. You can reconnect anytime with a new code."
+    },
+    "slack": {
+      "instructions": "Open Slack, find <em>{{appName}}</em> under Apps, and send it a direct message",
+      "disconnectDescription": "Sentient will stop recognizing messages from this Slack account. You can reconnect anytime with a new code."
+    }
   }
 }

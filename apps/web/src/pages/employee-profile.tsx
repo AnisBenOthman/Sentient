@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useLocation, useParams, useSearch } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -429,10 +430,16 @@ function SalaryTooltip({
   );
 }
 
+/** Appends " (n)" to a tab label, or nothing when the tab has no rows yet. */
+function withCount(label: string, count: number): string {
+  return count > 0 ? `${label} (${count})` : label;
+}
+
 export default function EmployeeProfile({ employeeId }: { employeeId?: string }) {
   const params = useParams<{ id: string }>();
   const id = employeeId ?? params.id ?? "";
   const { user } = useAuth();
+  const { t } = useTranslation("employees");
   const isSelf = !!user?.employeeId && user.employeeId === id;
   const queryClient = useQueryClient();
   const [location, navigate] = useLocation();
@@ -700,15 +707,15 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
 
       <Tabs value={activeTab} onValueChange={selectTab} className="pt-2">
         <TabsList className="flex h-auto flex-wrap">
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="leave-history">Leave History {leaveRequests.length > 0 ? `(${leaveRequests.length})` : ""}</TabsTrigger>
-          <TabsTrigger value="skills">Skills {skills.length > 0 ? `(${skills.length})` : ""}</TabsTrigger>
-          <TabsTrigger value="promotions">Promotion History {promotionRequests.length > 0 ? `(${promotionRequests.length})` : ""}</TabsTrigger>
-          <TabsTrigger value="performance">Performance {reviews.length > 0 ? `(${reviews.length})` : ""}</TabsTrigger>
-          {salaryHistory.length > 0 && <TabsTrigger value="salary">Salary History</TabsTrigger>}
+          <TabsTrigger value="details">{t("profile.tabs.details")}</TabsTrigger>
+          <TabsTrigger value="leave-history">{withCount(t("profile.tabs.leaveHistory"), leaveRequests.length)}</TabsTrigger>
+          <TabsTrigger value="skills">{withCount(t("profile.tabs.skills"), skills.length)}</TabsTrigger>
+          <TabsTrigger value="promotions">{withCount(t("profile.tabs.promotions"), promotionRequests.length)}</TabsTrigger>
+          <TabsTrigger value="performance">{withCount(t("profile.tabs.performance"), reviews.length)}</TabsTrigger>
+          {salaryHistory.length > 0 && <TabsTrigger value="salary">{t("profile.tabs.salary")}</TabsTrigger>}
           {isSelf && (
             <TabsTrigger value="channels" data-tour="linked-channels-tab">
-              Linked Channels
+              {t("profile.tabs.channels")}
             </TabsTrigger>
           )}
         </TabsList>

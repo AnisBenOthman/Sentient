@@ -61,10 +61,10 @@
   },
   "linked-channel-telegram": {
     "title": "Get your Telegram code",
-    "description": "Press Connect and Sentient issues a single-use 6-digit code. Open Telegram, message {{botHandle}}, and send it \"/link\" followed by that code — the dialog spells out the exact command and has a copy button."
+    "description": "Press $t(employees:channels.connect) and Sentient issues a single-use 6-digit code. Open Telegram, message {{botHandle}}, and send it \"/link\" followed by that code — the dialog spells out the exact command and has a copy button."
   },
   "linked-channel-slack": {
     "title": "Get your Slack code",
-    "description": "Same for Slack: press Connect, then direct-message the {{appName}} app \"link\" and the code — with no leading slash, which Slack would swallow as a slash command. Codes are short-lived, so generate a fresh one here if yours expires before you send it."
+    "description": "Same for Slack: press $t(employees:channels.connect), then direct-message the {{appName}} app \"link\" and the code — with no leading slash, which Slack would swallow as a slash command. Codes are short-lived, so generate a fresh one here if yours expires before you send it."
   }
 }

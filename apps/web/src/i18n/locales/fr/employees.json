@@ -58,6 +58,15 @@
       "PART_TIME": "Temps partiel",
       "CONTRACTOR": "Prestataire",
       "INTERN": "Stagiaire"
+    },
+    "tabs": {
+      "details": "Détails",
+      "leaveHistory": "Historique des Congés",
+      "skills": "Compétences",
+      "promotions": "Historique des Promotions",
+      "performance": "Performance",
+      "salary": "Historique Salarial",
+      "channels": "Canaux Liés"
     }
   },
   "wizard": {
@@ -67,5 +76,32 @@
     "step3": "Accès & Rôle",
     "submit": "Créer l'Employé",
     "submitting": "Création…"
+  },
+  "channels": {
+    "title": "Canaux Liés",
+    "subtitle": "Connectez vos applications de messagerie pour écrire à Sentient depuis là où vous discutez déjà.",
+    "connected": "Connecté le {{date}}",
+    "notConnected": "Non connecté",
+    "connect": "Connecter",
+    "generating": "Génération…",
+    "disconnect": "Déconnecter",
+    "dialogTitle": "Connecter {{channel}}",
+    "sendCommand": "Envoyez-lui cette commande :",
+    "expiresAt": "Expire à {{time}} — revenez ici pour obtenir un nouveau code le cas échéant.",
+    "done": "Terminé",
+    "confirmDisconnect": "Déconnecter {{channel}} ?",
+    "copied": "Copié dans le presse-papiers",
+    "copyFailed": "Copie impossible — sélectionnez et copiez le texte manuellement",
+    "codeFailed": "Impossible de générer un code de liaison",
+    "disconnected": "{{channel}} déconnecté",
+    "disconnectFailed": "Impossible de déconnecter {{channel}}",
+    "telegram": {
+      "instructions": "Ouvrez Telegram et écrivez à <em>{{handle}}</em>",
+      "disconnectDescription": "Sentient cessera de reconnaître les messages de cette conversation Telegram. Vous pourrez vous reconnecter à tout moment avec un nouveau code."
+    },
+    "slack": {
+      "instructions": "Ouvrez Slack, trouvez <em>{{appName}}</em> dans Apps, et envoyez-lui un message direct",
+      "disconnectDescription": "Sentient cessera de reconnaître les messages de ce compte Slack. Vous pourrez vous reconnecter à tout moment avec un nouveau code."
+    }
   }
 }

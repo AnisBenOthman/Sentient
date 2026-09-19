@@ -61,10 +61,10 @@
   },
   "linked-channel-telegram": {
     "title": "Obtenir votre code Telegram",
-    "description": "Appuyez sur « Connect » et Sentient génère un code à 6 chiffres à usage unique. Ouvrez Telegram, écrivez à {{botHandle}} et envoyez-lui « /link » suivi de ce code — la fenêtre affiche la commande exacte et propose un bouton de copie."
+    "description": "Appuyez sur « $t(employees:channels.connect) » et Sentient génère un code à 6 chiffres à usage unique. Ouvrez Telegram, écrivez à {{botHandle}} et envoyez-lui « /link » suivi de ce code — la fenêtre affiche la commande exacte et propose un bouton de copie."
   },
   "linked-channel-slack": {
     "title": "Obtenir votre code Slack",
-    "description": "Même principe pour Slack : appuyez sur « Connect », puis envoyez un message direct à l'application {{appName}} avec « link » et le code — sans barre oblique au début, que Slack interpréterait comme une commande. Les codes sont valables peu de temps : générez-en un nouveau ici si le vôtre expire avant l'envoi."
+    "description": "Même principe pour Slack : appuyez sur « $t(employees:channels.connect) », puis envoyez un message direct à l'application {{appName}} avec « link » et le code — sans barre oblique au début, que Slack interpréterait comme une commande. Les codes sont valables peu de temps : générez-en un nouveau ici si le vôtre expire avant l'envoi."
   }
 }
