@@ -16,6 +16,7 @@ import enPerformance from "./locales/en/performance.json";
 import enPositions from "./locales/en/positions.json";
 import enSettings from "./locales/en/settings.json";
 import enSimulation from "./locales/en/simulation.json";
+import enTour from "./locales/en/tour.json";
 
 import frAuth from "./locales/fr/auth.json";
 import frCommon from "./locales/fr/common.json";
@@ -32,6 +33,7 @@ import frPerformance from "./locales/fr/performance.json";
 import frPositions from "./locales/fr/positions.json";
 import frSettings from "./locales/fr/settings.json";
 import frSimulation from "./locales/fr/simulation.json";
+import frTour from "./locales/fr/tour.json";
 
 /**
  * WHY: Locales are bundled statically rather than fetched over HTTP.
@@ -66,6 +68,7 @@ const resources = {
     positions: enPositions,
     settings: enSettings,
     simulation: enSimulation,
+    tour: enTour,
   },
   fr: {
     auth: frAuth,
@@ -83,6 +86,7 @@ const resources = {
     positions: frPositions,
     settings: frSettings,
     simulation: frSimulation,
+    tour: frTour,
   },
 } as const;
 

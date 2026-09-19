@@ -1,0 +1,70 @@
+{
+  "controls": {
+    "skip": "Passer la visite",
+    "finish": "Terminer"
+  },
+  "home-nav": {
+    "title": "Accueil",
+    "description": "Votre tableau de bord quotidien — actions en attente, activité récente et accès rapides adaptés à votre rôle. Commencez chaque matinée ici."
+  },
+  "profile-nav": {
+    "title": "Mon Profil",
+    "description": "Consultez et mettez à jour vos informations personnelles, vos coordonnées et votre résumé professionnel. D'autres modules comme les OKR et les évaluations y renvoient."
+  },
+  "leaves-nav": {
+    "title": "Congés",
+    "description": "Soumettez et suivez vos demandes de congé, consultez vos soldes restants par type de congé et retrouvez tout votre historique de demandes."
+  },
+  "org-chart-nav": {
+    "title": "Organigramme",
+    "description": "Explorez la structure de l'entreprise — départements, équipes et liens hiérarchiques — dans un arbre interactif. Accédez directement au profil de n'importe quel employé."
+  },
+  "performance-nav": {
+    "title": "Évaluations de Performance",
+    "description": "Remplissez vos auto-évaluations et consultez les retours de votre manager sur les cycles d'évaluation en cours. Suivez vos notes dans le temps."
+  },
+  "okrs-nav": {
+    "title": "OKR",
+    "description": "Votre espace unique pour les Objectifs & Résultats Clés — suivez vos OKR personnels, visualisez l'avancement du cycle et gérez cycles et points d'étape, le tout au même endroit."
+  },
+  "dashboard-nav": {
+    "title": "Tableau de Bord Analytique",
+    "description": "Un espace façon Power BI avec des indicateurs en temps réel : évolution des effectifs, synthèses de paie, tendances des congés et scores d'engagement. Changez le type de graphique panneau par panneau."
+  },
+  "simulation-nav": {
+    "title": "Simulation",
+    "description": "Modélisez les changements d'effectif avant de les engager — proposez des promotions, des mutations ou une réorganisation. L'Agent IA analyse l'impact sur les coûts et les compétences."
+  },
+  "employees-nav": {
+    "title": "Employés",
+    "description": "Le registre central des employés — créez des employés, mettez à jour leurs informations, gérez les attributions de rôles, suivez l'historique des salaires et consultez les profils de compétences."
+  },
+  "leave-mgmt-nav": {
+    "title": "Gestion des Congés",
+    "description": "Examinez puis approuvez ou refusez les demandes de congé en attente. Configurez les types de congé, les règles d'acquisition et de report, et consultez le calendrier complet de l'équipe."
+  },
+  "positions-nav": {
+    "title": "Postes",
+    "description": "Définissez et maintenez le catalogue des postes. Chaque poste porte ses compétences requises et ses fourchettes salariales — de quoi alimenter l'analyse des écarts de compétences et l'Agent IA Carrière."
+  },
+  "notifications-bell": {
+    "title": "Notifications",
+    "description": "Restez informé des approbations de congé, des demandes d'évaluation, des rappels de points OKR et des autres événements importants — le tout dans une seule boîte de réception."
+  },
+  "dark-mode-toggle": {
+    "title": "Mode Sombre",
+    "description": "Vous préférez travailler dans le noir ? Basculez entre le thème clair et le thème sombre à tout moment depuis le bas de la barre latérale. Votre préférence est enregistrée automatiquement."
+  },
+  "linked-channels-tab": {
+    "title": "Canaux Liés",
+    "description": "Sentient répond aussi dans Slack et Telegram. Liez votre compte une seule fois depuis cet onglet de votre profil et vous pourrez consulter un solde ou poser un congé sans ouvrir l'application."
+  },
+  "linked-channel-telegram": {
+    "title": "Obtenir votre code Telegram",
+    "description": "Appuyez sur « Connect » et Sentient génère un code à 6 chiffres à usage unique. Ouvrez Telegram, écrivez à {{botHandle}} et envoyez-lui « /link » suivi de ce code — la fenêtre affiche la commande exacte et propose un bouton de copie."
+  },
+  "linked-channel-slack": {
+    "title": "Obtenir votre code Slack",
+    "description": "Même principe pour Slack : appuyez sur « Connect », puis envoyez un message direct à l'application {{appName}} avec « link » et le code — sans barre oblique au début, que Slack interpréterait comme une commande. Les codes sont valables peu de temps : générez-en un nouveau ici si le vôtre expire avant l'envoi."
+  }
+}

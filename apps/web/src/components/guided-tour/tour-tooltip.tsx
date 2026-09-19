@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -95,7 +96,13 @@ interface TourTooltipProps {
 }
 
 export function TourTooltip({ step, rect, stepIndex, totalSteps, onNext, onPrev, onSkip }: TourTooltipProps): React.ReactElement {
+  const { t } = useTranslation(['tour', 'common']);
   const [pos, setPos] = useState<Position>(centered);
+
+  // The step id doubles as its key in the `tour` namespace; TourStepId is
+  // derived from the EN locale, so every id here resolves to real copy.
+  const title = t(`tour:${step.id}.title`);
+  const description = t(`tour:${step.id}.description`, step.descriptionValues ?? {});
 
   // WHY no listeners here: `rect` already arrives measured and rAF-throttled
   // from useTourTarget, which owns the scroll, resize and mutation watching.
@@ -109,7 +116,7 @@ export function TourTooltip({ step, rect, stepIndex, totalSteps, onNext, onPrev,
   return (
     <div
       role="dialog"
-      aria-label={step.title}
+      aria-label={title}
       aria-describedby="tour-tooltip-desc"
       className={cn(
         'fixed z-[9999] w-80 rounded-xl border bg-background shadow-2xl',
@@ -123,12 +130,12 @@ export function TourTooltip({ step, rect, stepIndex, totalSteps, onNext, onPrev,
           <span className="text-[11px] font-semibold uppercase tracking-widest text-primary">
             {stepIndex + 1} / {totalSteps}
           </span>
-          <h3 className="text-sm font-semibold leading-tight">{step.title}</h3>
+          <h3 className="text-sm font-semibold leading-tight">{title}</h3>
         </div>
         <button
           onClick={onSkip}
           className="mt-0.5 flex-shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          aria-label="Skip tour"
+          aria-label={t('tour:controls.skip')}
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -136,7 +143,7 @@ export function TourTooltip({ step, rect, stepIndex, totalSteps, onNext, onPrev,
 
       {/* Body */}
       <p id="tour-tooltip-desc" className="px-4 pb-4 text-xs leading-relaxed text-muted-foreground">
-        {step.description}
+        {description}
       </p>
 
       {/* Progress dots */}
@@ -158,17 +165,17 @@ export function TourTooltip({ step, rect, stepIndex, totalSteps, onNext, onPrev,
           onClick={onSkip}
           className="text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
-          Skip tour
+          {t('tour:controls.skip')}
         </button>
         <div className="flex items-center gap-2">
           {!isFirst && (
             <Button variant="ghost" size="sm" onClick={onPrev} className="h-7 gap-1 px-2 text-xs">
               <ChevronLeft className="h-3.5 w-3.5" />
-              Back
+              {t('common:back')}
             </Button>
           )}
           <Button size="sm" onClick={onNext} className="h-7 gap-1 px-3 text-xs">
-            {isLast ? 'Finish' : 'Next'}
+            {isLast ? t('tour:controls.finish') : t('common:next')}
             {!isLast && <ChevronRight className="h-3.5 w-3.5" />}
           </Button>
         </div>

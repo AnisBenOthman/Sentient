@@ -67,5 +67,20 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    commonjsOptions: {
+      // WHY: @sentient/shared builds to CommonJS (tsconfig.base.json pins
+      // `module: "commonjs"` for the NestJS services), and its barrels re-export
+      // through tslib's `__exportStar`, which Rollup cannot analyse statically.
+      // `optimizeDeps.include` above covers dev, where esbuild pre-bundles it to
+      // ESM — but that does not apply to `vite build`. There, Rollup resolves the
+      // pnpm symlink (apps/web/node_modules/@sentient/shared) to its real path,
+      // packages/shared/dist, which falls outside this option's default
+      // [/node_modules/] and so never reaches the CommonJS plugin. Every *value*
+      // import of a shared enum then fails to build ("PerformanceRating is not
+      // exported by packages/shared/dist/index.js") while type-only imports,
+      // erased at compile time, keep working — which is why `tsc --noEmit` stays
+      // clean and only the production build breaks.
+      include: [/node_modules/, /packages[\\/]shared[\\/]dist/],
+    },
   },
 });
