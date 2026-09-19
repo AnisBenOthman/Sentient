@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { TourStep, TooltipPlacement } from './types';
+import { SPOTLIGHT_PADDING } from './use-tour-target';
+import type { TourStep, TooltipPlacement, TargetRect } from './types';
 
-const PADDING = 6;
 const TOOLTIP_GAP = 12; // gap between spotlight border and tooltip
+const TOOLTIP_W = 320;
+const TOOLTIP_H = 200;
 
 interface Position {
   top: number;
@@ -13,18 +16,22 @@ interface Position {
   placement: TooltipPlacement;
 }
 
-function computePosition(target: string, preferredPlacement: TooltipPlacement): Position {
-  const el = document.querySelector(target);
-  if (!el) return { top: window.innerHeight / 2 - 100, left: window.innerWidth / 2 - 160, placement: 'bottom' };
+function centered(): Position {
+  return {
+    top: window.innerHeight / 2 - TOOLTIP_H / 2,
+    left: window.innerWidth / 2 - TOOLTIP_W / 2,
+    placement: 'bottom',
+  };
+}
 
-  const r = el.getBoundingClientRect();
-  const spotTop = r.top - PADDING;
-  const spotLeft = r.left - PADDING;
-  const spotRight = r.right + PADDING;
-  const spotBottom = r.bottom + PADDING;
+function computePosition(rect: TargetRect | null, preferredPlacement: TooltipPlacement): Position {
+  if (!rect) return centered();
 
-  const tooltipW = 320;
-  const tooltipH = 200;
+  const spotTop = rect.top - SPOTLIGHT_PADDING;
+  const spotLeft = rect.left - SPOTLIGHT_PADDING;
+  const spotRight = rect.left + rect.width + SPOTLIGHT_PADDING;
+  const spotBottom = rect.top + rect.height + SPOTLIGHT_PADDING;
+
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const gap = TOOLTIP_GAP;
@@ -41,44 +48,46 @@ function computePosition(target: string, preferredPlacement: TooltipPlacement): 
   for (const p of unique) {
     if (p === 'right') {
       const left = spotRight + gap;
-      const top = r.top + r.height / 2 - tooltipH / 2;
-      if (left + tooltipW <= vw && top >= 0 && top + tooltipH <= vh) {
+      const top = rect.top + rect.height / 2 - TOOLTIP_H / 2;
+      if (left + TOOLTIP_W <= vw && top >= 0 && top + TOOLTIP_H <= vh) {
         return { top: Math.max(8, top), left, placement: 'right' };
       }
     }
     if (p === 'left') {
-      const left = spotLeft - gap - tooltipW;
-      const top = r.top + r.height / 2 - tooltipH / 2;
-      if (left >= 0 && top >= 0 && top + tooltipH <= vh) {
+      const left = spotLeft - gap - TOOLTIP_W;
+      const top = rect.top + rect.height / 2 - TOOLTIP_H / 2;
+      if (left >= 0 && top >= 0 && top + TOOLTIP_H <= vh) {
         return { top: Math.max(8, top), left, placement: 'left' };
       }
     }
     if (p === 'bottom') {
       const top = spotBottom + gap;
-      const left = r.left + r.width / 2 - tooltipW / 2;
-      if (top + tooltipH <= vh && left >= 0 && left + tooltipW <= vw) {
-        return { top, left: Math.max(8, Math.min(left, vw - tooltipW - 8)), placement: 'bottom' };
+      const left = rect.left + rect.width / 2 - TOOLTIP_W / 2;
+      if (top + TOOLTIP_H <= vh && left >= 0 && left + TOOLTIP_W <= vw) {
+        return { top, left: Math.max(8, Math.min(left, vw - TOOLTIP_W - 8)), placement: 'bottom' };
       }
     }
     if (p === 'top') {
-      const top = spotTop - gap - tooltipH;
-      const left = r.left + r.width / 2 - tooltipW / 2;
-      if (top >= 0 && left >= 0 && left + tooltipW <= vw) {
-        return { top, left: Math.max(8, Math.min(left, vw - tooltipW - 8)), placement: 'top' };
+      const top = spotTop - gap - TOOLTIP_H;
+      const left = rect.left + rect.width / 2 - TOOLTIP_W / 2;
+      if (top >= 0 && left >= 0 && left + TOOLTIP_W <= vw) {
+        return { top, left: Math.max(8, Math.min(left, vw - TOOLTIP_W - 8)), placement: 'top' };
       }
     }
   }
 
   // Fallback: bottom-center of screen
   return {
-    top: Math.min(spotBottom + gap, vh - tooltipH - 8),
-    left: Math.max(8, Math.min(r.left + r.width / 2 - tooltipW / 2, vw - tooltipW - 8)),
+    top: Math.min(spotBottom + gap, vh - TOOLTIP_H - 8),
+    left: Math.max(8, Math.min(rect.left + rect.width / 2 - TOOLTIP_W / 2, vw - TOOLTIP_W - 8)),
     placement: 'bottom',
   };
 }
 
 interface TourTooltipProps {
   step: TourStep;
+  /** Unpadded rect of the step's target, or null while it is off screen. */
+  rect: TargetRect | null;
   stepIndex: number;
   totalSteps: number;
   onNext: () => void;
@@ -86,25 +95,20 @@ interface TourTooltipProps {
   onSkip: () => void;
 }
 
-export function TourTooltip({ step, stepIndex, totalSteps, onNext, onPrev, onSkip }: TourTooltipProps): React.ReactElement {
-  const [pos, setPos] = useState<Position>({ top: -999, left: -999, placement: step.placement ?? 'bottom' });
-  const rafRef = useRef<number>(0);
+export function TourTooltip({ step, rect, stepIndex, totalSteps, onNext, onPrev, onSkip }: TourTooltipProps): React.ReactElement {
+  const { t } = useTranslation(['tour', 'common']);
+  const [pos, setPos] = useState<Position>(centered);
 
-  const reposition = useCallback((): void => {
-    cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(() => {
-      setPos(computePosition(step.target, step.placement ?? 'right'));
-    });
-  }, [step.target, step.placement]);
+  // The step id doubles as its key in the `tour` namespace; TourStepId is
+  // derived from the EN locale, so every id here resolves to real copy.
+  const title = t(`tour:${step.id}.title`);
+  const description = t(`tour:${step.id}.description`, step.descriptionValues ?? {});
 
+  // WHY no listeners here: `rect` already arrives measured and rAF-throttled
+  // from useTourTarget, which owns the scroll, resize and mutation watching.
   useEffect(() => {
-    reposition();
-    window.addEventListener('resize', reposition, { passive: true });
-    return () => {
-      window.removeEventListener('resize', reposition);
-      cancelAnimationFrame(rafRef.current);
-    };
-  }, [reposition]);
+    setPos(computePosition(rect, step.placement ?? 'right'));
+  }, [rect, step.placement]);
 
   const isFirst = stepIndex === 0;
   const isLast = stepIndex === totalSteps - 1;
@@ -112,7 +116,7 @@ export function TourTooltip({ step, stepIndex, totalSteps, onNext, onPrev, onSki
   return (
     <div
       role="dialog"
-      aria-label={step.title}
+      aria-label={title}
       aria-describedby="tour-tooltip-desc"
       className={cn(
         'fixed z-[9999] w-80 rounded-xl border bg-background shadow-2xl',
@@ -126,12 +130,12 @@ export function TourTooltip({ step, stepIndex, totalSteps, onNext, onPrev, onSki
           <span className="text-[11px] font-semibold uppercase tracking-widest text-primary">
             {stepIndex + 1} / {totalSteps}
           </span>
-          <h3 className="text-sm font-semibold leading-tight">{step.title}</h3>
+          <h3 className="text-sm font-semibold leading-tight">{title}</h3>
         </div>
         <button
           onClick={onSkip}
           className="mt-0.5 flex-shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          aria-label="Skip tour"
+          aria-label={t('tour:controls.skip')}
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -139,7 +143,7 @@ export function TourTooltip({ step, stepIndex, totalSteps, onNext, onPrev, onSki
 
       {/* Body */}
       <p id="tour-tooltip-desc" className="px-4 pb-4 text-xs leading-relaxed text-muted-foreground">
-        {step.description}
+        {description}
       </p>
 
       {/* Progress dots */}
@@ -161,17 +165,17 @@ export function TourTooltip({ step, stepIndex, totalSteps, onNext, onPrev, onSki
           onClick={onSkip}
           className="text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
-          Skip tour
+          {t('tour:controls.skip')}
         </button>
         <div className="flex items-center gap-2">
           {!isFirst && (
             <Button variant="ghost" size="sm" onClick={onPrev} className="h-7 gap-1 px-2 text-xs">
               <ChevronLeft className="h-3.5 w-3.5" />
-              Back
+              {t('common:back')}
             </Button>
           )}
           <Button size="sm" onClick={onNext} className="h-7 gap-1 px-3 text-xs">
-            {isLast ? 'Finish' : 'Next'}
+            {isLast ? t('tour:controls.finish') : t('common:next')}
             {!isLast && <ChevronRight className="h-3.5 w-3.5" />}
           </Button>
         </div>

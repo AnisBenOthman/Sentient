@@ -1,72 +1,24 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
 import type { TargetRect } from './types';
-
-const PADDING = 6; // px padding around the highlighted element
+import { SPOTLIGHT_PADDING } from './use-tour-target';
 
 interface SpotlightOverlayProps {
-  target: string; // CSS selector for [data-tour="..."]
+  /** Unpadded rect of the step's target, or null while it is off screen. */
+  rect: TargetRect | null;
   onClickOutside: () => void;
 }
 
-function emptyRect(): TargetRect {
-  return { top: 0, left: 0, width: 0, height: 0 };
-}
+export function SpotlightOverlay({ rect, onClickOutside }: SpotlightOverlayProps): React.ReactElement {
+  // WHY: with no target to cut a hole around, dim the page as one plain sheet.
+  // Feeding a zero rect to the four strips below would black out the screen.
+  if (!rect) {
+    return <div className="fixed inset-0 z-[9998] bg-black/50" onClick={onClickOutside} />;
+  }
 
-export function SpotlightOverlay({ target, onClickOutside }: SpotlightOverlayProps): React.ReactElement {
-  const [rect, setRect] = useState<TargetRect>(emptyRect);
-  const observerRef = useRef<ResizeObserver | null>(null);
-  const scrollableRef = useRef<Element | null>(null);
-
-  const measure = useCallback((): void => {
-    const el = document.querySelector(target);
-    if (!el) {
-      setRect(emptyRect());
-      return;
-    }
-    const r = el.getBoundingClientRect();
-    setRect({
-      top: r.top - PADDING,
-      left: r.left - PADDING,
-      width: r.width + PADDING * 2,
-      height: r.height + PADDING * 2,
-    });
-  }, [target]);
-
-  useEffect(() => {
-    measure();
-
-    // ResizeObserver on the target element itself
-    const el = document.querySelector(target);
-    if (el) {
-      observerRef.current = new ResizeObserver(measure);
-      observerRef.current.observe(el);
-
-      // Observe the nearest scrollable ancestor
-      let ancestor = el.parentElement;
-      while (ancestor) {
-        const overflow = getComputedStyle(ancestor).overflow;
-        if (overflow.includes('auto') || overflow.includes('scroll')) {
-          scrollableRef.current = ancestor;
-          break;
-        }
-        ancestor = ancestor.parentElement;
-      }
-    }
-
-    const scrollEl = scrollableRef.current ?? window;
-    scrollEl.addEventListener('scroll', measure, { passive: true });
-    window.addEventListener('resize', measure, { passive: true });
-
-    return () => {
-      observerRef.current?.disconnect();
-      scrollEl.removeEventListener('scroll', measure);
-      window.removeEventListener('resize', measure);
-    };
-  }, [target, measure]);
-
-  const { top, left, width, height } = rect;
-  const right = window.innerWidth - left - width;
-  const bottom = window.innerHeight - top - height;
+  const top = rect.top - SPOTLIGHT_PADDING;
+  const left = rect.left - SPOTLIGHT_PADDING;
+  const width = rect.width + SPOTLIGHT_PADDING * 2;
+  const height = rect.height + SPOTLIGHT_PADDING * 2;
+  const right = Math.max(0, window.innerWidth - left - width);
 
   return (
     <>
@@ -85,7 +37,7 @@ export function SpotlightOverlay({ target, onClickOutside }: SpotlightOverlayPro
       {/* Left strip */}
       <div
         className="fixed z-[9998] bg-black/50"
-        style={{ top: `${top}px`, left: 0, width: `${left}px`, height: `${height}px` }}
+        style={{ top: `${top}px`, left: 0, width: `${Math.max(0, left)}px`, height: `${height}px` }}
         onClick={onClickOutside}
       />
       {/* Right strip */}
