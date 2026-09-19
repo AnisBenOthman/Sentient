@@ -97,21 +97,7 @@ import {
 
 const NONE = "__none";
 
-const CONTRACT_LABELS: Record<string, string> = {
-  FULL_TIME: "Full Time",
-  PART_TIME: "Part Time",
-  INTERN: "Intern",
-  CONTRACTOR: "Contractor",
-  FIXED_TERM: "Fixed Term",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  ACTIVE: "Active",
-  ON_LEAVE: "On Leave",
-  PROBATION: "Probation",
-  TERMINATED: "Terminated",
-  RESIGNED: "Resigned",
-};
+const CONTRACT_TYPES = ["FULL_TIME", "PART_TIME", "INTERN", "CONTRACTOR", "FIXED_TERM"] as const;
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   ACTIVE: "default",
@@ -119,24 +105,6 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
   PROBATION: "secondary",
   TERMINATED: "destructive",
   RESIGNED: "outline",
-};
-
-const PROFICIENCY_LABELS: Record<string, string> = {
-  BEGINNER: "Beginner",
-  DEVELOPING: "Developing",
-  INTERMEDIATE: "Intermediate",
-  PROFICIENT: "Proficient",
-  ADVANCED: "Advanced",
-  EXPERT: "Expert",
-};
-
-const PROFICIENCY_RANK: Record<string, number> = {
-  BEGINNER: 1,
-  DEVELOPING: 2,
-  INTERMEDIATE: 2,
-  PROFICIENT: 3,
-  ADVANCED: 4,
-  EXPERT: 5,
 };
 
 // Radar uses 0 for missing skills, then a 1-4 ladder for recorded proficiency.
@@ -147,23 +115,10 @@ const GAP_CHART_RANK: Record<string, number> = {
   EXPERT: 4,
 };
 
-const DOMAIN_LABELS: Record<string, string> = {
-  TECHNICAL: "Technical",
-  LEADERSHIP: "Leadership",
-  SOFT_SKILLS: "Soft Skills",
-  DOMAIN_EXPERTISE: "Domain",
-};
-
 const REQUIREMENT_COLORS: Record<string, string> = {
   MANDATORY: "border-red-200 text-red-700 bg-red-50 dark:bg-red-900/20",
   EXPECTED: "border-amber-200 text-amber-700 bg-amber-50 dark:bg-amber-900/20",
   NICE_TO_HAVE: "border-blue-200 text-blue-700 bg-blue-50 dark:bg-blue-900/20",
-};
-
-const REQUIREMENT_LABELS: Record<string, string> = {
-  MANDATORY: "Mandatory",
-  EXPECTED: "Expected",
-  NICE_TO_HAVE: "Nice to Have",
 };
 
 const PROFICIENCY_COLORS: Record<string, string> = {
@@ -197,13 +152,15 @@ type MergedSkillRow = {
   status: "MET" | "EXCEEDS" | "PARTIAL" | "MISSING" | null;
 };
 
+// Labels for these live in `employees:profile.skillStatus.*`; only the styling
+// belongs at module scope, where `t()` is not available.
 const SKILL_STATUS_META: Record<"MET" | "EXCEEDS" | "PARTIAL" | "MISSING", {
-  label: string; color: string; cls: string;
+  color: string; cls: string;
 }> = {
-  MET:     { label: "On Track",   color: "#10b981", cls: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300" },
-  EXCEEDS: { label: "Exceeds",    color: "#6366f1", cls: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-300" },
-  PARTIAL: { label: "Needs Work", color: "#f59e0b", cls: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300" },
-  MISSING: { label: "Missing",    color: "#ef4444", cls: "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300" },
+  MET:     { color: "#10b981", cls: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300" },
+  EXCEEDS: { color: "#6366f1", cls: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-300" },
+  PARTIAL: { color: "#f59e0b", cls: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300" },
+  MISSING: { color: "#ef4444", cls: "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300" },
 };
 
 const GAP_COLORS: Record<SkillsGapItem["status"], string> = {
@@ -349,6 +306,7 @@ function InfoRow({
   value: React.ReactNode;
   testId?: string;
 }) {
+  const { t } = useTranslation("employees");
   return (
     <div className="space-y-1">
       <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -356,7 +314,7 @@ function InfoRow({
         {label}
       </p>
       <p className="font-medium" data-testid={testId}>
-        {value ?? "N/A"}
+        {value ?? t("profile.na")}
       </p>
     </div>
   );
@@ -386,18 +344,99 @@ function skillLevel(skill: EmployeeSkill): string {
   return skill.proficiencyLevel ?? skill.proficiency ?? "BEGINNER";
 }
 
-function levelLabel(level: string | null): string {
-  return level ? PROFICIENCY_LABELS[level] ?? level : "Missing";
+/**
+ * WHY a hook rather than the module-scope maps this replaced: `t()` only exists
+ * inside a component. Every entry is spelled out with a literal key so
+ * i18next's typed `t` still checks it, and the maps come back as
+ * `Record<string, string>` because HR Core hands these enums back as plain
+ * strings — a lookup that misses falls back to the raw value at the call site.
+ */
+interface EmployeeLabelMaps {
+  contract: Record<string, string>;
+  status: Record<string, string>;
+  proficiency: Record<string, string>;
+  domain: Record<string, string>;
+  requirement: Record<string, string>;
+  skillStatus: Record<string, string>;
+  gender: Record<string, string>;
+  marital: Record<string, string>;
+  education: Record<string, string>;
 }
 
-function levelRank(level: string | null): number {
-  return level ? PROFICIENCY_RANK[level] ?? 0 : 0;
+function useEmployeeLabels(): EmployeeLabelMaps {
+  const { t } = useTranslation("employees");
+  return useMemo(
+    () => ({
+      contract: {
+        FULL_TIME: t("profile.contractTypes.FULL_TIME"),
+        PART_TIME: t("profile.contractTypes.PART_TIME"),
+        INTERN: t("profile.contractTypes.INTERN"),
+        CONTRACTOR: t("profile.contractTypes.CONTRACTOR"),
+        FIXED_TERM: t("profile.contractTypes.FIXED_TERM"),
+      },
+      status: {
+        ACTIVE: t("status.ACTIVE"),
+        ON_LEAVE: t("status.ON_LEAVE"),
+        PROBATION: t("status.PROBATION"),
+        TERMINATED: t("status.TERMINATED"),
+        RESIGNED: t("status.RESIGNED"),
+      },
+      proficiency: {
+        BEGINNER: t("profile.proficiency.BEGINNER"),
+        DEVELOPING: t("profile.proficiency.DEVELOPING"),
+        INTERMEDIATE: t("profile.proficiency.INTERMEDIATE"),
+        PROFICIENT: t("profile.proficiency.PROFICIENT"),
+        ADVANCED: t("profile.proficiency.ADVANCED"),
+        EXPERT: t("profile.proficiency.EXPERT"),
+      },
+      domain: {
+        TECHNICAL: t("profile.domains.TECHNICAL"),
+        LEADERSHIP: t("profile.domains.LEADERSHIP"),
+        SOFT_SKILLS: t("profile.domains.SOFT_SKILLS"),
+        DOMAIN_EXPERTISE: t("profile.domains.DOMAIN_EXPERTISE"),
+      },
+      requirement: {
+        MANDATORY: t("profile.requirements.MANDATORY"),
+        EXPECTED: t("profile.requirements.EXPECTED"),
+        NICE_TO_HAVE: t("profile.requirements.NICE_TO_HAVE"),
+      },
+      skillStatus: {
+        ALL: t("profile.skillStatus.ALL"),
+        GAPS: t("profile.skillStatus.GAPS"),
+        MET: t("profile.skillStatus.MET"),
+        EXCEEDS: t("profile.skillStatus.EXCEEDS"),
+        PARTIAL: t("profile.skillStatus.PARTIAL"),
+        MISSING: t("profile.skillStatus.MISSING"),
+      },
+      gender: {
+        FEMALE: t("profile.genders.FEMALE"),
+        MALE: t("profile.genders.MALE"),
+        NON_BINARY: t("profile.genders.NON_BINARY"),
+        PREFER_NOT_TO_SAY: t("profile.genders.PREFER_NOT_TO_SAY"),
+      },
+      marital: {
+        SINGLE: t("profile.marital.SINGLE"),
+        MARRIED: t("profile.marital.MARRIED"),
+        DIVORCED: t("profile.marital.DIVORCED"),
+        WIDOWED: t("profile.marital.WIDOWED"),
+      },
+      education: {
+        BELOW_COLLEGE: t("profile.education.BELOW_COLLEGE"),
+        COLLEGE: t("profile.education.COLLEGE"),
+        BACHELOR: t("profile.education.BACHELOR"),
+        MASTER: t("profile.education.MASTER"),
+        DOCTOR: t("profile.education.DOCTOR"),
+      },
+    }),
+    [t],
+  );
 }
 
 function StatusBadge({ status }: { status: string }) {
+  const labels = useEmployeeLabels();
   return (
     <Badge variant={STATUS_VARIANT[status] ?? "outline"}>
-      {STATUS_LABELS[status] ?? status}
+      {labels.status[status] ?? status}
     </Badge>
   );
 }
@@ -439,7 +478,8 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
   const params = useParams<{ id: string }>();
   const id = employeeId ?? params.id ?? "";
   const { user } = useAuth();
-  const { t } = useTranslation("employees");
+  const { t } = useTranslation(["employees", "common"]);
+  const labels = useEmployeeLabels();
   const isSelf = !!user?.employeeId && user.employeeId === id;
   const queryClient = useQueryClient();
   const [location, navigate] = useLocation();
@@ -525,7 +565,7 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
       ]);
     },
     onError: (error: unknown) => {
-      setFormError(getGatewayErrorMessage(error, "Could not save employee changes."));
+      setFormError(getGatewayErrorMessage(error, t("profile.saveFailed")));
     },
   });
 
@@ -571,7 +611,7 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
   if (loadingEmp) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
+        <p className="text-muted-foreground">{t("profile.loading")}</p>
       </div>
     );
   }
@@ -579,12 +619,10 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
   if (!emp) {
     return (
       <div className="flex h-[50vh] flex-col items-center justify-center">
-        <h2 className="mb-2 text-2xl font-bold">Employee Not Found</h2>
-        <p className="mb-4 text-muted-foreground">
-          The requested employee could not be found.
-        </p>
+        <h2 className="mb-2 text-2xl font-bold">{t("profile.notFound")}</h2>
+        <p className="mb-4 text-muted-foreground">{t("profile.notFoundHint")}</p>
         <Link href="/employees">
-          <Button>Back to Directory</Button>
+          <Button>{t("profile.backToDirectory")}</Button>
         </Link>
       </div>
     );
@@ -596,17 +634,19 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
   const profileDepartment = employee.department?.id
     ? departments.find((department) => department.id === employee.department?.id)
     : undefined;
+  // WHY null rather than a placeholder string: this value is both displayed
+  // and tested below, and a translated placeholder would never match a literal.
   const profileBusinessUnitName =
     employee.team?.businessUnit?.name ??
     employee.department?.businessUnit?.name ??
     profileDepartment?.businessUnit?.name ??
-    "Unassigned";
+    null;
   const draftDepartment = currentDraft.departmentId !== NONE
     ? departments.find((department) => department.id === currentDraft.departmentId)
     : undefined;
-  const draftBusinessUnitName = draftDepartment?.businessUnit?.name ?? "Unassigned";
+  const draftBusinessUnitName = draftDepartment?.businessUnit?.name ?? t("profile.unassigned");
   const profileOrgPath = [
-    profileBusinessUnitName !== "Unassigned" ? profileBusinessUnitName : undefined,
+    profileBusinessUnitName ?? undefined,
     employee.department?.name,
   ].filter(Boolean).join(" / ");
   const sortedSalaryHistory = [...salaryHistory].sort((a, b) =>
@@ -644,7 +684,7 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
       <Link href="/employees">
         <Button variant="ghost" className="gap-2 pl-0 hover:bg-transparent" data-testid="button-back">
           <ArrowLeft className="h-4 w-4" />
-          Back to Directory
+          {t("profile.backToDirectory")}
         </Button>
       </Link>
 
@@ -659,12 +699,12 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
             <h1 className="text-3xl font-bold tracking-tight" data-testid="heading-employee-name">
               {name}
             </h1>
-            <p className="mt-1 text-xl text-muted-foreground">{emp.position?.title ?? "N/A"}</p>
+            <p className="mt-1 text-xl text-muted-foreground">{emp.position?.title ?? t("profile.na")}</p>
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <StatusBadge status={emp.employmentStatus} />
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Building className="h-4 w-4" />
-                {profileOrgPath || "Unassigned"}
+                {profileOrgPath || t("profile.unassigned")}
               </div>
               {emp.team && (
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -682,17 +722,17 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
               <>
                 <Button variant="outline" className="gap-2" onClick={cancelEditing}>
                   <X className="h-4 w-4" />
-                  Cancel
+                  {t("common:cancel")}
                 </Button>
                 <Button className="gap-2" onClick={saveEditing} disabled={updateMutation.isPending}>
                   <Check className="h-4 w-4" />
-                  Save Changes
+                  {t("profile.saveChanges")}
                 </Button>
               </>
             ) : (
               <Button variant="outline" className="gap-2" onClick={startEditing} data-testid="button-edit-profile">
                 <Check className="h-4 w-4" />
-                Edit Profile
+                {t("profile.edit")}
               </Button>
             )}
           </div>
@@ -727,47 +767,47 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <Briefcase className="h-4 w-4 text-indigo-500" />
-                    <CardTitle>Professional Details</CardTitle>
+                    <CardTitle>{t("profile.sections.professionalDetails")}</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
                   {editMode ? (
                     <>
-                      <EditField icon={UserCheck} label="First Name">
+                      <EditField icon={UserCheck} label={t("profile.firstName")}>
                         <Input value={currentDraft.firstName} onChange={(event) => patchDraft({ firstName: event.target.value })} />
                       </EditField>
-                      <EditField icon={UserCheck} label="Last Name">
+                      <EditField icon={UserCheck} label={t("profile.lastName")}>
                         <Input value={currentDraft.lastName} onChange={(event) => patchDraft({ lastName: event.target.value })} />
                       </EditField>
-                      <EditField icon={Briefcase} label="Position">
+                      <EditField icon={Briefcase} label={t("profile.position")}>
                         <Select value={currentDraft.positionId} onValueChange={(value) => patchDraft({ positionId: value })}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value={NONE}>Unassigned</SelectItem>
+                            <SelectItem value={NONE}>{t("profile.unassigned")}</SelectItem>
                             {positions.map((position) => (
                               <SelectItem key={position.id} value={position.id}>{position.title}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </EditField>
-                      <EditField icon={Award} label="Contract Type">
+                      <EditField icon={Award} label={t("profile.contractType")}>
                         <Select value={currentDraft.contractType} onValueChange={(value) => patchDraft({ contractType: value })}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            {Object.entries(CONTRACT_LABELS).map(([value, label]) => (
-                              <SelectItem key={value} value={value}>{label}</SelectItem>
+                            {CONTRACT_TYPES.map((value) => (
+                              <SelectItem key={value} value={value}>{labels.contract[value]}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </EditField>
-                      <EditField icon={Building} label="Business Unit">
+                      <EditField icon={Building} label={t("profile.businessUnit")}>
                         <Input value={draftBusinessUnitName} disabled />
                       </EditField>
-                      <EditField icon={Building} label="Department">
+                      <EditField icon={Building} label={t("profile.department")}>
                         <Select value={currentDraft.departmentId} onValueChange={(value) => patchDraft({ departmentId: value })}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value={NONE}>Unassigned</SelectItem>
+                            <SelectItem value={NONE}>{t("profile.unassigned")}</SelectItem>
                             {departments.map((department) => (
                               <SelectItem key={department.id} value={department.id}>
                                 {department.businessUnit?.name ? `${department.businessUnit.name} / ${department.name}` : department.name}
@@ -776,22 +816,22 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                           </SelectContent>
                         </Select>
                       </EditField>
-                      <EditField icon={Users} label="Team">
+                      <EditField icon={Users} label={t("profile.team")}>
                         <Select value={currentDraft.teamId} onValueChange={(value) => patchDraft({ teamId: value })}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value={NONE}>Unassigned</SelectItem>
+                            <SelectItem value={NONE}>{t("profile.unassigned")}</SelectItem>
                             {teams.map((team) => (
                               <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </EditField>
-                      <EditField icon={UserCheck} label="Manager">
+                      <EditField icon={UserCheck} label={t("profile.manager")}>
                         <Select value={currentDraft.managerId} onValueChange={(value) => patchDraft({ managerId: value })}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value={NONE}>Unassigned</SelectItem>
+                            <SelectItem value={NONE}>{t("profile.unassigned")}</SelectItem>
                             {allEmployees.filter((employee) => employee.id !== emp.id).map((employee) => (
                               <SelectItem key={employee.id} value={employee.id}>{fullName(employee)}</SelectItem>
                             ))}
@@ -801,15 +841,15 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                     </>
                   ) : (
                     <>
-                      <InfoRow icon={Hash} label="Employee Code" value={<span className="font-mono">{emp.employeeCode}</span>} />
-                      <InfoRow icon={UserCheck} label="Full Name" value={name} testId="text-name" />
-                      <InfoRow icon={Briefcase} label="Job Title" value={emp.position?.title} testId="text-role" />
-                      <InfoRow icon={Award} label="Contract Type" value={CONTRACT_LABELS[emp.contractType] ?? emp.contractType} />
-                      <InfoRow icon={Building} label="Business Unit" value={profileBusinessUnitName} />
-                      <InfoRow icon={Building} label="Department" value={emp.department?.name} />
-                      <InfoRow icon={Users} label="Team" value={emp.team?.name} />
-                      <InfoRow icon={UserCheck} label="Manager" value={emp.manager ? fullName(emp.manager) : "N/A"} />
-                      <InfoRow icon={Calendar} label="Hire Date" value={formatDate(emp.hireDate)} />
+                      <InfoRow icon={Hash} label={t("profile.employeeCode")} value={<span className="font-mono">{emp.employeeCode}</span>} />
+                      <InfoRow icon={UserCheck} label={t("profile.fullName")} value={name} testId="text-name" />
+                      <InfoRow icon={Briefcase} label={t("profile.jobTitle")} value={emp.position?.title} testId="text-role" />
+                      <InfoRow icon={Award} label={t("profile.contractType")} value={labels.contract[emp.contractType] ?? emp.contractType} />
+                      <InfoRow icon={Building} label={t("profile.businessUnit")} value={profileBusinessUnitName ?? t("profile.unassigned")} />
+                      <InfoRow icon={Building} label={t("profile.department")} value={emp.department?.name} />
+                      <InfoRow icon={Users} label={t("profile.team")} value={emp.team?.name} />
+                      <InfoRow icon={UserCheck} label={t("profile.manager")} value={emp.manager ? fullName(emp.manager) : null} />
+                      <InfoRow icon={Calendar} label={t("profile.hireDate")} value={formatDate(emp.hireDate)} />
                     </>
                   )}
                 </CardContent>
@@ -819,71 +859,71 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-blue-500" />
-                    <CardTitle>Contact and Personal Details</CardTitle>
+                    <CardTitle>{t("profile.sections.contactPersonal")}</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
                   {editMode ? (
                     <>
-                      <EditField icon={Mail} label="Email">
+                      <EditField icon={Mail} label={t("profile.email")}>
                         <Input type="email" value={currentDraft.email} onChange={(event) => patchDraft({ email: event.target.value })} />
                       </EditField>
-                      <EditField icon={Phone} label="Phone">
+                      <EditField icon={Phone} label={t("profile.phone")}>
                         <Input value={currentDraft.phone} onChange={(event) => patchDraft({ phone: event.target.value })} />
                       </EditField>
-                      <EditField icon={Calendar} label="Date of Birth">
+                      <EditField icon={Calendar} label={t("profile.dateOfBirth")}>
                         <Input type="date" value={currentDraft.dateOfBirth} onChange={(event) => patchDraft({ dateOfBirth: event.target.value })} />
                       </EditField>
-                      <EditField icon={UserCheck} label="Gender">
+                      <EditField icon={UserCheck} label={t("profile.gender")}>
                         <Select value={currentDraft.gender} onValueChange={(value) => patchDraft({ gender: value })}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value={NONE}>Unspecified</SelectItem>
-                            <SelectItem value="FEMALE">Female</SelectItem>
-                            <SelectItem value="MALE">Male</SelectItem>
-                            <SelectItem value="NON_BINARY">Non-binary</SelectItem>
-                            <SelectItem value="PREFER_NOT_TO_SAY">Prefer not to say</SelectItem>
+                            <SelectItem value={NONE}>{t("profile.unspecified")}</SelectItem>
+                            <SelectItem value="FEMALE">{labels.gender.FEMALE}</SelectItem>
+                            <SelectItem value="MALE">{labels.gender.MALE}</SelectItem>
+                            <SelectItem value="NON_BINARY">{labels.gender.NON_BINARY}</SelectItem>
+                            <SelectItem value="PREFER_NOT_TO_SAY">{labels.gender.PREFER_NOT_TO_SAY}</SelectItem>
                           </SelectContent>
                         </Select>
                       </EditField>
-                      <EditField icon={Heart} label="Marital Status">
+                      <EditField icon={Heart} label={t("profile.maritalStatus")}>
                         <Select value={currentDraft.maritalStatus} onValueChange={(value) => patchDraft({ maritalStatus: value })}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value={NONE}>Unspecified</SelectItem>
-                            <SelectItem value="SINGLE">Single</SelectItem>
-                            <SelectItem value="MARRIED">Married</SelectItem>
-                            <SelectItem value="DIVORCED">Divorced</SelectItem>
-                            <SelectItem value="WIDOWED">Widowed</SelectItem>
+                            <SelectItem value={NONE}>{t("profile.unspecified")}</SelectItem>
+                            <SelectItem value="SINGLE">{labels.marital.SINGLE}</SelectItem>
+                            <SelectItem value="MARRIED">{labels.marital.MARRIED}</SelectItem>
+                            <SelectItem value="DIVORCED">{labels.marital.DIVORCED}</SelectItem>
+                            <SelectItem value="WIDOWED">{labels.marital.WIDOWED}</SelectItem>
                           </SelectContent>
                         </Select>
                       </EditField>
-                      <EditField icon={GraduationCap} label="Education Level">
+                      <EditField icon={GraduationCap} label={t("profile.educationLevel")}>
                         <Select value={currentDraft.educationLevel} onValueChange={(value) => patchDraft({ educationLevel: value })}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value={NONE}>Unspecified</SelectItem>
-                            <SelectItem value="BELOW_COLLEGE">Below College</SelectItem>
-                            <SelectItem value="COLLEGE">College</SelectItem>
-                            <SelectItem value="BACHELOR">Bachelor</SelectItem>
-                            <SelectItem value="MASTER">Master</SelectItem>
-                            <SelectItem value="DOCTOR">Doctorate</SelectItem>
+                            <SelectItem value={NONE}>{t("profile.unspecified")}</SelectItem>
+                            <SelectItem value="BELOW_COLLEGE">{labels.education.BELOW_COLLEGE}</SelectItem>
+                            <SelectItem value="COLLEGE">{labels.education.COLLEGE}</SelectItem>
+                            <SelectItem value="BACHELOR">{labels.education.BACHELOR}</SelectItem>
+                            <SelectItem value="MASTER">{labels.education.MASTER}</SelectItem>
+                            <SelectItem value="DOCTOR">{labels.education.DOCTOR}</SelectItem>
                           </SelectContent>
                         </Select>
                       </EditField>
-                      <EditField icon={GraduationCap} label="Education Field">
+                      <EditField icon={GraduationCap} label={t("profile.educationField")}>
                         <Input value={currentDraft.educationField} onChange={(event) => patchDraft({ educationField: event.target.value })} />
                       </EditField>
                     </>
                   ) : (
                     <>
-                      <InfoRow icon={Mail} label="Email" value={emp.email} />
-                      <InfoRow icon={Phone} label="Phone" value={emp.phone} />
-                      <InfoRow icon={Calendar} label="Date of Birth" value={formatDate(emp.dateOfBirth)} />
-                      <InfoRow icon={UserCheck} label="Gender" value={emp.gender} />
-                      <InfoRow icon={Heart} label="Marital Status" value={emp.maritalStatus} />
-                      <InfoRow icon={GraduationCap} label="Education Level" value={emp.educationLevel} />
-                      <InfoRow icon={GraduationCap} label="Education Field" value={emp.educationField} />
+                      <InfoRow icon={Mail} label={t("profile.email")} value={emp.email} />
+                      <InfoRow icon={Phone} label={t("profile.phone")} value={emp.phone} />
+                      <InfoRow icon={Calendar} label={t("profile.dateOfBirth")} value={formatDate(emp.dateOfBirth)} />
+                      <InfoRow icon={UserCheck} label={t("profile.gender")} value={emp.gender ? labels.gender[emp.gender] ?? emp.gender : null} />
+                      <InfoRow icon={Heart} label={t("profile.maritalStatus")} value={emp.maritalStatus ? labels.marital[emp.maritalStatus] ?? emp.maritalStatus : null} />
+                      <InfoRow icon={GraduationCap} label={t("profile.educationLevel")} value={emp.educationLevel ? labels.education[emp.educationLevel] ?? emp.educationLevel : null} />
+                      <InfoRow icon={GraduationCap} label={t("profile.educationField")} value={emp.educationField} />
                     </>
                   )}
                 </CardContent>
@@ -895,39 +935,39 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-green-500" />
-                    <CardTitle>Compensation</CardTitle>
+                    <CardTitle>{t("profile.sections.compensation")}</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {editMode ? (
                     <>
-                      <EditField icon={DollarSign} label="Gross Salary">
+                      <EditField icon={DollarSign} label={t("profile.grossSalary")}>
                         <Input value={currentDraft.grossSalary} onChange={(event) => patchDraft({ grossSalary: event.target.value })} />
                       </EditField>
-                      <EditField icon={DollarSign} label="Net Salary">
+                      <EditField icon={DollarSign} label={t("profile.netSalary")}>
                         <Input value={currentDraft.netSalary} onChange={(event) => patchDraft({ netSalary: event.target.value })} />
                       </EditField>
-                      <EditField icon={TrendingUp} label="Salary Change Reason">
+                      <EditField icon={TrendingUp} label={t("profile.salaryChangeReason")}>
                         <Select value={currentDraft.salaryChangeReason} onValueChange={(value) => patchDraft({ salaryChangeReason: value })}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="PROMOTION">Promotion</SelectItem>
-                            <SelectItem value="ANNUAL_REVIEW">Annual Review</SelectItem>
-                            <SelectItem value="NEW_FUNCTION">New Function</SelectItem>
-                            <SelectItem value="OTHER">Other</SelectItem>
+                            <SelectItem value="PROMOTION">{t("profile.salaryReasons.PROMOTION")}</SelectItem>
+                            <SelectItem value="ANNUAL_REVIEW">{t("profile.salaryReasons.ANNUAL_REVIEW")}</SelectItem>
+                            <SelectItem value="NEW_FUNCTION">{t("profile.salaryReasons.NEW_FUNCTION")}</SelectItem>
+                            <SelectItem value="OTHER">{t("profile.salaryReasons.OTHER")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </EditField>
                       {currentDraft.salaryChangeReason === "OTHER" && (
-                        <EditField icon={TrendingUp} label="Reason Comment">
+                        <EditField icon={TrendingUp} label={t("profile.reasonComment")}>
                           <Input value={currentDraft.salaryChangeComment} onChange={(event) => patchDraft({ salaryChangeComment: event.target.value })} />
                         </EditField>
                       )}
                     </>
                   ) : (
                     <>
-                      <InfoRow icon={DollarSign} label="Gross Salary" value={formatMoney(emp.grossSalary, emp.currency)} />
-                      <InfoRow icon={DollarSign} label="Net Salary" value={formatMoney(emp.netSalary, emp.currency)} />
+                      <InfoRow icon={DollarSign} label={t("profile.grossSalary")} value={formatMoney(emp.grossSalary, emp.currency)} />
+                      <InfoRow icon={DollarSign} label={t("profile.netSalary")} value={formatMoney(emp.netSalary, emp.currency)} />
                     </>
                   )}
                 </CardContent>
@@ -962,7 +1002,7 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
           <TabsContent value="salary" className="mt-6">
             <Card>
               <CardHeader>
-                <CardTitle>Salary History</CardTitle>
+                <CardTitle>{t("profile.sections.salaryHistory")}</CardTitle>
               </CardHeader>
               <CardContent>
                 {/* Legend chips */}
@@ -1020,7 +1060,7 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                       <Area
                         type="monotone"
                         dataKey="gross"
-                        name="Gross"
+                        name={t("profile.salaryTable.gross")}
                         stroke="#6366f1"
                         strokeWidth={2.5}
                         fill="url(#gradGross)"
@@ -1030,7 +1070,7 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                       <Area
                         type="monotone"
                         dataKey="net"
-                        name="Net"
+                        name={t("profile.salaryTable.net")}
                         stroke="#10b981"
                         strokeWidth={2.5}
                         fill="url(#gradNet)"
@@ -1043,12 +1083,12 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Effective Date</TableHead>
-                      <TableHead>Gross Before</TableHead>
-                      <TableHead>Gross After</TableHead>
-                      <TableHead>Net Before</TableHead>
-                      <TableHead>Net After</TableHead>
-                      <TableHead>Reason</TableHead>
+                      <TableHead>{t("profile.salaryTable.effectiveDate")}</TableHead>
+                      <TableHead>{t("profile.salaryTable.grossBefore")}</TableHead>
+                      <TableHead>{t("profile.salaryTable.grossAfter")}</TableHead>
+                      <TableHead>{t("profile.salaryTable.netBefore")}</TableHead>
+                      <TableHead>{t("profile.salaryTable.netAfter")}</TableHead>
+                      <TableHead>{t("profile.salaryTable.reason")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1059,7 +1099,7 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                         <TableCell className="font-semibold">{formatMoney(entry.grossAfter, entry.currency)}</TableCell>
                         <TableCell>{formatMoney(entry.netBefore, entry.currency)}</TableCell>
                         <TableCell className="font-semibold">{formatMoney(entry.netAfter, entry.currency)}</TableCell>
-                        <TableCell>{entry.reason ?? "N/A"}</TableCell>
+                        <TableCell>{entry.reason ?? t("profile.na")}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -1080,17 +1120,18 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
 }
 
 function DirectReportsCard({ directReports }: { directReports: EmployeeProfile[] }) {
+  const { t } = useTranslation("employees");
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-indigo-500" />
-          <CardTitle>Direct Reports</CardTitle>
+          <CardTitle>{t("profile.sections.directReports")}</CardTitle>
         </div>
       </CardHeader>
       <CardContent>
         {directReports.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No direct reports.</p>
+          <p className="text-sm text-muted-foreground">{t("profile.noDirectReports")}</p>
         ) : (
           <div className="space-y-3">
             {directReports.map((employee) => (
@@ -1126,17 +1167,18 @@ function QuickStatsCard({
   salaryCount: number;
   reviewCount: number;
 }) {
+  const { t } = useTranslation("employees");
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">Quick Stats</CardTitle>
+        <CardTitle className="text-sm">{t("profile.sections.quickStats")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
-        <StatLine label="Leave requests" value={leaveCount} />
-        <StatLine label="Skills" value={skillsCount} />
-        <StatLine label="Promotion requests" value={promotionCount} />
-        <StatLine label="Salary changes" value={salaryCount} />
-        <StatLine label="Performance reviews" value={reviewCount} />
+        <StatLine label={t("profile.stats.leaveRequests")} value={leaveCount} />
+        <StatLine label={t("profile.stats.skills")} value={skillsCount} />
+        <StatLine label={t("profile.stats.promotionRequests")} value={promotionCount} />
+        <StatLine label={t("profile.stats.salaryChanges")} value={salaryCount} />
+        <StatLine label={t("profile.stats.performanceReviews")} value={reviewCount} />
       </CardContent>
     </Card>
   );
@@ -1152,6 +1194,13 @@ function StatLine({ label, value }: { label: string; value: number }) {
 }
 
 function PromotionStatusBadge({ status }: { status: PromotionRequest["status"] }) {
+  const { t } = useTranslation(["employees", "common"]);
+  // Approval vocabulary is shared app-wide, so it lives in `common:status.*`.
+  const statusLabels: Record<PromotionRequest["status"], string> = {
+    PENDING: t("common:status.pending"),
+    APPROVED: t("common:status.approved"),
+    REJECTED: t("common:status.rejected"),
+  };
   const classes: Record<PromotionRequest["status"], string> = {
     PENDING: "border-amber-200 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300",
     APPROVED: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300",
@@ -1160,7 +1209,7 @@ function PromotionStatusBadge({ status }: { status: PromotionRequest["status"] }
 
   return (
     <Badge variant="outline" className={classes[status] ?? "capitalize"}>
-      {status.toLowerCase()}
+      {statusLabels[status] ?? status}
     </Badge>
   );
 }
@@ -1172,30 +1221,31 @@ function PromotionHistoryCard({
   isLoading: boolean;
   promotionRequests: PromotionRequest[];
 }) {
+  const { t } = useTranslation("employees");
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-amber-500" />
-          <CardTitle>Promotion History</CardTitle>
+          <CardTitle>{t("profile.sections.promotionHistory")}</CardTitle>
         </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Loading promotion history...</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">{t("profile.promotions.loading")}</p>
         ) : promotionRequests.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">No promotion requests found.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">{t("profile.promotions.empty")}</p>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Submitted</TableHead>
-                  <TableHead>Role Change</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Salary Change</TableHead>
-                  <TableHead className="text-right">Budget Impact</TableHead>
-                  <TableHead>Requested By</TableHead>
+                  <TableHead>{t("profile.promotions.submitted")}</TableHead>
+                  <TableHead>{t("profile.promotions.roleChange")}</TableHead>
+                  <TableHead>{t("profile.promotions.status")}</TableHead>
+                  <TableHead className="text-right">{t("profile.promotions.salaryChange")}</TableHead>
+                  <TableHead className="text-right">{t("profile.promotions.budgetImpact")}</TableHead>
+                  <TableHead>{t("profile.promotions.requestedBy")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1205,7 +1255,7 @@ function PromotionHistoryCard({
                     <TableCell>
                       <div className="max-w-[260px] text-sm">
                         <span>{request.currentRole}</span>
-                        <span className="px-1.5 text-muted-foreground">to</span>
+                        <span className="px-1.5 text-muted-foreground">{t("profile.promotions.to")}</span>
                         <span className="font-medium text-blue-700 dark:text-blue-400">{request.newRole}</span>
                       </div>
                     </TableCell>
@@ -1235,23 +1285,24 @@ function PromotionHistoryCard({
 type LeaveRequestItem = Awaited<ReturnType<typeof getEmployeeLeaveRequests>>[number];
 
 function LeaveHistoryCard({ leaveRequests }: { leaveRequests: LeaveRequestItem[] }) {
+  const { t } = useTranslation("employees");
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Leave History</CardTitle>
+        <CardTitle>{t("profile.sections.leaveHistory")}</CardTitle>
       </CardHeader>
       <CardContent>
         {leaveRequests.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">No leave requests found.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">{t("profile.leaves.empty")}</p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Type</TableHead>
-                <TableHead>Start</TableHead>
-                <TableHead>End</TableHead>
-                <TableHead>Days</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>{t("profile.leaves.type")}</TableHead>
+                <TableHead>{t("profile.leaves.start")}</TableHead>
+                <TableHead>{t("profile.leaves.end")}</TableHead>
+                <TableHead>{t("profile.leaves.days")}</TableHead>
+                <TableHead>{t("profile.leaves.status")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1273,6 +1324,8 @@ function LeaveHistoryCard({ leaveRequests }: { leaveRequests: LeaveRequestItem[]
 }
 
 function GapRadarCard({ gap }: { gap: SkillsGapResult | null }) {
+  const { t } = useTranslation("employees");
+  const labels = useEmployeeLabels();
   const radarRows = useMemo(() => {
     if (!gap || gap.items.length === 0) return [];
 
@@ -1284,17 +1337,17 @@ function GapRadarCard({ gap }: { gap: SkillsGapResult | null }) {
         skill: item.skill.name,
         required,
         acquired,
-        requiredLabel: PROFICIENCY_LABELS[item.requiredProficiency] ?? item.requiredProficiency,
+        requiredLabel: labels.proficiency[item.requiredProficiency] ?? item.requiredProficiency,
         acquiredLabel: item.acquiredProficiency
-          ? (PROFICIENCY_LABELS[item.acquiredProficiency] ?? item.acquiredProficiency)
-          : "Missing",
+          ? (labels.proficiency[item.acquiredProficiency] ?? item.acquiredProficiency)
+          : t("profile.skillStatus.MISSING"),
         requirementLevel: item.requirementLevel,
         status: item.status,
         gapSize: Math.max(required - acquired, 0),
         isPadding: false,
       };
     });
-  }, [gap]);
+  }, [gap, labels, t]);
 
   const chartRows = useMemo(() => {
     const rows: Array<(typeof radarRows)[number] & { isPadding: boolean }> = [...radarRows];
@@ -1324,29 +1377,29 @@ function GapRadarCard({ gap }: { gap: SkillsGapResult | null }) {
       <CardHeader>
         <div className="flex flex-wrap items-center gap-2">
           <Star className="h-4 w-4 text-blue-500" />
-          <CardTitle>Skills & Proficiency Gap</CardTitle>
+          <CardTitle>{t("profile.sections.skillsGap")}</CardTitle>
           <span className="text-xs font-normal text-muted-foreground">
-            {gap?.positionTitle ? `vs. ${gap.positionTitle}` : "Role requirement overlay"}
+            {gap?.positionTitle
+              ? t("profile.gap.vsPosition", { position: gap.positionTitle })
+              : t("profile.gap.overlay")}
           </span>
         </div>
       </CardHeader>
       <CardContent>
         {!gap || radarRows.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            {!gap
-              ? "Assign a position to this employee to see the proficiency gap chart."
-              : "No required skills are configured for this employee's position yet."}
+            {!gap ? t("profile.gap.noPosition") : t("profile.gap.noRequirements")}
           </p>
         ) : (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-center gap-5">
               <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
                 <span className="h-3 w-3 rounded-full" style={{ backgroundColor: GAP_RADAR_ACQUIRED_COLOR }} />
-                Employee Proficiency
+                {t("profile.gap.employeeProficiency")}
               </span>
               <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
                 <span className="h-3 w-3 rounded-full" style={{ backgroundColor: GAP_RADAR_REQUIRED_COLOR }} />
-                Role Required
+                {t("profile.gap.roleRequired")}
               </span>
             </div>
             <div className="h-80">
@@ -1361,7 +1414,7 @@ function GapRadarCard({ gap }: { gap: SkillsGapResult | null }) {
                   />
                   <PolarRadiusAxis domain={[0, 4]} tick={false} axisLine={false} />
                   <Radar
-                    name="Role Required"
+                    name={t("profile.gap.roleRequired")}
                     dataKey="required"
                     stroke={GAP_RADAR_REQUIRED_COLOR}
                     fill={GAP_RADAR_REQUIRED_COLOR}
@@ -1372,7 +1425,7 @@ function GapRadarCard({ gap }: { gap: SkillsGapResult | null }) {
                     isAnimationActive={false}
                   />
                   <Radar
-                    name="Employee Proficiency"
+                    name={t("profile.gap.employeeProficiency")}
                     dataKey="acquired"
                     stroke={GAP_RADAR_ACQUIRED_COLOR}
                     fill={GAP_RADAR_ACQUIRED_COLOR}
@@ -1383,7 +1436,7 @@ function GapRadarCard({ gap }: { gap: SkillsGapResult | null }) {
                   />
                   <Tooltip
                     formatter={(value: number, name: string) => [
-                      value > 0 ? `${value}/4` : "Missing",
+                      value > 0 ? `${value}/4` : t("profile.skillStatus.MISSING"),
                       name,
                     ]}
                     labelFormatter={(label: string) => label.startsWith("Axis ") ? "" : label}
@@ -1399,22 +1452,22 @@ function GapRadarCard({ gap }: { gap: SkillsGapResult | null }) {
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-lg border bg-emerald-50/60 p-3 dark:bg-emerald-900/10">
-                <p className="text-xs font-medium text-muted-foreground">Covered</p>
+                <p className="text-xs font-medium text-muted-foreground">{t("profile.gap.covered")}</p>
                 <p className="mt-1 text-2xl font-semibold text-emerald-700 dark:text-emerald-300">{coveredCount}</p>
               </div>
               <div className="rounded-lg border bg-amber-50/70 p-3 dark:bg-amber-900/10">
-                <p className="text-xs font-medium text-muted-foreground">Needs Work</p>
+                <p className="text-xs font-medium text-muted-foreground">{t("profile.gap.needsWork")}</p>
                 <p className="mt-1 text-2xl font-semibold text-amber-700 dark:text-amber-300">{partialCount}</p>
               </div>
               <div className="rounded-lg border bg-red-50/70 p-3 dark:bg-red-900/10">
-                <p className="text-xs font-medium text-muted-foreground">Missing</p>
+                <p className="text-xs font-medium text-muted-foreground">{t("profile.gap.missing")}</p>
                 <p className="mt-1 text-2xl font-semibold text-red-700 dark:text-red-300">{missingCount}</p>
               </div>
             </div>
             <div className="space-y-2">
               {gapRows.length === 0 ? (
                 <div className="rounded-lg border bg-emerald-50/60 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-900/10 dark:text-emerald-300">
-                  All role requirements are covered or exceeded.
+                  {t("profile.gap.allCovered")}
                 </div>
               ) : (
                 gapRows.map((row) => (
@@ -1422,13 +1475,13 @@ function GapRadarCard({ gap }: { gap: SkillsGapResult | null }) {
                     <div>
                       <p className="text-sm font-medium">{row.skill}</p>
                       <p className="text-xs text-muted-foreground">
-                        {REQUIREMENT_LABELS[row.requirementLevel] ?? row.requirementLevel}
+                        {labels.requirement[row.requirementLevel] ?? row.requirementLevel}
                       </p>
                     </div>
-                    <span className="text-xs text-muted-foreground">Required: {row.requiredLabel}</span>
-                    <span className="text-xs text-muted-foreground">Employee: {row.acquiredLabel}</span>
+                    <span className="text-xs text-muted-foreground">{t("profile.gap.required", { level: row.requiredLabel })}</span>
+                    <span className="text-xs text-muted-foreground">{t("profile.gap.employee", { level: row.acquiredLabel })}</span>
                     <Badge variant={row.status === "MISSING" ? "destructive" : "secondary"} className="w-fit">
-                      {SKILL_STATUS_META[row.status].label}
+                      {labels.skillStatus[row.status] ?? row.status}
                     </Badge>
                   </div>
                 ))
@@ -1456,6 +1509,8 @@ function SkillLevelPips({ rank, max = 6, color }: { rank: number; max?: number; 
 }
 
 function SkillsGridCard({ skills, gap }: { skills: EmployeeSkill[]; gap: SkillsGapResult | null }) {
+  const { t } = useTranslation("employees");
+  const labels = useEmployeeLabels();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "MET" | "EXCEEDS" | "PARTIAL" | "MISSING" | "GAPS">("ALL");
   const [domainFilter, setDomainFilter] = useState("ALL");
@@ -1478,9 +1533,9 @@ function SkillsGridCard({ skills, gap }: { skills: EmployeeSkill[]; gap: SkillsG
         domain: s.skill.domain ?? null,
         category: s.skill.category ?? null,
         employeeRank: LEVEL_RANK_6[empLevel] ?? 1,
-        employeeLevelLabel: PROFICIENCY_LABELS[empLevel] ?? empLevel,
+        employeeLevelLabel: labels.proficiency[empLevel] ?? empLevel,
         requiredRank: reqLevel ? (LEVEL_RANK_6[reqLevel] ?? null) : null,
-        requiredLevelLabel: reqLevel ? (PROFICIENCY_LABELS[reqLevel] ?? reqLevel) : null,
+        requiredLevelLabel: reqLevel ? (labels.proficiency[reqLevel] ?? reqLevel) : null,
         requirementLevel: gapItem?.requirementLevel ?? null,
         status: gapItem?.status ?? null,
       };
@@ -1499,7 +1554,7 @@ function SkillsGridCard({ skills, gap }: { skills: EmployeeSkill[]; gap: SkillsG
             employeeRank: 0,
             employeeLevelLabel: null,
             requiredRank: reqLevel ? (LEVEL_RANK_6[reqLevel] ?? null) : null,
-            requiredLevelLabel: reqLevel ? (PROFICIENCY_LABELS[reqLevel] ?? reqLevel) : null,
+            requiredLevelLabel: reqLevel ? (labels.proficiency[reqLevel] ?? reqLevel) : null,
             requirementLevel: item.requirementLevel,
             status: "MISSING",
           });
@@ -1507,7 +1562,7 @@ function SkillsGridCard({ skills, gap }: { skills: EmployeeSkill[]; gap: SkillsG
       }
     }
     return rows;
-  }, [skills, gap]);
+  }, [skills, gap, labels]);
 
   const domains = useMemo(() => {
     const set = new Set<string>();
@@ -1544,23 +1599,24 @@ function SkillsGridCard({ skills, gap }: { skills: EmployeeSkill[]; gap: SkillsG
         <CardHeader>
           <div className="flex items-center gap-2">
             <Star className="h-4 w-4 text-amber-500" />
-            <CardTitle>Skills</CardTitle>
+            <CardTitle>{t("profile.sections.skills")}</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
-          <p className="py-8 text-center text-sm text-muted-foreground">No skills recorded yet.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">{t("profile.skillsGrid.empty")}</p>
         </CardContent>
       </Card>
     );
   }
 
-  const CHIP_META: Record<"ALL" | "MET" | "EXCEEDS" | "PARTIAL" | "MISSING" | "GAPS", { label: string; color: string; activeClass: string }> = {
-    ALL:     { label: "All",        color: "#6b7280", activeClass: "border-gray-400 bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200" },
-    GAPS:    { label: "Gaps",       color: "#ef4444", activeClass: "border-red-300 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400" },
-    MET:     { label: "On Track",   color: "#10b981", activeClass: "border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300" },
-    EXCEEDS: { label: "Exceeds",    color: "#6366f1", activeClass: "border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300" },
-    PARTIAL: { label: "Needs Work", color: "#f59e0b", activeClass: "border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300" },
-    MISSING: { label: "Missing",    color: "#ef4444", activeClass: "border-red-300 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400" },
+  // Chip labels come from `labels.skillStatus`; only the styling lives here.
+  const CHIP_CLASS: Record<"ALL" | "MET" | "EXCEEDS" | "PARTIAL" | "MISSING" | "GAPS", string> = {
+    ALL:     "border-gray-400 bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200",
+    GAPS:    "border-red-300 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400",
+    MET:     "border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300",
+    EXCEEDS: "border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300",
+    PARTIAL: "border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300",
+    MISSING: "border-red-300 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400",
   };
 
   return (
@@ -1568,10 +1624,10 @@ function SkillsGridCard({ skills, gap }: { skills: EmployeeSkill[]; gap: SkillsG
       <CardHeader>
         <div className="flex flex-wrap items-center gap-2">
           <Star className="h-4 w-4 text-amber-500" />
-          <CardTitle>Skills</CardTitle>
+          <CardTitle>{t("profile.sections.skills")}</CardTitle>
           <span className="text-xs font-normal text-muted-foreground">
-            {merged.length} skill{merged.length !== 1 ? "s" : ""}
-            {gap?.positionTitle ? ` · vs. ${gap.positionTitle}` : ""}
+            {t("profile.skillsGrid.skillCount", { count: merged.length })}
+            {gap?.positionTitle ? ` · ${t("profile.gap.vsPosition", { position: gap.positionTitle })}` : ""}
           </span>
         </div>
       </CardHeader>
@@ -1581,7 +1637,7 @@ function SkillsGridCard({ skills, gap }: { skills: EmployeeSkill[]; gap: SkillsG
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search skills…"
+              placeholder={t("profile.skillsGrid.searchPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-8 pl-8 text-sm"
@@ -1590,12 +1646,12 @@ function SkillsGridCard({ skills, gap }: { skills: EmployeeSkill[]; gap: SkillsG
           {domains.length > 0 && (
             <Select value={domainFilter} onValueChange={setDomainFilter}>
               <SelectTrigger className="h-8 w-40 text-xs">
-                <SelectValue placeholder="All Domains" />
+                <SelectValue placeholder={t("profile.skillsGrid.allDomains")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All Domains</SelectItem>
+                <SelectItem value="ALL">{t("profile.skillsGrid.allDomains")}</SelectItem>
                 {domains.map((d) => (
-                  <SelectItem key={d} value={d}>{DOMAIN_LABELS[d] ?? d}</SelectItem>
+                  <SelectItem key={d} value={d}>{labels.domain[d] ?? d}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -1605,7 +1661,6 @@ function SkillsGridCard({ skills, gap }: { skills: EmployeeSkill[]; gap: SkillsG
         {/* Status filter chips */}
         <div className="flex flex-wrap gap-1.5">
           {(["ALL", "GAPS", "MET", "EXCEEDS", "PARTIAL", "MISSING"] as const).map((s) => {
-            const meta = CHIP_META[s];
             const count = statusCounts[s];
             const active = statusFilter === s;
             return (
@@ -1615,11 +1670,11 @@ function SkillsGridCard({ skills, gap }: { skills: EmployeeSkill[]; gap: SkillsG
                 onClick={() => setStatusFilter(s)}
                 className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-all ${
                   active
-                    ? meta.activeClass
+                    ? CHIP_CLASS[s]
                     : "border-gray-200 bg-white text-muted-foreground hover:border-gray-300 dark:bg-gray-900 dark:border-gray-700"
                 }`}
               >
-                {meta.label}
+                {labels.skillStatus[s] ?? s}
                 <span className="min-w-[14px] rounded-full bg-current/10 px-1 text-center tabular-nums opacity-70">
                   {count}
                 </span>
@@ -1630,11 +1685,12 @@ function SkillsGridCard({ skills, gap }: { skills: EmployeeSkill[]; gap: SkillsG
 
         {/* Grid */}
         {filtered.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">No skills match your filters.</p>
+          <p className="py-6 text-center text-sm text-muted-foreground">{t("profile.skillsGrid.noMatch")}</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((row) => {
               const statusMeta = row.status ? SKILL_STATUS_META[row.status] : null;
+              const statusLabel = row.status ? labels.skillStatus[row.status] ?? row.status : null;
               const borderColor = statusMeta?.color ?? "#e2e8f0";
               const empPipColor = statusMeta?.color ?? "#6366f1";
 
@@ -1649,18 +1705,18 @@ function SkillsGridCard({ skills, gap }: { skills: EmployeeSkill[]; gap: SkillsG
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold leading-snug">{row.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {row.domain ? (DOMAIN_LABELS[row.domain] ?? row.domain) : (row.category ?? "General")}
+                        {row.domain ? (labels.domain[row.domain] ?? row.domain) : (row.category ?? t("profile.skillsGrid.general"))}
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
                       {statusMeta && (
                         <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-semibold leading-none ${statusMeta.cls}`}>
-                          {statusMeta.label}
+                          {statusLabel}
                         </span>
                       )}
                       {row.requirementLevel && (
                         <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium leading-none ${REQUIREMENT_COLORS[row.requirementLevel] ?? ""}`}>
-                          {REQUIREMENT_LABELS[row.requirementLevel] ?? row.requirementLevel}
+                          {labels.requirement[row.requirementLevel] ?? row.requirementLevel}
                         </span>
                       )}
                     </div>
@@ -1669,18 +1725,18 @@ function SkillsGridCard({ skills, gap }: { skills: EmployeeSkill[]; gap: SkillsG
                   {/* Level comparison */}
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <span className="w-14 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Mine</span>
+                      <span className="w-14 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t("profile.skillsGrid.mine")}</span>
                       <SkillLevelPips rank={row.employeeRank} color={empPipColor} />
                       <span className="ml-auto shrink-0 text-[11px] font-medium">
-                        {row.employeeLevelLabel ?? <span className="text-muted-foreground italic">None</span>}
+                        {row.employeeLevelLabel ?? <span className="text-muted-foreground italic">{t("profile.skillsGrid.none")}</span>}
                       </span>
                     </div>
                     {row.requiredRank != null && (
                       <div className="flex items-center gap-2">
-                        <span className="w-14 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Target</span>
+                        <span className="w-14 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t("profile.skillsGrid.target")}</span>
                         <SkillLevelPips rank={row.requiredRank} color="#94a3b8" />
                         <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
-                          {row.requiredLevelLabel ?? "N/A"}
+                          {row.requiredLevelLabel ?? t("profile.na")}
                         </span>
                       </div>
                     )}
@@ -1696,6 +1752,8 @@ function SkillsGridCard({ skills, gap }: { skills: EmployeeSkill[]; gap: SkillsG
 }
 
 function SkillEvolutionCard({ history }: { history: SkillHistoryEntry[] }) {
+  const { t } = useTranslation("employees");
+  const labels = useEmployeeLabels();
   const sorted = useMemo(
     () => [...history].sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate)),
     [history],
@@ -1716,11 +1774,11 @@ function SkillEvolutionCard({ history }: { history: SkillHistoryEntry[] }) {
         <CardHeader>
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-indigo-500" />
-            <CardTitle>Skill Evolution</CardTitle>
+            <CardTitle>{t("profile.sections.skillEvolution")}</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
-          <p className="py-8 text-center text-sm text-muted-foreground">No skill history recorded yet.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">{t("profile.evolution.empty")}</p>
         </CardContent>
       </Card>
     );
@@ -1731,11 +1789,11 @@ function SkillEvolutionCard({ history }: { history: SkillHistoryEntry[] }) {
       <CardHeader>
         <div className="flex items-center gap-2 flex-wrap">
           <TrendingUp className="h-4 w-4 text-indigo-500" />
-          <CardTitle>Skill Evolution</CardTitle>
-          <span className="text-xs font-normal text-muted-foreground">{history.length} event{history.length !== 1 ? "s" : ""}</span>
+          <CardTitle>{t("profile.sections.skillEvolution")}</CardTitle>
+          <span className="text-xs font-normal text-muted-foreground">{t("profile.evolution.eventCount", { count: history.length })}</span>
           {improvements > 0 && (
             <span className="ml-auto rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
-              +{improvements} improvement{improvements !== 1 ? "s" : ""}
+              {t("profile.evolution.improvementCount", { count: improvements })}
             </span>
           )}
         </div>
@@ -1766,7 +1824,7 @@ function SkillEvolutionCard({ history }: { history: SkillHistoryEntry[] }) {
                         <p className="text-sm font-semibold">{entry.skill.name}</p>
                         {entry.skill.domain && (
                           <p className="text-xs text-muted-foreground">
-                            {DOMAIN_LABELS[entry.skill.domain] ?? entry.skill.domain}
+                            {labels.domain[entry.skill.domain] ?? entry.skill.domain}
                           </p>
                         )}
                       </div>
@@ -1792,7 +1850,7 @@ function SkillEvolutionCard({ history }: { history: SkillHistoryEntry[] }) {
                           <div className="flex flex-col items-start gap-1">
                             <SkillLevelPips rank={prevRank} color="#94a3b8" />
                             <span className="text-[10px] text-muted-foreground">
-                              {PROFICIENCY_LABELS[entry.previousLevel] ?? entry.previousLevel}
+                              {labels.proficiency[entry.previousLevel] ?? entry.previousLevel}
                             </span>
                           </div>
                           <span className="text-muted-foreground">→</span>
@@ -1802,7 +1860,7 @@ function SkillEvolutionCard({ history }: { history: SkillHistoryEntry[] }) {
                         <div className="flex flex-col items-start gap-1">
                           <SkillLevelPips rank={newRank} color={levelColor} />
                           <span className="text-[10px] font-medium">
-                            {PROFICIENCY_LABELS[entry.newLevel] ?? entry.newLevel}
+                            {labels.proficiency[entry.newLevel] ?? entry.newLevel}
                           </span>
                         </div>
                       )}
@@ -1827,6 +1885,7 @@ function SkillEvolutionCard({ history }: { history: SkillHistoryEntry[] }) {
 }
 
 function RecentPerformanceCard({ employeeId }: { employeeId: string }) {
+  const { t } = useTranslation("employees");
   const reviews = useEmployeePerformanceReviews(employeeId);
   const recent = reviews.slice(0, 3);
 
@@ -1834,13 +1893,13 @@ function RecentPerformanceCard({ employeeId }: { employeeId: string }) {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Recent Performance</CardTitle>
-          <Link href="/performance-reviews" className="text-xs text-primary hover:underline">View all</Link>
+          <CardTitle>{t("profile.sections.recentPerformance")}</CardTitle>
+          <Link href="/performance-reviews" className="text-xs text-primary hover:underline">{t("profile.performance.viewAll")}</Link>
         </div>
       </CardHeader>
       <CardContent>
         {recent.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No performance reviews yet.</p>
+          <p className="text-sm text-muted-foreground">{t("profile.performance.empty")}</p>
         ) : (
           <div className="space-y-3">
             {recent.map((review) => (
@@ -1848,11 +1907,11 @@ function RecentPerformanceCard({ employeeId }: { employeeId: string }) {
                 <div className="rounded-lg border bg-card p-3 transition-colors hover:bg-accent/40">
                   <div className="mb-1 flex items-center justify-between">
                     <span className="text-sm font-semibold">{review.reviewDate}</span>
-                    <span className="text-xs text-muted-foreground">by {review.reviewerName}</span>
+                    <span className="text-xs text-muted-foreground">{t("profile.performance.by", { name: review.reviewerName })}</span>
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                    <span><span className="text-muted-foreground">Manager: </span>{review.managerRating} - {PERFORMANCE_RATING_LABELS[review.managerRating]}</span>
-                    <span><span className="text-muted-foreground">Self: </span>{review.selfRating} - {PERFORMANCE_RATING_LABELS[review.selfRating]}</span>
+                    <span><span className="text-muted-foreground">{t("profile.performance.manager")} </span>{review.managerRating} - {PERFORMANCE_RATING_LABELS[review.managerRating]}</span>
+                    <span><span className="text-muted-foreground">{t("profile.performance.self")} </span>{review.selfRating} - {PERFORMANCE_RATING_LABELS[review.selfRating]}</span>
                   </div>
                 </div>
               </Link>
@@ -1865,6 +1924,7 @@ function RecentPerformanceCard({ employeeId }: { employeeId: string }) {
 }
 
 function EngagementHistoryCard({ employeeId }: { employeeId: string }) {
+  const { t } = useTranslation("employees");
   const reviews = useEmployeePerformanceReviews(employeeId);
   const [open, setOpen] = useState(true);
 
@@ -1876,7 +1936,7 @@ function EngagementHistoryCard({ employeeId }: { employeeId: string }) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
-                <CardTitle>Engagement History</CardTitle>
+                <CardTitle>{t("profile.sections.engagementHistory")}</CardTitle>
                 {reviews.length > 0 && <Badge variant="secondary">{reviews.length}</Badge>}
               </div>
               <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
@@ -1886,22 +1946,22 @@ function EngagementHistoryCard({ employeeId }: { employeeId: string }) {
         <CollapsibleContent>
           <CardContent className="space-y-3">
             {reviews.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No engagement data recorded yet.</p>
+              <p className="text-sm text-muted-foreground">{t("profile.engagement.empty")}</p>
             ) : (
               reviews.map((review) => (
                 <div key={review.id} className="rounded-lg border bg-muted/30 p-3">
                   <div className="mb-3 flex items-center justify-between">
                     <span className="text-sm font-semibold">{review.reviewDate}</span>
-                    <span className="text-xs text-muted-foreground">by {review.reviewerName}</span>
+                    <span className="text-xs text-muted-foreground">{t("profile.performance.by", { name: review.reviewerName })}</span>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2">
-                    <SatisfactionLine label="Environment" score={review.environmentSatisfaction} />
-                    <SatisfactionLine label="Job" score={review.jobSatisfaction} />
-                    <SatisfactionLine label="Relationship" score={review.relationshipSatisfaction} />
-                    <SatisfactionLine label="Work-Life" score={review.workLifeBalance} />
+                    <SatisfactionLine label={t("profile.engagement.environment")} score={review.environmentSatisfaction} />
+                    <SatisfactionLine label={t("profile.engagement.job")} score={review.jobSatisfaction} />
+                    <SatisfactionLine label={t("profile.engagement.relationship")} score={review.relationshipSatisfaction} />
+                    <SatisfactionLine label={t("profile.engagement.workLife")} score={review.workLifeBalance} />
                   </div>
                   <p className="mt-3 text-xs text-muted-foreground">
-                    Training sessions taken: <span className="font-semibold text-foreground">{review.trainingOpportunitiesTaken}</span>
+                    {t("profile.engagement.trainingTaken")} <span className="font-semibold text-foreground">{review.trainingOpportunitiesTaken}</span>
                   </p>
                 </div>
               ))

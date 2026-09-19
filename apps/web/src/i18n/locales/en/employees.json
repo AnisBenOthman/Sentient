@@ -54,10 +54,11 @@
     "noSkills": "No skills recorded.",
     "noSalaryHistory": "No salary history.",
     "contractTypes": {
-      "FULL_TIME": "Full-time",
-      "PART_TIME": "Part-time",
+      "FULL_TIME": "Full Time",
+      "PART_TIME": "Part Time",
       "CONTRACTOR": "Contractor",
-      "INTERN": "Intern"
+      "INTERN": "Intern",
+      "FIXED_TERM": "Fixed Term"
     },
     "tabs": {
       "details": "Details",
@@ -67,6 +68,179 @@
       "performance": "Performance",
       "salary": "Salary History",
       "channels": "Linked Channels"
+    },
+    "loading": "Loading…",
+    "notFound": "Employee Not Found",
+    "notFoundHint": "The requested employee could not be found.",
+    "backToDirectory": "Back to Directory",
+    "unassigned": "Unassigned",
+    "unspecified": "Unspecified",
+    "saveFailed": "Could not save employee changes.",
+    "saveChanges": "Save Changes",
+    "na": "N/A",
+    "employeeCode": "Employee Code",
+    "fullName": "Full Name",
+    "jobTitle": "Job Title",
+    "businessUnit": "Business Unit",
+    "maritalStatus": "Marital Status",
+    "educationLevel": "Education Level",
+    "educationField": "Education Field",
+    "grossSalary": "Gross Salary",
+    "netSalary": "Net Salary",
+    "salaryChangeReason": "Salary Change Reason",
+    "reasonComment": "Reason Comment",
+    "noDirectReports": "No direct reports.",
+    "marital": {
+      "SINGLE": "Single",
+      "MARRIED": "Married",
+      "DIVORCED": "Divorced",
+      "WIDOWED": "Widowed"
+    },
+    "education": {
+      "BELOW_COLLEGE": "Below College",
+      "COLLEGE": "College",
+      "BACHELOR": "Bachelor",
+      "MASTER": "Master",
+      "DOCTOR": "Doctorate"
+    },
+    "salaryReasons": {
+      "PROMOTION": "Promotion",
+      "ANNUAL_REVIEW": "Annual Review",
+      "NEW_FUNCTION": "New Function",
+      "OTHER": "Other"
+    },
+    "proficiency": {
+      "BEGINNER": "Beginner",
+      "DEVELOPING": "Developing",
+      "INTERMEDIATE": "Intermediate",
+      "PROFICIENT": "Proficient",
+      "ADVANCED": "Advanced",
+      "EXPERT": "Expert"
+    },
+    "domains": {
+      "TECHNICAL": "Technical",
+      "LEADERSHIP": "Leadership",
+      "SOFT_SKILLS": "Soft Skills",
+      "DOMAIN_EXPERTISE": "Domain"
+    },
+    "requirements": {
+      "MANDATORY": "Mandatory",
+      "EXPECTED": "Expected",
+      "NICE_TO_HAVE": "Nice to Have"
+    },
+    "skillStatus": {
+      "ALL": "All",
+      "GAPS": "Gaps",
+      "MET": "On Track",
+      "EXCEEDS": "Exceeds",
+      "PARTIAL": "Needs Work",
+      "MISSING": "Missing"
+    },
+    "sections": {
+      "professionalDetails": "Professional Details",
+      "contactPersonal": "Contact and Personal Details",
+      "compensation": "Compensation",
+      "salaryHistory": "Salary History",
+      "directReports": "Direct Reports",
+      "quickStats": "Quick Stats",
+      "promotionHistory": "Promotion History",
+      "leaveHistory": "Leave History",
+      "skillsGap": "Skills & Proficiency Gap",
+      "skills": "Skills",
+      "skillEvolution": "Skill Evolution",
+      "recentPerformance": "Recent Performance",
+      "engagementHistory": "Engagement History"
+    },
+    "salaryTable": {
+      "gross": "Gross",
+      "net": "Net",
+      "effectiveDate": "Effective Date",
+      "grossBefore": "Gross Before",
+      "grossAfter": "Gross After",
+      "netBefore": "Net Before",
+      "netAfter": "Net After",
+      "reason": "Reason"
+    },
+    "stats": {
+      "leaveRequests": "Leave requests",
+      "skills": "Skills",
+      "promotionRequests": "Promotion requests",
+      "salaryChanges": "Salary changes",
+      "performanceReviews": "Performance reviews"
+    },
+    "promotions": {
+      "loading": "Loading promotion history…",
+      "empty": "No promotion requests found.",
+      "submitted": "Submitted",
+      "roleChange": "Role Change",
+      "status": "Status",
+      "salaryChange": "Salary Change",
+      "budgetImpact": "Budget Impact",
+      "requestedBy": "Requested By",
+      "to": "to"
+    },
+    "leaves": {
+      "empty": "No leave requests found.",
+      "type": "Type",
+      "start": "Start",
+      "end": "End",
+      "days": "Days",
+      "status": "Status"
+    },
+    "gap": {
+      "overlay": "Role requirement overlay",
+      "vsPosition": "vs. {{position}}",
+      "noPosition": "Assign a position to this employee to see the proficiency gap chart.",
+      "noRequirements": "No required skills are configured for this employee's position yet.",
+      "employeeProficiency": "Employee Proficiency",
+      "roleRequired": "Role Required",
+      "covered": "Covered",
+      "needsWork": "Needs Work",
+      "missing": "Missing",
+      "allCovered": "All role requirements are covered or exceeded.",
+      "required": "Required: {{level}}",
+      "employee": "Employee: {{level}}"
+    },
+    "skillsGrid": {
+      "empty": "No skills recorded yet.",
+      "searchPlaceholder": "Search skills…",
+      "allDomains": "All Domains",
+      "noMatch": "No skills match your filters.",
+      "general": "General",
+      "mine": "Mine",
+      "target": "Target",
+      "none": "None",
+      "skillCount_one": "{{count}} skill",
+      "skillCount_other": "{{count}} skills"
+    },
+    "evolution": {
+      "empty": "No skill history recorded yet.",
+      "eventCount_one": "{{count}} event",
+      "eventCount_other": "{{count}} events",
+      "improvementCount_one": "+{{count}} improvement",
+      "improvementCount_other": "+{{count}} improvements"
+    },
+    "performance": {
+      "viewAll": "View all",
+      "empty": "No performance reviews yet.",
+      "by": "by {{name}}",
+      "manager": "Manager:",
+      "self": "Self:"
+    },
+    "engagement": {
+      "empty": "No engagement data recorded yet.",
+      "environment": "Environment",
+      "job": "Job",
+      "relationship": "Relationship",
+      "workLife": "Work-Life",
+      "trainingTaken": "Training sessions taken:"
+    },
+    "gender": "Gender",
+    "genders": {
+      "FEMALE": "Female",
+      "MALE": "Male",
+      "NON_BINARY": "Non-binary",
+      "PREFER_NOT_TO_SAY": "Prefer not to say"
     }
   },
   "wizard": {
