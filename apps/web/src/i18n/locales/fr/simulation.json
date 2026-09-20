@@ -1,50 +1,94 @@
 {
   "title": "Simulation",
-  "subtitle": "Modélisez des scénarios de promotion et estimez l'impact sur les rémunérations avant de valider les changements.",
+  "subtitle": "Modélisez l'impact financier et organisationnel d'une promotion avant de soumettre la demande.",
+  "scopeHr": "Tous les employés sont disponibles pour la simulation RH.",
+  "scopeManager": "Seuls les employés de vos équipes sont disponibles pour la simulation.",
+  "newRequest": "Nouvelle demande de promotion",
   "steps": {
-    "selectEmployee": "Sélectionner l'Employé",
-    "newCompensation": "Nouvelle Rémunération",
-    "roleResponsibilities": "Rôle & Responsabilités",
-    "review": "Vérifier & Soumettre"
+    "selectEmployee": "Sélectionner l'employé",
+    "newCompensation": "Nouvelle rémunération",
+    "roleResponsibilities": "Poste et responsabilités",
+    "review": "Vérifier et soumettre"
   },
-  "search": "Rechercher des employés…",
-  "noEmployees": "Aucun employé trouvé.",
-  "employee": {
-    "current": "Actuel",
-    "proposed": "Proposé",
-    "position": "Poste",
-    "salary": "Salaire",
-    "change": "Variation",
-    "department": "Département"
+  "picker": {
+    "choose": "Choisir un membre de l'équipe…",
+    "searchPlaceholder": "Rechercher par nom, poste ou département…",
+    "noMatches": "Aucun résultat"
   },
-  "compensation": {
-    "currentSalary": "Salaire Actuel",
-    "proposedSalary": "Salaire Proposé",
-    "salaryIncrease": "Augmentation",
-    "percentChange": "% Variation"
+  "unassignedRole": "Poste non attribué",
+  "step1": {
+    "noDirectReports": "Vous n'avez aucun collaborateur direct à promouvoir.",
+    "directReport": "Collaborateur direct",
+    "hint": "Seuls les employés qui vous sont directement rattachés apparaissent ici.",
+    "currentRole": "Poste actuel",
+    "currentGrossSalary": "Salaire brut actuel",
+    "teamBudget": "Budget de l'équipe",
+    "member_one": "{{count}} membre",
+    "member_other": "{{count}} membres"
   },
-  "role": {
-    "newPosition": "Nouveau Poste",
-    "justification": "Justification",
-    "justificationPlaceholder": "Expliquez la raison de cette promotion…"
+  "step2": {
+    "proposedSalary": "Nouveau salaire brut proposé ($)",
+    "currently": "Actuellement {{amount}}",
+    "salaryChange": "Variation de salaire",
+    "vsCurrent": "{{percent}} par rapport à l'actuel",
+    "teamBudgetImpact": "Impact sur le budget de l'équipe",
+    "vsAmount": "{{percent}} par rapport à {{amount}}"
   },
-  "summary": {
+  "step3": {
+    "newRole": "Nouveau poste",
+    "selectPosition": "— Sélectionner un poste —",
+    "catalogHint": "Les postes proviennent du catalogue de postes actifs et sont regroupés par famille de métiers.",
+    "responsibilities": "Nouvelles responsabilités",
+    "addPlaceholder": "Ajouter une responsabilité…",
+    "noResponsibilities": "Aucune responsabilité ajoutée pour l'instant.",
+    "remove": "Retirer"
+  },
+  "step4": {
     "employee": "Employé",
-    "currentPosition": "Poste Actuel",
-    "proposedPosition": "Poste Proposé",
-    "salaryCurrent": "Salaire Actuel",
-    "salaryProposed": "Salaire Proposé",
-    "delta": "Écart Salarial",
-    "justification": "Justification"
+    "roleChange": "Changement de poste",
+    "noRoleSelected": "Aucun poste sélectionné",
+    "salaryChange": "Variation de salaire",
+    "teamBudgetImpact": "Impact sur le budget de l'équipe",
+    "newResponsibilities": "Nouvelles responsabilités",
+    "noneAdded": "Aucune ajoutée"
   },
-  "submit": "Soumettre la Demande de Promotion",
-  "submitting": "Envoi…",
-  "reset": "Réinitialiser",
-  "success": "Demande de promotion soumise avec succès.",
-  "errors": {
-    "noEmployee": "Veuillez sélectionner un employé.",
-    "noPosition": "Veuillez sélectionner un nouveau poste.",
-    "noSalary": "Veuillez saisir un salaire proposé.",
-    "generic": "Échec de la soumission. Veuillez réessayer."
+  "nav": {
+    "back": "Retour",
+    "next": "Suivant",
+    "submitting": "Envoi…",
+    "submit": "Confirmer et soumettre"
+  },
+  "validation": {
+    "pickEmployee": "Veuillez choisir un employé à promouvoir.",
+    "enterSalary": "Saisissez le nouveau salaire proposé.",
+    "salaryMustIncrease": "Le salaire proposé doit être supérieur au salaire actuel.",
+    "selectRole": "Sélectionnez un nouveau poste pour cette promotion.",
+    "roleMustDiffer": "Sélectionnez un poste différent du poste actuel de l'employé.",
+    "addResponsibility": "Ajoutez au moins une nouvelle responsabilité pour cette promotion."
+  },
+  "requests": {
+    "title": "Demandes de promotion",
+    "description": "Demandes soumises à HR Core et visibles dans votre périmètre actuel.",
+    "loading": "Chargement des demandes de promotion…",
+    "empty": "Aucune demande de promotion pour l'instant.",
+    "emptyHint": "Cliquez sur « Nouvelle demande de promotion » pour en créer une.",
+    "submitted": "Soumise le {{date}}",
+    "salary": "Salaire",
+    "salaryChange": "Variation de salaire",
+    "budgetImpact": "Impact budgétaire",
+    "validate": "Valider",
+    "refuse": "Refuser"
+  },
+  "toasts": {
+    "validated": "Demande de promotion validée",
+    "validateFailed": "Impossible de valider la demande",
+    "refused": "Demande de promotion refusée",
+    "refuseFailed": "Impossible de refuser la demande",
+    "submitFailed": "Impossible de soumettre cette demande de promotion. Vérifiez le périmètre de l'employé et réessayez."
+  },
+  "status": {
+    "PENDING": "En attente",
+    "APPROVED": "Approuvée",
+    "REJECTED": "Refusée"
   }
 }

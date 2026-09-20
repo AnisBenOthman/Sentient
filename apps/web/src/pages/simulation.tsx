@@ -56,12 +56,7 @@ import {
 import { getGatewayErrorMessage } from "@/lib/api/gateway-error";
 import { useToast } from "@/hooks/use-toast";
 
-const STEP_LABELS = [
-  "Select Employee",
-  "New Compensation",
-  "Role & Responsibilities",
-  "Review & Submit",
-];
+const STEP_KEYS = ["selectEmployee", "newCompensation", "roleResponsibilities", "review"] as const;
 
 function fmtMoney(n: number): string {
   return `$${Math.round(n).toLocaleString()}`;
@@ -104,12 +99,19 @@ type SimulationScopeParams = {
   teamId?: string;
 };
 
+/**
+ * WHY a sentinel and not a translated label: this runs outside the component
+ * tree, and the value is compared against in the wizard. The UI swaps it for
+ * translated copy at render time.
+ */
+const UNASSIGNED_ROLE = "__unassigned__";
+
 function toSimulationEmployee(employee: EmployeeProfile): SimulationEmployee {
   const grossSalary = Number(employee.grossSalary ?? 0);
   return {
     id: employee.id,
     name: `${employee.firstName} ${employee.lastName}`,
-    role: employee.position?.title ?? "Unassigned role",
+    role: employee.position?.title ?? UNASSIGNED_ROLE,
     department: employee.department?.name ?? "Unassigned",
     departmentId: employee.departmentId ?? employee.department?.id ?? null,
     team: employee.team?.name ?? null,
@@ -152,10 +154,18 @@ function getEmployeeSalary(e: SimulationEmployee): number {
 
 // ── Step indicator ──────────────────────────────────────────────────────────
 
+/** Swaps the UNASSIGNED_ROLE sentinel for translated copy at render time. */
+function useRoleLabel(): (role: string) => string {
+  const { t } = useTranslation("simulation");
+  return (role) => (role === UNASSIGNED_ROLE ? t("unassignedRole") : role);
+}
+
 function StepIndicator({ current }: { current: number }) {
+  const { t } = useTranslation("simulation");
   return (
     <div className="flex items-start mb-6">
-      {STEP_LABELS.map((label, i) => {
+      {STEP_KEYS.map((stepKey, i) => {
+        const label = t(`steps.${stepKey}` as "steps.review");
         const stepNum = i + 1;
         const done = stepNum < current;
         const active = stepNum === current;
@@ -189,7 +199,7 @@ function StepIndicator({ current }: { current: number }) {
                 {label}
               </span>
             </div>
-            {i < STEP_LABELS.length - 1 && (
+            {i < STEP_KEYS.length - 1 && (
               <div
                 className={cn(
                   "h-0.5 flex-1 mx-2 mt-[-14px]",
@@ -215,6 +225,8 @@ function EmployeePicker({
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
+  const { t } = useTranslation("simulation");
+  const roleLabel = useRoleLabel();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -224,10 +236,11 @@ function EmployeePicker({
     return employees.filter(
       (e) =>
         e.name.toLowerCase().includes(q) ||
-        e.role.toLowerCase().includes(q) ||
+        // Search the label the user can see, not the sentinel behind it.
+        roleLabel(e.role).toLowerCase().includes(q) ||
         e.department.toLowerCase().includes(q)
     );
-  }, [query, employees]);
+  }, [query, employees, roleLabel]);
 
   const selected = employees.find((e) => e.id === selectedId);
 
@@ -244,7 +257,7 @@ function EmployeePicker({
               selected ? "text-gray-900 dark:text-gray-100" : "text-muted-foreground"
             )}
           >
-            {selected ? `${selected.name} — ${selected.role}` : "Choose a team member…"}
+            {selected ? `${selected.name} — ${roleLabel(selected.role)}` : t("picker.choose")}
           </span>
           <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
         </button>
@@ -255,7 +268,7 @@ function EmployeePicker({
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
             <Input
               autoFocus
-              placeholder="Search by name, role, or department…"
+              placeholder={t("picker.searchPlaceholder")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="pl-8 h-8 text-sm"
@@ -266,7 +279,7 @@ function EmployeePicker({
         <div className="max-h-72 overflow-y-auto">
           {filtered.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-6">
-              No matches
+              {t("picker.noMatches")}
             </p>
           )}
           {filtered.map((e) => (
@@ -288,7 +301,7 @@ function EmployeePicker({
                   {e.name}
                 </p>
                 <p className="text-xs text-muted-foreground truncate">
-                  {e.role} · {e.department}
+                  {roleLabel(e.role)} · {e.department}
                 </p>
               </div>
               {e.id === selectedId && (
@@ -323,9 +336,9 @@ function PromotionWizard({
   isSubmitting,
   onSubmit,
 }: WizardProps) {
-  // The position-domain group headings are the only translated copy in this
-  // component so far; the rest of simulation.tsx is still English.
+  const { t } = useTranslation("simulation");
   const { t: tPositions } = useTranslation("positions");
+  const roleLabel = useRoleLabel();
   const [step, setStep] = useState(1);
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [newSalaryStr, setNewSalaryStr] = useState("");
@@ -398,20 +411,20 @@ function PromotionWizard({
 
   function validateStep(s: number): string | null {
     if (s === 1) {
-      if (!employeeId) return "Please pick an employee to promote.";
+      if (!employeeId) return t("validation.pickEmployee");
     }
     if (s === 2) {
       if (!newSalaryStr || newSalary <= 0)
-        return "Enter the proposed new salary.";
+        return t("validation.enterSalary");
       if (employee && newSalary <= currentSalary)
-        return "The proposed salary must be greater than the current salary.";
+        return t("validation.salaryMustIncrease");
     }
     if (s === 3) {
-      if (!newPosition) return "Select a new role for this promotion.";
+      if (!newPosition) return t("validation.selectRole");
       if (newPosition.title === employee?.role)
-        return "Select a promoted role different from the employee's current role.";
+        return t("validation.roleMustDiffer");
       if (responsibilities.length === 0)
-        return "Add at least one new responsibility for this promotion.";
+        return t("validation.addResponsibility");
     }
     return null;
   }
@@ -443,7 +456,7 @@ function PromotionWizard({
       });
       onOpenChange(false);
     } catch (submitError) {
-      setError(getGatewayErrorMessage(submitError, "Could not submit this promotion request. Please check the employee scope and try again."));
+      setError(getGatewayErrorMessage(submitError, t("toasts.submitFailed")));
     }
   }
 
@@ -453,7 +466,7 @@ function PromotionWizard({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto" data-testid="dialog-promotion-wizard">
         <DialogHeader>
-          <DialogTitle>New Promotion Request</DialogTitle>
+          <DialogTitle>{t("newRequest")}</DialogTitle>
         </DialogHeader>
 
         <StepIndicator current={step} />
@@ -467,18 +480,18 @@ function PromotionWizard({
                   className="border border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground"
                   data-testid="empty-direct-reports"
                 >
-                  You have no direct reports to promote.
+                  {t("step1.noDirectReports")}
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  <Label>Direct report</Label>
+                  <Label>{t("step1.directReport")}</Label>
                   <EmployeePicker
                     employees={employees}
                     selectedId={employeeId}
                     onSelect={setEmployeeId}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Only employees who report directly to you appear here.
+                    {t("step1.hint")}
                   </p>
                 </div>
               )}
@@ -503,13 +516,13 @@ function PromotionWizard({
                     <div className="grid grid-cols-3 gap-3 pt-2 border-t border-blue-100 dark:border-blue-800/40">
                       <div>
                         <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                          Current Role
+                          {t("step1.currentRole")}
                         </p>
-                        <p className="text-sm font-medium mt-0.5">{employee.role}</p>
+                        <p className="text-sm font-medium mt-0.5">{roleLabel(employee.role)}</p>
                       </div>
                       <div>
                         <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                          Current Gross Salary
+                          {t("step1.currentGrossSalary")}
                         </p>
                         <p className="text-sm font-semibold mt-0.5">
                           {fmtMoney(currentSalary)}
@@ -517,13 +530,13 @@ function PromotionWizard({
                       </div>
                       <div>
                         <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                          Team Budget
+                          {t("step1.teamBudget")}
                         </p>
                         <p className="text-sm font-semibold mt-0.5">
                           {fmtMoney(currentTeamBudget)}
                         </p>
                         <p className="text-[10px] text-muted-foreground mt-0.5">
-                          {teamMembers.length} member{teamMembers.length === 1 ? "" : "s"}
+                          {t("step1.member", { count: teamMembers.length })}
                         </p>
                       </div>
                     </div>
@@ -537,7 +550,7 @@ function PromotionWizard({
           {step === 2 && employee && (
             <div className="space-y-4" data-testid="sim-step-2-content">
               <div className="space-y-1.5">
-                <Label>Proposed new gross salary ($)</Label>
+                <Label>{t("step2.proposedSalary")}</Label>
                 <Input
                   type="number"
                   min={0}
@@ -547,7 +560,7 @@ function PromotionWizard({
                   data-testid="input-new-salary"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Currently {fmtMoney(currentSalary)}
+                  {t("step2.currently", { amount: fmtMoney(currentSalary) })}
                 </p>
               </div>
 
@@ -566,7 +579,7 @@ function PromotionWizard({
                       ) : (
                         <TrendingDown className="w-3.5 h-3.5 text-red-600" />
                       )}
-                      Salary Change
+                      {t("step2.salaryChange")}
                     </div>
                     <p
                       className={cn(
@@ -586,7 +599,7 @@ function PromotionWizard({
                         deltaPositive ? "text-green-700/80" : "text-red-700/80"
                       )}
                     >
-                      {fmtPct(salaryDeltaPct)} vs current
+                      {t("step2.vsCurrent", { percent: fmtPct(salaryDeltaPct) })}
                     </p>
                   </CardContent>
                 </Card>
@@ -601,7 +614,7 @@ function PromotionWizard({
                   <CardContent className="p-4 space-y-1">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       <Users className="w-3.5 h-3.5 text-muted-foreground" />
-                      Team Budget Impact
+                      {t("step2.teamBudgetImpact")}
                     </div>
                     <p className="text-2xl font-bold tracking-tight">
                       {fmtMoney(newTeamBudget)}
@@ -615,7 +628,7 @@ function PromotionWizard({
                       )}
                       data-testid="text-budget-impact"
                     >
-                      {fmtPct(budgetImpactPct)} vs {fmtMoney(currentTeamBudget)}
+                      {t("step2.vsAmount", { percent: fmtPct(budgetImpactPct), amount: fmtMoney(currentTeamBudget) })}
                     </p>
                   </CardContent>
                 </Card>
@@ -627,14 +640,14 @@ function PromotionWizard({
           {step === 3 && employee && (
             <div className="space-y-4" data-testid="sim-step-3-content">
               <div className="space-y-1.5">
-                <Label>New role / position</Label>
+                <Label>{t("step3.newRole")}</Label>
                 <select
                   value={newPositionId}
                   onChange={(e) => setNewPositionId(e.target.value)}
                   className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900"
                   data-testid="select-new-position"
                 >
-                  <option value="">— Select a position —</option>
+                  <option value="">{t("step3.selectPosition")}</option>
                   {groupedPositions.map((group) => (
                     <optgroup key={group.value} label={tPositions(`domains.${group.value}.label` as "domains.ENGINEERING.label")}>
                       {group.positions.map((p) => (
@@ -647,15 +660,15 @@ function PromotionWizard({
                   ))}
                 </select>
                 <p className="text-xs text-muted-foreground">
-                  Roles come from the active Positions catalog and are grouped by job family.
+                  {t("step3.catalogHint")}
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label>New responsibilities</Label>
+                <Label>{t("step3.responsibilities")}</Label>
                 <div className="flex gap-2">
                   <Input
-                    placeholder="Add a responsibility…"
+                    placeholder={t("step3.addPlaceholder")}
                     value={respDraft}
                     onChange={(e) => setRespDraft(e.target.value)}
                     onKeyDown={(e) => {
@@ -677,7 +690,7 @@ function PromotionWizard({
                 </div>
                 {responsibilities.length === 0 ? (
                   <p className="text-xs text-muted-foreground italic px-1">
-                    No responsibilities added yet.
+                    {t("step3.noResponsibilities")}
                   </p>
                 ) : (
                   <ul className="space-y-1.5" data-testid="list-responsibilities">
@@ -695,7 +708,7 @@ function PromotionWizard({
                             )
                           }
                           className="text-gray-400 hover:text-red-500 transition-colors"
-                          aria-label="Remove"
+                          aria-label={t("step3.remove")}
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -713,7 +726,7 @@ function PromotionWizard({
               <div className="bg-muted/40 rounded-lg p-4 space-y-3">
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
-                    Employee
+                    {t("step4.employee")}
                   </p>
                   <p className="text-base font-semibold mt-0.5">{employee.name}</p>
                   <p className="text-xs text-muted-foreground">
@@ -725,19 +738,19 @@ function PromotionWizard({
                 <div className="grid sm:grid-cols-2 gap-3 pt-3 border-t border-border">
                   <div>
                     <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
-                      Role Change
+                      {t("step4.roleChange")}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-sm">{employee.role}</span>
+                      <span className="text-sm">{roleLabel(employee.role)}</span>
                       <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
                       <span className="text-sm font-semibold text-blue-700 dark:text-blue-400">
-                        {newPosition?.title ?? "No role selected"}
+                        {newPosition?.title ?? t("step4.noRoleSelected")}
                       </span>
                     </div>
                   </div>
                   <div>
                     <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
-                      Salary Change
+                      {t("step4.salaryChange")}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-sm">{fmtMoney(currentSalary)}</span>
@@ -766,7 +779,7 @@ function PromotionWizard({
 
                 <div className="pt-3 border-t border-border">
                   <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
-                    Team Budget Impact
+                    {t("step4.teamBudgetImpact")}
                   </p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-sm">{fmtMoney(currentTeamBudget)}</span>
@@ -787,10 +800,10 @@ function PromotionWizard({
 
                 <div className="pt-3 border-t border-border">
                   <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
-                    New Responsibilities
+                    {t("step4.newResponsibilities")}
                   </p>
                   {responsibilities.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic mt-1">None added</p>
+                    <p className="text-xs text-muted-foreground italic mt-1">{t("step4.noneAdded")}</p>
                   ) : (
                     <ul className="mt-1 space-y-0.5">
                       {responsibilities.map((r, i) => (
@@ -823,16 +836,16 @@ function PromotionWizard({
             disabled={step === 1}
             data-testid="button-wizard-back"
           >
-            Back
+            {t("nav.back")}
           </Button>
           {step < 4 ? (
             <Button onClick={next} data-testid="button-wizard-next">
-              Next
+              {t("nav.next")}
             </Button>
           ) : (
             <Button onClick={submit} disabled={isSubmitting} data-testid="button-wizard-submit">
               <Check className="w-4 h-4 mr-1.5" />
-              {isSubmitting ? "Submitting..." : "Confirm & Submit"}
+              {isSubmitting ? t("nav.submitting") : t("nav.submit")}
             </Button>
           )}
         </DialogFooter>
@@ -844,6 +857,7 @@ function PromotionWizard({
 // ── Page ────────────────────────────────────────────────────────────────────
 
 export default function Simulation() {
+  const { t } = useTranslation("simulation");
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -860,8 +874,8 @@ export default function Simulation() {
   const simulationScopeParams = useMemo(() => getSimulationScopeParams(user), [user]);
   const hasSimulationScope = isHrSimulation || Boolean(simulationScopeParams.departmentId || simulationScopeParams.teamId);
   const simulationScopeLabel = isHrSimulation
-    ? "All employees are available for HR simulation."
-    : "Only employees in your managed teams are available for simulation.";
+    ? t("scopeHr")
+    : t("scopeManager");
 
   const { data: employeesResult } = useQuery({
     queryKey: ["simulation-employees", simulationScopeParams],
@@ -900,12 +914,12 @@ export default function Simulation() {
       queryClient.invalidateQueries({ queryKey: ["promotion-requests"] });
       queryClient.invalidateQueries({ queryKey: ["promotion-requests-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-analytics"] });
-      toast({ title: "Promotion request validated" });
+      toast({ title: t("toasts.validated") });
     },
     onError: (error) => {
       toast({
-        title: "Could not validate request",
-        description: getGatewayErrorMessage(error, "Could not submit this promotion request. Please check the employee scope and try again."),
+        title: t("toasts.validateFailed"),
+        description: getGatewayErrorMessage(error, t("toasts.submitFailed")),
         variant: "destructive",
       });
     },
@@ -917,12 +931,12 @@ export default function Simulation() {
       queryClient.invalidateQueries({ queryKey: ["promotion-requests"] });
       queryClient.invalidateQueries({ queryKey: ["promotion-requests-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-analytics"] });
-      toast({ title: "Promotion request refused" });
+      toast({ title: t("toasts.refused") });
     },
     onError: (error) => {
       toast({
-        title: "Could not refuse request",
-        description: getGatewayErrorMessage(error, "Could not submit this promotion request. Please check the employee scope and try again."),
+        title: t("toasts.refuseFailed"),
+        description: getGatewayErrorMessage(error, t("toasts.submitFailed")),
         variant: "destructive",
       });
     },
@@ -950,11 +964,10 @@ export default function Simulation() {
             className="text-3xl font-bold tracking-tight"
             data-testid="heading-simulation"
           >
-            Simulation
+            {t("title")}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Model the financial and organizational impact of a promotion before
-            submitting the request.
+            {t("subtitle")}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {simulationScopeLabel}
@@ -967,7 +980,7 @@ export default function Simulation() {
           data-testid="button-new-promotion"
         >
           <Plus className="w-4 h-4" />
-          New Promotion Request
+          {t("newRequest")}
         </Button>
       </div>
 
@@ -975,21 +988,19 @@ export default function Simulation() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Sparkles className="w-4 h-4 text-blue-600" />
-            Promotion Requests
+            {t("requests.title")}
           </CardTitle>
-          <CardDescription>
-            Requests submitted to HR Core and visible in your current scope.
-          </CardDescription>
+          <CardDescription>{t("requests.description")}</CardDescription>
         </CardHeader>
         <CardContent>
           {requestsLoading ? (
-            <p className="py-12 text-center text-sm text-muted-foreground">Loading promotion requests...</p>
+            <p className="py-12 text-center text-sm text-muted-foreground">{t("requests.loading")}</p>
           ) : requests.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground" data-testid="empty-requests">
               <Briefcase className="w-10 h-10 mx-auto text-gray-300 mb-3" />
-              <p className="text-sm">No promotion requests yet.</p>
+              <p className="text-sm">{t("requests.empty")}</p>
               <p className="text-xs mt-1">
-                Click "New Promotion Request" to start one.
+                {t("requests.emptyHint")}
               </p>
             </div>
           ) : (
@@ -1012,7 +1023,7 @@ export default function Simulation() {
                             className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-0"
                             data-testid={`badge-status-${r.id}`}
                           >
-                            {r.status}
+                            {t(`status.${r.status}` as "status.PENDING", { defaultValue: r.status })}
                           </Badge>
                         </div>
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1 flex-wrap">
@@ -1024,14 +1035,14 @@ export default function Simulation() {
                         </div>
                       </div>
                       <p className="text-xs text-muted-foreground whitespace-nowrap">
-                        Submitted {fmtDate(r.submittedAt)}
+                        {t("requests.submitted", { date: fmtDate(r.submittedAt) })}
                       </p>
                     </div>
 
                     <div className="grid sm:grid-cols-3 gap-3 mt-3 pt-3 border-t border-border">
                       <div>
                         <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                          Salary
+                          {t("requests.salary")}
                         </p>
                         <p className="text-sm font-medium mt-0.5">
                           {fmtMoney(r.currentGrossSalary)} -&gt; {fmtMoney(r.newGrossSalary)}
@@ -1039,7 +1050,7 @@ export default function Simulation() {
                       </div>
                       <div>
                         <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                          Salary Change
+                          {t("requests.salaryChange")}
                         </p>
                         <p
                           className={cn(
@@ -1053,7 +1064,7 @@ export default function Simulation() {
                       </div>
                       <div>
                         <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                          Budget Impact
+                          {t("requests.budgetImpact")}
                         </p>
                         <p
                           className={cn(
@@ -1076,7 +1087,7 @@ export default function Simulation() {
                           data-testid={`button-validate-simulation-promotion-${r.id}`}
                         >
                           <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                          Validate
+                          {t("requests.validate")}
                         </Button>
                         <Button
                           size="sm"
@@ -1087,7 +1098,7 @@ export default function Simulation() {
                           data-testid={`button-refuse-simulation-promotion-${r.id}`}
                         >
                           <XCircle className="mr-1 h-3.5 w-3.5" />
-                          Refuse
+                          {t("requests.refuse")}
                         </Button>
                       </div>
                     )}
