@@ -1,6 +1,7 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
+import enAi from "./locales/en/ai.json";
 import enAuth from "./locales/en/auth.json";
 import enCommon from "./locales/en/common.json";
 import enDashboard from "./locales/en/dashboard.json";
@@ -10,6 +11,7 @@ import enHome from "./locales/en/home.json";
 import enLeaveManagement from "./locales/en/leave-management.json";
 import enLeaves from "./locales/en/leaves.json";
 import enNav from "./locales/en/nav.json";
+import enNotifications from "./locales/en/notifications.json";
 import enOkr from "./locales/en/okr.json";
 import enOrgChart from "./locales/en/org-chart.json";
 import enPerformance from "./locales/en/performance.json";
@@ -18,6 +20,7 @@ import enSettings from "./locales/en/settings.json";
 import enSimulation from "./locales/en/simulation.json";
 import enTour from "./locales/en/tour.json";
 
+import frAi from "./locales/fr/ai.json";
 import frAuth from "./locales/fr/auth.json";
 import frCommon from "./locales/fr/common.json";
 import frDashboard from "./locales/fr/dashboard.json";
@@ -27,6 +30,7 @@ import frHome from "./locales/fr/home.json";
 import frLeaveManagement from "./locales/fr/leave-management.json";
 import frLeaves from "./locales/fr/leaves.json";
 import frNav from "./locales/fr/nav.json";
+import frNotifications from "./locales/fr/notifications.json";
 import frOkr from "./locales/fr/okr.json";
 import frOrgChart from "./locales/fr/org-chart.json";
 import frPerformance from "./locales/fr/performance.json";
@@ -53,6 +57,7 @@ export const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
 
 const resources = {
   en: {
+    ai: enAi,
     auth: enAuth,
     common: enCommon,
     dashboard: enDashboard,
@@ -62,6 +67,7 @@ const resources = {
     "leave-management": enLeaveManagement,
     leaves: enLeaves,
     nav: enNav,
+    notifications: enNotifications,
     okr: enOkr,
     "org-chart": enOrgChart,
     performance: enPerformance,
@@ -71,6 +77,7 @@ const resources = {
     tour: enTour,
   },
   fr: {
+    ai: frAi,
     auth: frAuth,
     common: frCommon,
     dashboard: frDashboard,
@@ -80,6 +87,7 @@ const resources = {
     "leave-management": frLeaveManagement,
     leaves: frLeaves,
     nav: frNav,
+    notifications: frNotifications,
     okr: frOkr,
     "org-chart": frOrgChart,
     performance: frPerformance,
