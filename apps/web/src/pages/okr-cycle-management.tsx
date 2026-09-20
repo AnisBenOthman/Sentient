@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, Building2, ChevronDown, ChevronRight, Network, Plus, Users } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -60,10 +61,6 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = {
 
 function objectivesByParent(objectives: ObjectiveResponse[], parentId: string): ObjectiveResponse[] {
   return objectives.filter((objective) => objective.parentObjectiveId === parentId);
-}
-
-function childCountLabel(count: number, singular: string, plural: string): string {
-  return `${count} ${count === 1 ? singular : plural}`;
 }
 
 interface ObjectiveCascadeRow {
@@ -138,10 +135,11 @@ function ObjectiveCascadeTree({
   onExpandAll,
   onCollapseAll,
 }: ObjectiveCascadeTreeProps) {
+  const { t } = useTranslation('okr');
   if (companyObjectives.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50/70 p-4 text-sm text-muted-foreground dark:border-slate-800 dark:bg-slate-900/50">
-        No company objectives are active in this cycle yet.
+        {t('cascade.empty')}
       </p>
     );
   }
@@ -151,17 +149,17 @@ function ObjectiveCascadeTree({
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/70">
         <div className="flex items-center gap-2 text-sm font-medium">
           <Network className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-          Cascade tree
+          {t('cascade.treeTitle')}
           <span className="text-xs font-normal text-muted-foreground">
-            Expand or reduce each parent objective.
+            {t('cascade.treeHint')}
           </span>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="ghost" className="h-8" onClick={onExpandAll}>
-            Expand all
+            {t('cascade.expandAll')}
           </Button>
           <Button size="sm" variant="ghost" className="h-8" onClick={onCollapseAll}>
-            Reduce all
+            {t('cascade.collapseAll')}
           </Button>
         </div>
       </div>
@@ -193,13 +191,13 @@ function ObjectiveCascadeTree({
                   <span className="min-w-0">
                     <span className="flex flex-wrap items-center gap-2">
                       <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
-                        Company
+                        {t('enums.objectiveLevel_COMPANY')}
                       </Badge>
                       <Badge variant={STATUS_VARIANT[companyObjective.status] ?? 'outline'}>
-                        {companyObjective.status}
+                        {t(`enums.objectiveStatus_${companyObjective.status}` as 'enums.objectiveStatus_DRAFT', { defaultValue: companyObjective.status })}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
-                        {childCountLabel(linkedDepartments.length, 'department child', 'department children')}
+                        {t('cascade.departmentChildren', { count: linkedDepartments.length })}
                       </span>
                     </span>
                     <span className="mt-2 block truncate text-sm font-semibold text-slate-950 dark:text-slate-100">
@@ -216,7 +214,7 @@ function ObjectiveCascadeTree({
                     onClick={() => onAddDepartmentObjective(companyObjective.id)}
                   >
                     <Plus className="mr-2 h-4 w-4" />
-                    Department objective
+                    {t('cascade.addDepartmentObjective')}
                   </Button>
                 )}
               </div>
@@ -225,7 +223,7 @@ function ObjectiveCascadeTree({
                 <div className="space-y-3 p-4">
                   {linkedDepartments.length === 0 ? (
                     <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/70 p-3 text-sm text-muted-foreground dark:border-slate-800 dark:bg-slate-900/50">
-                      No department objectives linked to this company objective yet.
+                      {t('cascade.noDepartmentObjectives')}
                     </div>
                   ) : (
                     linkedDepartments.map((departmentObjective) => {
@@ -254,13 +252,13 @@ function ObjectiveCascadeTree({
                                   <span className="flex flex-wrap items-center gap-2">
                                     <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300">
                                       <Building2 className="mr-1 h-3 w-3" />
-                                      Department
+                                      {t('enums.objectiveLevel_DEPARTMENT')}
                                     </Badge>
                                     <Badge variant={STATUS_VARIANT[departmentObjective.status] ?? 'outline'}>
-                                      {departmentObjective.status}
+                                      {t(`enums.objectiveStatus_${departmentObjective.status}` as 'enums.objectiveStatus_DRAFT', { defaultValue: departmentObjective.status })}
                                     </Badge>
                                     <span className="text-xs text-muted-foreground">
-                                      {childCountLabel(linkedEmployees.length, 'employee child', 'employee children')}
+                                      {t('cascade.employeeChildren', { count: linkedEmployees.length })}
                                     </span>
                                   </span>
                                   <span className="mt-2 block truncate text-sm font-medium">
@@ -277,7 +275,7 @@ function ObjectiveCascadeTree({
                                     onClick={() => onActivateObjective(departmentObjective.id)}
                                     disabled={activateObjectivePending}
                                   >
-                                    Activate
+                                    {t('cascade.activate')}
                                   </Button>
                                 )}
                                 {departmentObjective.status === 'ACTIVE' && (
@@ -287,7 +285,7 @@ function ObjectiveCascadeTree({
                                     onClick={() => onAddEmployeeObjective(departmentObjective.id)}
                                   >
                                     <Plus className="mr-2 h-4 w-4" />
-                                    Employee objective
+                                    {t('cascade.addEmployeeObjective')}
                                   </Button>
                                 )}
                               </div>
@@ -297,7 +295,7 @@ function ObjectiveCascadeTree({
                               <div className="mt-3 space-y-2 border-l border-slate-200 pl-4 dark:border-slate-800">
                                 {linkedEmployees.length === 0 ? (
                                   <p className="rounded-md bg-white px-3 py-2 text-sm text-muted-foreground dark:bg-slate-950">
-                                    No employee objectives linked yet.
+                                    {t('cascade.noEmployeeObjectives')}
                                   </p>
                                 ) : (
                                   linkedEmployees.map((employeeObjective) => {
@@ -315,10 +313,10 @@ function ObjectiveCascadeTree({
                                         </div>
                                         <div className="flex items-center gap-2">
                                           <Badge variant="outline" className="border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300">
-                                            Employee
+                                            {t('enums.objectiveLevel_EMPLOYEE')}
                                           </Badge>
                                           <Badge variant={STATUS_VARIANT[employeeObjective.status] ?? 'outline'}>
-                                            {employeeObjective.status}
+                                            {t(`enums.objectiveStatus_${employeeObjective.status}` as 'enums.objectiveStatus_DRAFT', { defaultValue: employeeObjective.status })}
                                           </Badge>
                                           {canActivateEmployee && (
                                             <Button
@@ -327,7 +325,7 @@ function ObjectiveCascadeTree({
                                               onClick={() => onActivateObjective(employeeObjective.id)}
                                               disabled={activateObjectivePending}
                                             >
-                                              Activate
+                                              {t('cascade.activate')}
                                             </Button>
                                           )}
                                         </div>
@@ -369,6 +367,7 @@ function CreateCycleDialog({ open, onClose, annualCycles }: {
   onClose: () => void;
   annualCycles: OkrCycleResponse[];
 }) {
+  const { t } = useTranslation(['okr', 'common']);
   const [formError, setFormError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
@@ -397,7 +396,7 @@ function CreateCycleDialog({ open, onClose, annualCycles }: {
       onClose();
     },
     onError: (err: unknown) => {
-      setFormError(getGatewayErrorMessage(err, 'Failed to create cycle. Please try again.'));
+      setFormError(getGatewayErrorMessage(err, t('createCycleDialog.createFailed')));
     },
   });
 
@@ -405,35 +404,35 @@ function CreateCycleDialog({ open, onClose, annualCycles }: {
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Create OKR Cycle</DialogTitle>
+          <DialogTitle>{t('createCycleDialog.title')}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
           <div className="space-y-1">
-            <Label>Name *</Label>
-            <Input {...register('name')} placeholder="e.g. FY 2026" />
+            <Label>{t('createCycleDialog.name')}</Label>
+            <Input {...register('name')} placeholder={t('createCycleDialog.namePlaceholder')} />
             {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
 
           <div className="space-y-1">
-            <Label>Type *</Label>
+            <Label>{t('createCycleDialog.type')}</Label>
             <Select value={watch('type')} onValueChange={(v) => setValue('type', v as OkrCycleType)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="ANNUAL">Annual</SelectItem>
-                <SelectItem value="QUARTERLY">Quarterly</SelectItem>
+                <SelectItem value="ANNUAL">{t('enums.cycleType_ANNUAL')}</SelectItem>
+                <SelectItem value="QUARTERLY">{t('enums.cycleType_QUARTERLY')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Year *</Label>
+              <Label>{t('createCycleDialog.year')}</Label>
               <Input {...register('year')} type="number" placeholder="2026" />
               {errors.year && <p className="text-xs text-destructive">{errors.year.message}</p>}
             </div>
             {cycleType === 'QUARTERLY' && (
               <div className="space-y-1">
-                <Label>Quarter *</Label>
+                <Label>{t('createCycleDialog.quarter')}</Label>
                 <Input {...register('quarter')} type="number" placeholder="1" min={1} max={4} />
                 {errors.quarter && <p className="text-xs text-destructive">{errors.quarter.message}</p>}
               </div>
@@ -442,20 +441,20 @@ function CreateCycleDialog({ open, onClose, annualCycles }: {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Start Date *</Label>
+              <Label>{t('createCycleDialog.startDate')}</Label>
               <Input {...register('startDate')} type="date" />
             </div>
             <div className="space-y-1">
-              <Label>End Date *</Label>
+              <Label>{t('createCycleDialog.endDate')}</Label>
               <Input {...register('endDate')} type="date" />
             </div>
           </div>
 
           {cycleType === 'QUARTERLY' && annualCycles.length > 0 && (
             <div className="space-y-1">
-              <Label>Parent Annual Cycle</Label>
+              <Label>{t('createCycleDialog.parentCycle')}</Label>
               <Select onValueChange={(v) => setValue('parentCycleId', v)}>
-                <SelectTrigger><SelectValue placeholder="Select annual cycle…" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={t('createCycleDialog.parentCyclePlaceholder')} /></SelectTrigger>
                 <SelectContent>
                   {annualCycles.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
@@ -468,9 +467,9 @@ function CreateCycleDialog({ open, onClose, annualCycles }: {
           {formError && <p className="text-sm text-destructive">{formError}</p>}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={onClose}>{t('common:cancel')}</Button>
             <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? 'Creating…' : 'Create'}
+              {mutation.isPending ? t('createCycleDialog.creating') : t('createCycleDialog.create')}
             </Button>
           </DialogFooter>
         </form>
@@ -480,6 +479,7 @@ function CreateCycleDialog({ open, onClose, annualCycles }: {
 }
 
 export default function OkrCycleManagement() {
+  const { t } = useTranslation('okr');
   const { user } = useAuth();
   const isHrAdmin = user?.roles?.includes('HR_ADMIN') ?? false;
   const isManager = user?.roles?.includes('MANAGER') ?? false;
@@ -593,7 +593,7 @@ export default function OkrCycleManagement() {
       setActionError(null);
     },
     onError: (err: unknown) => {
-      setActionError(getGatewayErrorMessage(err, 'Action failed.'));
+      setActionError(getGatewayErrorMessage(err, t('cycleManagement.actionFailed')));
     },
   });
 
@@ -604,7 +604,7 @@ export default function OkrCycleManagement() {
       setActionError(null);
     },
     onError: (err: unknown) => {
-      setActionError(getGatewayErrorMessage(err, 'Action failed.'));
+      setActionError(getGatewayErrorMessage(err, t('cycleManagement.actionFailed')));
     },
   });
 
@@ -615,7 +615,7 @@ export default function OkrCycleManagement() {
       setActionError(null);
     },
     onError: (err: unknown) => {
-      setActionError(getGatewayErrorMessage(err, 'Could not activate objective.'));
+      setActionError(getGatewayErrorMessage(err, t('cycleManagement.activateObjectiveFailed')));
     },
   });
 
@@ -623,13 +623,13 @@ export default function OkrCycleManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">OKR Cycle Management</h1>
-          <p className="text-muted-foreground text-sm">Manage OKR cycles and objectives</p>
+          <h1 className="text-2xl font-bold">{t('cycleManagement.title')}</h1>
+          <p className="text-muted-foreground text-sm">{t('cycleManagement.subtitle')}</p>
         </div>
         {isHrAdmin && (
           <Button onClick={() => setCreateCycleOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Create Cycle
+            {t('cycleManagement.createCycle')}
           </Button>
         )}
       </div>
@@ -640,20 +640,20 @@ export default function OkrCycleManagement() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Cycles</CardTitle>
+          <CardTitle className="text-base">{t('cycleManagement.cycles')}</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <p className="text-sm text-muted-foreground">{t('cycleManagement.loading')}</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Period</TableHead>
-                  <TableHead>Status</TableHead>
-                  {(isHrAdmin || isManager) && <TableHead className="text-right">Actions</TableHead>}
+                  <TableHead>{t('cycleManagement.colName')}</TableHead>
+                  <TableHead>{t('cycleManagement.colType')}</TableHead>
+                  <TableHead>{t('cycleManagement.colPeriod')}</TableHead>
+                  <TableHead>{t('cycleManagement.colStatus')}</TableHead>
+                  {(isHrAdmin || isManager) && <TableHead className="text-right">{t('cycleManagement.colActions')}</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -664,13 +664,13 @@ export default function OkrCycleManagement() {
                     onClick={() => setSelectedCycle((prev) => prev?.id === cycle.id ? null : cycle)}
                   >
                     <TableCell className="font-medium">{cycle.name}</TableCell>
-                    <TableCell>{cycle.type}</TableCell>
+                    <TableCell>{t(`enums.cycleType_${cycle.type}` as 'enums.cycleType_ANNUAL', { defaultValue: cycle.type })}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {cycle.startDate} → {cycle.endDate}
                     </TableCell>
                     <TableCell>
                       <Badge variant={STATUS_VARIANT[cycle.status] ?? 'outline'}>
-                        {cycle.status}
+                        {t(`enums.cycleStatus_${cycle.status}` as 'enums.cycleStatus_DRAFT', { defaultValue: cycle.status })}
                       </Badge>
                     </TableCell>
                     {(isHrAdmin || isManager) && (
@@ -681,7 +681,7 @@ export default function OkrCycleManagement() {
                             onClick={() => activateMutation.mutate(cycle.id)}
                             disabled={activateMutation.isPending}
                           >
-                            Activate
+                            {t('cycleManagement.activate')}
                           </Button>
                         )}
                         {cycle.status === 'ACTIVE' && (
@@ -694,7 +694,7 @@ export default function OkrCycleManagement() {
                                 openObjectiveForm(isHrAdmin ? 'COMPANY' : 'DEPARTMENT');
                               }}
                             >
-                              {isHrAdmin ? '+ Objective' : '+ Department Objective'}
+                              {isHrAdmin ? t('cycleManagement.addObjective') : t('cycleManagement.addDepartmentObjective')}
                             </Button>
                             {isHrAdmin && (
                               <Button
@@ -703,7 +703,7 @@ export default function OkrCycleManagement() {
                                 onClick={() => closeMutation.mutate(cycle.id)}
                                 disabled={closeMutation.isPending}
                               >
-                                Close
+                                {t('cycleManagement.close')}
                               </Button>
                             )}
                           </>
@@ -723,7 +723,7 @@ export default function OkrCycleManagement() {
           <CardHeader className="pb-3">
             <CardTitle className="flex flex-wrap items-center gap-2 text-base">
               <Network className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              Cascade — {selectedCycle.name}
+              {t('cycleManagement.cascadeHeading', { cycle: selectedCycle.name })}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -743,119 +743,6 @@ export default function OkrCycleManagement() {
               onExpandAll={expandAllObjectives}
               onCollapseAll={collapseAllObjectives}
             />
-            <div className="hidden">
-            {companyObjectives.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No company objectives are active in this cycle yet.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {companyObjectives.map((companyObjective) => {
-                  const linkedDepartments = objectivesByParent(departmentObjectives, companyObjective.id);
-
-                  return (
-                    <div
-                      key={companyObjective.id}
-                      className="rounded-md border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline">Company</Badge>
-                            <Badge variant={STATUS_VARIANT[companyObjective.status] ?? 'outline'}>
-                              {companyObjective.status}
-                            </Badge>
-                          </div>
-                          <p className="mt-2 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {companyObjective.title}
-                          </p>
-                        </div>
-                        {selectedCycle.status === 'ACTIVE' && companyObjective.status === 'ACTIVE' && (isManager || isHrAdmin) && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openObjectiveForm('DEPARTMENT', companyObjective.id)}
-                          >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Department objective
-                          </Button>
-                        )}
-                      </div>
-
-                      <div className="mt-3 space-y-2 border-l border-gray-200 pl-4 dark:border-gray-800">
-                        {linkedDepartments.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">
-                            No department objectives linked to this company objective yet.
-                          </p>
-                        ) : (
-                          linkedDepartments.map((departmentObjective) => {
-                            const linkedEmployees = objectivesByParent(employeeObjectives, departmentObjective.id);
-                            const canActivateDepartment =
-                              departmentObjective.status === 'DRAFT' &&
-                              ((isHrAdmin && departmentObjective.level === 'DEPARTMENT') || isManager);
-
-                            return (
-                              <div
-                                key={departmentObjective.id}
-                                className="rounded-md border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-950"
-                              >
-                                <div className="flex flex-wrap items-center justify-between gap-3">
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                                      <Badge variant="outline">Department</Badge>
-                                      <Badge variant={STATUS_VARIANT[departmentObjective.status] ?? 'outline'}>
-                                        {departmentObjective.status}
-                                      </Badge>
-                                    </div>
-                                    <p className="mt-2 truncate text-sm font-medium">
-                                      {departmentObjective.title}
-                                    </p>
-                                  </div>
-                                  <div className="flex flex-wrap justify-end gap-2">
-                                    {canActivateDepartment && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => activateObjectiveMutation.mutate(departmentObjective.id)}
-                                        disabled={activateObjectiveMutation.isPending}
-                                      >
-                                        Activate
-                                      </Button>
-                                    )}
-                                    {departmentObjective.status === 'ACTIVE' && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => openObjectiveForm('EMPLOYEE', departmentObjective.id)}
-                                      >
-                                        <Plus className="mr-2 h-4 w-4" />
-                                        Employee objective
-                                      </Button>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {linkedEmployees.length > 0 && (
-                                  <div className="mt-3 flex flex-wrap gap-2">
-                                    {linkedEmployees.map((employeeObjective) => (
-                                      <Badge key={employeeObjective.id} variant="secondary">
-                                        Employee · {employeeObjective.title}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            </div>
           </CardContent>
         </Card>
       )}
@@ -863,20 +750,20 @@ export default function OkrCycleManagement() {
       {selectedCycle && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Objectives — {selectedCycle.name}</CardTitle>
+            <CardTitle className="text-base">{t('cycleManagement.objectivesHeading', { cycle: selectedCycle.name })}</CardTitle>
           </CardHeader>
           <CardContent>
             {objectiveCascadeRows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No objectives created for this cycle yet.</p>
+              <p className="text-sm text-muted-foreground">{t('cycleManagement.noObjectives')}</p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Objective</TableHead>
-                    <TableHead>Cascade Level</TableHead>
-                    <TableHead>Aligned Under</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t('cycleManagement.colObjective')}</TableHead>
+                    <TableHead>{t('cycleManagement.colCascadeLevel')}</TableHead>
+                    <TableHead>{t('cycleManagement.colAlignedUnder')}</TableHead>
+                    <TableHead>{t('cycleManagement.colStatus')}</TableHead>
+                    <TableHead className="text-right">{t('cycleManagement.colActions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -904,15 +791,19 @@ export default function OkrCycleManagement() {
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">
-                            {depth === 0 ? 'Company' : depth === 1 ? 'Department' : 'Employee'}
+                            {depth === 0
+                              ? t('enums.objectiveLevel_COMPANY')
+                              : depth === 1
+                                ? t('enums.objectiveLevel_DEPARTMENT')
+                                : t('enums.objectiveLevel_EMPLOYEE')}
                           </Badge>
                         </TableCell>
                         <TableCell className="max-w-[260px] truncate text-sm text-muted-foreground">
-                          {parentTitle ?? (objective.parentObjectiveId ? 'Parent outside this view' : 'Top level')}
+                          {parentTitle ?? (objective.parentObjectiveId ? t('cycleManagement.parentOutsideView') : t('cycleManagement.topLevel'))}
                         </TableCell>
                         <TableCell>
                           <Badge variant={STATUS_VARIANT[objective.status] ?? 'outline'}>
-                            {objective.status}
+                            {t(`enums.objectiveStatus_${objective.status}` as 'enums.objectiveStatus_DRAFT', { defaultValue: objective.status })}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right space-x-2">
@@ -923,7 +814,7 @@ export default function OkrCycleManagement() {
                               onClick={() => activateObjectiveMutation.mutate(objective.id)}
                               disabled={activateObjectiveMutation.isPending}
                             >
-                              Activate
+                              {t('cycleManagement.activate')}
                             </Button>
                           )}
                           {canAddKr && (
@@ -933,7 +824,7 @@ export default function OkrCycleManagement() {
                               onClick={() => setAddKrForObjectiveId(objective.id)}
                             >
                               <Plus className="mr-2 h-4 w-4" />
-                              Key Result
+                              {t('cycleManagement.keyResult')}
                             </Button>
                           )}
                         </TableCell>
@@ -951,10 +842,10 @@ export default function OkrCycleManagement() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              OKR Approvals — {selectedCycle.name}
+              {t('cycleManagement.approvalsHeading', { cycle: selectedCycle.name })}
             </CardTitle>
             <p className="text-xs text-muted-foreground">
-              Employee objectives awaiting your approval before they become active.
+              {t('cycleManagement.approvalsDescription')}
             </p>
           </CardHeader>
           <CardContent>
@@ -967,7 +858,7 @@ export default function OkrCycleManagement() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              Check-in Review — {selectedCycle.name}
+              {t('cycleManagement.checkInHeading', { cycle: selectedCycle.name })}
             </CardTitle>
           </CardHeader>
           <CardContent>

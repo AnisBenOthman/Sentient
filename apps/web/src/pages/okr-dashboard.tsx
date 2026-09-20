@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +18,7 @@ import { KrProgressBar } from '@/components/okrs/kr-progress-bar';
 import { useAuth } from '@/components/providers/auth-provider';
 
 export default function OkrDashboard() {
+  const { t } = useTranslation('okr');
   const { user } = useAuth();
   const [selectedCycleId, setSelectedCycleId] = useState<string>('');
 
@@ -54,8 +56,8 @@ export default function OkrDashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">OKR Dashboard</h1>
-          <p className="text-muted-foreground text-sm">Cycle-wide health overview</p>
+          <h1 className="text-2xl font-bold">{t('dashboard.title')}</h1>
+          <p className="text-muted-foreground text-sm">{t('dashboard.subtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
           <CycleSelector
@@ -64,12 +66,12 @@ export default function OkrDashboard() {
             cycles={cycles}
           />
           {selectedCycle?.status === 'CLOSED' && (
-            <Badge variant="outline">CLOSED</Badge>
+            <Badge variant="outline">{t('dashboard.closed')}</Badge>
           )}
         </div>
       </div>
 
-      {summaryLoading && <p className="text-sm text-muted-foreground">Loading summary…</p>}
+      {summaryLoading && <p className="text-sm text-muted-foreground">{t('dashboard.loading')}</p>}
 
       {summary && (
         <>
@@ -80,7 +82,7 @@ export default function OkrDashboard() {
                 <Target className="h-8 w-8 text-primary" />
                 <div>
                   <p className="text-2xl font-bold">{totalObjectives}</p>
-                  <p className="text-xs text-muted-foreground">Total Objectives</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.totalObjectives')}</p>
                 </div>
               </CardContent>
             </Card>
@@ -89,7 +91,7 @@ export default function OkrDashboard() {
                 <List className="h-8 w-8 text-primary" />
                 <div>
                   <p className="text-2xl font-bold">{totalKrs}</p>
-                  <p className="text-xs text-muted-foreground">Key Results</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.keyResults')}</p>
                 </div>
               </CardContent>
             </Card>
@@ -98,7 +100,7 @@ export default function OkrDashboard() {
                 <AlertTriangle className={`h-8 w-8 ${totalAtRisk > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
                 <div>
                   <p className={`text-2xl font-bold ${totalAtRisk > 0 ? 'text-destructive' : ''}`}>{totalAtRisk}</p>
-                  <p className="text-xs text-muted-foreground">At Risk KRs</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.atRiskKrs')}</p>
                 </div>
               </CardContent>
             </Card>
@@ -107,7 +109,7 @@ export default function OkrDashboard() {
           {/* Department progress */}
           {summary.departments.length > 0 && (
             <section className="space-y-3">
-              <h2 className="text-lg font-semibold">Department Progress</h2>
+              <h2 className="text-lg font-semibold">{t('dashboard.departmentProgress')}</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {summary.departments.map((dept) => (
                   <DepartmentProgressCard key={dept.departmentId} dept={dept} />
@@ -119,7 +121,7 @@ export default function OkrDashboard() {
           {/* Top-level alignment tree */}
           {summary.topLevelObjectives.length > 0 && (
             <section className="space-y-3">
-              <h2 className="text-lg font-semibold">Company Objective Alignment</h2>
+              <h2 className="text-lg font-semibold">{t('dashboard.companyAlignment')}</h2>
               <Card>
                 <CardContent className="pt-4">
                   <AlignmentTree objectives={summary.topLevelObjectives} />
@@ -131,7 +133,7 @@ export default function OkrDashboard() {
           {/* At-risk KRs table */}
           {summary.atRiskKrs.length > 0 && (
             <section className="space-y-3">
-              <h2 className="text-lg font-semibold">At-Risk Key Results</h2>
+              <h2 className="text-lg font-semibold">{t('dashboard.atRiskList')}</h2>
               <Card>
                 <CardContent className="pt-4 space-y-2">
                   {summary.atRiskKrs.map((kr) => (
@@ -153,15 +155,15 @@ export default function OkrDashboard() {
       {/* Employee portfolio section */}
       {isEmployee && portfolio && (
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Your Portfolio</h2>
+          <h2 className="text-lg font-semibold">{t('dashboard.portfolio')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Personal Objectives</CardTitle>
+                <CardTitle className="text-sm">{t('dashboard.personalObjectives')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {portfolio.objectivesOwned.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">None yet.</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.nonePersonal')}</p>
                 ) : (
                   portfolio.objectivesOwned.map(({ objective, averageScore }) => (
                     <div key={objective.id} className="flex items-center gap-2">
@@ -175,11 +177,11 @@ export default function OkrDashboard() {
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Assigned Key Results</CardTitle>
+                <CardTitle className="text-sm">{t('dashboard.assignedKeyResults')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {portfolio.keyResultsAssigned.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">None assigned.</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.noneAssigned')}</p>
                 ) : (
                   portfolio.keyResultsAssigned.map(({ keyResult }) => (
                     <div key={keyResult.id} className="flex items-center gap-2">

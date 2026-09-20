@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -64,6 +65,7 @@ interface ObjectiveFormProps {
 }
 
 export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialParentObjectiveId, initialOwnerId }: ObjectiveFormProps) {
+  const { t } = useTranslation(['okr', 'common']);
   const { user } = useAuth();
   const [level, setLevel] = useState<ObjectiveLevel>(initialLevel);
   const [formError, setFormError] = useState<string | null>(null);
@@ -157,7 +159,7 @@ export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialPar
       onClose();
     },
     onError: (err: unknown) => {
-      setFormError(getGatewayErrorMessage(err, 'Failed to create objective. Please try again.'));
+      setFormError(getGatewayErrorMessage(err, t('objectiveForm.createFailed')));
     },
   });
 
@@ -178,25 +180,23 @@ export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialPar
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create Objective</DialogTitle>
-          <p className="text-xs text-muted-foreground">
-            An Objective is a qualitative goal — inspiring, not measured. You'll add measurable Key Results to it next.
-          </p>
+          <DialogTitle>{t('objectiveForm.title')}</DialogTitle>
+          <p className="text-xs text-muted-foreground">{t('objectiveForm.description')}</p>
         </DialogHeader>
 
         <form onSubmit={handleSubmit((v) => {
             if (level !== 'COMPANY' && !v.parentObjectiveId) {
-              setFormError('Please select a parent objective before creating.');
+              setFormError(t('objectiveForm.errorParentRequired'));
               return;
             }
             if (level === 'EMPLOYEE' && (isHrAdmin || isManager) && !v.ownerId) {
-              setFormError('Please select an owner for this employee objective.');
+              setFormError(t('objectiveForm.errorOwnerRequired'));
               return;
             }
             mutation.mutate(v);
           })} className="space-y-4">
           <div className="space-y-1">
-            <Label>Level</Label>
+            <Label>{t('objectiveForm.level')}</Label>
             <Select
               value={level}
               onValueChange={(v) => {
@@ -213,7 +213,7 @@ export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialPar
               <SelectContent>
                 {levelOptions.map((option) => (
                   <SelectItem key={option} value={option}>
-                    {option === 'COMPANY' ? 'Company' : option === 'DEPARTMENT' ? 'Department' : 'Employee'}
+                    {t(`enums.objectiveLevel_${option}` as 'enums.objectiveLevel_COMPANY')}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -221,13 +221,13 @@ export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialPar
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="title">Title *</Label>
-            <Input id="title" {...register('title')} placeholder="OKR title…" />
+            <Label htmlFor="title">{t('objectiveForm.titleLabel')}</Label>
+            <Input id="title" {...register('title')} placeholder={t('objectiveForm.titlePlaceholder')} />
             {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">{t('objectiveForm.descriptionLabel')}</Label>
             <Textarea id="description" {...register('description')} rows={3} />
           </div>
 
@@ -235,7 +235,7 @@ export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialPar
 
           {level === 'EMPLOYEE' && (isHrAdmin || isManager) && (
             <div className="space-y-1">
-              <Label>Owner *</Label>
+              <Label>{t('objectiveForm.owner')}</Label>
               <Select
                 value={watchedOwner}
                 onValueChange={(v) => {
@@ -244,11 +244,11 @@ export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialPar
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={employeesLoading ? 'Loading employees...' : 'Select employee...'} />
+                  <SelectValue placeholder={employeesLoading ? t('objectiveForm.loadingEmployees') : t('objectiveForm.selectEmployee')} />
                 </SelectTrigger>
                 <SelectContent>
                   {employeesLoading ? (
-                    <div className="px-2 py-1.5 text-sm text-muted-foreground">Loading employees...</div>
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">{t('objectiveForm.loadingEmployees')}</div>
                   ) : employeeCandidates.length > 0 ? (
                     employeeCandidates.map((employee) => (
                       <SelectItem key={employee.id} value={employee.id}>
@@ -257,7 +257,7 @@ export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialPar
                     ))
                   ) : (
                     <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                      No active employees available
+                      {t('objectiveForm.noEmployees')}
                     </div>
                   )}
                 </SelectContent>
@@ -267,31 +267,33 @@ export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialPar
 
           {level === 'EMPLOYEE' && !isHrAdmin && !isManager && (
             <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-              This objective will be assigned to you.
+              {t('objectiveForm.assignedToYou')}
             </div>
           )}
 
           {level !== 'COMPANY' && (
             <div className="space-y-1">
-              <Label>Parent Objective *</Label>
+              <Label>{t('objectiveForm.parentObjective')}</Label>
               <Select
                 value={watchedParent}
                 onValueChange={(v) => { setValue('parentObjectiveId', v, { shouldValidate: true }); setFormError(null); }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select parent…" />
+                  <SelectValue placeholder={t('objectiveForm.selectParent')} />
                 </SelectTrigger>
                 <SelectContent>
                   {parentCandidatesLoading ? (
-                    <div className="px-2 py-1.5 text-sm text-muted-foreground">Loading parent objectives...</div>
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">{t('objectiveForm.loadingParents')}</div>
                   ) : parentCandidates.length > 0 ? (
                     parentCandidates.map((p) => (
                       <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
                     ))
                   ) : (
                     <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                      No active {parentLevel.toLowerCase()} parent objectives available
-                      {level === 'EMPLOYEE' ? '. Activate a department objective first.' : ''}
+                      {t('objectiveForm.noParents', {
+                        level: t(`enums.objectiveLevel_${parentLevel}` as 'enums.objectiveLevel_COMPANY').toLowerCase(),
+                      })}
+                      {level === 'EMPLOYEE' ? ` ${t('objectiveForm.noParentsHint')}` : ''}
                     </div>
                   )}
                 </SelectContent>
@@ -301,14 +303,14 @@ export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialPar
 
           {level === 'DEPARTMENT' && isManager && (
             <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-              This objective will be linked to your department.
+              {t('objectiveForm.linkedToDepartment')}
             </div>
           )}
 
           {level === 'DEPARTMENT' && !isManager && (
             <div className="space-y-1">
-              <Label htmlFor="departmentId">Department ID</Label>
-              <Input id="departmentId" {...register('departmentId')} placeholder="dept-uuid…" />
+              <Label htmlFor="departmentId">{t('objectiveForm.departmentId')}</Label>
+              <Input id="departmentId" {...register('departmentId')} placeholder={t('objectiveForm.departmentIdPlaceholder')} />
             </div>
           )}
 
@@ -316,10 +318,10 @@ export function ObjectiveForm({ open, onClose, cycleId, initialLevel, initialPar
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? 'Creating…' : 'Create'}
+              {mutation.isPending ? t('objectiveForm.creating') : t('objectiveForm.create')}
             </Button>
           </DialogFooter>
         </form>
