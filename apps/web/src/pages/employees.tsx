@@ -421,7 +421,10 @@ export default function Employees() {
                   </TableRow>,
                   ...(!isCollapsed
                     ? group.employees.map((emp) => {
-                        const businessUnitName = getBusinessUnitNameForDepartment(emp.department?.id) ?? "Unassigned";
+                        // WHY keep the null: the label is translated, so comparing the
+                        // rendered string against a sentinel would break in French.
+                        const businessUnitName = getBusinessUnitNameForDepartment(emp.department?.id);
+                        const businessUnitLabel = businessUnitName ?? t("profile.unassigned");
                         const canOpenDetails = canOpenEmployeeDetails(emp);
                         return (
                         <TableRow key={emp.id} data-testid={`row-employee-${emp.id}`}>
@@ -444,12 +447,12 @@ export default function Employees() {
                           </TableCell>
                           <TableCell>{emp.position?.title ?? "—"}</TableCell>
                           <TableCell>
-                            <span className="text-sm font-medium">{businessUnitName}</span>
+                            <span className="text-sm font-medium">{businessUnitLabel}</span>
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-col">
                               <span>{emp.department?.name ?? "—"}</span>
-                              {businessUnitName !== "Unassigned" && (
+                              {businessUnitName !== null && (
                                 <span className="text-xs text-muted-foreground">
                                   {businessUnitName}
                                 </span>

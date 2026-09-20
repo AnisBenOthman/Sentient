@@ -43,6 +43,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { getRoleTier } from "@/lib/auth";
 import { getPositions, type PositionWithCount } from "@/lib/positions-api";
 import { POSITION_DOMAINS, getPositionDomain, sortPositionsByLevelThenTitle } from "@/lib/position-domains";
+import { useTranslation } from "react-i18next";
 import {
   approvePromotionRequest,
   createPromotionRequest,
@@ -322,6 +323,9 @@ function PromotionWizard({
   isSubmitting,
   onSubmit,
 }: WizardProps) {
+  // The position-domain group headings are the only translated copy in this
+  // component so far; the rest of simulation.tsx is still English.
+  const { t: tPositions } = useTranslation("positions");
   const [step, setStep] = useState(1);
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [newSalaryStr, setNewSalaryStr] = useState("");
@@ -632,7 +636,7 @@ function PromotionWizard({
                 >
                   <option value="">— Select a position —</option>
                   {groupedPositions.map((group) => (
-                    <optgroup key={group.value} label={group.label}>
+                    <optgroup key={group.value} label={tPositions(`domains.${group.value}.label` as "domains.ENGINEERING.label")}>
                       {group.positions.map((p) => (
                         <option key={p.id} value={p.id} disabled={p.title === employee.role}>
                           {p.title}

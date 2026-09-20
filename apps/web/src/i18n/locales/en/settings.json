@@ -25,10 +25,37 @@
       "EMPLOYEES_PROBATION": "Employees on probation",
       "LEAVE_PENDING_APPROVALS": "Pending leave approvals",
       "PROMOTIONS_PENDING_REQUESTS": "Pending promotions"
-    }
+    },
+    "unitPercentage": "percentage value",
+    "unitCount": "count"
   },
   "tour": {
     "restartButton": "Restart Guided Tour",
     "description": "Replay the guided tour to rediscover key features of the platform."
+  },
+  "subtitle": "Manage organizational configurations and preferences",
+  "company": {
+    "title": "Company Details",
+    "description": "Basic information about your organization",
+    "nameLabel": "Company Name",
+    "taxIdLabel": "Tax ID / EIN",
+    "addressLabel": "Headquarters Address",
+    "save": "Save Changes"
+  },
+  "policies": {
+    "title": "HR Policies",
+    "description": "Configure global rules and permissions",
+    "autoApproveTitle": "Auto-approve Time Off",
+    "autoApproveHint": "Automatically approve requests under 2 days",
+    "publicDirectoryTitle": "Public Directory",
+    "publicDirectoryHint": "Allow all employees to view the org chart",
+    "performanceReviewsTitle": "Performance Reviews",
+    "performanceReviewsHint": "Enable quarterly 360 review cycles"
+  },
+  "toasts": {
+    "thresholdSaved": "Threshold saved",
+    "thresholdSaveFailed": "Failed to save threshold",
+    "thresholdRemoved": "Threshold removed",
+    "thresholdRemoveFailed": "Failed to remove threshold"
   }
 }

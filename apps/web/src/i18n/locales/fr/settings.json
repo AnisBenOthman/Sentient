@@ -25,10 +25,37 @@
       "EMPLOYEES_PROBATION": "Employés en période d'essai",
       "LEAVE_PENDING_APPROVALS": "Congés en attente d'approbation",
       "PROMOTIONS_PENDING_REQUESTS": "Promotions en attente"
-    }
+    },
+    "unitPercentage": "valeur en pourcentage",
+    "unitCount": "nombre"
   },
   "tour": {
     "restartButton": "Relancer la Visite Guidée",
     "description": "Rejouez la visite guidée pour redécouvrir les fonctionnalités clés de la plateforme."
+  },
+  "subtitle": "Gérez les configurations et préférences de l'organisation",
+  "company": {
+    "title": "Informations de l'entreprise",
+    "description": "Informations de base sur votre organisation",
+    "nameLabel": "Nom de l'entreprise",
+    "taxIdLabel": "Numéro d'identification fiscale",
+    "addressLabel": "Adresse du siège social",
+    "save": "Enregistrer les modifications"
+  },
+  "policies": {
+    "title": "Politiques RH",
+    "description": "Configurez les règles et permissions globales",
+    "autoApproveTitle": "Approbation automatique des congés",
+    "autoApproveHint": "Approuver automatiquement les demandes de moins de 2 jours",
+    "publicDirectoryTitle": "Annuaire public",
+    "publicDirectoryHint": "Autoriser tous les employés à consulter l'organigramme",
+    "performanceReviewsTitle": "Évaluations de performance",
+    "performanceReviewsHint": "Activer les cycles d'évaluation 360 trimestriels"
+  },
+  "toasts": {
+    "thresholdSaved": "Seuil enregistré",
+    "thresholdSaveFailed": "Échec de l'enregistrement du seuil",
+    "thresholdRemoved": "Seuil supprimé",
+    "thresholdRemoveFailed": "Échec de la suppression du seuil"
   }
 }
