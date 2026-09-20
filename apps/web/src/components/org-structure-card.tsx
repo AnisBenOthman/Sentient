@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,6 +54,7 @@ type ConfirmTarget =
   | { kind: "team"; id: string; name: string };
 
 export default function OrgStructureCard() {
+  const { t } = useTranslation(["settings", "common"]);
   const queryClient = useQueryClient();
 
   const { data: businessUnits = [] } = useQuery({
@@ -163,11 +165,8 @@ export default function OrgStructureCard() {
   return (
     <Card data-testid="card-org-structure">
       <CardHeader>
-        <CardTitle>Organization Structure</CardTitle>
-        <CardDescription>
-          Manage Business Units, Departments, and Teams. Departments belong to a
-          Business Unit; Teams belong to a Department.
-        </CardDescription>
+        <CardTitle>{t("orgStructure.title")}</CardTitle>
+        <CardDescription>{t("orgStructure.description")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
 
@@ -175,7 +174,7 @@ export default function OrgStructureCard() {
         <section className="space-y-3" data-testid="section-business-units">
           <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4 text-indigo-500" />
-            <h3 className="text-base font-semibold">Business Units</h3>
+            <h3 className="text-base font-semibold">{t("orgStructure.businessUnits")}</h3>
             <span className="text-xs text-muted-foreground">({businessUnits.length})</span>
           </div>
 
@@ -244,14 +243,14 @@ export default function OrgStructureCard() {
               </div>
             ))}
             {businessUnits.length === 0 && (
-              <p className="text-sm text-muted-foreground">No business units yet. Add one below.</p>
+              <p className="text-sm text-muted-foreground">{t("orgStructure.noBusinessUnits")}</p>
             )}
           </div>
 
           <div className="flex items-start gap-2 pt-1">
             <div className="flex-1 space-y-1">
               <Input
-                placeholder="New business unit name"
+                placeholder={t("orgStructure.newBusinessUnitName")}
                 value={newBuName}
                 onChange={(e) => { setNewBuName(e.target.value); setNewBuError(null); }}
                 className="h-9"
@@ -260,7 +259,7 @@ export default function OrgStructureCard() {
               {newBuError && <p className="text-xs text-red-500" data-testid="error-new-bu">{newBuError}</p>}
             </div>
             <Input
-              aria-label="New business unit currency"
+              aria-label={t("orgStructure.newBusinessUnitCurrency")}
               placeholder="USD"
               value={newBuCurrency}
               onChange={(e) => { setNewBuCurrency(e.target.value.toUpperCase().slice(0, 3)); setNewBuError(null); }}
@@ -270,8 +269,8 @@ export default function OrgStructureCard() {
             />
             <Button
               onClick={() => {
-                if (!newBuName.trim()) { setNewBuError("Name is required."); return; }
-                if (!/^[A-Z]{3}$/.test(newBuCurrency)) { setNewBuError("Currency must be a 3-letter code."); return; }
+                if (!newBuName.trim()) { setNewBuError(t("orgStructure.nameRequired")); return; }
+                if (!/^[A-Z]{3}$/.test(newBuCurrency)) { setNewBuError(t("orgStructure.currencyInvalid")); return; }
                 createBuMut.mutate({ name: newBuName.trim(), address: "", currency: newBuCurrency });
               }}
               size="sm"
@@ -280,7 +279,7 @@ export default function OrgStructureCard() {
               data-testid="button-add-bu"
             >
               <Plus className="h-4 w-4" />
-              Add Business Unit
+              {t("orgStructure.addBusinessUnit")}
             </Button>
           </div>
         </section>
@@ -292,7 +291,7 @@ export default function OrgStructureCard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Layers className="h-4 w-4 text-amber-500" />
-              <h3 className="text-base font-semibold">Departments</h3>
+              <h3 className="text-base font-semibold">{t("orgStructure.departments")}</h3>
               <span className="text-xs text-muted-foreground">({departments.length})</span>
             </div>
             <Button
@@ -302,7 +301,7 @@ export default function OrgStructureCard() {
               onClick={() => { setShowAddDept((v) => !v); setNewDeptError(null); }}
               data-testid="button-toggle-add-dept"
             >
-              <Plus className="h-4 w-4" /> Add Department
+              <Plus className="h-4 w-4" /> {t("orgStructure.addDepartment")}
             </Button>
           </div>
 
@@ -312,9 +311,9 @@ export default function OrgStructureCard() {
               data-testid="form-add-dept"
             >
               <div className="space-y-1">
-                <Label className="text-xs">Name</Label>
+                <Label className="text-xs">{t("orgStructure.name")}</Label>
                 <Input
-                  placeholder="e.g. Customer Success"
+                  placeholder={t("orgStructure.namePlaceholder")}
                   value={newDeptName}
                   onChange={(e) => { setNewDeptName(e.target.value); setNewDeptError(null); }}
                   className="h-9"
@@ -322,9 +321,9 @@ export default function OrgStructureCard() {
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Code</Label>
+                <Label className="text-xs">{t("orgStructure.code")}</Label>
                 <Input
-                  placeholder="e.g. CS"
+                  placeholder={t("orgStructure.codePlaceholderDept")}
                   value={newDeptCode}
                   onChange={(e) => { setNewDeptCode(e.target.value); setNewDeptError(null); }}
                   className="h-9"
@@ -332,10 +331,10 @@ export default function OrgStructureCard() {
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Business Unit *</Label>
+                <Label className="text-xs">{t("orgStructure.businessUnitRequired")}</Label>
                 <Select value={newDeptBuId} onValueChange={(v) => { setNewDeptBuId(v); setNewDeptError(null); }}>
                   <SelectTrigger className="h-9" data-testid="select-new-dept-bu">
-                    <SelectValue placeholder="Select BU" />
+                    <SelectValue placeholder={t("orgStructure.selectBusinessUnit")} />
                   </SelectTrigger>
                   <SelectContent>
                     {businessUnits.map((bu) => (
@@ -348,17 +347,17 @@ export default function OrgStructureCard() {
                 <Button
                   size="sm"
                   onClick={() => {
-                    if (!newDeptName.trim()) { setNewDeptError("Name is required."); return; }
-                    if (!newDeptCode.trim()) { setNewDeptError("Code is required."); return; }
-                    if (!newDeptBuId) { setNewDeptError("Business unit is required."); return; }
+                    if (!newDeptName.trim()) { setNewDeptError(t("orgStructure.nameRequired")); return; }
+                    if (!newDeptCode.trim()) { setNewDeptError(t("orgStructure.codeRequired")); return; }
+                    if (!newDeptBuId) { setNewDeptError(t("orgStructure.businessUnitRequiredError")); return; }
                     createDeptMut.mutate({ name: newDeptName.trim(), code: newDeptCode.trim(), businessUnitId: newDeptBuId });
                   }}
                   disabled={createDeptMut.isPending}
                   data-testid="button-submit-dept"
                 >
-                  Add
+                  {t("orgStructure.add")}
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setShowAddDept(false)}>Cancel</Button>
+                <Button size="sm" variant="outline" onClick={() => setShowAddDept(false)}>{t("common:cancel")}</Button>
               </div>
               {newDeptError && (
                 <p className="text-xs text-red-500 sm:col-span-4" data-testid="error-new-dept">{newDeptError}</p>
@@ -411,7 +410,7 @@ export default function OrgStructureCard() {
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
                         <div className="text-sm font-medium">{d.name}</div>
-                        <div className="text-xs text-muted-foreground">{bu ? bu.name : "Unassigned BU"}</div>
+                        <div className="text-xs text-muted-foreground">{bu ? bu.name : t("orgStructure.unassignedBusinessUnit")}</div>
                       </div>
                       <Button
                         size="sm"
@@ -435,7 +434,7 @@ export default function OrgStructureCard() {
               );
             })}
             {departments.length === 0 && (
-              <p className="text-sm text-muted-foreground">No departments yet. Add one above.</p>
+              <p className="text-sm text-muted-foreground">{t("orgStructure.noDepartments")}</p>
             )}
           </div>
         </section>
@@ -447,7 +446,7 @@ export default function OrgStructureCard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-emerald-500" />
-              <h3 className="text-base font-semibold">Teams</h3>
+              <h3 className="text-base font-semibold">{t("orgStructure.teams")}</h3>
               <span className="text-xs text-muted-foreground">({teams.length})</span>
             </div>
             <Button
@@ -458,7 +457,7 @@ export default function OrgStructureCard() {
               disabled={departments.length === 0}
               data-testid="button-toggle-add-team"
             >
-              <Plus className="h-4 w-4" /> Add Team
+              <Plus className="h-4 w-4" /> {t("orgStructure.addTeam")}
             </Button>
           </div>
 
@@ -468,9 +467,9 @@ export default function OrgStructureCard() {
               data-testid="form-add-team"
             >
               <div className="space-y-1">
-                <Label className="text-xs">Team name</Label>
+                <Label className="text-xs">{t("orgStructure.teamName")}</Label>
                 <Input
-                  placeholder="e.g. Platform Engineering"
+                  placeholder={t("orgStructure.teamNamePlaceholder")}
                   value={newTeamName}
                   onChange={(e) => { setNewTeamName(e.target.value); setNewTeamError(null); }}
                   className="h-9"
@@ -478,7 +477,7 @@ export default function OrgStructureCard() {
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Code</Label>
+                <Label className="text-xs">{t("orgStructure.code")}</Label>
                 <Input
                   placeholder="e.g. PE"
                   value={newTeamCode}
@@ -488,10 +487,10 @@ export default function OrgStructureCard() {
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Department *</Label>
+                <Label className="text-xs">{t("orgStructure.departmentRequired")}</Label>
                 <Select value={newTeamDeptId} onValueChange={(v) => { setNewTeamDeptId(v); setNewTeamError(null); }}>
                   <SelectTrigger className="h-9" data-testid="select-new-team-dept">
-                    <SelectValue placeholder="Select Department" />
+                    <SelectValue placeholder={t("orgStructure.selectDepartment")} />
                   </SelectTrigger>
                   <SelectContent>
                     {departments.map((d) => {
@@ -509,16 +508,16 @@ export default function OrgStructureCard() {
                 <Button
                   size="sm"
                   onClick={() => {
-                    if (!newTeamName.trim()) { setNewTeamError("Name is required."); return; }
-                    if (!newTeamDeptId) { setNewTeamError("Department is required."); return; }
+                    if (!newTeamName.trim()) { setNewTeamError(t("orgStructure.nameRequired")); return; }
+                    if (!newTeamDeptId) { setNewTeamError(t("orgStructure.departmentRequiredError")); return; }
                     createTeamMut.mutate({ name: newTeamName.trim(), code: newTeamCode.trim() || newTeamName.trim().slice(0, 3).toUpperCase(), departmentId: newTeamDeptId });
                   }}
                   disabled={createTeamMut.isPending}
                   data-testid="button-submit-team"
                 >
-                  Add
+                  {t("orgStructure.add")}
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setShowAddTeam(false)}>Cancel</Button>
+                <Button size="sm" variant="outline" onClick={() => setShowAddTeam(false)}>{t("common:cancel")}</Button>
               </div>
               {newTeamError && (
                 <p className="text-xs text-red-500 sm:col-span-4" data-testid="error-new-team">{newTeamError}</p>
@@ -527,25 +526,25 @@ export default function OrgStructureCard() {
           )}
 
           <div className="space-y-2">
-            {teams.map((t) => {
-              const dept = deptById.get(t.departmentId);
+            {teams.map((team) => {
+              const dept = deptById.get(team.departmentId);
               const bu = dept ? buById.get(dept.businessUnitId) : null;
               return (
                 <div
-                  key={t.id}
+                  key={team.id}
                   className="rounded-md border bg-card px-3 py-2"
-                  data-testid={`row-team-${t.id}`}
+                  data-testid={`row-team-${team.id}`}
                 >
-                  {editingTeamId === t.id ? (
+                  {editingTeamId === team.id ? (
                     <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-center">
                       <Input
                         value={editingTeamName}
                         onChange={(e) => setEditingTeamName(e.target.value)}
                         className="h-8"
-                        data-testid={`input-edit-team-${t.id}`}
+                        data-testid={`input-edit-team-${team.id}`}
                       />
                       <Select value={editingTeamDeptId} onValueChange={setEditingTeamDeptId}>
-                        <SelectTrigger className="h-8" data-testid={`select-edit-team-dept-${t.id}`}>
+                        <SelectTrigger className="h-8" data-testid={`select-edit-team-dept-${team.id}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -563,8 +562,8 @@ export default function OrgStructureCard() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => updateTeamMut.mutate({ id: t.id, dto: { name: editingTeamName, departmentId: editingTeamDeptId } })}
-                          data-testid={`button-save-team-${t.id}`}
+                          onClick={() => updateTeamMut.mutate({ id: team.id, dto: { name: editingTeamName, departmentId: editingTeamDeptId } })}
+                          data-testid={`button-save-team-${team.id}`}
                         >
                           <Check className="h-4 w-4" />
                         </Button>
@@ -576,25 +575,25 @@ export default function OrgStructureCard() {
                   ) : (
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
-                        <div className="text-sm font-medium">{t.name}</div>
+                        <div className="text-sm font-medium">{team.name}</div>
                         <div className="text-xs text-muted-foreground">
-                          {dept ? dept.name : "Unassigned department"}
+                          {dept ? dept.name : t("orgStructure.unassignedDepartment")}
                           {bu ? ` · ${bu.name}` : ""}
                         </div>
                       </div>
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => { setEditingTeamId(t.id); setEditingTeamName(t.name); setEditingTeamDeptId(t.departmentId); }}
-                        data-testid={`button-edit-team-${t.id}`}
+                        onClick={() => { setEditingTeamId(team.id); setEditingTeamName(team.name); setEditingTeamDeptId(team.departmentId); }}
+                        data-testid={`button-edit-team-${team.id}`}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => setConfirmTarget({ kind: "team", id: t.id, name: t.name })}
-                        data-testid={`button-delete-team-${t.id}`}
+                        onClick={() => setConfirmTarget({ kind: "team", id: team.id, name: team.name })}
+                        data-testid={`button-delete-team-${team.id}`}
                       >
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
@@ -604,7 +603,7 @@ export default function OrgStructureCard() {
               );
             })}
             {teams.length === 0 && (
-              <p className="text-sm text-muted-foreground">No teams yet. Add one above.</p>
+              <p className="text-sm text-muted-foreground">{t("orgStructure.noTeams")}</p>
             )}
           </div>
         </section>
@@ -617,22 +616,30 @@ export default function OrgStructureCard() {
         <AlertDialogContent data-testid="dialog-confirm-delete-org">
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Delete {confirmTarget?.kind === "bu" ? "Business Unit" : confirmTarget?.kind === "dept" ? "Department" : "Team"}?
+              {confirmTarget?.kind === "bu"
+                ? t("orgStructure.deleteBusinessUnitTitle")
+                : confirmTarget?.kind === "dept"
+                  ? t("orgStructure.deleteDepartmentTitle")
+                  : t("orgStructure.deleteTeamTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete <strong>{confirmTarget?.name}</strong>? This
-              action cannot be undone and may affect related records.
+              <Trans
+                ns="settings"
+                i18nKey="orgStructure.deleteBody"
+                values={{ name: confirmTarget?.name ?? "" }}
+                components={{ 1: <strong /> }}
+              />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete-org">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-delete-org">{t("common:cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
               data-testid="button-confirm-delete-org"
               className="bg-red-600 hover:bg-red-700 text-white"
               disabled={deleteBuMut.isPending || deleteDeptMut.isPending || deleteTeamMut.isPending}
             >
-              Delete
+              {t("common:delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
