@@ -57,7 +57,190 @@
       "FULL_TIME": "Temps plein",
       "PART_TIME": "Temps partiel",
       "CONTRACTOR": "Prestataire",
-      "INTERN": "Stagiaire"
+      "INTERN": "Stagiaire",
+      "FIXED_TERM": "Durée déterminée"
+    },
+    "tabs": {
+      "details": "Détails",
+      "leaveHistory": "Historique des Congés",
+      "skills": "Compétences",
+      "promotions": "Historique des Promotions",
+      "performance": "Performance",
+      "salary": "Historique Salarial",
+      "channels": "Canaux Liés"
+    },
+    "loading": "Chargement…",
+    "notFound": "Employé introuvable",
+    "notFoundHint": "L'employé demandé est introuvable.",
+    "backToDirectory": "Retour au répertoire",
+    "unassigned": "Non attribué",
+    "unspecified": "Non renseigné",
+    "saveFailed": "Impossible d'enregistrer les modifications.",
+    "saveChanges": "Enregistrer",
+    "na": "N/D",
+    "employeeCode": "Matricule",
+    "fullName": "Nom complet",
+    "jobTitle": "Intitulé du poste",
+    "businessUnit": "Unité opérationnelle",
+    "maritalStatus": "Situation familiale",
+    "educationLevel": "Niveau d'études",
+    "educationField": "Domaine d'études",
+    "grossSalary": "Salaire brut",
+    "netSalary": "Salaire net",
+    "salaryChangeReason": "Motif du changement de salaire",
+    "reasonComment": "Commentaire sur le motif",
+    "noDirectReports": "Aucun subordonné direct.",
+    "marital": {
+      "SINGLE": "Célibataire",
+      "MARRIED": "Marié(e)",
+      "DIVORCED": "Divorcé(e)",
+      "WIDOWED": "Veuf/Veuve"
+    },
+    "education": {
+      "BELOW_COLLEGE": "Avant le supérieur",
+      "COLLEGE": "Études supérieures",
+      "BACHELOR": "Licence",
+      "MASTER": "Master",
+      "DOCTOR": "Doctorat"
+    },
+    "salaryReasons": {
+      "PROMOTION": "Promotion",
+      "ANNUAL_REVIEW": "Révision annuelle",
+      "NEW_FUNCTION": "Nouvelle fonction",
+      "OTHER": "Autre"
+    },
+    "proficiency": {
+      "BEGINNER": "Débutant",
+      "DEVELOPING": "En progression",
+      "INTERMEDIATE": "Intermédiaire",
+      "PROFICIENT": "Compétent",
+      "ADVANCED": "Avancé",
+      "EXPERT": "Expert"
+    },
+    "domains": {
+      "TECHNICAL": "Technique",
+      "LEADERSHIP": "Leadership",
+      "SOFT_SKILLS": "Savoir-être",
+      "DOMAIN_EXPERTISE": "Métier"
+    },
+    "requirements": {
+      "MANDATORY": "Obligatoire",
+      "EXPECTED": "Attendu",
+      "NICE_TO_HAVE": "Apprécié"
+    },
+    "skillStatus": {
+      "ALL": "Tous",
+      "GAPS": "Écarts",
+      "MET": "Au niveau",
+      "EXCEEDS": "Dépasse",
+      "PARTIAL": "À renforcer",
+      "MISSING": "Manquant"
+    },
+    "sections": {
+      "professionalDetails": "Informations professionnelles",
+      "contactPersonal": "Coordonnées et informations personnelles",
+      "compensation": "Rémunération",
+      "salaryHistory": "Historique salarial",
+      "directReports": "Subordonnés directs",
+      "quickStats": "Chiffres clés",
+      "promotionHistory": "Historique des promotions",
+      "leaveHistory": "Historique des congés",
+      "skillsGap": "Compétences et écarts de maîtrise",
+      "skills": "Compétences",
+      "skillEvolution": "Évolution des compétences",
+      "recentPerformance": "Performance récente",
+      "engagementHistory": "Historique d'engagement"
+    },
+    "salaryTable": {
+      "gross": "Brut",
+      "net": "Net",
+      "effectiveDate": "Date d'effet",
+      "grossBefore": "Brut avant",
+      "grossAfter": "Brut après",
+      "netBefore": "Net avant",
+      "netAfter": "Net après",
+      "reason": "Motif"
+    },
+    "stats": {
+      "leaveRequests": "Demandes de congé",
+      "skills": "Compétences",
+      "promotionRequests": "Demandes de promotion",
+      "salaryChanges": "Changements de salaire",
+      "performanceReviews": "Évaluations de performance"
+    },
+    "promotions": {
+      "loading": "Chargement de l'historique des promotions…",
+      "empty": "Aucune demande de promotion.",
+      "submitted": "Soumise le",
+      "roleChange": "Changement de poste",
+      "status": "Statut",
+      "salaryChange": "Variation de salaire",
+      "budgetImpact": "Impact budgétaire",
+      "requestedBy": "Demandée par",
+      "to": "vers"
+    },
+    "leaves": {
+      "empty": "Aucune demande de congé.",
+      "type": "Type",
+      "start": "Début",
+      "end": "Fin",
+      "days": "Jours",
+      "status": "Statut"
+    },
+    "gap": {
+      "overlay": "Comparaison avec les exigences du poste",
+      "vsPosition": "par rapport à {{position}}",
+      "noPosition": "Attribuez un poste à cet employé pour afficher le graphique des écarts de maîtrise.",
+      "noRequirements": "Aucune compétence requise n'est encore configurée pour le poste de cet employé.",
+      "employeeProficiency": "Maîtrise de l'employé",
+      "roleRequired": "Exigé par le poste",
+      "covered": "Couvertes",
+      "needsWork": "À renforcer",
+      "missing": "Manquantes",
+      "allCovered": "Toutes les exigences du poste sont couvertes ou dépassées.",
+      "required": "Requis : {{level}}",
+      "employee": "Employé : {{level}}"
+    },
+    "skillsGrid": {
+      "empty": "Aucune compétence enregistrée.",
+      "searchPlaceholder": "Rechercher une compétence…",
+      "allDomains": "Tous les domaines",
+      "noMatch": "Aucune compétence ne correspond à vos filtres.",
+      "general": "Général",
+      "mine": "Acquis",
+      "target": "Cible",
+      "none": "Aucun",
+      "skillCount_one": "{{count}} compétence",
+      "skillCount_other": "{{count}} compétences"
+    },
+    "evolution": {
+      "empty": "Aucun historique de compétences enregistré.",
+      "eventCount_one": "{{count}} événement",
+      "eventCount_other": "{{count}} événements",
+      "improvementCount_one": "+{{count}} progression",
+      "improvementCount_other": "+{{count}} progressions"
+    },
+    "performance": {
+      "viewAll": "Tout voir",
+      "empty": "Aucune évaluation de performance.",
+      "by": "par {{name}}",
+      "manager": "Manager :",
+      "self": "Auto-évaluation :"
+    },
+    "engagement": {
+      "empty": "Aucune donnée d'engagement enregistrée.",
+      "environment": "Environnement",
+      "job": "Poste",
+      "relationship": "Relations",
+      "workLife": "Équilibre vie pro/perso",
+      "trainingTaken": "Formations suivies :"
+    },
+    "gender": "Genre",
+    "genders": {
+      "FEMALE": "Femme",
+      "MALE": "Homme",
+      "NON_BINARY": "Non binaire",
+      "PREFER_NOT_TO_SAY": "Préfère ne pas répondre"
     }
   },
   "wizard": {
@@ -67,5 +250,32 @@
     "step3": "Accès & Rôle",
     "submit": "Créer l'Employé",
     "submitting": "Création…"
+  },
+  "channels": {
+    "title": "Canaux Liés",
+    "subtitle": "Connectez vos applications de messagerie pour écrire à Sentient depuis là où vous discutez déjà.",
+    "connected": "Connecté le {{date}}",
+    "notConnected": "Non connecté",
+    "connect": "Connecter",
+    "generating": "Génération…",
+    "disconnect": "Déconnecter",
+    "dialogTitle": "Connecter {{channel}}",
+    "sendCommand": "Envoyez-lui cette commande :",
+    "expiresAt": "Expire à {{time}} — revenez ici pour obtenir un nouveau code le cas échéant.",
+    "done": "Terminé",
+    "confirmDisconnect": "Déconnecter {{channel}} ?",
+    "copied": "Copié dans le presse-papiers",
+    "copyFailed": "Copie impossible — sélectionnez et copiez le texte manuellement",
+    "codeFailed": "Impossible de générer un code de liaison",
+    "disconnected": "{{channel}} déconnecté",
+    "disconnectFailed": "Impossible de déconnecter {{channel}}",
+    "telegram": {
+      "instructions": "Ouvrez Telegram et écrivez à <em>{{handle}}</em>",
+      "disconnectDescription": "Sentient cessera de reconnaître les messages de cette conversation Telegram. Vous pourrez vous reconnecter à tout moment avec un nouveau code."
+    },
+    "slack": {
+      "instructions": "Ouvrez Slack, trouvez <em>{{appName}}</em> dans Apps, et envoyez-lui un message direct",
+      "disconnectDescription": "Sentient cessera de reconnaître les messages de ce compte Slack. Vous pourrez vous reconnecter à tout moment avec un nouveau code."
+    }
   }
 }

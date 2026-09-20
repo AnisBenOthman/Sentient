@@ -68,17 +68,19 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
     commonjsOptions: {
-      /**
-       * WHY the workspace package has to be named explicitly: Vite's default is
-       * `include: [/node_modules/]`, matched against the RESOLVED path. pnpm
-       * links `@sentient/shared` to `packages/shared`, which lives outside
-       * node_modules, so the CJS-to-ESM transform skipped it entirely and
-       * Rollup saw raw `__exportStar` calls it cannot trace. Every runtime value
-       * from the package (enums, in practice) then failed to link with
-       * "X is not exported by packages/shared/dist/index.js" -- at build time
-       * only, since the dev server pre-bundles the package with esbuild instead.
-       */
-      include: [/node_modules/, /packages[\\/]shared/],
+      // WHY: @sentient/shared builds to CommonJS (tsconfig.base.json pins
+      // `module: "commonjs"` for the NestJS services), and its barrels re-export
+      // through tslib's `__exportStar`, which Rollup cannot analyse statically.
+      // `optimizeDeps.include` above covers dev, where esbuild pre-bundles it to
+      // ESM — but that does not apply to `vite build`. There, Rollup resolves the
+      // pnpm symlink (apps/web/node_modules/@sentient/shared) to its real path,
+      // packages/shared/dist, which falls outside this option's default
+      // [/node_modules/] and so never reaches the CommonJS plugin. Every *value*
+      // import of a shared enum then fails to build ("PerformanceRating is not
+      // exported by packages/shared/dist/index.js") while type-only imports,
+      // erased at compile time, keep working — which is why `tsc --noEmit` stays
+      // clean and only the production build breaks.
+      include: [/node_modules/, /packages[\\/]shared[\\/]dist/],
     },
   },
 });

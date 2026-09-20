@@ -1,11 +1,21 @@
 import type { TourStep } from '@/components/guided-tour/types';
+import { SLACK_APP_NAME, TELEGRAM_BOT_HANDLE } from '@/lib/channels/link-channel-copy';
 
+/**
+ * WHY the query string: the Linked Channels steps need the profile page to
+ * open on that tab, and EmployeeProfile reads its active tab from `?tab=`.
+ */
+const LINKED_CHANNELS_ROUTE = '/profile?tab=channels';
+
+/**
+ * Step order, targets and audience. The copy lives in the `tour` i18n
+ * namespace (`src/i18n/locales/{en,fr}/tour.json`) keyed by `id`, so the tour
+ * speaks whichever language the rest of the app is in.
+ */
 export const ALL_TOUR_STEPS: readonly TourStep[] = [
   {
     id: 'home-nav',
     target: '[data-tour="home-nav"]',
-    title: 'Home',
-    description: 'Your daily dashboard — pending actions, recent activity, and quick links tailored to your role. Start every morning here.',
     placement: 'right',
     route: '/home',
     tiers: ['hr_admin', 'dept_manager', 'team_lead', 'employee'],
@@ -13,8 +23,6 @@ export const ALL_TOUR_STEPS: readonly TourStep[] = [
   {
     id: 'profile-nav',
     target: '[data-tour="profile-nav"]',
-    title: 'My Profile',
-    description: 'View and update your personal info, contact details, and professional summary. Other modules like OKRs and performance link back to this.',
     placement: 'right',
     route: '/home',
     tiers: ['hr_admin', 'dept_manager', 'team_lead', 'employee'],
@@ -22,8 +30,6 @@ export const ALL_TOUR_STEPS: readonly TourStep[] = [
   {
     id: 'leaves-nav',
     target: '[data-tour="leaves-nav"]',
-    title: 'Leaves',
-    description: 'Submit and track your leave requests, check remaining balances per leave type, and view your full request history.',
     placement: 'right',
     route: '/home',
     tiers: ['hr_admin', 'dept_manager', 'team_lead', 'employee'],
@@ -31,8 +37,6 @@ export const ALL_TOUR_STEPS: readonly TourStep[] = [
   {
     id: 'org-chart-nav',
     target: '[data-tour="org-chart-nav"]',
-    title: 'Org Chart',
-    description: 'Explore the company structure — departments, teams, and reporting lines — in an interactive tree. Navigate to any employee profile directly.',
     placement: 'right',
     route: '/home',
     tiers: ['hr_admin', 'dept_manager', 'team_lead', 'employee'],
@@ -40,8 +44,6 @@ export const ALL_TOUR_STEPS: readonly TourStep[] = [
   {
     id: 'performance-nav',
     target: '[data-tour="performance-nav"]',
-    title: 'Performance Reviews',
-    description: 'Complete self-assessments and view manager feedback across active review cycles. Track your ratings over time.',
     placement: 'right',
     route: '/home',
     tiers: ['hr_admin', 'dept_manager', 'team_lead', 'employee'],
@@ -49,8 +51,6 @@ export const ALL_TOUR_STEPS: readonly TourStep[] = [
   {
     id: 'okrs-nav',
     target: '[data-tour="okrs-nav"]',
-    title: 'OKRs',
-    description: 'Your single hub for Objectives & Key Results — track personal OKRs, view cycle-wide progress, and manage cycles and check-ins, all in one place.',
     placement: 'right',
     route: '/home',
     tiers: ['hr_admin', 'dept_manager', 'team_lead', 'employee'],
@@ -58,8 +58,6 @@ export const ALL_TOUR_STEPS: readonly TourStep[] = [
   {
     id: 'dashboard-nav',
     target: '[data-tour="dashboard-nav"]',
-    title: 'Analytics Dashboard',
-    description: 'A Power BI–style hub with real-time KPIs: headcount trends, payroll summaries, leave patterns, and engagement scores. Toggle chart types per panel.',
     placement: 'right',
     route: '/home',
     tiers: ['hr_admin', 'dept_manager', 'team_lead'],
@@ -67,8 +65,6 @@ export const ALL_TOUR_STEPS: readonly TourStep[] = [
   {
     id: 'simulation-nav',
     target: '[data-tour="simulation-nav"]',
-    title: 'Simulation',
-    description: 'Model workforce changes before committing — propose promotions, transfers, or restructuring. The AI Agent analyses cost and skills impact.',
     placement: 'right',
     route: '/home',
     tiers: ['hr_admin', 'dept_manager', 'team_lead'],
@@ -76,8 +72,6 @@ export const ALL_TOUR_STEPS: readonly TourStep[] = [
   {
     id: 'employees-nav',
     target: '[data-tour="employees-nav"]',
-    title: 'Employees',
-    description: 'The central employee registry — create employees, update details, manage role assignments, track salary history, and view skills profiles.',
     placement: 'right',
     route: '/home',
     tiers: ['hr_admin'],
@@ -85,8 +79,6 @@ export const ALL_TOUR_STEPS: readonly TourStep[] = [
   {
     id: 'leave-mgmt-nav',
     target: '[data-tour="leave-mgmt-nav"]',
-    title: 'Leave Management',
-    description: 'Review and approve or reject pending leave requests. Configure leave types, accrual rules, carry-over policies, and view the full team calendar.',
     placement: 'right',
     route: '/home',
     tiers: ['hr_admin'],
@@ -94,8 +86,6 @@ export const ALL_TOUR_STEPS: readonly TourStep[] = [
   {
     id: 'positions-nav',
     target: '[data-tour="positions-nav"]',
-    title: 'Positions',
-    description: 'Define and maintain the job position catalog. Each position carries required skills and salary bands — powering skills-gap analysis and the AI Career Agent.',
     placement: 'right',
     route: '/home',
     tiers: ['hr_admin'],
@@ -103,17 +93,36 @@ export const ALL_TOUR_STEPS: readonly TourStep[] = [
   {
     id: 'notifications-bell',
     target: '[data-tour="notifications-bell"]',
-    title: 'Notifications',
-    description: 'Stay updated on leave approvals, review requests, OKR check-in reminders, and other important events — all in one inbox.',
     placement: 'bottom',
     tiers: ['hr_admin', 'dept_manager', 'team_lead', 'employee'],
   },
   {
     id: 'dark-mode-toggle',
     target: '[data-tour="dark-mode-toggle"]',
-    title: 'Dark Mode',
-    description: "Prefer working in the dark? Toggle between light and dark themes anytime from the sidebar footer. Your preference is saved automatically.",
     placement: 'right',
     tiers: ['hr_admin', 'dept_manager', 'team_lead', 'employee'],
+  },
+  {
+    id: 'linked-channels-tab',
+    target: '[data-tour="linked-channels-tab"]',
+    placement: 'bottom',
+    route: LINKED_CHANNELS_ROUTE,
+    tiers: ['hr_admin', 'dept_manager', 'team_lead', 'employee'],
+  },
+  {
+    id: 'linked-channel-telegram',
+    target: '[data-tour="linked-channel-telegram"]',
+    placement: 'right',
+    route: LINKED_CHANNELS_ROUTE,
+    tiers: ['hr_admin', 'dept_manager', 'team_lead', 'employee'],
+    descriptionValues: { botHandle: TELEGRAM_BOT_HANDLE },
+  },
+  {
+    id: 'linked-channel-slack',
+    target: '[data-tour="linked-channel-slack"]',
+    placement: 'right',
+    route: LINKED_CHANNELS_ROUTE,
+    tiers: ['hr_admin', 'dept_manager', 'team_lead', 'employee'],
+    descriptionValues: { appName: SLACK_APP_NAME },
   },
 ] as const;
