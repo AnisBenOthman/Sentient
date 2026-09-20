@@ -72,5 +72,14 @@
   "confirmApprove": "Confirm approval",
   "confirmReject": "Confirm rejection",
   "rejectReason": "Reason for rejection",
-  "noReason": "No reason provided"
+  "noReason": "No reason provided",
+  "scopeFilter": {
+    "global": "Global",
+    "selectBusinessUnit": "Select business unit",
+    "selectDepartment": "Select department",
+    "selectTeam": "Select team",
+    "businessUnitFirst": "Select business unit first",
+    "departmentFirst": "Select department first",
+    "viewing": "Viewing:"
+  }
 }

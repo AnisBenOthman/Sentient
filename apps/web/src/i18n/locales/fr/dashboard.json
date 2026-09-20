@@ -72,5 +72,14 @@
   "confirmApprove": "Confirmer l'approbation",
   "confirmReject": "Confirmer le refus",
   "rejectReason": "Motif du refus",
-  "noReason": "Aucun motif fourni"
+  "noReason": "Aucun motif fourni",
+  "scopeFilter": {
+    "global": "Global",
+    "selectBusinessUnit": "Sélectionner une unité opérationnelle",
+    "selectDepartment": "Sélectionner un département",
+    "selectTeam": "Sélectionner une équipe",
+    "businessUnitFirst": "Sélectionnez d'abord une unité opérationnelle",
+    "departmentFirst": "Sélectionnez d'abord un département",
+    "viewing": "Périmètre :"
+  }
 }

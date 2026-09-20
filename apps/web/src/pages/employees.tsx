@@ -32,41 +32,23 @@ const ALL_VALUE = "all";
 
 const EMPLOYMENT_STATUS_VALUES = ["ACTIVE", "ON_LEAVE", "PROBATION", "TERMINATED", "RESIGNED"] as const;
 
-function getStatusBadge(status: string) {
-  switch (status.toUpperCase()) {
-    case "ACTIVE":
-      return (
-        <Badge className="bg-green-500/10 text-green-700 hover:bg-green-500/20 border-green-200">
-          Active
-        </Badge>
-      );
-    case "ON_LEAVE":
-      return (
-        <Badge className="bg-orange-500/10 text-orange-700 hover:bg-orange-500/20 border-orange-200">
-          On Leave
-        </Badge>
-      );
-    case "PROBATION":
-      return (
-        <Badge className="bg-yellow-500/10 text-yellow-700 hover:bg-yellow-500/20 border-yellow-200">
-          Probation
-        </Badge>
-      );
-    case "TERMINATED":
-      return (
-        <Badge className="bg-red-500/10 text-red-700 hover:bg-red-500/20 border-red-200">
-          Terminated
-        </Badge>
-      );
-    case "RESIGNED":
-      return (
-        <Badge className="bg-gray-500/10 text-gray-600 hover:bg-gray-500/20 border-gray-200">
-          Resigned
-        </Badge>
-      );
-    default:
-      return <Badge variant="outline">{status}</Badge>;
-  }
+/**
+ * WHY the label is a parameter: the colour is a property of the status, but the
+ * wording is a property of the language. Passing it in keeps this helper outside
+ * the component tree (where there is no `t`) without hard-coding English.
+ */
+const STATUS_BADGE_CLASSES: Record<string, string> = {
+  ACTIVE: "bg-green-500/10 text-green-700 hover:bg-green-500/20 border-green-200",
+  ON_LEAVE: "bg-orange-500/10 text-orange-700 hover:bg-orange-500/20 border-orange-200",
+  PROBATION: "bg-yellow-500/10 text-yellow-700 hover:bg-yellow-500/20 border-yellow-200",
+  TERMINATED: "bg-red-500/10 text-red-700 hover:bg-red-500/20 border-red-200",
+  RESIGNED: "bg-gray-500/10 text-gray-600 hover:bg-gray-500/20 border-gray-200",
+};
+
+function getStatusBadge(status: string, label: string) {
+  const className = STATUS_BADGE_CLASSES[status.toUpperCase()];
+  if (!className) return <Badge variant="outline">{status}</Badge>;
+  return <Badge className={className}>{label}</Badge>;
 }
 
 function getInitials(firstName: string, lastName: string) {
@@ -474,7 +456,7 @@ export default function Employees() {
                               )}
                             </div>
                           </TableCell>
-                          <TableCell>{getStatusBadge(emp.employmentStatus)}</TableCell>
+                          <TableCell>{getStatusBadge(emp.employmentStatus, statusLabels[emp.employmentStatus] ?? emp.employmentStatus)}</TableCell>
                           {showDetailsColumn && (
                             <TableCell className="text-right">
                               {canOpenDetails && (

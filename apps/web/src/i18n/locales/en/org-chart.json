@@ -1,28 +1,49 @@
 {
   "title": "Org Chart",
-  "searchPlaceholder": "Search by name, role, or team…",
-  "allDepartments": "All Departments",
-  "department": "Department",
-  "team": "Team",
-  "members": "members",
-  "member": "member",
-  "head": "Head",
-  "lead": "Lead",
-  "noEmployees": "No employees in this department.",
+  "subtitle": "Visual hierarchy of your organization — Company, Department, Team, People",
+  "subtitleShort": "Visual hierarchy of your organization",
+  "loading": "Loading org chart…",
+  "stats": {
+    "employees": "Employees",
+    "departments": "Departments",
+    "teams": "Teams"
+  },
+  "filters": {
+    "businessUnit": "BU",
+    "allBusinessUnits": "All BUs",
+    "department": "Dept",
+    "allDepartments": "All",
+    "skillPlaceholder": "Search by skill…",
+    "clearSkillSearch": "Clear skill search"
+  },
+  "matches_one": "{{count}} match",
+  "matches_other": "{{count}} matches",
+  "teamCount_one": "{{count}} team",
+  "teamCount_other": "{{count}} teams",
+  "memberCount_one": "{{count}} member",
+  "memberCount_other": "{{count}} members",
+  "card": {
+    "lead": "Lead",
+    "new": "New",
+    "newTooltip": "Hired in the last 90 days",
+    "unassigned": "Unassigned",
+    "viewProfileAria": "View profile for {{name}}",
+    "topSkills": "Top Skills"
+  },
+  "team": {
+    "expandAria": "Expand {{team}} team",
+    "collapseAria": "Collapse {{team}} team",
+    "leadVacant": "Lead vacant",
+    "noMembers": "No members yet"
+  },
   "status": {
     "ACTIVE": "Active",
-    "ON_LEAVE": "On Leave",
+    "ON_LEAVE": "On leave",
     "PROBATION": "Probation",
     "TERMINATED": "Terminated",
     "RESIGNED": "Resigned"
   },
-  "proficiency": {
-    "BEGINNER": "Beginner",
-    "INTERMEDIATE": "Intermediate",
-    "ADVANCED": "Advanced",
-    "EXPERT": "Expert"
-  },
-  "skills": "Skills",
-  "viewProfile": "View Profile",
-  "noResults": "No employees match your search."
+  "empty": {
+    "noDepartments": "No departments found."
+  }
 }

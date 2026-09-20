@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getLeaveTypes,
@@ -76,9 +77,9 @@ const HR_ROLES = ["HR_ADMIN", "EXECUTIVE"];
 
 type Tab = "leave-types" | "holidays";
 
-const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
-  { id: "leave-types", label: "Leave Types", icon: ListChecks },
-  { id: "holidays", label: "Public Holidays", icon: Calendar },
+const TABS: { id: Tab; labelKey: "tabs.leaveTypes" | "tabs.holidays"; icon: React.ElementType }[] = [
+  { id: "leave-types", labelKey: "tabs.leaveTypes", icon: ListChecks },
+  { id: "holidays", labelKey: "tabs.holidays", icon: Calendar },
 ];
 
 // ── Leave Type Dialog ─────────────────────────────────────────────────────────
@@ -115,13 +116,14 @@ function LeaveTypeDialog({
   initial: LTForm;
   saving?: boolean;
 }) {
+  const { t } = useTranslation(["leave-management", "common"]);
   const [form, setForm] = useState<LTForm>(initial);
   const [error, setError] = useState("");
 
   function handleSave() {
-    if (!form.name.trim()) { setError("Name is required."); return; }
+    if (!form.name.trim()) { setError(t("leaveTypes.dialog.errorNameRequired")); return; }
     const days = Number(form.defaultDaysPerYear);
-    if (isNaN(days) || days < 0) { setError("Days must be 0 or more (0 = unlimited)."); return; }
+    if (isNaN(days) || days < 0) { setError(t("leaveTypes.dialog.errorDaysInvalid")); return; }
     onSave({ ...form, name: form.name.trim(), defaultDaysPerYear: String(Math.round(days)) });
   }
 
@@ -129,38 +131,38 @@ function LeaveTypeDialog({
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="sm:max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle>{initial.name ? "Edit Leave Type" : "Add Leave Type"}</DialogTitle>
+          <DialogTitle>{initial.name ? t("leaveTypes.dialog.editTitle") : t("leaveTypes.dialog.createTitle")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label htmlFor="lt-name">Name</Label>
+            <Label htmlFor="lt-name">{t("leaveTypes.dialog.nameLabel")}</Label>
             <Input
               id="lt-name"
               value={form.name}
               onChange={(e) => { setForm((p) => ({ ...p, name: e.target.value })); setError(""); }}
-              placeholder="e.g. Bereavement"
+              placeholder={t("leaveTypes.dialog.namePlaceholder")}
               data-testid="input-lt-name"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="lt-max-days">Days per year</Label>
+              <Label htmlFor="lt-max-days">{t("leaveTypes.dialog.daysLabel")}</Label>
               <Input
                 id="lt-max-days"
                 type="number"
                 min={0}
                 value={form.defaultDaysPerYear}
                 onChange={(e) => { setForm((p) => ({ ...p, defaultDaysPerYear: e.target.value })); setError(""); }}
-                placeholder="0 = unlimited"
+                placeholder={t("leaveTypes.dialog.daysPlaceholder")}
                 data-testid="input-lt-max-days"
               />
-              <p className="text-xs text-muted-foreground">0 = unlimited</p>
+              <p className="text-xs text-muted-foreground">{t("leaveTypes.dialog.daysHint")}</p>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="lt-color">Colour</Label>
+              <Label htmlFor="lt-color">{t("leaveTypes.dialog.colorLabel")}</Label>
               <div className="flex items-center gap-2">
                 <input
                   id="lt-color"
@@ -177,8 +179,8 @@ function LeaveTypeDialog({
 
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
-              <p className="text-sm font-medium">Requires approval</p>
-              <p className="text-xs text-muted-foreground">Manager must approve requests for this type</p>
+              <p className="text-sm font-medium">{t("leaveTypes.dialog.approvalTitle")}</p>
+              <p className="text-xs text-muted-foreground">{t("leaveTypes.dialog.approvalHint")}</p>
             </div>
             <Switch
               checked={form.requiresApproval}
@@ -193,9 +195,9 @@ function LeaveTypeDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={onClose}>{t("common:cancel")}</Button>
           <Button onClick={handleSave} disabled={saving} data-testid="button-save-lt">
-            {saving ? "Saving…" : "Save"}
+            {saving ? t("common:saving") : t("common:save")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -231,12 +233,13 @@ function HolidayDialog({
   initial: HolForm;
   saving?: boolean;
 }) {
+  const { t } = useTranslation(["leave-management", "common"]);
   const [form, setForm] = useState<HolForm>(initial);
   const [error, setError] = useState("");
 
   function handleSave() {
-    if (!form.name.trim()) { setError("Holiday name is required."); return; }
-    if (!form.date) { setError("Date is required."); return; }
+    if (!form.name.trim()) { setError(t("holidays.dialog.errorNameRequired")); return; }
+    if (!form.date) { setError(t("holidays.dialog.errorDateRequired")); return; }
     onSave({ ...form, name: form.name.trim() });
   }
 
@@ -244,23 +247,23 @@ function HolidayDialog({
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="sm:max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle>{initial.name ? "Edit Holiday" : "Add Public Holiday"}</DialogTitle>
+          <DialogTitle>{initial.name ? t("holidays.dialog.editTitle") : t("holidays.dialog.createTitle")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label htmlFor="hol-name">Holiday name</Label>
+            <Label htmlFor="hol-name">{t("holidays.dialog.nameLabel")}</Label>
             <Input
               id="hol-name"
               value={form.name}
               onChange={(e) => { setForm((p) => ({ ...p, name: e.target.value })); setError(""); }}
-              placeholder="e.g. Company Foundation Day"
+              placeholder={t("holidays.dialog.namePlaceholder")}
               data-testid="input-hol-name"
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="hol-date">Date</Label>
+            <Label htmlFor="hol-date">{t("holidays.dialog.dateLabel")}</Label>
             <Input
               id="hol-date"
               type="date"
@@ -272,8 +275,8 @@ function HolidayDialog({
 
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
-              <p className="text-sm font-medium">Recurring annually</p>
-              <p className="text-xs text-muted-foreground">Repeat this holiday every year on the same date</p>
+              <p className="text-sm font-medium">{t("holidays.dialog.recurringTitle")}</p>
+              <p className="text-xs text-muted-foreground">{t("holidays.dialog.recurringHint")}</p>
             </div>
             <Switch
               checked={form.isRecurring}
@@ -288,9 +291,9 @@ function HolidayDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={onClose}>{t("common:cancel")}</Button>
           <Button onClick={handleSave} disabled={saving} data-testid="button-save-hol">
-            {saving ? "Saving…" : "Save"}
+            {saving ? t("common:saving") : t("common:save")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -300,6 +303,7 @@ function HolidayDialog({
 
 // ── Leave Types Panel ─────────────────────────────────────────────────────────
 function LeaveTypesPanel({ businessUnitId }: { businessUnitId: string | null }) {
+  const { t } = useTranslation(["leave-management", "common"]);
   const queryClient = useQueryClient();
   const { data: types = [], isLoading } = useQuery({
     queryKey: ["leave-types", businessUnitId, "all"],
@@ -344,10 +348,10 @@ function LeaveTypesPanel({ businessUnitId }: { businessUnitId: string | null }) 
     },
     onError: (err: unknown) => {
       const code = extractGatewayErrorCode(err);
-      const msg = getGatewayErrorMessage(err, "Failed to deactivate leave type.");
+      const msg = getGatewayErrorMessage(err, t("leaveTypes.errorDeactivateFailed"));
       setDeleteError(
         code === "LeaveTypeHasPendingRequests"
-          ? "Cannot deactivate: there are pending leave requests for this type. Resolve them first."
+          ? t("leaveTypes.errorHasPendingRequests")
           : msg,
       );
     },
@@ -392,17 +396,17 @@ function LeaveTypesPanel({ businessUnitId }: { businessUnitId: string | null }) 
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {activeCount} active type{activeCount !== 1 ? "s" : ""}
+            {t("leaveTypes.activeTypes", { count: activeCount })}
             {types.length > activeCount && (
               <span className="text-muted-foreground font-normal">
-                {" "}· {types.length - activeCount} inactive
+                {t("leaveTypes.inactiveSuffix", { count: types.length - activeCount })}
               </span>
             )}
           </p>
           <p className="text-xs text-muted-foreground">
             {businessUnitId
-              ? "Active types appear in the leave request form for employees"
-              : "Select a business unit above to add or edit leave types"}
+              ? t("leaveTypes.hintWithBusinessUnit")
+              : t("leaveTypes.hintNoBusinessUnit")}
           </p>
         </div>
         <Button
@@ -412,45 +416,45 @@ function LeaveTypesPanel({ businessUnitId }: { businessUnitId: string | null }) 
           data-testid="button-add-lt"
           className="bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50"
         >
-          <Plus className="w-3.5 h-3.5 mr-1" /> Add Type
+          <Plus className="w-3.5 h-3.5 mr-1" /> {t("leaveTypes.add")}
         </Button>
       </div>
 
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Loading…</p>
+            <p className="text-sm text-muted-foreground py-8 text-center">{t("common:loading")}</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Requires Approval</TableHead>
-                  <TableHead>Days / year</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t("leaveTypes.colType")}</TableHead>
+                  <TableHead>{t("leaveTypes.colRequiresApproval")}</TableHead>
+                  <TableHead>{t("leaveTypes.colDaysPerYear")}</TableHead>
+                  <TableHead className="text-right">{t("leaveTypes.colActions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {types.map((t) => (
+                {types.map((type) => (
                   <TableRow
-                    key={t.id}
-                    data-testid={`row-lt-${t.id}`}
-                    className={cn(!t.isActive && "opacity-50")}
+                    key={type.id}
+                    data-testid={`row-lt-${type.id}`}
+                    className={cn(!type.isActive && "opacity-50")}
                   >
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {t.color && (
+                        {type.color && (
                           <span
                             className="w-3 h-3 rounded-full inline-block flex-shrink-0"
-                            style={{ backgroundColor: t.color }}
+                            style={{ backgroundColor: type.color }}
                           />
                         )}
-                        <span className={cn("font-medium text-sm", !t.isActive && "line-through text-muted-foreground")}>
-                          {t.name}
+                        <span className={cn("font-medium text-sm", !type.isActive && "line-through text-muted-foreground")}>
+                          {type.name}
                         </span>
-                        {!t.isActive && (
+                        {!type.isActive && (
                           <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 font-normal no-underline">
-                            Inactive
+                            {t("leaveTypes.inactiveBadge")}
                           </span>
                         )}
                       </div>
@@ -459,31 +463,31 @@ function LeaveTypesPanel({ businessUnitId }: { businessUnitId: string | null }) 
                       <span
                         className={cn(
                           "text-xs font-medium px-2 py-0.5 rounded-full",
-                          t.requiresApproval
+                          type.requiresApproval
                             ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                             : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
                         )}
                       >
-                        {t.requiresApproval ? "Yes" : "No"}
+                        {type.requiresApproval ? t("common:yes") : t("common:no")}
                       </span>
                     </TableCell>
                     <TableCell className="text-sm">
-                      {t.defaultDaysPerYear === 0 ? (
-                        <span className="text-muted-foreground">Unlimited</span>
+                      {type.defaultDaysPerYear === 0 ? (
+                        <span className="text-muted-foreground">{t("leaveTypes.unlimited")}</span>
                       ) : (
-                        `${t.defaultDaysPerYear} days`
+                        t("leaveTypes.days", { count: type.defaultDaysPerYear })
                       )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        {t.isActive ? (
+                        {type.isActive ? (
                           <>
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => openEdit(t)}
-                              aria-label={`Edit ${t.name}`}
-                              data-testid={`button-edit-lt-${t.id}`}
+                              onClick={() => openEdit(type)}
+                              aria-label={t("leaveTypes.editAria", { name: type.name })}
+                              data-testid={`button-edit-lt-${type.id}`}
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </Button>
@@ -491,9 +495,9 @@ function LeaveTypesPanel({ businessUnitId }: { businessUnitId: string | null }) 
                               variant="ghost"
                               size="sm"
                               className="text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                              onClick={() => { setDeleteTarget(t); setDeleteError(""); }}
-                              aria-label={`Deactivate ${t.name}`}
-                              data-testid={`button-delete-lt-${t.id}`}
+                              onClick={() => { setDeleteTarget(type); setDeleteError(""); }}
+                              aria-label={t("leaveTypes.deactivateAria", { name: type.name })}
+                              data-testid={`button-delete-lt-${type.id}`}
                             >
                               <EyeOff className="w-3.5 h-3.5" />
                             </Button>
@@ -503,9 +507,9 @@ function LeaveTypesPanel({ businessUnitId }: { businessUnitId: string | null }) 
                             variant="ghost"
                             size="sm"
                             className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20"
-                            onClick={() => setReactivateTarget(t)}
-                            aria-label={`Reactivate ${t.name}`}
-                            data-testid={`button-reactivate-lt-${t.id}`}
+                            onClick={() => setReactivateTarget(type)}
+                            aria-label={t("leaveTypes.reactivateAria", { name: type.name })}
+                            data-testid={`button-reactivate-lt-${type.id}`}
                           >
                             <RefreshCw className="w-3.5 h-3.5" />
                           </Button>
@@ -517,7 +521,7 @@ function LeaveTypesPanel({ businessUnitId }: { businessUnitId: string | null }) 
                 {types.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-8">
-                      No leave types configured. Add one above.
+                      {t("leaveTypes.empty")}
                     </TableCell>
                   </TableRow>
                 )}
@@ -542,20 +546,22 @@ function LeaveTypesPanel({ businessUnitId }: { businessUnitId: string | null }) 
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Reactivate "{reactivateTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("leaveTypes.reactivateTitle", { name: reactivateTarget?.name ?? "" })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This leave type will become available again in the leave request form for employees.
+              {t("leaveTypes.reactivateDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-green-600 hover:bg-green-700 text-white"
               onClick={() => { if (reactivateTarget) reactivateMutation.mutate(reactivateTarget.id); }}
               disabled={reactivateMutation.isPending}
               data-testid="button-confirm-reactivate-lt"
             >
-              {reactivateMutation.isPending ? "Reactivating…" : "Reactivate"}
+              {reactivateMutation.isPending ? t("leaveTypes.reactivatePending") : t("leaveTypes.reactivateConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -567,24 +573,25 @@ function LeaveTypesPanel({ businessUnitId }: { businessUnitId: string | null }) 
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Deactivate "{deleteTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("leaveTypes.deactivateTitle", { name: deleteTarget?.name ?? "" })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This leave type will be hidden from employees and cannot be selected for new requests.
-              Existing approved leave and historical balances are preserved.
+              {t("leaveTypes.deactivateDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {deleteError && (
             <p className="text-sm text-red-500 px-1" data-testid="lt-delete-error">{deleteError}</p>
           )}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700 text-white"
               onClick={() => { if (deleteTarget) deleteMutation.mutate(deleteTarget.id); }}
               disabled={deleteMutation.isPending}
               data-testid="button-confirm-delete-lt"
             >
-              {deleteMutation.isPending ? "Deactivating…" : "Deactivate"}
+              {deleteMutation.isPending ? t("leaveTypes.deactivatePending") : t("leaveTypes.deactivateConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -594,9 +601,9 @@ function LeaveTypesPanel({ businessUnitId }: { businessUnitId: string | null }) 
 }
 
 // ── Holidays Panel ────────────────────────────────────────────────────────────
-function formatDate(iso: string) {
+function formatDate(iso: string, locale: string) {
   const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("en-US", { weekday: "short", month: "long", day: "numeric", year: "numeric" });
+  return d.toLocaleDateString(locale, { weekday: "short", month: "long", day: "numeric", year: "numeric" });
 }
 
 function isUpcoming(iso: string) {
@@ -606,6 +613,7 @@ function isUpcoming(iso: string) {
 }
 
 function HolidaysPanel({ businessUnitId }: { businessUnitId: string | null }) {
+  const { t, i18n } = useTranslation(["leave-management", "common"]);
   const queryClient = useQueryClient();
   const { data: holidays = [], isLoading } = useQuery({
     queryKey: ["holidays", businessUnitId],
@@ -679,10 +687,10 @@ function HolidaysPanel({ businessUnitId }: { businessUnitId: string | null }) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Holiday</TableHead>
-            <TableHead>Date</TableHead>
-            <TableHead>Recurring</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <TableHead>{t("holidays.colHoliday")}</TableHead>
+            <TableHead>{t("holidays.colDate")}</TableHead>
+            <TableHead>{t("holidays.colRecurring")}</TableHead>
+            <TableHead className="text-right">{t("holidays.colActions")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -691,14 +699,14 @@ function HolidaysPanel({ businessUnitId }: { businessUnitId: string | null }) {
               <TableCell>
                 <p className="font-medium text-sm">{h.name}</p>
               </TableCell>
-              <TableCell className="text-sm">{formatDate(h.date)}</TableCell>
+              <TableCell className="text-sm">{formatDate(h.date, i18n.language)}</TableCell>
               <TableCell>
                 {h.isRecurring ? (
                   <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
-                    <RefreshCw className="w-3 h-3" /> Annual
+                    <RefreshCw className="w-3 h-3" /> {t("holidays.annual")}
                   </div>
                 ) : (
-                  <span className="text-xs text-muted-foreground">One-time</span>
+                  <span className="text-xs text-muted-foreground">{t("holidays.oneTime")}</span>
                 )}
               </TableCell>
               <TableCell className="text-right">
@@ -707,6 +715,7 @@ function HolidaysPanel({ businessUnitId }: { businessUnitId: string | null }) {
                     variant="ghost"
                     size="sm"
                     onClick={() => openEdit(h)}
+                    aria-label={t("holidays.editAria", { name: h.name })}
                     data-testid={`button-edit-hol-${testIdPrefix}-${h.id}`}
                   >
                     <Pencil className="w-3.5 h-3.5" />
@@ -716,6 +725,7 @@ function HolidaysPanel({ businessUnitId }: { businessUnitId: string | null }) {
                     size="sm"
                     className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                     onClick={() => setDeleteTarget(h)}
+                    aria-label={t("holidays.deleteAria", { name: h.name })}
                     data-testid={`button-delete-hol-${testIdPrefix}-${h.id}`}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -734,12 +744,12 @@ function HolidaysPanel({ businessUnitId }: { businessUnitId: string | null }) {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {upcoming.length} upcoming · {holidays.length} total
+            {t("holidays.summary", { upcoming: upcoming.length, total: holidays.length })}
           </p>
           <p className="text-xs text-muted-foreground">
             {businessUnitId
-              ? "Holidays are excluded from business-day calculations on leave requests"
-              : "Select a business unit above to add or edit holidays"}
+              ? t("holidays.hintWithBusinessUnit")
+              : t("holidays.hintNoBusinessUnit")}
           </p>
         </div>
         <Button
@@ -749,19 +759,19 @@ function HolidaysPanel({ businessUnitId }: { businessUnitId: string | null }) {
           data-testid="button-add-holiday"
           className="bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50"
         >
-          <Plus className="w-3.5 h-3.5 mr-1" /> Add Holiday
+          <Plus className="w-3.5 h-3.5 mr-1" /> {t("holidays.add")}
         </Button>
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">Loading…</p>
+        <p className="text-sm text-muted-foreground py-8 text-center">{t("common:loading")}</p>
       ) : (
         <>
           {upcoming.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  Upcoming
+                  {t("holidays.sectionUpcoming")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
@@ -774,7 +784,7 @@ function HolidaysPanel({ businessUnitId }: { businessUnitId: string | null }) {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  Past
+                  {t("holidays.sectionPast")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0 opacity-60">
@@ -786,7 +796,7 @@ function HolidaysPanel({ businessUnitId }: { businessUnitId: string | null }) {
           {holidays.length === 0 && (
             <Card>
               <CardContent className="py-12 text-center text-sm text-muted-foreground">
-                No holidays configured. Add one above.
+                {t("holidays.empty")}
               </CardContent>
             </Card>
           )}
@@ -805,20 +815,22 @@ function HolidaysPanel({ businessUnitId }: { businessUnitId: string | null }) {
       <AlertDialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete "{deleteTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("holidays.deleteTitle", { name: deleteTarget?.name ?? "" })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This holiday will be removed from the calendar. This action cannot be undone.
+              {t("holidays.deleteDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700 text-white"
               onClick={() => { if (deleteTarget) deleteMutation.mutate(deleteTarget.id); }}
               disabled={deleteMutation.isPending}
               data-testid="button-confirm-delete-hol"
             >
-              {deleteMutation.isPending ? "Deleting…" : "Delete"}
+              {deleteMutation.isPending ? t("holidays.deletePending") : t("holidays.deleteConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -837,6 +849,7 @@ function BuSelector({
   value: string | null;
   onChange: (id: string | null) => void;
 }) {
+  const { t } = useTranslation("leave-management");
   return (
     <div className="flex items-center gap-2">
       <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
@@ -845,10 +858,10 @@ function BuSelector({
         onValueChange={(v) => onChange(v === "all" ? null : v)}
       >
         <SelectTrigger className="w-52" data-testid="select-bu-filter">
-          <SelectValue placeholder="All business units" />
+          <SelectValue placeholder={t("businessUnits.all")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All business units</SelectItem>
+          <SelectItem value="all">{t("businessUnits.all")}</SelectItem>
           {businessUnits.map((bu) => (
             <SelectItem key={bu.id} value={bu.id}>
               {bu.name}
@@ -862,6 +875,7 @@ function BuSelector({
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 export default function LeaveManagement() {
+  const { t } = useTranslation("leave-management");
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>("leave-types");
 
@@ -883,10 +897,8 @@ export default function LeaveManagement() {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
         <ShieldCheck className="w-10 h-10 text-muted-foreground" />
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Access restricted</h2>
-        <p className="text-sm text-muted-foreground max-w-xs">
-          Leave management is only available to HR Admin and Executive roles.
-        </p>
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{t("accessDeniedTitle")}</h2>
+        <p className="text-sm text-muted-foreground max-w-xs">{t("accessDeniedDescription")}</p>
       </div>
     );
   }
@@ -899,11 +911,9 @@ export default function LeaveManagement() {
             className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100"
             data-testid="heading-leave-management"
           >
-            Leave Management
+            {t("title")}
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Configure leave types and public holidays for your organisation
-          </p>
+          <p className="text-muted-foreground mt-1 text-sm">{t("subtitle")}</p>
         </div>
 
         {isGlobalRole && businessUnits.length > 0 && (
@@ -916,7 +926,7 @@ export default function LeaveManagement() {
       </div>
 
       <div className="flex gap-1 border-b border-gray-200 dark:border-gray-800">
-        {TABS.map(({ id, label, icon: Icon }) => (
+        {TABS.map(({ id, labelKey, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
@@ -929,7 +939,7 @@ export default function LeaveManagement() {
             )}
           >
             <Icon className="w-3.5 h-3.5" />
-            {label}
+            {t(labelKey)}
           </button>
         ))}
       </div>

@@ -1,5 +1,6 @@
 import { Link } from "wouter";
-import { useState } from "react";
+import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import "./welcome.css";
 import {
   Brain,
@@ -11,79 +12,64 @@ import {
   ArrowRight,
   ChevronDown,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
-const features = [
-  {
-    icon: Brain,
-    title: "AI-Powered Insights",
-    description:
-      "Predictive analytics surface workforce trends before they become problems. Know who's at risk of leaving before they decide.",
-  },
-  {
-    icon: Users,
-    title: "Employee Lifecycle",
-    description:
-      "From offer letter to offboarding, every milestone tracked in one place. Onboarding checklists, document storage, org chart — all connected.",
-  },
-  {
-    icon: BarChart3,
-    title: "Real-Time Analytics",
-    description:
-      "Headcount, attrition, leave patterns, compensation bands — live dashboards built for HR decisions, not data exports.",
-  },
-  {
-    icon: Shield,
-    title: "Enterprise Compliance",
-    description:
-      "Built-in labor law compliance across jurisdictions. Audit trails, role-based access, and SOC 2 Type II certified.",
-  },
-  {
-    icon: Clock,
-    title: "Leave & Attendance",
-    description:
-      "Automated leave policies, team calendars, conflict detection, and payroll sync. No more spreadsheets.",
-  },
-  {
-    icon: Sparkles,
-    title: "AI HR Assistant",
-    description:
-      "Ask anything in plain language — headcount by department, who's on leave next week, average tenure by role. Instant answers.",
-  },
-];
+/**
+ * WHY ids and not the rendered title: the copy is translated, so anything
+ * derived from it (React keys, data-testid) would change with the language.
+ * These ids are the stable half — they key both the locale lookup and the
+ * test hooks.
+ */
+const FEATURE_IDS = [
+  "aiInsights",
+  "lifecycle",
+  "analytics",
+  "compliance",
+  "leave",
+  "assistant",
+] as const;
 
-const stats = [
-  { value: "127+", label: "Employees managed" },
-  { value: "99.9%", label: "Platform uptime" },
-  { value: "< 30s", label: "Avg onboarding time" },
-  { value: "SOC 2", label: "Certified" },
-];
+const FEATURE_ICONS: Record<(typeof FEATURE_IDS)[number], LucideIcon> = {
+  aiInsights: Brain,
+  lifecycle: Users,
+  analytics: BarChart3,
+  compliance: Shield,
+  leave: Clock,
+  assistant: Sparkles,
+};
 
-const testimonials = [
-  {
-    quote:
-      "Sentient replaced four separate tools we were using. The AI assistant alone saves our HR team two hours a day.",
-    name: "Eleanor Vance",
-    role: "VP of Engineering",
-    initials: "EV",
-  },
-  {
-    quote:
-      "The leave management alone was worth the switch. No more chasing approvals over email.",
-    name: "Michael Realman",
-    role: "Head of HR",
-    initials: "MR",
-  },
-  {
-    quote:
-      "Finally an HRIS that doesn't feel like it was built in 2005. The analytics are genuinely useful.",
-    name: "Simone Garnett",
-    role: "VP of Product",
-    initials: "SG",
-  },
+/** The figures are language-independent; only their labels are translated. */
+const STATS = [
+  { id: "employeesManaged", value: "127+" },
+  { id: "uptime", value: "99.9%" },
+  { id: "onboardingTime", value: "< 30s" },
+  { id: "certified", value: "SOC 2" },
+] as const;
+
+const TESTIMONIAL_IDS = ["ev", "mr", "sg"] as const;
+
+const TICKER_LOGOS = [
+  "sweetgreen", "Acumatica", "PVH", "Reformation", "1Password",
+  "YipitData", "Airbnb", "Headspace", "Scout", "Life360", "LTK", "Zip", "Mitsubishi",
 ];
 
 export default function Welcome() {
-  const [moreInfoOpen, setMoreInfoOpen] = useState(false);
+  const { t } = useTranslation("auth");
+
+  const features = useMemo(
+    () =>
+      FEATURE_IDS.map((id) => ({
+        id,
+        Icon: FEATURE_ICONS[id],
+        title: t(`welcome.featuresList.${id}Title` as const),
+        description: t(`welcome.featuresList.${id}Desc` as const),
+      })),
+    [t],
+  );
+
+  function scrollToFeatures(): void {
+    document.getElementById("features")?.scrollIntoView({ behavior: "smooth" });
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden">
@@ -94,26 +80,22 @@ export default function Welcome() {
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-sm">
               <Brain className="w-4.5 h-4.5 text-primary-foreground" />
             </div>
-            <span className="font-bold text-base tracking-tight">Sentient HRIS</span>
+            <span className="font-bold text-base tracking-tight">{t("appName")}</span>
           </div>
           <nav className="flex items-center gap-3">
             <button
               data-testid="btn-more-info-nav"
-              onClick={() => {
-                setMoreInfoOpen(true);
-                const el = document.getElementById("features");
-                el?.scrollIntoView({ behavior: "smooth" });
-              }}
+              onClick={scrollToFeatures}
               className="hidden sm:inline-flex text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-md hover:bg-accent"
             >
-              Features
+              {t("welcome.features")}
             </button>
             <Link href="/signin">
               <button
                 data-testid="btn-signin-nav"
                 className="text-sm font-medium px-4 py-1.5 rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
               >
-                Sign In
+                {t("welcome.signIn")}
               </button>
             </Link>
           </nav>
@@ -128,22 +110,21 @@ export default function Welcome() {
             data-testid="hero-badge"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            AI-Powered HR Platform
+            {t("welcome.badge")}
           </div>
           <h1
             className="text-5xl md:text-7xl font-bold tracking-tight mb-6 leading-[1.08]"
             data-testid="hero-headline"
           >
-            The HR platform
+            {t("welcome.heroHeadline1")}
             <br />
-            <span className="text-primary">that actually thinks.</span>
+            <span className="text-primary">{t("welcome.heroHeadline2")}</span>
           </h1>
           <p
             className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed"
             data-testid="hero-subtext"
           >
-            Sentient HRIS combines AI with modern people management — so you spend less time on
-            admin and more time on your team. Built for organizations that move fast.
+            {t("welcome.heroSubtext")}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link href="/signin">
@@ -151,20 +132,16 @@ export default function Welcome() {
                 data-testid="btn-get-started-hero"
                 className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-8 py-3.5 rounded-lg font-semibold text-base hover:opacity-90 transition-opacity shadow-md"
               >
-                Sign In
+                {t("welcome.signIn")}
                 <ArrowRight className="w-4 h-4" />
               </button>
             </Link>
             <button
               data-testid="btn-more-info-hero"
-              onClick={() => {
-                setMoreInfoOpen(true);
-                const el = document.getElementById("features");
-                el?.scrollIntoView({ behavior: "smooth" });
-              }}
+              onClick={scrollToFeatures}
               className="inline-flex items-center gap-2 px-8 py-3.5 rounded-lg font-semibold text-base border border-border hover:bg-accent transition-colors"
             >
-              More Info
+              {t("welcome.moreInfo")}
               <ChevronDown className="w-4 h-4" />
             </button>
           </div>
@@ -174,7 +151,7 @@ export default function Welcome() {
       {/* Logo ticker */}
       <section className="py-12 border-y border-border/50 overflow-hidden bg-background">
         <p className="text-center text-sm font-semibold text-muted-foreground mb-8 px-4">
-          Trusted by leading teams worldwide
+          {t("welcome.trustedBy")}
         </p>
         <div className="relative">
           <div
@@ -186,12 +163,7 @@ export default function Welcome() {
             style={{ background: "linear-gradient(to left, hsl(var(--background)), transparent)" }}
           />
           <div className="marquee-track">
-            {[
-              "sweetgreen", "Acumatica", "PVH", "Reformation", "1Password",
-              "YipitData", "Airbnb", "Headspace", "Scout", "Life360", "LTK", "Zip", "Mitsubishi",
-              "sweetgreen", "Acumatica", "PVH", "Reformation", "1Password",
-              "YipitData", "Airbnb", "Headspace", "Scout", "Life360", "LTK", "Zip", "Mitsubishi",
-            ].map((name, i) => (
+            {[...TICKER_LOGOS, ...TICKER_LOGOS].map((name, i) => (
               <span
                 key={i}
                 className="inline-flex items-center px-8 text-[15px] font-semibold tracking-tight text-foreground/30 whitespace-nowrap select-none"
@@ -206,10 +178,10 @@ export default function Welcome() {
       {/* Stats bar */}
       <section className="border-y border-border bg-card/50">
         <div className="max-w-6xl mx-auto px-6 py-10 grid grid-cols-2 md:grid-cols-4 gap-8">
-          {stats.map((s) => (
-            <div key={s.label} className="text-center" data-testid={`stat-${s.label.replace(/\s+/g, "-").toLowerCase()}`}>
+          {STATS.map((s) => (
+            <div key={s.id} className="text-center" data-testid={`stat-${s.id}`}>
               <div className="text-3xl font-bold text-primary mb-1">{s.value}</div>
-              <div className="text-sm text-muted-foreground">{s.label}</div>
+              <div className="text-sm text-muted-foreground">{t(`welcome.stats.${s.id}` as const)}</div>
             </div>
           ))}
         </div>
@@ -220,29 +192,26 @@ export default function Welcome() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="features-heading">
-              Everything HR needs, nothing it doesn't
+              {t("welcome.featuresHeading")}
             </h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
-              Six core modules built to work together, powered by AI throughout.
+              {t("welcome.featuresSub")}
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {features.map((f) => {
-              const Icon = f.icon;
-              return (
-                <div
-                  key={f.title}
-                  className="bg-card border border-border rounded-xl p-6 hover:border-primary/40 hover:shadow-sm transition-all"
-                  data-testid={`feature-card-${f.title.toLowerCase().replace(/\s+/g, "-")}`}
-                >
-                  <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                    <Icon className="w-5 h-5 text-primary" />
-                  </div>
-                  <h3 className="font-semibold text-base mb-2">{f.title}</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">{f.description}</p>
+            {features.map(({ id, Icon, title, description }) => (
+              <div
+                key={id}
+                className="bg-card border border-border rounded-xl p-6 hover:border-primary/40 hover:shadow-sm transition-all"
+                data-testid={`feature-card-${id}`}
+              >
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+                  <Icon className="w-5 h-5 text-primary" />
                 </div>
-              );
-            })}
+                <h3 className="font-semibold text-base mb-2">{title}</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">{description}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -251,23 +220,25 @@ export default function Welcome() {
       <section className="py-20 px-6 border-t border-border bg-card/30">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-2xl font-bold text-center mb-12" data-testid="testimonials-heading">
-            Trusted by teams who care about their people
+            {t("welcome.testimonialsHeading")}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {testimonials.map((t) => (
+            {TESTIMONIAL_IDS.map((id) => (
               <div
-                key={t.name}
+                key={id}
                 className="bg-card border border-border rounded-xl p-6"
-                data-testid={`testimonial-${t.initials.toLowerCase()}`}
+                data-testid={`testimonial-${id}`}
               >
-                <p className="text-sm leading-relaxed mb-5 text-foreground/80">"{t.quote}"</p>
+                <p className="text-sm leading-relaxed mb-5 text-foreground/80">
+                  &ldquo;{t(`welcome.testimonials.${id}.quote` as const)}&rdquo;
+                </p>
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
-                    {t.initials}
+                    {id.toUpperCase()}
                   </div>
                   <div>
-                    <div className="text-sm font-semibold">{t.name}</div>
-                    <div className="text-xs text-muted-foreground">{t.role}</div>
+                    <div className="text-sm font-semibold">{t(`welcome.testimonials.${id}.name` as const)}</div>
+                    <div className="text-xs text-muted-foreground">{t(`welcome.testimonials.${id}.role` as const)}</div>
                   </div>
                 </div>
               </div>
@@ -280,18 +251,16 @@ export default function Welcome() {
       <section className="py-24 px-6 border-t border-border">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="cta-heading">
-            Ready to modernize your HR?
+            {t("welcome.ctaHeading")}
           </h2>
-          <p className="text-muted-foreground mb-10">
-            Join forward-thinking HR teams already using Sentient to manage their people smarter.
-          </p>
+          <p className="text-muted-foreground mb-10">{t("welcome.ctaSub")}</p>
           <div className="flex justify-center">
             <Link href="/signin">
               <button
                 data-testid="btn-signin-bottom"
                 className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-8 py-3.5 rounded-lg font-semibold hover:opacity-90 transition-opacity"
               >
-                Sign In
+                {t("welcome.signIn")}
                 <ArrowRight className="w-4 h-4" />
               </button>
             </Link>
@@ -306,12 +275,14 @@ export default function Welcome() {
             <div className="w-5 h-5 bg-primary rounded flex items-center justify-center">
               <Brain className="w-3 h-3 text-primary-foreground" />
             </div>
-            <span className="font-medium text-foreground">Sentient HRIS</span>
-            <span>© 2026</span>
+            <span className="font-medium text-foreground">{t("appName")}</span>
+            <span>{t("welcome.copyright")}</span>
           </div>
           <div className="flex items-center gap-6">
             <Link href="/signin">
-              <span className="hover:text-foreground transition-colors cursor-pointer">Sign In</span>
+              <span className="hover:text-foreground transition-colors cursor-pointer">
+                {t("welcome.signIn")}
+              </span>
             </Link>
           </div>
         </div>

@@ -221,10 +221,10 @@ function formatDate(value: string | null | undefined): string {
 // `null` means "known to be unresolved" and must not guess a currency.
 const LEGACY_DEFAULT_CURRENCY = "DZD";
 
-function formatMoney(value: number | null, currency?: string | null): string {
+function formatMoney(value: number | null, currency?: string | null, locale = "en-US"): string {
   if (value == null) return "N/A";
-  if (currency === null) return value.toLocaleString("en-US");
-  return value.toLocaleString("en-US", { style: "currency", currency: currency ?? LEGACY_DEFAULT_CURRENCY });
+  if (currency === null) return value.toLocaleString(locale);
+  return value.toLocaleString(locale, { style: "currency", currency: currency ?? LEGACY_DEFAULT_CURRENCY });
 }
 
 function formatPercent(value: number | null): string {
@@ -445,10 +445,15 @@ function SalaryTooltip({
   active,
   payload,
   label,
+  currency,
+  locale,
 }: {
   active?: boolean;
   payload?: Array<{ name: string; value: number; color: string }>;
   label?: string;
+  /** The employee's resolved currency — the chart must not assume DZD. */
+  currency?: string | null;
+  locale: string;
 }) {
   if (!active || !payload?.length) return null;
   return (
@@ -461,7 +466,7 @@ function SalaryTooltip({
           <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
           <span className="text-muted-foreground">{entry.name}</span>
           <span className="ml-auto pl-4 font-bold tabular-nums">
-            {entry.value.toLocaleString()} DZD
+            {formatMoney(entry.value, currency, locale)}
           </span>
         </div>
       ))}
@@ -478,7 +483,7 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
   const params = useParams<{ id: string }>();
   const id = employeeId ?? params.id ?? "";
   const { user } = useAuth();
-  const { t } = useTranslation(["employees", "common"]);
+  const { t, i18n } = useTranslation(["employees", "common"]);
   const labels = useEmployeeLabels();
   const isSelf = !!user?.employeeId && user.employeeId === id;
   const queryClient = useQueryClient();
@@ -1009,11 +1014,11 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                 <div className="mb-4 flex items-center gap-4">
                   <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400">
                     <span className="h-2.5 w-2.5 rounded-full bg-indigo-500" />
-                    Gross salary
+                    {t("profile.salaryTable.gross")}
                   </div>
                   <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400">
                     <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                    Net salary
+                    {t("profile.salaryTable.net")}
                   </div>
                 </div>
 
@@ -1056,7 +1061,10 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                         }
                         width={48}
                       />
-                      <Tooltip content={<SalaryTooltip />} cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }} />
+                      <Tooltip
+                        content={<SalaryTooltip currency={emp.currency} locale={i18n.language} />}
+                        cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }}
+                      />
                       <Area
                         type="monotone"
                         dataKey="gross"
