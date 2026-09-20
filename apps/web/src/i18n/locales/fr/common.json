@@ -68,5 +68,9 @@
   "unsavedChanges": "Vous avez des modifications non enregistrées.",
   "confirmDelete": "Êtes-vous sûr de vouloir supprimer ceci ? Cette action est irréversible.",
   "somethingWentWrong": "Une erreur s'est produite. Veuillez réessayer.",
-  "serviceUnavailable": "Service indisponible. Veuillez réessayer plus tard."
+  "serviceUnavailable": "Service indisponible. Veuillez réessayer plus tard.",
+  "notFound": {
+    "title": "404 — Page introuvable",
+    "hint": "Avez-vous oublié d'ajouter la page au routeur ?"
+  }
 }

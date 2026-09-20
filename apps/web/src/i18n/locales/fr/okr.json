@@ -79,5 +79,10 @@
   },
   "errors": {
     "generic": "Échec de l'enregistrement. Veuillez réessayer."
+  },
+  "pageTabs": {
+    "myOkrs": "Mes OKR",
+    "dashboard": "Tableau de bord",
+    "management": "Gestion"
   }
 }

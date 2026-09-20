@@ -79,5 +79,10 @@
   },
   "errors": {
     "generic": "Failed to save. Please try again."
+  },
+  "pageTabs": {
+    "myOkrs": "My OKRs",
+    "dashboard": "Dashboard",
+    "management": "Management"
   }
 }

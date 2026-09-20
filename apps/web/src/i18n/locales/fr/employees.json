@@ -1,16 +1,21 @@
 {
   "title": "Employés",
   "addEmployee": "Ajouter un Employé",
-  "searchPlaceholder": "Rechercher des employés…",
+  "searchPlaceholder": "Rechercher par nom ou e-mail…",
   "filters": {
-    "allStatuses": "Tous les Statuts",
-    "allDepartments": "Tous les Départements",
-    "allTeams": "Toutes les Équipes",
-    "allBusinessUnits": "Toutes les Unités",
+    "allStatuses": "Tous les statuts",
+    "allDepartments": "Tous les départements",
+    "allTeams": "Toutes les équipes",
+    "allBusinessUnits": "Toutes les unités",
     "status": "Statut",
     "department": "Département",
     "team": "Équipe",
-    "businessUnit": "Unité Commerciale"
+    "businessUnit": "Unité Commerciale",
+    "selectBuFirst": "Choisissez d'abord une UO",
+    "selectDeptFirst": "Choisissez d'abord un département",
+    "clear": "Effacer",
+    "viewing": "Affichage :",
+    "allEmployees": "Tous les employés"
   },
   "table": {
     "name": "Nom",
@@ -20,7 +25,13 @@
     "status": "Statut",
     "hireDate": "Date d'Embauche",
     "actions": "Actions",
-    "noEmployees": "Aucun employé trouvé."
+    "noEmployees": "Aucun employé trouvé.",
+    "employee": "Employé",
+    "role": "Poste",
+    "businessUnit": "Unité opérationnelle",
+    "loading": "Chargement…",
+    "noMatch": "Aucun employé ne correspond à votre recherche.",
+    "view": "Voir"
   },
   "status": {
     "ACTIVE": "Actif",
@@ -277,5 +288,13 @@
       "instructions": "Ouvrez Slack, trouvez <em>{{appName}}</em> dans Apps, et envoyez-lui un message direct",
       "disconnectDescription": "Sentient cessera de reconnaître les messages de ce compte Slack. Vous pourrez vous reconnecter à tout moment avec un nouveau code."
     }
+  },
+  "subtitle": "Gérer et consulter l'ensemble des collaborateurs",
+  "summary": {
+    "showing": "Affichage de {{employees}} dans {{departments}}",
+    "employees_one": "{{count}} employé",
+    "employees_other": "{{count}} employés",
+    "departments_one": "{{count}} département",
+    "departments_other": "{{count}} départements"
   }
 }

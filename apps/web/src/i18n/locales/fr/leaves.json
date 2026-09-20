@@ -1,11 +1,12 @@
 {
-  "title": "Demandes de Congé",
+  "title": "Congés",
   "tabs": {
     "myLeaves": "Mes Congés",
     "pendingQueue": "Approbations en Attente",
-    "balances": "Mes Soldes"
+    "balances": "Mes Soldes",
+    "teamRequests": "Demandes de l'équipe"
   },
-  "newRequest": "Nouvelle Demande",
+  "newRequest": "Demander un congé",
   "table": {
     "type": "Type",
     "startDate": "Date de Début",
@@ -16,7 +17,9 @@
     "actions": "Actions",
     "requestedBy": "Demandé Par",
     "noLeaves": "Aucune demande de congé trouvée.",
-    "noPending": "Aucune demande en attente."
+    "noPending": "Aucune demande en attente.",
+    "employee": "Employé",
+    "duration": "Période"
   },
   "status": {
     "PENDING": "En Attente",
@@ -26,9 +29,9 @@
     "ESCALATED": "Escaladé"
   },
   "dialog": {
-    "newRequestTitle": "Nouvelle Demande de Congé",
+    "newRequestTitle": "Demander un congé",
     "leaveTypeLabel": "Type de Congé",
-    "leaveTypePlaceholder": "Sélectionnez un type de congé",
+    "leaveTypePlaceholder": "Choisir un type",
     "startDateLabel": "Date de Début",
     "endDateLabel": "Date de Fin",
     "halfDayLabel": "Demi-Journée",
@@ -37,18 +40,29 @@
       "AFTERNOON": "Après-midi"
     },
     "reasonLabel": "Motif (facultatif)",
-    "reasonPlaceholder": "Motif du congé…",
+    "reasonPlaceholder": "Détails complémentaires…",
     "submitButton": "Soumettre la Demande",
     "submitting": "Envoi…",
     "cancelRequest": "Annuler la Demande",
-    "confirmCancel": "Êtes-vous sûr de vouloir annuler cette demande de congé ?"
+    "confirmCancel": "Êtes-vous sûr de vouloir annuler cette demande de congé ?",
+    "reasonOptional": "(facultatif)",
+    "rejectTitle": "Refuser la demande de congé",
+    "rejectReasonLabel": "Motif du refus",
+    "rejectPlaceholder": "Expliquez pourquoi cette demande est refusée…",
+    "rejectButton": "Refuser la demande",
+    "rejecting": "Refus en cours…"
   },
   "balances": {
     "available": "Disponible",
-    "used": "Utilisé",
-    "pending": "En Attente",
+    "used": "{{count}} pris",
+    "pending": "{{count}} en attente",
     "days": "jours",
-    "noBalances": "Aucun solde de congé trouvé."
+    "noBalances": "Aucun solde de congé configuré.",
+    "left": "restants",
+    "total": "{{count}} au total",
+    "heading": "Solde de congés — {{year}}",
+    "remainingAll_one": "{{count}} jour restant, tous types confondus",
+    "remainingAll_other": "{{count}} jours restants, tous types confondus"
   },
   "actions": {
     "approve": "Approuver",
@@ -60,11 +74,45 @@
     "rejectPlaceholder": "Entrez le motif du refus…"
   },
   "errors": {
-    "LeaveTypeInactive": "Ce type de congé n'est plus disponible.",
-    "InsufficientBalance": "Solde de congés insuffisant.",
-    "OverlappingRequest": "Les dates chevauchent une demande existante.",
-    "ZeroDayRequest": "Aucun jour ouvré dans la plage sélectionnée.",
+    "LeaveTypeInactive": "Ce type de congé n'est plus disponible. Veuillez en choisir un autre.",
+    "InsufficientBalance": "Solde de congé insuffisant pour ce type et cette période.",
+    "OverlappingRequest": "Vous avez déjà une demande en attente ou approuvée sur ces dates.",
+    "ZeroDayRequest": "La période sélectionnée ne contient aucun jour ouvré.",
     "HalfDayNotSupported": "Demi-journée non prise en charge pour ce type de congé.",
-    "generic": "Échec de la soumission. Veuillez réessayer."
+    "generic": "Échec de l'envoi de la demande. Veuillez réessayer.",
+    "LeaveTypeOutOfScope": "Ce type de congé n'est pas disponible pour votre unité.",
+    "RequestAlreadyDecided": "Cette demande a déjà été traitée.",
+    "approveFailed": "Échec de l'approbation. Veuillez réessayer.",
+    "rejectFailed": "Échec du refus. Veuillez réessayer."
+  },
+  "subtitle": "Gérez vos demandes d'absence",
+  "stats": {
+    "pending": "En attente",
+    "pendingSub": "En attente d'approbation",
+    "approved": "Approuvés",
+    "approvedSub": "Total approuvé",
+    "thisMonth": "Ce mois-ci",
+    "thisMonthSub": "Approuvés ce mois-ci",
+    "cancelled": "Annulés",
+    "cancelledSub": "Demandes retirées"
+  },
+  "myRequests": {
+    "title": "Mes demandes",
+    "description": "Toutes vos demandes de congé",
+    "loading": "Chargement…",
+    "empty": "Aucune demande de congé."
+  },
+  "teamRequests": {
+    "title": "Demandes de l'équipe",
+    "description": "Demandes de congé en attente de votre examen",
+    "loading": "Chargement…",
+    "empty": "Aucune demande en attente."
+  },
+  "validation": {
+    "selectType": "Veuillez choisir un type de congé.",
+    "selectStart": "Veuillez choisir une date de début.",
+    "selectEnd": "Veuillez choisir une date de fin.",
+    "endAfterStart": "La date de fin doit être égale ou postérieure à la date de début.",
+    "rejectReason": "Veuillez indiquer un motif de refus."
   }
 }

@@ -1,4 +1,5 @@
 import { useSearch } from 'wouter';
+import { useTranslation } from "react-i18next";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/components/providers/auth-provider';
@@ -8,6 +9,7 @@ import OkrDashboard from './okr-dashboard';
 import OkrCycleManagement from './okr-cycle-management';
 
 export default function OkrsPage() {
+  const { t } = useTranslation("okr");
   const { user } = useAuth();
   const search = useSearch();
   const params = new URLSearchParams(search);
@@ -21,10 +23,10 @@ export default function OkrsPage() {
     <div className="space-y-4">
       <Tabs defaultValue={defaultTab}>
         <TabsList>
-          <TabsTrigger value="my-okrs">My OKRs</TabsTrigger>
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+          <TabsTrigger value="my-okrs">{t("pageTabs.myOkrs")}</TabsTrigger>
+          <TabsTrigger value="dashboard">{t("pageTabs.dashboard")}</TabsTrigger>
           {canManage && (
-            <TabsTrigger value="management">Management</TabsTrigger>
+            <TabsTrigger value="management">{t("pageTabs.management")}</TabsTrigger>
           )}
         </TabsList>
 
