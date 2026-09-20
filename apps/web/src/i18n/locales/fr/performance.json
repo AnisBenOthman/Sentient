@@ -1,73 +1,187 @@
 {
-  "title": "Évaluations de Performance",
+  "title": "Évaluations de performance",
+  "subtitle": "Créez des cycles, soumettez des évaluations et suivez les résultats de performance.",
+  "newCycle": "Nouveau cycle",
   "tabs": {
-    "myReviews": "Mes Évaluations",
-    "cycles": "Cycles d'Évaluation",
-    "team": "Évaluations d'Équipe"
+    "mine": "Mes évaluations",
+    "assigned": "Assignées",
+    "cycles": "Cycles",
+    "outcomes": "Résultats"
   },
-  "reviewCycle": {
-    "create": "Nouveau Cycle",
-    "title": "Nom du Cycle",
-    "titlePlaceholder": "ex. Évaluation T2 2026",
+  "panels": {
+    "mineTitle": "Mes évaluations",
+    "mineDescription": "Évaluations qui vous sont assignées en tant qu'employé.",
+    "assignedTitle": "Assignées à moi",
+    "assignedDescription": "Évaluations soumises ou rouvertes en attente de finalisation par le manager.",
+    "outcomesTitle": "Résultats des évaluations",
+    "outcomesDescription_one": "{{count}} évaluation dans le périmètre.",
+    "outcomesDescription_other": "{{count}} évaluations dans le périmètre."
+  },
+  "table": {
+    "employee": "Employé",
+    "reviewer": "Évaluateur",
+    "cycle": "Cycle",
+    "due": "Échéance",
+    "status": "Statut",
+    "rating": "Note",
+    "actions": "Actions",
+    "empty": "Aucune évaluation ne correspond à cette vue.",
+    "gap": "Écart",
+    "pending": "En attente",
+    "details": "Détails",
+    "detailsAria": "Ouvrir les détails de l'évaluation de {{name}}",
+    "selfReview": "Auto-évaluation",
+    "complete": "Finaliser",
+    "reopen": "Rouvrir",
+    "reassign": "Réassigner",
+    "salary": "Salaire"
+  },
+  "cycles": {
+    "title": "Cycles d'évaluation",
+    "configured_one": "{{count}} cycle configuré.",
+    "configured_other": "{{count}} cycles configurés.",
+    "name": "Nom",
     "type": "Type",
-    "startDate": "Date de Début",
-    "endDate": "Date de Fin",
-    "selfDeadline": "Échéance Auto-Évaluation",
-    "managerDeadline": "Échéance Manager",
-    "initiate": "Lancer le Cycle",
+    "window": "Période",
     "status": "Statut",
     "actions": "Actions",
-    "noCycles": "Aucun cycle d'évaluation trouvé."
+    "initiate": "Lancer",
+    "defaultName": "Évaluation annuelle {{year}}"
   },
-  "review": {
-    "status": "Statut",
-    "selfReview": "Auto-Évaluation",
-    "managerReview": "Évaluation Manager",
-    "overallRating": "Note Globale",
-    "selfRating": "Note Auto",
-    "achievements": "Réalisations",
-    "improvements": "Axes d'Amélioration",
-    "goals": "Objectifs pour la Prochaine Période",
-    "managerComments": "Commentaires du Manager",
-    "satisfactionLevel": "Niveau de Satisfaction",
-    "submitSelf": "Soumettre l'Auto-Évaluation",
-    "submitManager": "Soumettre l'Évaluation Manager",
-    "submitting": "Envoi…",
-    "reopen": "Rouvrir",
-    "reassign": "Réaffecter l'Évaluateur",
-    "salaryFollowUp": "Suivi Salarial",
-    "noReviews": "Aucune évaluation trouvée."
+  "outcomes": {
+    "title": "Résultats",
+    "description": "Filtrez les évaluations incomplètes, en retard, terminées et avec écart de notation.",
+    "statusPlaceholder": "Statut",
+    "allStatuses": "Tous les statuts",
+    "ratingGapPlaceholder": "Écart de notation",
+    "allRatings": "Toutes les notes",
+    "ratingGapsOnly": "Écarts de notation uniquement",
+    "overduePlaceholder": "En retard",
+    "allDueDates": "Toutes les échéances",
+    "overdueOnly": "En retard uniquement",
+    "reset": "Réinitialiser"
+  },
+  "cycleDialog": {
+    "title": "Créer un cycle d'évaluation",
+    "name": "Nom",
+    "type": "Type",
+    "periodStart": "Début de période",
+    "periodEnd": "Fin de période",
+    "selfOpens": "Ouverture de l'auto-évaluation",
+    "selfCloses": "Clôture de l'auto-évaluation",
+    "managerDue": "Échéance manager",
+    "create": "Créer"
+  },
+  "selfDialog": {
+    "title": "Soumettre l'auto-évaluation",
+    "submit": "Soumettre",
+    "environment": "Satisfaction vis-à-vis de l'environnement de travail",
+    "job": "Satisfaction professionnelle",
+    "relationships": "Satisfaction vis-à-vis des relations d'équipe",
+    "workLife": "Équilibre vie professionnelle / vie privée",
+    "training": "Formations suivies (0 – 100)",
+    "selfRating": "Auto-notation",
+    "comments": "Commentaires de l'employé"
+  },
+  "managerDialog": {
+    "title": "Finaliser l'évaluation du manager",
+    "rating": "Note du manager",
+    "comments": "Commentaires du manager",
+    "complete": "Finaliser"
+  },
+  "hrDialog": {
+    "reopenTitle": "Rouvrir l'évaluation",
+    "reassignTitle": "Réassigner l'évaluateur",
+    "salaryTitle": "Enregistrer un suivi salarial",
+    "reviewer": "Évaluateur",
+    "reviewerPlaceholder": "Sélectionner un évaluateur",
+    "salaryHistoryId": "Identifiant d'historique salarial",
+    "salaryHistoryIdPlaceholder": "UUID d'historique salarial (facultatif)",
+    "reason": "Motif",
+    "salaryDefaultReason": "Suivi de rémunération suite à l'évaluation annuelle"
+  },
+  "detail": {
+    "title": "Détails de l'évaluation de performance",
+    "subtitle": "{{employee}} évalué par {{reviewer}}",
+    "loadingSubtitle": "Chargement des détails de l'évaluation",
+    "loading": "Chargement des détails…",
+    "unavailable": "Les détails de l'évaluation sont indisponibles.",
+    "defaultCycle": "Cycle d'évaluation",
+    "positionNotSet": "Poste non défini",
+    "reviewerLine": "{{position}} avec {{reviewer}} comme évaluateur",
+    "ratingGap": "Écart de notation",
+    "overdue": "En retard",
+    "due": "Échéance",
+    "org": "Organisation",
+    "followUps": "Suivis",
+    "selfRating": "Auto-notation",
+    "managerRating": "Note du manager",
+    "submittedAt": "Soumise le {{when}}",
+    "awaitingSelf": "En attente de l'auto-évaluation",
+    "completedAt": "Finalisée le {{when}}",
+    "awaitingManager": "En attente de l'évaluation du manager",
+    "satisfactionSnapshot": "Aperçu de la satisfaction",
+    "workEnvironment": "Environnement de travail",
+    "jobSatisfaction": "Satisfaction professionnelle",
+    "teamRelationships": "Relations d'équipe",
+    "workLifeBalance": "Équilibre vie pro / vie privée",
+    "trainingTaken": "Formations suivies",
+    "reviewDate": "Date d'évaluation",
+    "narrative": "Commentaires",
+    "employeeComments": "Commentaires de l'employé",
+    "managerComments": "Commentaires du manager",
+    "reopenReason": "Motif de réouverture",
+    "timeline": "Chronologie",
+    "submitted": "Soumise",
+    "completed": "Finalisée",
+    "reopened": "Rouverte"
+  },
+  "fallback": {
+    "employee": "Employé",
+    "reviewer": "Évaluateur",
+    "notSet": "Non défini",
+    "notProvided": "Non renseigné"
+  },
+  "toasts": {
+    "cycleCreated": "Cycle d'évaluation créé",
+    "cycleInitiated": "Cycle d'évaluation lancé",
+    "cycleInitiatedDetail": "{{created}} assignées, {{skipped}} existaient déjà, {{missing}} sans évaluateur.",
+    "selfSubmitted": "Auto-évaluation soumise",
+    "managerCompleted": "Évaluation du manager finalisée",
+    "actionSaved": "Action enregistrée"
   },
   "ratings": {
     "UNACCEPTABLE": "Inacceptable",
-    "NEEDS_IMPROVEMENT": "À Améliorer",
-    "MEETS_EXPECTATIONS": "Conforme aux Attentes",
-    "EXCEEDS_EXPECTATIONS": "Dépasse les Attentes",
+    "NEEDS_IMPROVEMENT": "À améliorer",
+    "MEETS_EXPECTATIONS": "Conforme aux attentes",
+    "EXCEEDS_EXPECTATIONS": "Supérieur aux attentes",
     "ABOVE_AND_BEYOND": "Exceptionnel"
   },
   "satisfaction": {
-    "VERY_DISSATISFIED": "Très Insatisfait",
+    "VERY_DISSATISFIED": "Très insatisfait",
     "DISSATISFIED": "Insatisfait",
     "NEUTRAL": "Neutre",
     "SATISFIED": "Satisfait",
-    "VERY_SATISFIED": "Très Satisfait"
+    "VERY_SATISFIED": "Très satisfait"
+  },
+  "reviewStatus": {
+    "PENDING": "En attente",
+    "IN_PROGRESS": "En cours",
+    "SUBMITTED": "Soumise",
+    "COMPLETED": "Terminée",
+    "REOPENED": "Rouverte",
+    "CLOSED": "Clôturée",
+    "CANCELLED": "Annulée"
   },
   "cycleStatus": {
     "DRAFT": "Brouillon",
     "ACTIVE": "Actif",
     "CLOSED": "Clôturé",
-    "ARCHIVED": "Archivé"
+    "CANCELLED": "Annulé"
   },
-  "reviewStatus": {
-    "NOT_STARTED": "Non Démarré",
-    "SELF_REVIEW_PENDING": "Auto-Évaluation en Attente",
-    "MANAGER_REVIEW_PENDING": "Évaluation Manager en Attente",
-    "COMPLETED": "Terminé",
-    "LOCKED": "Verrouillé"
-  },
-  "errors": {
-    "ReviewAlreadySubmitted": "Cette évaluation a déjà été soumise.",
-    "UnauthorizedReview": "Vous n'êtes pas autorisé à soumettre cette évaluation.",
-    "generic": "Échec de l'enregistrement. Veuillez réessayer."
+  "reviewType": {
+    "ANNUAL": "Annuelle",
+    "MID_YEAR": "Semestrielle",
+    "PROBATION": "Période d'essai"
   }
 }
