@@ -230,15 +230,15 @@ export default function Welcome() {
                 data-testid={`testimonial-${id}`}
               >
                 <p className="text-sm leading-relaxed mb-5 text-foreground/80">
-                  &ldquo;{t(`welcome.testimonials.${id}.quote` as const)}&rdquo;
+                  &ldquo;{t(`welcome.testimonials.${id}Quote` as const)}&rdquo;
                 </p>
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
                     {id.toUpperCase()}
                   </div>
                   <div>
-                    <div className="text-sm font-semibold">{t(`welcome.testimonials.${id}.name` as const)}</div>
-                    <div className="text-xs text-muted-foreground">{t(`welcome.testimonials.${id}.role` as const)}</div>
+                    <div className="text-sm font-semibold">{t(`welcome.testimonials.${id}Name` as const)}</div>
+                    <div className="text-xs text-muted-foreground">{t(`welcome.testimonials.${id}Role` as const)}</div>
                   </div>
                 </div>
               </div>

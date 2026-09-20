@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "node scripts/check-locale-parity.mjs && tsc --noEmit && vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "check:i18n": "node scripts/check-locale-parity.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
