@@ -1,0 +1,17 @@
+{
+  "title": "Recrutement",
+  "subtitle": "Gérez les postes ouverts et les pipelines de candidats",
+  "postNewJob": "Publier une offre",
+  "activeRoles": "Postes actifs",
+  "totalApplicants": "Candidats au total",
+  "offersPending": "Offres en attente",
+  "activePipelines": "Pipelines actifs",
+  "totalApplicantsInline": "candidats au total",
+  "viewPipeline": "Voir le pipeline",
+  "stages": {
+    "sourcing": "Sourcing",
+    "interview": "Entretien",
+    "offer": "Offre",
+    "hired": "Recruté"
+  }
+}

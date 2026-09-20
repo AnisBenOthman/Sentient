@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   FileText,
@@ -60,7 +61,7 @@ import {
   downloadDocument,
   extractApiError,
   DOCUMENT_CATEGORIES,
-  DOCUMENT_ERROR_MESSAGES,
+  apiErrorMessage,
   type DocumentCategory,
   type DocumentResponse,
 } from "@/lib/api/social";
@@ -88,16 +89,11 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function categoryLabel(cat: DocumentCategory): string {
-  const map: Record<DocumentCategory, string> = {
-    INTERNAL_POLICY: "Internal Policy",
-    HANDBOOK: "Handbook",
-    REGULATION: "Regulation",
-    TEMPLATE: "Template",
-    GUIDE: "Guide",
-    OTHER: "Other",
-  };
-  return map[cat];
+/** WHY a hook: the label is translated, so it needs the component's `t`. */
+function useCategoryLabel(): (cat: DocumentCategory) => string {
+  const { t } = useTranslation("social");
+  return (cat) =>
+    t(`documents.categories.${cat}` as "documents.categories.OTHER", { defaultValue: cat });
 }
 
 async function extractDocumentErrorCode(err: unknown): Promise<string> {
@@ -133,6 +129,8 @@ function DocumentFormModal({
   existing,
   onSuccess,
 }: DocumentFormProps) {
+  const { t } = useTranslation(["social", "common"]);
+  const categoryLabel = useCategoryLabel();
   const { toast } = useToast();
   const [title, setTitle] = useState(existing?.title ?? "");
   const [description, setDescription] = useState(
@@ -152,15 +150,13 @@ function DocumentFormModal({
       onSuccess();
       onClose();
       toast({
-        title: isEdit ? "Document updated" : "Document uploaded",
+        title: isEdit ? t("documents.updated") : t("documents.uploaded"),
       });
     },
     onError: (err: unknown) => {
       const code = extractApiError(err);
-      const msg =
-        DOCUMENT_ERROR_MESSAGES[code] ??
-        "Failed to complete the action. Please try again.";
-      toast({ title: "Error", description: msg, variant: "destructive" });
+      const msg = apiErrorMessage(code, t("documents.actionFailed"));
+      toast({ title: t("common:error"), description: msg, variant: "destructive" });
     },
   });
 
@@ -175,8 +171,8 @@ function DocumentFormModal({
     if (file) fd.append("file", file);
     if (!isEdit && !file) {
       toast({
-        title: "Error",
-        description: "Please select a file to upload.",
+        title: t("common:error"),
+        description: t("documents.selectFile"),
         variant: "destructive",
       });
       return;
@@ -189,12 +185,12 @@ function DocumentFormModal({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {isEdit ? "Edit document" : "Upload document"}
+            {isEdit ? t("documents.edit") : t("documents.upload")}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
-            <Label>Title *</Label>
+            <Label>{t("documents.titleLabel")}</Label>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -204,7 +200,7 @@ function DocumentFormModal({
             />
           </div>
           <div className="space-y-1">
-            <Label>Description</Label>
+            <Label>{t("documents.description")}</Label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -213,7 +209,7 @@ function DocumentFormModal({
             />
           </div>
           <div className="space-y-1">
-            <Label>Category *</Label>
+            <Label>{t("documents.category")}</Label>
             <Select
               value={category}
               onValueChange={(v) => setCategory(v as DocumentCategory)}
@@ -236,10 +232,10 @@ function DocumentFormModal({
               checked={isPublic}
               onCheckedChange={setIsPublic}
             />
-            <Label htmlFor="isPublic">Visible to all employees</Label>
+            <Label htmlFor="isPublic">{t("documents.isPublic")}</Label>
           </div>
           <div className="space-y-1">
-            <Label>{isEdit ? "Replace file (optional)" : "File *"}</Label>
+            <Label>{isEdit ? t("documents.replaceFile") : t("documents.file")}</Label>
             <Input type="file" ref={fileRef} accept=".pdf,.docx,.txt,.md,.html" />
           </div>
           <DialogFooter>
@@ -249,14 +245,14 @@ function DocumentFormModal({
               onClick={onClose}
               disabled={mutation.isPending}
             >
-              Cancel
+              {t("common:cancel")}
             </Button>
             <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending
-                ? "Saving…"
+                ? t("documents.saving")
                 : isEdit
-                ? "Save changes"
-                : "Upload"}
+                ? t("documents.saveChanges")
+                : t("documents.upload")}
             </Button>
           </DialogFooter>
         </form>
@@ -269,6 +265,8 @@ function DocumentFormModal({
 // Main page
 // ---------------------------------------------------------------------------
 export default function DocumentsPage() {
+  const { t } = useTranslation(["social", "common"]);
+  const categoryLabel = useCategoryLabel();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -319,25 +317,21 @@ export default function DocumentsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["documents"] });
       setDeleteDoc(null);
-      toast({ title: "Document deleted" });
+      toast({ title: t("documents.deleted") });
     },
     onError: (err: unknown) => {
       const code = extractApiError(err);
-      const msg =
-        DOCUMENT_ERROR_MESSAGES[code] ??
-        "Failed to delete document. Please try again.";
-      toast({ title: "Error", description: msg, variant: "destructive" });
+      const msg = apiErrorMessage(code, t("documents.deleteFailed"));
+      toast({ title: t("common:error"), description: msg, variant: "destructive" });
     },
   });
 
   function handleDownload(doc: DocumentResponse) {
     downloadDocument(doc.id, doc.title, doc.mimeType).catch(async (err: unknown) => {
       const code = await extractDocumentErrorCode(err);
-      const msg =
-        DOCUMENT_ERROR_MESSAGES[code] ??
-        "Failed to complete the action. Please try again.";
+      const msg = apiErrorMessage(code, t("documents.actionFailed"));
       toast({
-        title: "Download failed",
+        title: t("documents.downloadFailed"),
         description: msg,
         variant: "destructive",
       });
@@ -350,12 +344,12 @@ export default function DocumentsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <FileText className="h-6 w-6" />
-          <h1 className="text-2xl font-bold">Documents</h1>
+          <h1 className="text-2xl font-bold">{t("documents.title")}</h1>
         </div>
         {isAdmin && (
           <Button onClick={() => setUploadOpen(true)}>
             <Upload className="mr-2 h-4 w-4" />
-            Upload document
+            {t("documents.upload")}
           </Button>
         )}
       </div>
@@ -364,7 +358,7 @@ export default function DocumentsPage() {
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search by title…"
+          placeholder={t("documents.searchPlaceholder")}
           className="pl-9"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
@@ -386,7 +380,7 @@ export default function DocumentsPage() {
           className="cursor-pointer"
           onClick={() => setActiveCategory(null)}
         >
-          All
+          {t("documents.all")}
         </Badge>
         {DOCUMENT_CATEGORIES.map((cat) => (
           <Badge
@@ -404,15 +398,15 @@ export default function DocumentsPage() {
 
       {/* Document grid */}
       {isLoading ? (
-        <div className="text-muted-foreground text-center py-16">Loading…</div>
+        <div className="text-muted-foreground text-center py-16">{t("documents.loading")}</div>
       ) : !data?.items.length ? (
         <div className="text-center py-16 text-muted-foreground space-y-4">
           <FileText className="mx-auto h-12 w-12 opacity-30" />
-          <p className="text-lg">No documents yet</p>
+          <p className="text-lg">{t("documents.empty")}</p>
           {isAdmin && (
             <Button onClick={() => setUploadOpen(true)}>
               <Upload className="mr-2 h-4 w-4" />
-              Upload your first document
+              {t("documents.uploadFirst")}
             </Button>
           )}
         </div>
@@ -437,7 +431,7 @@ export default function DocumentsPage() {
                 <p>
                   {doc.uploadedBy
                     ? `${doc.uploadedBy.firstName} ${doc.uploadedBy.lastName}`
-                    : "Unknown"}
+                    : t("documents.unknownUploader")}
                 </p>
                 <p>
                   {new Date(doc.createdAt).toLocaleDateString()} ·{" "}
@@ -452,7 +446,7 @@ export default function DocumentsPage() {
                   onClick={() => handleDownload(doc)}
                 >
                   <Download className="mr-2 h-3.5 w-3.5" />
-                  Download
+                  {t("documents.download")}
                 </Button>
                 {isAdmin && (
                   <>
@@ -488,10 +482,10 @@ export default function DocumentsPage() {
             disabled={page <= 1}
           >
             <ChevronLeft className="h-4 w-4" />
-            Previous
+            {t("documents.previous")}
           </Button>
           <span className="text-sm text-muted-foreground">
-            Page {page} of {totalPages}
+            {t("documents.page")} {page} / {totalPages}
           </span>
           <Button
             variant="outline"
@@ -499,7 +493,7 @@ export default function DocumentsPage() {
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages}
           >
-            Next
+            {t("documents.next")}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -535,14 +529,13 @@ export default function DocumentsPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete document?</AlertDialogTitle>
+            <AlertDialogTitle>{t("documents.deleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              "{deleteDoc?.title}" will be permanently deleted. This action
-              cannot be undone.
+              {t("documents.deleteBody", { title: deleteDoc?.title ?? "" })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() =>
@@ -550,7 +543,7 @@ export default function DocumentsPage() {
               }
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? "Deleting…" : "Delete"}
+              {deleteMutation.isPending ? t("documents.deleting") : t("common:delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

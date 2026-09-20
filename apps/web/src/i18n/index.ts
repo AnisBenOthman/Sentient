@@ -16,8 +16,10 @@ import enOkr from "./locales/en/okr.json";
 import enOrgChart from "./locales/en/org-chart.json";
 import enPerformance from "./locales/en/performance.json";
 import enPositions from "./locales/en/positions.json";
+import enRecruitment from "./locales/en/recruitment.json";
 import enSettings from "./locales/en/settings.json";
 import enSimulation from "./locales/en/simulation.json";
+import enSocial from "./locales/en/social.json";
 import enTour from "./locales/en/tour.json";
 
 import frAi from "./locales/fr/ai.json";
@@ -35,8 +37,10 @@ import frOkr from "./locales/fr/okr.json";
 import frOrgChart from "./locales/fr/org-chart.json";
 import frPerformance from "./locales/fr/performance.json";
 import frPositions from "./locales/fr/positions.json";
+import frRecruitment from "./locales/fr/recruitment.json";
 import frSettings from "./locales/fr/settings.json";
 import frSimulation from "./locales/fr/simulation.json";
+import frSocial from "./locales/fr/social.json";
 import frTour from "./locales/fr/tour.json";
 
 /**
@@ -72,8 +76,10 @@ const resources = {
     "org-chart": enOrgChart,
     performance: enPerformance,
     positions: enPositions,
+    recruitment: enRecruitment,
     settings: enSettings,
     simulation: enSimulation,
+    social: enSocial,
     tour: enTour,
   },
   fr: {
@@ -92,8 +98,10 @@ const resources = {
     "org-chart": frOrgChart,
     performance: frPerformance,
     positions: frPositions,
+    recruitment: frRecruitment,
     settings: frSettings,
     simulation: frSimulation,
+    social: frSocial,
     tour: frTour,
   },
 } as const;

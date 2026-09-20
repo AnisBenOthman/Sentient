@@ -1,0 +1,17 @@
+{
+  "title": "Recruitment",
+  "subtitle": "Manage open positions and candidate pipelines",
+  "postNewJob": "Post New Job",
+  "activeRoles": "Active Roles",
+  "totalApplicants": "Total Applicants",
+  "offersPending": "Offers Pending",
+  "activePipelines": "Active Pipelines",
+  "totalApplicantsInline": "total applicants",
+  "viewPipeline": "View Pipeline",
+  "stages": {
+    "sourcing": "Sourcing",
+    "interview": "Interview",
+    "offer": "Offer",
+    "hired": "Hired"
+  }
+}
