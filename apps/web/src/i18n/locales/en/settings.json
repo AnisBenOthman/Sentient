@@ -25,10 +25,75 @@
       "EMPLOYEES_PROBATION": "Employees on probation",
       "LEAVE_PENDING_APPROVALS": "Pending leave approvals",
       "PROMOTIONS_PENDING_REQUESTS": "Pending promotions"
-    }
+    },
+    "unitPercentage": "percentage value",
+    "unitCount": "count"
   },
   "tour": {
     "restartButton": "Restart Guided Tour",
     "description": "Replay the guided tour to rediscover key features of the platform."
+  },
+  "subtitle": "Manage organizational configurations and preferences",
+  "company": {
+    "title": "Company Details",
+    "description": "Basic information about your organization",
+    "nameLabel": "Company Name",
+    "taxIdLabel": "Tax ID / EIN",
+    "addressLabel": "Headquarters Address",
+    "save": "Save Changes"
+  },
+  "policies": {
+    "title": "HR Policies",
+    "description": "Configure global rules and permissions",
+    "autoApproveTitle": "Auto-approve Time Off",
+    "autoApproveHint": "Automatically approve requests under 2 days",
+    "publicDirectoryTitle": "Public Directory",
+    "publicDirectoryHint": "Allow all employees to view the org chart",
+    "performanceReviewsTitle": "Performance Reviews",
+    "performanceReviewsHint": "Enable quarterly 360 review cycles"
+  },
+  "toasts": {
+    "thresholdSaved": "Threshold saved",
+    "thresholdSaveFailed": "Failed to save threshold",
+    "thresholdRemoved": "Threshold removed",
+    "thresholdRemoveFailed": "Failed to remove threshold"
+  },
+  "orgStructure": {
+    "title": "Organization Structure",
+    "description": "Manage Business Units, Departments, and Teams. Departments belong to a Business Unit; Teams belong to a Department.",
+    "businessUnits": "Business Units",
+    "noBusinessUnits": "No business units yet. Add one below.",
+    "newBusinessUnitName": "New business unit name",
+    "newBusinessUnitCurrency": "New business unit currency",
+    "addBusinessUnit": "Add Business Unit",
+    "departments": "Departments",
+    "addDepartment": "Add Department",
+    "teams": "Teams",
+    "addTeam": "Add Team",
+    "name": "Name",
+    "namePlaceholder": "e.g. Customer Success",
+    "code": "Code",
+    "businessUnitRequired": "Business Unit *",
+    "selectBusinessUnit": "Select BU",
+    "teamName": "Team name",
+    "teamNamePlaceholder": "e.g. Platform Engineering",
+    "departmentRequired": "Department *",
+    "selectDepartment": "Select Department",
+    "add": "Add",
+    "noDepartments": "No departments yet. Add one above.",
+    "noTeams": "No teams yet. Add one above.",
+    "unassignedBusinessUnit": "Unassigned BU",
+    "unassignedDepartment": "Unassigned department",
+    "nameRequired": "Name is required.",
+    "currencyInvalid": "Currency must be a 3-letter code.",
+    "deleteBusinessUnitTitle": "Delete Business Unit?",
+    "deleteDepartmentTitle": "Delete Department?",
+    "deleteTeamTitle": "Delete Team?",
+    "deleteBody": "Are you sure you want to delete <1>{{name}}</1>? This action cannot be undone and may affect related records.",
+    "codeRequired": "Code is required.",
+    "businessUnitRequiredError": "Business unit is required.",
+    "departmentRequiredError": "Department is required.",
+    "codePlaceholderDept": "e.g. CS",
+    "codePlaceholderTeam": "e.g. PLAT"
   }
 }

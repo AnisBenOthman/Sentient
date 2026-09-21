@@ -103,7 +103,9 @@ function ThresholdRow({
         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
           {t(`thresholds.metrics.${def.key}`)}
         </p>
-        <p className="text-xs text-muted-foreground">{def.unit === "%" ? "percentage value" : "count"}</p>
+        <p className="text-xs text-muted-foreground">
+          {def.unit === "%" ? t("thresholds.unitPercentage") : t("thresholds.unitCount")}
+        </p>
       </div>
 
       {editing ? (
@@ -220,10 +222,10 @@ export default function Settings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["threshold-indicators"] });
-      toast({ title: "Threshold saved" });
+      toast({ title: t("toasts.thresholdSaved") });
     },
     onError: (error) => toast({
-      title: "Failed to save threshold",
+      title: t("toasts.thresholdSaveFailed"),
       description: error instanceof Error ? error.message : undefined,
       variant: "destructive",
     }),
@@ -233,9 +235,9 @@ export default function Settings() {
     mutationFn: deleteThresholdIndicator,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["threshold-indicators"] });
-      toast({ title: "Threshold removed" });
+      toast({ title: t("toasts.thresholdRemoved") });
     },
-    onError: () => toast({ title: "Failed to remove threshold", variant: "destructive" }),
+    onError: () => toast({ title: t("toasts.thresholdRemoveFailed"), variant: "destructive" }),
   });
 
   return (
@@ -244,60 +246,60 @@ export default function Settings() {
         <h1 className="text-3xl font-bold tracking-tight" data-testid="heading-settings">
           {t("title")}
         </h1>
-        <p className="text-muted-foreground mt-1">Manage organizational configurations and preferences</p>
+        <p className="text-muted-foreground mt-1">{t("subtitle")}</p>
       </div>
 
       <div className="grid gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Company Details</CardTitle>
-            <CardDescription>Basic information about your organization</CardDescription>
+            <CardTitle>{t("company.title")}</CardTitle>
+            <CardDescription>{t("company.description")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="company-name">Company Name</Label>
+                <Label htmlFor="company-name">{t("company.nameLabel")}</Label>
                 <Input id="company-name" defaultValue="Sentient Corp" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="tax-id">Tax ID / EIN</Label>
+                <Label htmlFor="tax-id">{t("company.taxIdLabel")}</Label>
                 <Input id="tax-id" defaultValue="12-3456789" type="password" />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="address">Headquarters Address</Label>
+              <Label htmlFor="address">{t("company.addressLabel")}</Label>
               <Input id="address" defaultValue="100 Innovation Drive, San Francisco, CA 94105" />
             </div>
-            <Button>Save Changes</Button>
+            <Button>{t("company.save")}</Button>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>HR Policies</CardTitle>
-            <CardDescription>Configure global rules and permissions</CardDescription>
+            <CardTitle>{t("policies.title")}</CardTitle>
+            <CardDescription>{t("policies.description")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label className="text-base">Auto-approve Time Off</Label>
-                <p className="text-sm text-muted-foreground">Automatically approve requests under 2 days</p>
+                <Label className="text-base">{t("policies.autoApproveTitle")}</Label>
+                <p className="text-sm text-muted-foreground">{t("policies.autoApproveHint")}</p>
               </div>
               <Switch defaultChecked />
             </div>
             <Separator />
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label className="text-base">Public Directory</Label>
-                <p className="text-sm text-muted-foreground">Allow all employees to view the org chart</p>
+                <Label className="text-base">{t("policies.publicDirectoryTitle")}</Label>
+                <p className="text-sm text-muted-foreground">{t("policies.publicDirectoryHint")}</p>
               </div>
               <Switch defaultChecked />
             </div>
             <Separator />
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label className="text-base">Performance Reviews</Label>
-                <p className="text-sm text-muted-foreground">Enable quarterly 360 review cycles</p>
+                <Label className="text-base">{t("policies.performanceReviewsTitle")}</Label>
+                <p className="text-sm text-muted-foreground">{t("policies.performanceReviewsHint")}</p>
               </div>
               <Switch defaultChecked />
             </div>

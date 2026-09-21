@@ -1,5 +1,6 @@
 {
   "save": "Save",
+  "saving": "Saving…",
   "cancel": "Cancel",
   "delete": "Delete",
   "edit": "Edit",
@@ -65,8 +66,15 @@
   "table": {
     "noRows": "No records to display."
   },
+  "notAvailable": "N/A",
+  "daysCount_one": "{{count}} day",
+  "daysCount_other": "{{count}} days",
   "unsavedChanges": "You have unsaved changes.",
   "confirmDelete": "Are you sure you want to delete this? This action cannot be undone.",
   "somethingWentWrong": "Something went wrong. Please try again.",
-  "serviceUnavailable": "Service unavailable. Please try again later."
+  "serviceUnavailable": "Service unavailable. Please try again later.",
+  "notFound": {
+    "title": "404 Page Not Found",
+    "hint": "Did you forget to add the page to the router?"
+  }
 }

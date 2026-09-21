@@ -1,27 +1,58 @@
 import { Link, useLocation } from "wouter";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { Brain, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle, AlertCircle } from "lucide-react";
 import { claimInvite } from "@/lib/api/hr-core";
 
-function validatePassword(pw: string): string | undefined {
-  if (pw.length < 8) return "Password must be at least 8 characters.";
-  if (!/[A-Z]/.test(pw)) return "Must contain at least one uppercase letter.";
-  if (!/[a-z]/.test(pw)) return "Must contain at least one lowercase letter.";
-  if (!/\d/.test(pw)) return "Must contain at least one number.";
-  if (!/[^a-zA-Z\d]/.test(pw)) return "Must contain at least one special character.";
+/**
+ * WHY keys and not messages: validation runs outside the component tree, so it
+ * has no `t`. Returning the locale key defers the wording to render time, which
+ * also means a language switch re-renders the message already on screen.
+ */
+type PasswordErrorKey =
+  | "minLength"
+  | "uppercase"
+  | "lowercase"
+  | "number"
+  | "special"
+  | "mismatch"
+  | "expiredInvite"
+  | "weakPassword"
+  | "reuse"
+  | "generic";
+
+function validatePassword(pw: string): PasswordErrorKey | undefined {
+  if (pw.length < 8) return "minLength";
+  if (!/[A-Z]/.test(pw)) return "uppercase";
+  if (!/[a-z]/.test(pw)) return "lowercase";
+  if (!/\d/.test(pw)) return "number";
+  if (!/[^a-zA-Z\d]/.test(pw)) return "special";
   return undefined;
+}
+
+function apiErrorKey(error: unknown): PasswordErrorKey {
+  const msg = error instanceof Error ? error.message : String(error);
+  if (msg.includes("Invalid or expired")) return "expiredInvite";
+  if (msg.includes("too weak") || msg.includes("complexity")) return "weakPassword";
+  if (msg.includes("reuse")) return "reuse";
+  return "generic";
 }
 
 export default function FirstConnection() {
   const [, navigate] = useLocation();
+  const { t } = useTranslation("auth");
   const token = new URLSearchParams(window.location.search).get("token");
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [errors, setErrors] = useState<{ password?: string; confirmPassword?: string; api?: string }>({});
+  const [errors, setErrors] = useState<{
+    password?: PasswordErrorKey;
+    confirmPassword?: PasswordErrorKey;
+    api?: PasswordErrorKey;
+  }>({});
 
   const { mutate, isPending, isSuccess } = useMutation({
     mutationFn: () => claimInvite(token!, password),
@@ -29,20 +60,15 @@ export default function FirstConnection() {
       setTimeout(() => navigate("/signin"), 3000);
     },
     onError: (err: unknown) => {
-      const msg = err instanceof Error ? err.message : String(err);
-      const apiMsg =
-        msg.includes("Invalid or expired") ? "This invite link is invalid or has expired. Ask your HR admin to resend the invite." :
-        msg.includes("too weak") || msg.includes("complexity") ? "Password does not meet the requirements." :
-        msg.includes("reuse") ? "You cannot reuse a previous password." :
-        "Something went wrong. Please try again.";
-      setErrors((prev) => ({ ...prev, api: apiMsg }));
+      setErrors((prev) => ({ ...prev, api: apiErrorKey(err) }));
     },
   });
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const pwErr = validatePassword(password);
-    const confirmErr = password !== confirmPassword ? "Passwords do not match." : undefined;
+    const confirmErr: PasswordErrorKey | undefined =
+      password !== confirmPassword ? "mismatch" : undefined;
     if (pwErr || confirmErr) {
       setErrors({ password: pwErr, confirmPassword: confirmErr });
       return;
@@ -64,13 +90,13 @@ export default function FirstConnection() {
           <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
             <AlertCircle className="w-6 h-6 text-red-500" />
           </div>
-          <h1 className="text-xl font-bold text-[#1e1b4b]">Invalid invitation link</h1>
+          <h1 className="text-xl font-bold text-[#1e1b4b]">{t("firstConnection.invalidLink")}</h1>
           <p className="text-slate-400 text-sm text-center">
-            This link is missing a token. Please use the link from your invitation email, or ask your HR admin to resend it.
+            {t("firstConnection.invalidLinkDescription")}
           </p>
           <Link href="/signin">
             <button className="mt-2 text-sm text-[#4f46e5] hover:underline font-medium">
-              Back to Sign In
+              {t("firstConnection.backToSignIn")}
             </button>
           </Link>
         </div>
@@ -121,10 +147,10 @@ export default function FirstConnection() {
         </div>
 
         <h1 className="text-2xl font-bold text-[#1e1b4b] mb-2" data-testid="first-connection-heading">
-          Set your password
+          {t("firstConnection.heading")}
         </h1>
         <p className="text-slate-400 text-sm mb-8 text-center">
-          Welcome! Create a password to activate your account.
+          {t("firstConnection.subtitle")}
         </p>
 
         {isSuccess ? (
@@ -136,10 +162,10 @@ export default function FirstConnection() {
               <CheckCircle className="w-7 h-7 text-[#4f46e5]" />
             </div>
             <p className="text-zinc-700 text-sm text-center font-medium">
-              Your password has been set successfully.
+              {t("firstConnection.successMessage")}
             </p>
             <p className="text-slate-400 text-xs text-center">
-              Redirecting you to sign in…
+              {t("firstConnection.redirecting")}
             </p>
             <Link href="/signin">
               <button
@@ -147,7 +173,7 @@ export default function FirstConnection() {
                 className="mt-2 w-full h-11 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:bg-[#4338ca]"
                 style={{ background: "#4f46e5" }}
               >
-                Go to Sign In
+                {t("firstConnection.goToSignIn")}
                 <ArrowRight className="w-4 h-4" />
               </button>
             </Link>
@@ -158,14 +184,16 @@ export default function FirstConnection() {
               {errors.api && (
                 <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 px-3.5 py-3">
                   <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
-                  <p className="text-red-600 text-xs leading-relaxed" data-testid="error-api">{errors.api}</p>
+                  <p className="text-red-600 text-xs leading-relaxed" data-testid="error-api">
+                    {t(`firstConnection.errors.${errors.api}` as const)}
+                  </p>
                 </div>
               )}
 
               {/* New Password */}
               <div className="space-y-1.5">
                 <label htmlFor="password" className="block text-sm font-medium text-zinc-600">
-                  New password
+                  {t("firstConnection.newPasswordLabel")}
                 </label>
                 <div className="relative">
                   <input
@@ -178,7 +206,7 @@ export default function FirstConnection() {
                       setPassword(e.target.value);
                       if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
                     }}
-                    placeholder="Min. 8 chars, upper, lower, number, symbol"
+                    placeholder={t("firstConnection.newPasswordPlaceholder")}
                     data-testid="input-password"
                     className={`w-full h-11 px-3.5 pr-10 rounded-xl border bg-white text-zinc-900 text-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#818cf8] focus:border-transparent transition-all ${
                       errors.password ? "border-red-400" : "border-gray-200"
@@ -195,7 +223,7 @@ export default function FirstConnection() {
                 </div>
                 {errors.password && (
                   <p className="text-red-500 text-xs mt-1" data-testid="error-password">
-                    {errors.password}
+                    {t(`firstConnection.errors.${errors.password}` as const)}
                   </p>
                 )}
               </div>
@@ -203,7 +231,7 @@ export default function FirstConnection() {
               {/* Confirm Password */}
               <div className="space-y-1.5">
                 <label htmlFor="confirm-password" className="block text-sm font-medium text-zinc-600">
-                  Confirm password
+                  {t("firstConnection.confirmPasswordLabel")}
                 </label>
                 <div className="relative">
                   <input
@@ -216,7 +244,7 @@ export default function FirstConnection() {
                       setConfirmPassword(e.target.value);
                       if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
                     }}
-                    placeholder="Re-enter your password"
+                    placeholder={t("firstConnection.confirmPasswordPlaceholder")}
                     data-testid="input-confirm-password"
                     className={`w-full h-11 px-3.5 pr-10 rounded-xl border bg-white text-zinc-900 text-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#818cf8] focus:border-transparent transition-all ${
                       errors.confirmPassword ? "border-red-400" : "border-gray-200"
@@ -233,7 +261,7 @@ export default function FirstConnection() {
                 </div>
                 {errors.confirmPassword && (
                   <p className="text-red-500 text-xs mt-1" data-testid="error-confirm-password">
-                    {errors.confirmPassword}
+                    {t(`firstConnection.errors.${errors.confirmPassword}` as const)}
                   </p>
                 )}
               </div>
@@ -248,11 +276,11 @@ export default function FirstConnection() {
                 {isPending ? (
                   <>
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Setting password…
+                    {t("firstConnection.submitting")}
                   </>
                 ) : (
                   <>
-                    Set password
+                    {t("firstConnection.submitButton")}
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -264,7 +292,7 @@ export default function FirstConnection() {
                 data-testid="btn-back-signin"
                 className="text-sm text-slate-400 hover:text-slate-600 transition-colors flex items-center gap-1 font-medium"
               >
-                <ArrowLeft className="w-3 h-3" /> Back to Sign In
+                <ArrowLeft className="w-3 h-3" /> {t("firstConnection.backToSignIn")}
               </button>
             </Link>
           </>

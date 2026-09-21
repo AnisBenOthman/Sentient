@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -27,12 +28,14 @@ function previewScore(kr: KeyResultResponse, value: string): string {
   return `${Math.min(Math.round((v / target) * 100), 100)}%`;
 }
 
-const schema = z.object({
-  value: z.string().min(1, 'Value is required'),
-  comment: z.string().max(2000).optional(),
-});
+function buildSchema(valueRequired: string) {
+  return z.object({
+    value: z.string().min(1, valueRequired),
+    comment: z.string().max(2000).optional(),
+  });
+}
 
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.infer<ReturnType<typeof buildSchema>>;
 
 interface CheckInFormProps {
   open: boolean;
@@ -41,8 +44,11 @@ interface CheckInFormProps {
 }
 
 export function CheckInForm({ open, onClose, kr }: CheckInFormProps) {
+  const { t } = useTranslation(['okr', 'common']);
   const [formError, setFormError] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  const schema = useMemo(() => buildSchema(t('checkInForm.valueRequired')), [t]);
 
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -61,7 +67,7 @@ export function CheckInForm({ open, onClose, kr }: CheckInFormProps) {
       onClose();
     },
     onError: (err: unknown) => {
-      setFormError(getGatewayErrorMessage(err, 'Failed to submit check-in. Please try again.'));
+      setFormError(getGatewayErrorMessage(err, t('checkInForm.submitFailed')));
     },
   });
 
@@ -69,34 +75,34 @@ export function CheckInForm({ open, onClose, kr }: CheckInFormProps) {
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Submit Check-in</DialogTitle>
+          <DialogTitle>{t('checkInForm.title')}</DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">{kr.title}</p>
 
         <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
           <div className="space-y-1">
             <Label htmlFor="value">
-              Value *{kr.unit ? ` (${kr.unit})` : ''}
-              {kr.metricType === 'BOOLEAN' && ' — 0 or 1'}
+              {t('checkInForm.value')}{kr.unit ? ` (${kr.unit})` : ''}
+              {kr.metricType === 'BOOLEAN' && t('checkInForm.booleanHint')}
             </Label>
             <Input id="value" {...register('value')} type="number" step="any" />
             {errors.value && <p className="text-xs text-destructive">{errors.value.message}</p>}
             <p className="text-xs text-muted-foreground">
-              Preview score: {previewScore(kr, watchedValue)}
+              {t('checkInForm.previewScore')} {previewScore(kr, watchedValue)}
             </p>
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="comment">Comment (optional)</Label>
+            <Label htmlFor="comment">{t('checkInForm.comment')}</Label>
             <Textarea id="comment" {...register('comment')} rows={3} />
           </div>
 
           {formError && <p className="text-sm text-destructive">{formError}</p>}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={onClose}>{t('common:cancel')}</Button>
             <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? 'Submitting…' : 'Submit'}
+              {mutation.isPending ? t('checkInForm.submitting') : t('checkInForm.submit')}
             </Button>
           </DialogFooter>
         </form>

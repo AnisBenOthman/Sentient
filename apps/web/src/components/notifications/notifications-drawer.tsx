@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -14,6 +15,7 @@ import { NotificationsFilterChips } from "./notifications-filter-chips";
 import { useNotifications } from "./notifications-provider";
 
 export function NotificationsDrawer() {
+  const { t } = useTranslation("notifications");
   const queryClient = useQueryClient();
   const {
     open,
@@ -40,12 +42,12 @@ export function NotificationsDrawer() {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetContent className="flex w-full flex-col gap-4 p-4 sm:max-w-md">
         <SheetHeader className="pr-8">
-          <SheetTitle>Notifications</SheetTitle>
-          <SheetDescription>Your recent HR workflow updates</SheetDescription>
+          <SheetTitle>{t("title")}</SheetTitle>
+          <SheetDescription>{t("subtitle")}</SheetDescription>
         </SheetHeader>
         <NotificationsFilterChips value={activeCategory} onChange={setActiveCategory} />
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500">{notifications.length} items</span>
+          <span className="text-xs text-gray-500">{t("items", { count: notifications.length })}</span>
           <div className="flex items-center gap-2">
             <Button
               type="button"
@@ -54,7 +56,7 @@ export function NotificationsDrawer() {
               onClick={() => void markAll()}
               disabled={!notifications.some((n) => n.status === "UNREAD")}
             >
-              Mark all as read
+              {t("markAllRead")}
             </Button>
             <Button
               type="button"
@@ -64,15 +66,15 @@ export function NotificationsDrawer() {
               onClick={() => void clearAll()}
               disabled={notifications.length === 0}
             >
-              Clear all
+              {t("clearAll")}
             </Button>
           </div>
         </div>
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-          {isLoading && <div className="py-8 text-center text-sm text-gray-500">Loading...</div>}
+          {isLoading && <div className="py-8 text-center text-sm text-gray-500">{t("loading")}</div>}
           {!isLoading && notifications.length === 0 && (
             <div className="rounded-md border border-dashed p-8 text-center text-sm text-gray-500">
-              No notifications
+              {t("empty")}
             </div>
           )}
           {notifications.map((notification) => (

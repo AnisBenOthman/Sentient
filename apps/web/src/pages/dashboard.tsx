@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Area,
@@ -122,18 +123,20 @@ type ChartTypeState = {
   set: (id: string, type: ChartType) => void;
 };
 
-function granularitySubtitle(g: TimeGranularity): string {
-  return g === "YEARLY" ? "Last 5 years" : g === "QUARTERLY" ? "Last 8 quarters" : "Last 12 months";
+/** WHY a key and not a sentence: the caller resolves it with its own `t`. */
+function granularitySubtitleKey(g: TimeGranularity): "granularity.yearly" | "granularity.quarterly" | "granularity.monthly" {
+  return g === "YEARLY" ? "granularity.yearly" : g === "QUARTERLY" ? "granularity.quarterly" : "granularity.monthly";
 }
 
-const TABS: { value: Tab; label: string; icon: React.ElementType }[] = [
-  { value: "overview", label: "Overview", icon: LayoutDashboard },
-  { value: "employees", label: "Employees", icon: Users },
-  { value: "leave", label: "Leave Queue", icon: CalendarCheck },
-  { value: "skills", label: "Skills", icon: Sparkles },
-  { value: "pay", label: "Pay", icon: Wallet },
-  { value: "promotions", label: "Promotions", icon: Trophy },
-  { value: "engagement", label: "Engagement", icon: Star },
+/** The tab value keys both the route param and the `dashboard.tabs.*` label. */
+const TABS: { value: Tab; icon: React.ElementType }[] = [
+  { value: "overview", icon: LayoutDashboard },
+  { value: "employees", icon: Users },
+  { value: "leave", icon: CalendarCheck },
+  { value: "skills", icon: Sparkles },
+  { value: "pay", icon: Wallet },
+  { value: "promotions", icon: Trophy },
+  { value: "engagement", icon: Star },
 ];
 
 function isDashboardTab(value: string | null): value is Tab {
@@ -196,21 +199,21 @@ const STATUS_TONE: Record<Exclude<CardStatus, "normal">, {
   badge: string;
   icon: string;
   glow: string;
-  label: string;
+  labelKey: "alerts.warning" | "alerts.critical";
 }> = {
   warning: {
     frame: "border-amber-500/80 bg-amber-50 text-amber-950 shadow-amber-500/15 ring-1 ring-amber-500/25 dark:bg-amber-950/30 dark:text-amber-50",
     badge: "bg-amber-500 text-amber-950 dark:bg-amber-400 dark:text-amber-950",
     icon: "bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-200",
     glow: "bg-amber-400/20",
-    label: "Warning",
+    labelKey: "alerts.warning",
   },
   critical: {
     frame: "border-red-600/90 bg-red-50 text-red-950 shadow-red-600/20 ring-1 ring-red-600/30 dark:bg-red-950/35 dark:text-red-50",
     badge: "bg-red-600 text-red-50 dark:bg-red-500 dark:text-red-50",
     icon: "bg-red-100 text-red-700 dark:bg-red-900/60 dark:text-red-200",
     glow: "bg-red-500/20",
-    label: "Critical",
+    labelKey: "alerts.critical",
   },
 };
 
@@ -231,6 +234,7 @@ function StatCard({
   status?: CardStatus;
   statusLabel?: string;
 }) {
+  const { t } = useTranslation("dashboard");
   const resolvedColor = status !== "normal" ? STATUS_COLOR[status] : color;
   const isAlert = status !== "normal";
   const tone = isAlert ? STATUS_TONE[status] : null;
@@ -271,7 +275,7 @@ function StatCard({
             )}
           >
             <AlertTriangle className="w-2.5 h-2.5" />
-            {tone?.label}: {statusLabel}
+            {tone ? t(tone.labelKey) : ""}: {statusLabel}
           </span>
         )}
       </div>
@@ -288,6 +292,7 @@ interface RiskAlert {
 }
 
 function RiskAlertDeck({ alerts }: { alerts: RiskAlert[] }) {
+  const { t } = useTranslation("dashboard");
   if (alerts.length === 0) return null;
 
   const hasCritical = alerts.some((alert) => alert.status === "critical");
@@ -313,10 +318,10 @@ function RiskAlertDeck({ alerts }: { alerts: RiskAlert[] }) {
           </div>
           <div>
             <p className="text-sm font-bold uppercase tracking-wide">
-              {hasCritical ? "Dashboard check required" : "Dashboard watchlist"}
+              {hasCritical ? t("alerts.checkRequired") : t("alerts.watchlist")}
             </p>
             <p className="text-xs text-current/70">
-              {alerts.length} KPI{alerts.length === 1 ? "" : "s"} crossed configured risk thresholds.
+              {t("alerts.crossed", { count: alerts.length })}
             </p>
           </div>
         </div>
@@ -328,7 +333,7 @@ function RiskAlertDeck({ alerts }: { alerts: RiskAlert[] }) {
                 <div className="flex items-center justify-between gap-3">
                   <p className="truncate text-xs font-semibold">{alert.title}</p>
                   <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase", tone.badge)}>
-                    {tone.label}
+                    {t(tone.labelKey)}
                   </span>
                 </div>
                 <p className="mt-1 text-lg font-bold leading-none">{alert.value}</p>
@@ -421,10 +426,12 @@ function seriesKeys(data: SeriesPoint[]): string[] {
   return Array.from(keys).sort((a, b) => a.localeCompare(b));
 }
 
-function EmptyChart({ label = "No data yet" }: { label?: string }) {
+function EmptyChart({ label }: { label?: string }) {
+  const { t } = useTranslation("dashboard");
+  const text = label ?? t("noDataYet");
   return (
     <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
-      {label}
+      {text}
     </div>
   );
 }
@@ -757,8 +764,9 @@ function OverviewTab({
   cts: ChartTypeState;
   thresholdMap: Record<string, ThresholdConfig>;
 }) {
-  if (!analytics) return <EmptyChart label="Loading analytics..." />;
-  const trendSubtitle = granularitySubtitle(granularity);
+  const { t } = useTranslation("dashboard");
+  if (!analytics) return <EmptyChart label={t("loadingAnalytics")} />;
+  const trendSubtitle = t(granularitySubtitleKey(granularity));
 
   const ovExitsStatus     = computeCardStatus(analytics.employees.terminal,            thresholdMap['EMPLOYEES_EXITS']             ?? {});
   const ovAttritionStatus = computeCardStatus(analytics.employees.attritionRate ?? 0, thresholdMap['EMPLOYEES_ATTRITION_RATE']    ?? {});
@@ -770,21 +778,21 @@ function OverviewTab({
       title: "Probation",
       value: analytics.employees.probation,
       status: ovProbationStatus,
-      message: ovProbationStatus === "critical" ? "High caseload" : "Review caseload",
+      message: ovProbationStatus === "critical" ? t("statusLabels.highCaseload") : t("statusLabels.reviewCaseload"),
     }]),
     ...(ovExitsStatus === "normal" ? [] : [{
       key: "EMPLOYEES_EXITS",
       title: "Exits",
       value: analytics.employees.terminal,
       status: ovExitsStatus,
-      message: ovExitsStatus === "critical" ? "Retention risk" : "Monitor exits",
+      message: ovExitsStatus === "critical" ? t("statusLabels.retentionRisk") : t("statusLabels.monitorExits"),
     }]),
     ...(ovAttritionStatus === "normal" ? [] : [{
       key: "EMPLOYEES_ATTRITION_RATE",
       title: "Exit Rate",
       value: formatRatio(analytics.employees.attritionRate),
       status: ovAttritionStatus,
-      message: ovAttritionStatus === "critical" ? "Critical attrition" : "Elevated attrition",
+      message: ovAttritionStatus === "critical" ? t("statusLabels.criticalAttrition") : t("statusLabels.elevatedAttrition"),
     }]),
     ...(ovPendingStatus === "normal" ? [] : [{
       key: "LEAVE_PENDING_APPROVALS",
@@ -799,54 +807,54 @@ function OverviewTab({
     <div className="space-y-6">
       <RiskAlertDeck alerts={overviewRiskAlerts} />
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <StatCard title="Total Employees" value={analytics.employees.total} sub="Visible in current scope" icon={Users} color="#2563eb" />
-        <StatCard title="Active" value={analytics.employees.active} sub="Currently working" icon={UserCheck} color="#16a34a" />
-        <StatCard title="On Leave" value={analytics.employees.onLeave} sub="Away from office" icon={Plane} color="#ea580c" />
+        <StatCard title={t("stats.totalEmployees")} value={analytics.employees.total} sub={t("subs.visibleInScope")} icon={Users} color="#2563eb" />
+        <StatCard title={t("stats.active")} value={analytics.employees.active} sub={t("subs.currentlyWorking")} icon={UserCheck} color="#16a34a" />
+        <StatCard title={t("stats.onLeave")} value={analytics.employees.onLeave} sub={t("subs.awayFromOffice")} icon={Plane} color="#ea580c" />
         <StatCard
-          title="Probation"
+          title={t("stats.probation")}
           value={analytics.employees.probation}
-          sub="Current probation cases"
+          sub={t("subs.currentProbationCases")}
           icon={Hourglass}
           color="#d97706"
           status={ovProbationStatus}
-          statusLabel={ovProbationStatus === "critical" ? "High caseload" : ovProbationStatus === "warning" ? "Review caseload" : undefined}
+          statusLabel={ovProbationStatus === "critical" ? t("statusLabels.highCaseload") : ovProbationStatus === "warning" ? t("statusLabels.reviewCaseload") : undefined}
         />
         <StatCard
-          title="Exits"
+          title={t("stats.exits")}
           value={analytics.employees.terminal}
-          sub="Terminated or resigned"
+          sub={t("subs.terminatedOrResigned")}
           icon={UserX}
           color="#dc2626"
           status={ovExitsStatus}
-          statusLabel={ovExitsStatus === "critical" ? "Retention risk" : ovExitsStatus === "warning" ? "Monitor exits" : undefined}
+          statusLabel={ovExitsStatus === "critical" ? t("statusLabels.retentionRisk") : ovExitsStatus === "warning" ? t("statusLabels.monitorExits") : undefined}
         />
-        <StatCard title="New Hires" value={analytics.employees.newHiresOnProbation} sub="Hired in last 6 months" icon={UserPlus} color="#0d9488" />
-        <StatCard title="Avg Age" value={formatMetric(analytics.employees.averageAge)} sub="Current workforce" icon={Cake} color="#db2777" />
-        <StatCard title="Avg Tenure" value={formatMetric(analytics.employees.averageTenureYears, " yrs")} sub="Current workforce" icon={Briefcase} color="#4f46e5" />
-        <StatCard title="Full-Time" value={formatRatio(analytics.employees.fullTimeRatio)} sub="Current workforce mix" icon={ShieldCheck} color="#0891b2" />
+        <StatCard title={t("stats.newHires")} value={analytics.employees.newHiresOnProbation} sub={t("subs.hiredLastSixMonths")} icon={UserPlus} color="#0d9488" />
+        <StatCard title={t("stats.avgAge")} value={formatMetric(analytics.employees.averageAge)} sub={t("subs.currentWorkforce")} icon={Cake} color="#db2777" />
+        <StatCard title={t("stats.avgTenure")} value={formatMetric(analytics.employees.averageTenureYears, t("yearsSuffix"))} sub={t("subs.currentWorkforce")} icon={Briefcase} color="#4f46e5" />
+        <StatCard title={t("stats.fullTime")} value={formatRatio(analytics.employees.fullTimeRatio)} sub={t("subs.currentWorkforceMix")} icon={ShieldCheck} color="#0891b2" />
         <StatCard
-          title="Exit Rate"
+          title={t("stats.exitRate")}
           value={formatRatio(analytics.employees.attritionRate)}
-          sub="Exits in visible people"
+          sub={t("subs.exitsInVisible")}
           icon={LineChartIcon}
           color="#475569"
           status={ovAttritionStatus}
-          statusLabel={ovAttritionStatus === "critical" ? "Critical attrition" : ovAttritionStatus === "warning" ? "Elevated attrition" : undefined}
+          statusLabel={ovAttritionStatus === "critical" ? t("statusLabels.criticalAttrition") : ovAttritionStatus === "warning" ? t("statusLabels.elevatedAttrition") : undefined}
         />
         <StatCard
-          title="Pending Approvals"
+          title={t("stats.pendingApprovals")}
           value={analytics.leave.pendingApprovals}
-          sub="Leave requests awaiting review"
+          sub={t("subs.leaveAwaitingReview")}
           icon={Clock}
           color="#9333ea"
           status={ovPendingStatus}
-          statusLabel={ovPendingStatus === "critical" ? "Needs immediate review" : ovPendingStatus === "warning" ? "Growing backlog" : undefined}
+          statusLabel={ovPendingStatus === "critical" ? t("statusLabels.needsImmediateReview") : ovPendingStatus === "warning" ? t("statusLabels.growingBacklog") : undefined}
         />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <SwitchableChartCard
           id="ov-headcount"
-          title="Headcount over time"
+          title={t("charts.headcountOverTime")}
           subtitle={trendSubtitle}
           types={["area", "line", "column"]}
           cts={cts}
@@ -862,7 +870,7 @@ function OverviewTab({
         />
         <SwitchableChartCard
           id="ov-leave-type"
-          title="Leave requests by type"
+          title={t("charts.leaveByType")}
           subtitle={trendSubtitle}
           types={["stacked", "clustered", "line"]}
           cts={cts}
@@ -878,8 +886,8 @@ function OverviewTab({
         />
         <SwitchableChartCard
           id="ov-age"
-          title="Age distribution"
-          subtitle="Current workforce by age band"
+          title={t("charts.ageDistribution")}
+          subtitle={t("subtitles.ageBand")}
           types={["bar", "donut"]}
           cts={cts}
           renderChart={(type) =>
@@ -892,8 +900,8 @@ function OverviewTab({
         />
         <SwitchableChartCard
           id="ov-tenure"
-          title="Tenure distribution"
-          subtitle="Current workforce by service length"
+          title={t("charts.tenureDistribution")}
+          subtitle={t("subtitles.serviceLength")}
           types={["bar", "donut"]}
           cts={cts}
           renderChart={(type) =>
@@ -922,6 +930,7 @@ function EmployeesTab({
   thresholdMap: Record<string, ThresholdConfig>;
   cts: ChartTypeState;
 }) {
+  const { t } = useTranslation("dashboard");
   const { data: result, isLoading } = useQuery({
     queryKey: ["employees", { limit: 500, ...scopeParams }],
     queryFn: () => getEmployees({ limit: 500, ...scopeParams }),
@@ -937,7 +946,7 @@ function EmployeesTab({
     return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [employees]);
 
-  const trendSubtitle = granularitySubtitle(granularity);
+  const trendSubtitle = t(granularitySubtitleKey(granularity));
 
   const empProbationStatus = computeCardStatus(analytics?.employees.probation ?? 0, thresholdMap['EMPLOYEES_PROBATION'] ?? {});
   const empExitsStatus     = computeCardStatus(analytics?.employees.terminal  ?? 0, thresholdMap['EMPLOYEES_EXITS']     ?? {});
@@ -952,43 +961,43 @@ function EmployeesTab({
 
   return (
     <div className="space-y-6">
-      <SectionHeader icon={Users} title="Employees" subtitle="Headcount and hiring movement from HR Core" color="bg-blue-100 text-blue-600 dark:bg-blue-900/30" />
+      <SectionHeader icon={Users} title={t("tabs.employees")} subtitle={t("sections.employeesSub")} color="bg-blue-100 text-blue-600 dark:bg-blue-900/30" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Total Employees" value={analytics?.employees.total ?? 0} sub="Visible in current scope" icon={Users} color="#2563eb" />
-        <StatCard title="Active" value={analytics?.employees.active ?? 0} sub="Currently working" icon={UserCheck} color="#16a34a" />
+        <StatCard title={t("stats.totalEmployees")} value={analytics?.employees.total ?? 0} sub={t("subs.visibleInScope")} icon={Users} color="#2563eb" />
+        <StatCard title={t("stats.active")} value={analytics?.employees.active ?? 0} sub={t("subs.currentlyWorking")} icon={UserCheck} color="#16a34a" />
         <StatCard
-          title="Probation"
+          title={t("stats.probation")}
           value={analytics?.employees.probation ?? 0}
-          sub="Early-tenure monitoring"
+          sub={t("subs.earlyTenureMonitoring")}
           icon={Hourglass}
           color="#d97706"
           status={empProbationStatus}
-          statusLabel={empProbationStatus === "critical" ? "High caseload" : empProbationStatus === "warning" ? "Review caseload" : undefined}
+          statusLabel={empProbationStatus === "critical" ? t("statusLabels.highCaseload") : empProbationStatus === "warning" ? t("statusLabels.reviewCaseload") : undefined}
         />
-        <StatCard title="New Hires (Probation)" value={analytics?.employees.newHiresOnProbation ?? 0} sub="Hired in last 6 months" icon={UserPlus} color="#0d9488" />
-        <StatCard title="Avg Age" value={formatMetric(analytics?.employees.averageAge ?? null)} sub="Current workforce" icon={Cake} color="#db2777" />
-        <StatCard title="Avg Tenure" value={formatMetric(analytics?.employees.averageTenureYears ?? null, " yrs")} sub="Current workforce" icon={Briefcase} color="#4f46e5" />
-        <StatCard title="Full-Time Ratio" value={formatRatio(analytics?.employees.fullTimeRatio ?? null)} sub="Current workforce" icon={ShieldCheck} color="#0891b2" />
+        <StatCard title={t("stats.newHiresProbation")} value={analytics?.employees.newHiresOnProbation ?? 0} sub={t("subs.hiredLastSixMonths")} icon={UserPlus} color="#0d9488" />
+        <StatCard title={t("stats.avgAge")} value={formatMetric(analytics?.employees.averageAge ?? null)} sub={t("subs.currentWorkforce")} icon={Cake} color="#db2777" />
+        <StatCard title={t("stats.avgTenure")} value={formatMetric(analytics?.employees.averageTenureYears ?? null, t("yearsSuffix"))} sub={t("subs.currentWorkforce")} icon={Briefcase} color="#4f46e5" />
+        <StatCard title={t("stats.fullTimeRatio")} value={formatRatio(analytics?.employees.fullTimeRatio ?? null)} sub={t("subs.currentWorkforce")} icon={ShieldCheck} color="#0891b2" />
         <StatCard
-          title="Exits"
+          title={t("stats.exits")}
           value={analytics?.employees.terminal ?? 0}
-          sub="Terminated or resigned"
+          sub={t("subs.terminatedOrResigned")}
           icon={UserX}
           color="#dc2626"
           status={empExitsStatus}
-          statusLabel={empExitsStatus === "critical" ? "Retention risk" : empExitsStatus === "warning" ? "Monitor exits" : undefined}
+          statusLabel={empExitsStatus === "critical" ? t("statusLabels.retentionRisk") : empExitsStatus === "warning" ? t("statusLabels.monitorExits") : undefined}
         />
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Top Education Field" value={topPointLabel(educationFields)} sub={`${educationFieldTotal} current employees classified`} icon={GraduationCap} color="#7c3aed" />
-        <StatCard title="Gender Records" value={genderTotal} sub="Employees with demographic grouping" icon={UserCheck} color="#0f766e" />
-        <StatCard title="Marital Attrition" value={attritionByMaritalTotal} sub="Exited employees with marital status" icon={Heart} color="#be123c" />
-        <StatCard title="Job Attrition" value={attritionByJobTotal} sub="Exited employees by position" icon={Briefcase} color="#a16207" />
+        <StatCard title={t("stats.topEducationField")} value={topPointLabel(educationFields)} sub={`${educationFieldTotal} current employees classified`} icon={GraduationCap} color="#7c3aed" />
+        <StatCard title={t("stats.genderRecords")} value={genderTotal} sub={t("subs.demographicGrouping")} icon={UserCheck} color="#0f766e" />
+        <StatCard title={t("stats.maritalAttrition")} value={attritionByMaritalTotal} sub={t("subs.exitedWithMarital")} icon={Heart} color="#be123c" />
+        <StatCard title={t("stats.jobAttrition")} value={attritionByJobTotal} sub={t("subs.exitedByPosition")} icon={Briefcase} color="#a16207" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <SwitchableChartCard
           id="emp-headcount"
-          title="Headcount over time"
+          title={t("charts.headcountOverTime")}
           subtitle={trendSubtitle}
           types={["area", "line", "column"]}
           cts={cts}
@@ -1004,7 +1013,7 @@ function EmployeesTab({
         />
         <SwitchableChartCard
           id="emp-newhires"
-          title="New hire trend"
+          title={t("charts.newHireTrend")}
           subtitle={trendSubtitle}
           types={["column", "line", "area"]}
           cts={cts}
@@ -1020,8 +1029,8 @@ function EmployeesTab({
         />
         <SwitchableChartCard
           id="emp-status"
-          title="Status breakdown"
-          subtitle="All visible people by employment status"
+          title={t("charts.statusBreakdown")}
+          subtitle={t("subtitles.byStatus")}
           types={["bar", "donut"]}
           cts={cts}
           renderChart={(type) =>
@@ -1034,8 +1043,8 @@ function EmployeesTab({
         />
         <SwitchableChartCard
           id="emp-contract"
-          title="Contract mix"
-          subtitle="Current workforce by contract type"
+          title={t("charts.contractMix")}
+          subtitle={t("subtitles.byContract")}
           types={["bar", "donut"]}
           cts={cts}
           renderChart={(type) =>
@@ -1048,8 +1057,8 @@ function EmployeesTab({
         />
         <SwitchableChartCard
           id="emp-age"
-          title="Age bands"
-          subtitle="Current workforce distribution"
+          title={t("charts.ageBands")}
+          subtitle={t("subtitles.distribution")}
           types={["bar", "donut"]}
           cts={cts}
           renderChart={(type) =>
@@ -1062,8 +1071,8 @@ function EmployeesTab({
         />
         <SwitchableChartCard
           id="emp-tenure"
-          title="Tenure bands"
-          subtitle="Current workforce service length"
+          title={t("charts.tenureBands")}
+          subtitle={t("subtitles.currentServiceLength")}
           types={["bar", "donut"]}
           cts={cts}
           renderChart={(type) =>
@@ -1078,8 +1087,8 @@ function EmployeesTab({
       <div className="grid gap-6 lg:grid-cols-2">
         <SwitchableChartCard
           id="emp-education-level"
-          title="Education level mix"
-          subtitle="Current workforce credentials by highest level"
+          title={t("charts.educationLevelMix")}
+          subtitle={t("subtitles.credentials")}
           types={["bar", "donut"]}
           cts={cts}
           renderChart={(type) =>
@@ -1092,8 +1101,8 @@ function EmployeesTab({
         />
         <SwitchableChartCard
           id="emp-education-field"
-          title="Education field concentration"
-          subtitle="Top fields across the current workforce"
+          title={t("charts.educationFieldConcentration")}
+          subtitle={t("subtitles.topFields")}
           types={["bar", "donut"]}
           cts={cts}
           renderChart={(type) =>
@@ -1106,8 +1115,8 @@ function EmployeesTab({
         />
         <SwitchableChartCard
           id="emp-gender"
-          title="Total employees by gender"
-          subtitle="Visible employees grouped by recorded gender"
+          title={t("charts.totalByGender")}
+          subtitle={t("subtitles.byGender")}
           types={["donut", "bar"]}
           cts={cts}
           renderChart={(type) =>
@@ -1120,8 +1129,8 @@ function EmployeesTab({
         />
         <SwitchableChartCard
           id="emp-attrition-marital"
-          title="Attrition by marital status"
-          subtitle="Terminated or resigned employees by marital status"
+          title={t("charts.attritionByMarital")}
+          subtitle={t("subtitles.exitsByMarital")}
           types={["bar", "donut"]}
           cts={cts}
           renderChart={(type) =>
@@ -1134,8 +1143,8 @@ function EmployeesTab({
         />
         <SwitchableChartCard
           id="emp-attrition-job"
-          title="Attrition by job"
-          subtitle="Top positions represented in exits"
+          title={t("charts.attritionByJob")}
+          subtitle={t("subtitles.topExitPositions")}
           types={["bar", "donut"]}
           cts={cts}
           renderChart={(type) =>
@@ -1150,7 +1159,7 @@ function EmployeesTab({
       <div className="grid gap-6 lg:grid-cols-1">
         <SwitchableChartCard
           id="emp-dept-hires"
-          title="New hires by department"
+          title={t("charts.newHiresByDepartment")}
           subtitle={trendSubtitle}
           types={["bar", "line"]}
           cts={cts}
@@ -1165,15 +1174,15 @@ function EmployeesTab({
       </div>
 
       {isLoading ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">Loading...</p>
+        <p className="py-12 text-center text-sm text-muted-foreground">{t("loading")}</p>
       ) : (
         <div className="rounded-md border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Employee</TableHead>
-                <TableHead>Position</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>{t("table.employee")}</TableHead>
+                <TableHead>{t("table.position")}</TableHead>
+                <TableHead>{t("table.status")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1236,6 +1245,7 @@ function LeaveQueueTab({
   cts: ChartTypeState;
   thresholdMap: Record<string, ThresholdConfig>;
 }) {
+  const { t } = useTranslation("dashboard");
   const queryClient = useQueryClient();
   const { data: queue = [], isLoading } = useQuery({
     queryKey: ["pending-leave-queue"],
@@ -1252,33 +1262,33 @@ function LeaveQueueTab({
     onSuccess: () => queryClient.invalidateQueries(),
   });
 
-  const trendSubtitle = granularitySubtitle(granularity);
+  const trendSubtitle = t(granularitySubtitleKey(granularity));
 
   const lvPendingStatus = computeCardStatus(analytics?.leave.pendingApprovals ?? 0, thresholdMap['LEAVE_PENDING_APPROVALS'] ?? {});
 
   return (
     <div className="space-y-6">
-      <SectionHeader icon={CalendarCheck} title="Leave" subtitle="Approval workload and leave demand from HR Core" color="bg-orange-100 text-orange-600 dark:bg-orange-900/30" />
+      <SectionHeader icon={CalendarCheck} title={t("sections.leave")} subtitle={t("sections.leaveSub")} color="bg-orange-100 text-orange-600 dark:bg-orange-900/30" />
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard
-          title="Pending Approvals"
+          title={t("stats.pendingApprovals")}
           value={analytics?.leave.pendingApprovals ?? 0}
-          sub="Visible in current scope"
+          sub={t("subs.visibleInScope")}
           icon={Clock}
           color="#9333ea"
           status={lvPendingStatus}
-          statusLabel={lvPendingStatus === "critical" ? "Needs immediate review" : lvPendingStatus === "warning" ? "Growing backlog" : undefined}
+          statusLabel={lvPendingStatus === "critical" ? t("statusLabels.needsImmediateReview") : lvPendingStatus === "warning" ? t("statusLabels.growingBacklog") : undefined}
         />
-        <StatCard title="Leave Days" value={(analytics?.leave.daysByDepartment ?? []).reduce((sum, item) => sum + item.value, 0)} sub="Requested days in chart window" icon={Plane} color="#ea580c" />
-        <StatCard title="Leave Types" value={seriesKeys(analytics?.leave.requestsByTypeOverTime ?? []).length} sub="Represented in trend" icon={CalendarCheck} color="#2563eb" />
+        <StatCard title={t("stats.leaveDays")} value={(analytics?.leave.daysByDepartment ?? []).reduce((sum, item) => sum + item.value, 0)} sub={t("subs.requestedDaysInWindow")} icon={Plane} color="#ea580c" />
+        <StatCard title={t("stats.leaveTypes")} value={seriesKeys(analytics?.leave.requestsByTypeOverTime ?? []).length} sub={t("subs.representedInTrend")} icon={CalendarCheck} color="#2563eb" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
-        <ChartCard title="Leave days per department" subtitle="Total requested days">
+        <ChartCard title={t("charts.leaveDaysPerDepartment")} subtitle={t("subtitles.totalRequestedDays")}>
           <PointBarChart data={analytics?.leave.daysByDepartment ?? []} valueName="Days" />
         </ChartCard>
         <SwitchableChartCard
           id="leave-type-trend"
-          title="Leave requests by type over time"
+          title={t("charts.leaveByTypeOverTime")}
           subtitle={trendSubtitle}
           types={["line", "bar"]}
           cts={cts}
@@ -1293,12 +1303,12 @@ function LeaveQueueTab({
       </div>
 
       {isLoading ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">Loading...</p>
+        <p className="py-12 text-center text-sm text-muted-foreground">{t("loading")}</p>
       ) : queue.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
             <CalendarX className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
-            No pending leave requests. You're all caught up.
+            {t("leave.noPending")}
           </CardContent>
         </Card>
       ) : (
@@ -1306,11 +1316,11 @@ function LeaveQueueTab({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Employee</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead>Days</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t("table.employee")}</TableHead>
+                <TableHead>{t("table.type")}</TableHead>
+                <TableHead>{t("table.duration")}</TableHead>
+                <TableHead>{t("table.days")}</TableHead>
+                <TableHead className="text-right">{t("table.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1323,10 +1333,10 @@ function LeaveQueueTab({
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-green-600" onClick={() => approveMutation.mutate(request.id)} disabled={approveMutation.isPending || rejectMutation.isPending}>
-                        Approve
+                        {t("approve")}
                       </Button>
                       <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-red-600" onClick={() => rejectMutation.mutate(request.id)} disabled={approveMutation.isPending || rejectMutation.isPending}>
-                        Reject
+                        {t("reject")}
                       </Button>
                     </div>
                   </TableCell>
@@ -1349,18 +1359,19 @@ function SkillsTab({
   granularity: TimeGranularity;
   cts: ChartTypeState;
 }) {
+  const { t } = useTranslation("dashboard");
   const radarData = analytics?.skills.radar ?? [];
-  const trendSubtitle = granularitySubtitle(granularity);
+  const trendSubtitle = t(granularitySubtitleKey(granularity));
   return (
     <div className="space-y-6">
-      <SectionHeader icon={Sparkles} title="Skills" subtitle="Current skill coverage and proficiency evolution" color="bg-violet-100 text-violet-600 dark:bg-violet-900/30" />
+      <SectionHeader icon={Sparkles} title={t("tabs.skills")} subtitle={t("sections.skillsSub")} color="bg-violet-100 text-violet-600 dark:bg-violet-900/30" />
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard title="Avg Skill Score" value={analytics?.skills.averageScore ?? "-"} sub="Out of 4 proficiency levels" icon={Sparkles} color="#7c3aed" />
-        <StatCard title="Skills Tracked" value={analytics?.skills.skillsTracked ?? 0} sub="Unique skills in scope" icon={ShieldCheck} color="#2563eb" />
-        <StatCard title="Top Skill" value={analytics?.skills.topSkill ?? "-"} sub="Highest average proficiency" icon={Star} color="#d97706" />
+        <StatCard title={t("stats.avgSkillScore")} value={analytics?.skills.averageScore ?? "-"} sub={t("subs.outOfFourLevels")} icon={Sparkles} color="#7c3aed" />
+        <StatCard title={t("stats.skillsTracked")} value={analytics?.skills.skillsTracked ?? 0} sub={t("subs.uniqueSkillsInScope")} icon={ShieldCheck} color="#2563eb" />
+        <StatCard title={t("stats.topSkill")} value={analytics?.skills.topSkill ?? "-"} sub={t("subs.highestAvgProficiency")} icon={Star} color="#d97706" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
-        <ChartCard title="Radar skills chart" subtitle="Average proficiency by skill">
+        <ChartCard title={t("charts.radarSkills")} subtitle={t("subtitles.avgProficiency")}>
           {radarData.length === 0 ? (
             <EmptyChart />
           ) : (
@@ -1376,7 +1387,7 @@ function SkillsTab({
         </ChartCard>
         <SwitchableChartCard
           id="skills-evolution"
-          title="Skill evolution"
+          title={t("charts.skillEvolution")}
           subtitle={trendSubtitle}
           types={["area", "line", "bar"]}
           cts={cts}
@@ -1404,34 +1415,35 @@ function PayTab({
   granularity: TimeGranularity;
   cts: ChartTypeState;
 }) {
-  const trendSubtitle = granularitySubtitle(granularity);
+  const { t } = useTranslation("dashboard");
+  const trendSubtitle = t(granularitySubtitleKey(granularity));
   return (
     <div className="space-y-6">
-      <SectionHeader icon={Wallet} title="Payroll" subtitle="Compensation analytics from employee salaries and salary history" color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30" />
+      <SectionHeader icon={Wallet} title={t("sections.payroll")} subtitle={t("sections.payrollSub")} color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30" />
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard
-          title="Total Payroll Cost"
+          title={t("stats.totalPayrollCost")}
           value={formatMoney(analytics?.payroll.totalCost ?? null, analytics?.payroll.currency ?? null)}
           sub={analytics?.payroll.currency ? "Current gross salary total" : "Spans multiple currencies — not directly comparable"}
           icon={Wallet}
           color="#059669"
         />
         <StatCard
-          title="Average Salary"
+          title={t("stats.averageSalary")}
           value={formatMoney(analytics?.payroll.averageSalary ?? null, analytics?.payroll.currency ?? null)}
           sub={analytics?.payroll.currency ? "Visible to HR/Admin roles" : "Spans multiple currencies — not directly comparable"}
           icon={LineChartIcon}
           color="#2563eb"
         />
-        <StatCard title="Payroll Access" value={analytics?.payroll.visible ? "Visible" : "Restricted"} sub="Based on role permissions" icon={ShieldCheck} color="#7c3aed" />
+        <StatCard title={t("stats.payrollAccess")} value={analytics?.payroll.visible ? "Visible" : "Restricted"} sub={t("subs.basedOnRolePermissions")} icon={ShieldCheck} color="#7c3aed" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
-        <ChartCard title="Wages per department" subtitle="Current gross salary total">
+        <ChartCard title={t("charts.wagesPerDepartment")} subtitle={t("subtitles.currentGrossTotal")}>
           <PointBarChart data={analytics?.payroll.costByDepartment ?? []} valueName="Gross salary" />
         </ChartCard>
         <SwitchableChartCard
           id="pay-cost-trend"
-          title="Payroll cost trends"
+          title={t("charts.payrollCostTrends")}
           subtitle={trendSubtitle}
           types={["line", "bar"]}
           cts={cts}
@@ -1463,6 +1475,7 @@ function PromotionsTab({
   canReview: boolean;
   thresholdMap: Record<string, ThresholdConfig>;
 }) {
+  const { t, i18n } = useTranslation("dashboard");
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const currentYear = new Date().getFullYear();
@@ -1477,12 +1490,12 @@ function PromotionsTab({
       queryClient.invalidateQueries({ queryKey: ["promotion-requests"] });
       queryClient.invalidateQueries({ queryKey: ["promotion-requests-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-analytics"] });
-      toast({ title: "Promotion request validated" });
+      toast({ title: t("toasts.validated") });
     },
     onError: () => {
       toast({
-        title: "Could not validate request",
-        description: "Please refresh and try again.",
+        title: t("toasts.validateFailed"),
+        description: t("toasts.refresh"),
         variant: "destructive",
       });
     },
@@ -1494,12 +1507,12 @@ function PromotionsTab({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["promotion-requests"] });
       queryClient.invalidateQueries({ queryKey: ["promotion-requests-dashboard"] });
-      toast({ title: "Promotion request refused" });
+      toast({ title: t("toasts.refused") });
     },
     onError: () => {
       toast({
-        title: "Could not refuse request",
-        description: "Please refresh and try again.",
+        title: t("toasts.refuseFailed"),
+        description: t("toasts.refresh"),
         variant: "destructive",
       });
     },
@@ -1514,9 +1527,9 @@ function PromotionsTab({
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <SectionHeader icon={Trophy} title="Promotions" subtitle="Promotion requests by year and organization scope" color="bg-amber-100 text-amber-600 dark:bg-amber-900/30" />
+        <SectionHeader icon={Trophy} title={t("tabs.promotions")} subtitle={t("sections.promotionsSub")} color="bg-amber-100 text-amber-600 dark:bg-amber-900/30" />
         <div className="w-full md:w-44">
-          <p className="mb-1.5 text-xs font-medium text-muted-foreground">Year</p>
+          <p className="mb-1.5 text-xs font-medium text-muted-foreground">{t("promotions.year")}</p>
           <Select value={String(year)} onValueChange={(value) => onYearChange(Number(value))}>
             <SelectTrigger data-testid="select-promotion-year">
               <SelectValue />
@@ -1534,17 +1547,17 @@ function PromotionsTab({
         const promoPendingStatus = computeCardStatus(dashboard?.pendingRequests ?? 0, thresholdMap['PROMOTIONS_PENDING_REQUESTS'] ?? {});
         return (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <StatCard title="Total Requests" value={dashboard?.totalRequests ?? 0} sub={`Submitted in ${year}`} icon={Trophy} color="#d97706" />
-            <StatCard title="Avg Salary Lift" value={formatMoney(dashboard?.averageSalaryLift ?? 0)} sub="Average proposed increase" icon={LineChartIcon} color="#2563eb" />
-            <StatCard title="Total Budget Impact" value={formatMoney(dashboard?.totalBudgetImpact ?? 0)} sub="Combined proposed lift" icon={Wallet} color="#059669" />
+            <StatCard title={t("stats.totalRequests")} value={dashboard?.totalRequests ?? 0} sub={`Submitted in ${year}`} icon={Trophy} color="#d97706" />
+            <StatCard title={t("stats.avgSalaryLift")} value={formatMoney(dashboard?.averageSalaryLift ?? 0)} sub={t("subs.averageProposedIncrease")} icon={LineChartIcon} color="#2563eb" />
+            <StatCard title={t("stats.totalBudgetImpact")} value={formatMoney(dashboard?.totalBudgetImpact ?? 0)} sub={t("subs.combinedProposedLift")} icon={Wallet} color="#059669" />
             <StatCard
-              title="Pending Requests"
+              title={t("stats.pendingRequests")}
               value={dashboard?.pendingRequests ?? 0}
-              sub="Awaiting review"
+              sub={t("subs.awaitingReview")}
               icon={Clock}
               color="#7c3aed"
               status={promoPendingStatus}
-              statusLabel={promoPendingStatus === "critical" ? "Needs immediate review" : promoPendingStatus === "warning" ? "Review queue building" : undefined}
+              statusLabel={promoPendingStatus === "critical" ? t("statusLabels.needsImmediateReview") : promoPendingStatus === "warning" ? t("statusLabels.reviewQueueBuilding") : undefined}
             />
           </div>
         );
@@ -1553,7 +1566,7 @@ function PromotionsTab({
       {canReview && pendingReviewRequests.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Pending HR Decisions</CardTitle>
+            <CardTitle className="text-base">{t("promotions.pendingDecisions")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {pendingReviewRequests.map((request) => (
@@ -1578,7 +1591,7 @@ function PromotionsTab({
                     data-testid={`button-validate-promotion-card-${request.id}`}
                   >
                     <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                    Validate
+                    {t("promotions.validate")}
                   </Button>
                   <Button
                     size="sm"
@@ -1589,7 +1602,7 @@ function PromotionsTab({
                     data-testid={`button-refuse-promotion-card-${request.id}`}
                   >
                     <XCircle className="mr-1 h-3.5 w-3.5" />
-                    Refuse
+                    {t("promotions.refuse")}
                   </Button>
                 </div>
               </div>
@@ -1599,26 +1612,26 @@ function PromotionsTab({
       )}
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Promotion Request Details</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">{t("promotions.details")}</CardTitle></CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Loading promotion requests...</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">{t("promotions.loading")}</p>
           ) : requests.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">No promotion requests match the current filters.</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">{t("promotions.noMatch")}</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Employee</TableHead>
-                    <TableHead>Org</TableHead>
-                    <TableHead>Role Change</TableHead>
-                    <TableHead>Submitted</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Salary Lift</TableHead>
-                    <TableHead className="text-right">Lift %</TableHead>
-                    <TableHead className="text-right">Budget Impact</TableHead>
-                    {canReview && <TableHead className="text-right">Actions</TableHead>}
+                    <TableHead>{t("table.employee")}</TableHead>
+                    <TableHead>{t("table.org")}</TableHead>
+                    <TableHead>{t("table.roleChange")}</TableHead>
+                    <TableHead>{t("table.submitted")}</TableHead>
+                    <TableHead>{t("table.status")}</TableHead>
+                    <TableHead className="text-right">{t("table.salaryLift")}</TableHead>
+                    <TableHead className="text-right">{t("table.liftPercent")}</TableHead>
+                    <TableHead className="text-right">{t("table.budgetImpact")}</TableHead>
+                    {canReview && <TableHead className="text-right">{t("table.actions")}</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1636,7 +1649,7 @@ function PromotionsTab({
                           <span className="font-medium text-blue-700 dark:text-blue-400">{request.newRole}</span>
                         </div>
                       </TableCell>
-                      <TableCell>{new Date(request.submittedAt).toLocaleDateString()}</TableCell>
+                      <TableCell>{new Date(request.submittedAt).toLocaleDateString(i18n.language)}</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className={cn(
                           "capitalize",
@@ -1666,7 +1679,7 @@ function PromotionsTab({
                                 data-testid={`button-validate-promotion-${request.id}`}
                               >
                                 <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                                Validate
+                                {t("promotions.validate")}
                               </Button>
                               <Button
                                 size="sm"
@@ -1677,11 +1690,11 @@ function PromotionsTab({
                                 data-testid={`button-refuse-promotion-${request.id}`}
                               >
                                 <XCircle className="mr-1 h-3.5 w-3.5" />
-                                Refuse
+                                {t("promotions.refuse")}
                               </Button>
                             </div>
                           ) : (
-                            <span className="text-xs text-muted-foreground">Reviewed</span>
+                            <span className="text-xs text-muted-foreground">{t("promotions.reviewed")}</span>
                           )}
                         </TableCell>
                       )}
@@ -1698,12 +1711,13 @@ function PromotionsTab({
 }
 
 function EngagementTab({ analytics }: { analytics: DashboardAnalytics | undefined }) {
+  const { t } = useTranslation("dashboard");
   return (
     <div className="space-y-6">
-      <SectionHeader icon={Star} title="Engagement" subtitle="Reserved for backend engagement analytics" color="bg-pink-100 text-pink-600 dark:bg-pink-900/30" />
+      <SectionHeader icon={Star} title={t("tabs.engagement")} subtitle={t("sections.engagementSub")} color="bg-pink-100 text-pink-600 dark:bg-pink-900/30" />
       <Card>
         <CardContent className="py-12 text-center text-sm text-muted-foreground">
-          {analytics?.engagement.message ?? "Engagement analytics are waiting for backend implementation."}
+          {analytics?.engagement.message ?? t("engagement.pending")}
         </CardContent>
       </Card>
     </div>
@@ -1711,6 +1725,7 @@ function EngagementTab({ analytics }: { analytics: DashboardAnalytics | undefine
 }
 
 export default function Dashboard() {
+  const { t } = useTranslation("dashboard");
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>(initialDashboardTab);
   const [scopeSelection, setScopeSelection] = useState<DashboardScopeSelection>({
@@ -1886,10 +1901,10 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100" data-testid="heading-dashboard">
-          Dashboard
+          {t("title")}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {analyticsLoading ? "Loading live analytics..." : "Live HR Core analytics"}
+          {analyticsLoading ? t("loadingLive") : t("liveAnalytics")}
         </p>
       </div>
 
@@ -1911,7 +1926,7 @@ export default function Dashboard() {
       </div>
 
       <div className="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800">
-        {visibleTabs.map(({ value, label, icon: Icon }) => (
+        {visibleTabs.map(({ value, icon: Icon }) => (
           <button
             key={value}
             onClick={() => selectTab(value)}
@@ -1924,7 +1939,7 @@ export default function Dashboard() {
             )}
           >
             <Icon className="h-3.5 w-3.5" />
-            {label}
+            {t(`tabs.${value}` as "tabs.overview")}
           </button>
         ))}
       </div>

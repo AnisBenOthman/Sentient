@@ -1,8 +1,10 @@
 import { Link } from "wouter";
+import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { Brain, ArrowRight, ArrowLeft, CheckCircle } from "lucide-react";
 
 export default function ForgotPassword() {
+  const { t } = useTranslation("auth");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -59,10 +61,10 @@ export default function ForgotPassword() {
         </div>
 
         <h1 className="text-2xl font-bold text-[#1e1b4b] mb-2" data-testid="forgot-password-heading">
-          Forgot password?
+          {t("forgotPassword.heading")}
         </h1>
         <p className="text-slate-400 text-sm mb-8 text-center">
-          Enter your email and we'll send you a reset link.
+          {t("forgotPassword.subtitle")}
         </p>
 
         {submitted ? (
@@ -74,17 +76,17 @@ export default function ForgotPassword() {
               <CheckCircle className="w-7 h-7 text-[#4f46e5]" />
             </div>
             <p className="text-zinc-700 text-sm text-center font-medium">
-              Check your inbox — a reset link has been sent.
+              {t("forgotPassword.successTitle")}
             </p>
             <p className="text-slate-400 text-xs text-center">
-              If you don't see it, check your spam folder.
+              {t("forgotPassword.successSpam")}
             </p>
             <Link href="/signin">
               <button
                 data-testid="btn-back-signin-success"
                 className="mt-2 text-sm text-[#4f46e5] hover:underline font-medium flex items-center gap-1 transition-colors"
               >
-                <ArrowLeft className="w-3 h-3" /> Back to Sign In
+                <ArrowLeft className="w-3 h-3" /> {t("forgotPassword.backToSignIn")}
               </button>
             </Link>
           </div>
@@ -93,7 +95,7 @@ export default function ForgotPassword() {
             <form onSubmit={handleSubmit} className="w-full space-y-4 mb-6" data-testid="forgot-password-form">
               <div className="space-y-1.5">
                 <label htmlFor="email" className="block text-sm font-medium text-zinc-600">
-                  Email address
+                  {t("forgotPassword.emailLabel")}
                 </label>
                 <input
                   id="email"
@@ -102,7 +104,7 @@ export default function ForgotPassword() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@company.com"
+                  placeholder={t("forgotPassword.emailPlaceholder")}
                   data-testid="input-email"
                   className="w-full h-11 px-3.5 rounded-xl border border-gray-200 bg-white text-zinc-900 text-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#818cf8] focus:border-transparent transition-all"
                 />
@@ -118,11 +120,11 @@ export default function ForgotPassword() {
                 {loading ? (
                   <>
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Sending…
+                    {t("forgotPassword.sending")}
                   </>
                 ) : (
                   <>
-                    Send reset link
+                    {t("forgotPassword.submitButton")}
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -134,7 +136,7 @@ export default function ForgotPassword() {
                 data-testid="btn-back-signin"
                 className="text-sm text-slate-400 hover:text-slate-600 transition-colors flex items-center gap-1 font-medium"
               >
-                <ArrowLeft className="w-3 h-3" /> Back to Sign In
+                <ArrowLeft className="w-3 h-3" /> {t("forgotPassword.backToSignIn")}
               </button>
             </Link>
           </>

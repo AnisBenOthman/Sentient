@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { TopLevelObjectiveSummary } from '@/lib/api/hr-core';
@@ -9,6 +10,7 @@ interface AlignmentTreeNodeProps {
 }
 
 function AlignmentTreeNode({ node, onSelect }: AlignmentTreeNodeProps) {
+  const { t } = useTranslation('okr');
   const [expanded, setExpanded] = useState(true);
   const pct = Math.round(node.averageScore * 100);
 
@@ -31,7 +33,7 @@ function AlignmentTreeNode({ node, onSelect }: AlignmentTreeNodeProps) {
         <span className="flex-1 truncate">{node.title}</span>
         <Badge variant="outline" className="text-xs shrink-0">{pct}%</Badge>
         {node.childCount > 0 && (
-          <span className="text-xs text-muted-foreground shrink-0">{node.childCount} children</span>
+          <span className="text-xs text-muted-foreground shrink-0">{t('alignment.children', { count: node.childCount })}</span>
         )}
       </div>
     </div>
@@ -44,8 +46,9 @@ interface AlignmentTreeProps {
 }
 
 export function AlignmentTree({ objectives, onSelect }: AlignmentTreeProps) {
+  const { t } = useTranslation('okr');
   if (!objectives.length) {
-    return <p className="text-sm text-muted-foreground">No company-level objectives.</p>;
+    return <p className="text-sm text-muted-foreground">{t('alignment.empty')}</p>;
   }
 
   return (

@@ -1,50 +1,94 @@
 {
   "title": "Simulation",
-  "subtitle": "Model promotion scenarios and estimate compensation impact before committing to changes.",
+  "subtitle": "Model the financial and organizational impact of a promotion before submitting the request.",
+  "scopeHr": "All employees are available for HR simulation.",
+  "scopeManager": "Only employees in your managed teams are available for simulation.",
+  "newRequest": "New Promotion Request",
   "steps": {
     "selectEmployee": "Select Employee",
     "newCompensation": "New Compensation",
     "roleResponsibilities": "Role & Responsibilities",
     "review": "Review & Submit"
   },
-  "search": "Search employees…",
-  "noEmployees": "No employees found.",
-  "employee": {
-    "current": "Current",
-    "proposed": "Proposed",
-    "position": "Position",
-    "salary": "Salary",
-    "change": "Change",
-    "department": "Department"
+  "picker": {
+    "choose": "Choose a team member…",
+    "searchPlaceholder": "Search by name, role, or department…",
+    "noMatches": "No matches"
   },
-  "compensation": {
-    "currentSalary": "Current Salary",
-    "proposedSalary": "Proposed Salary",
-    "salaryIncrease": "Salary Increase",
-    "percentChange": "% Change"
+  "unassignedRole": "Unassigned role",
+  "step1": {
+    "noDirectReports": "You have no direct reports to promote.",
+    "directReport": "Direct report",
+    "hint": "Only employees who report directly to you appear here.",
+    "currentRole": "Current Role",
+    "currentGrossSalary": "Current Gross Salary",
+    "teamBudget": "Team Budget",
+    "member_one": "{{count}} member",
+    "member_other": "{{count}} members"
   },
-  "role": {
-    "newPosition": "New Position",
-    "justification": "Justification",
-    "justificationPlaceholder": "Explain the rationale for this promotion…"
+  "step2": {
+    "proposedSalary": "Proposed new gross salary ($)",
+    "currently": "Currently {{amount}}",
+    "salaryChange": "Salary Change",
+    "vsCurrent": "{{percent}} vs current",
+    "teamBudgetImpact": "Team Budget Impact",
+    "vsAmount": "{{percent}} vs {{amount}}"
   },
-  "summary": {
+  "step3": {
+    "newRole": "New role / position",
+    "selectPosition": "— Select a position —",
+    "catalogHint": "Roles come from the active Positions catalog and are grouped by job family.",
+    "responsibilities": "New responsibilities",
+    "addPlaceholder": "Add a responsibility…",
+    "noResponsibilities": "No responsibilities added yet.",
+    "remove": "Remove"
+  },
+  "step4": {
     "employee": "Employee",
-    "currentPosition": "Current Position",
-    "proposedPosition": "Proposed Position",
-    "salaryCurrent": "Current Salary",
-    "salaryProposed": "Proposed Salary",
-    "delta": "Salary Delta",
-    "justification": "Justification"
+    "roleChange": "Role Change",
+    "noRoleSelected": "No role selected",
+    "salaryChange": "Salary Change",
+    "teamBudgetImpact": "Team Budget Impact",
+    "newResponsibilities": "New Responsibilities",
+    "noneAdded": "None added"
   },
-  "submit": "Submit Promotion Request",
-  "submitting": "Submitting…",
-  "reset": "Reset",
-  "success": "Promotion request submitted successfully.",
-  "errors": {
-    "noEmployee": "Please select an employee.",
-    "noPosition": "Please select a new position.",
-    "noSalary": "Please enter a proposed salary.",
-    "generic": "Failed to submit. Please try again."
+  "nav": {
+    "back": "Back",
+    "next": "Next",
+    "submitting": "Submitting…",
+    "submit": "Confirm & Submit"
+  },
+  "validation": {
+    "pickEmployee": "Please pick an employee to promote.",
+    "enterSalary": "Enter the proposed new salary.",
+    "salaryMustIncrease": "The proposed salary must be greater than the current salary.",
+    "selectRole": "Select a new role for this promotion.",
+    "roleMustDiffer": "Select a promoted role different from the employee's current role.",
+    "addResponsibility": "Add at least one new responsibility for this promotion."
+  },
+  "requests": {
+    "title": "Promotion Requests",
+    "description": "Requests submitted to HR Core and visible in your current scope.",
+    "loading": "Loading promotion requests…",
+    "empty": "No promotion requests yet.",
+    "emptyHint": "Click \"New Promotion Request\" to start one.",
+    "submitted": "Submitted {{date}}",
+    "salary": "Salary",
+    "salaryChange": "Salary Change",
+    "budgetImpact": "Budget Impact",
+    "validate": "Validate",
+    "refuse": "Refuse"
+  },
+  "toasts": {
+    "validated": "Promotion request validated",
+    "validateFailed": "Could not validate request",
+    "refused": "Promotion request refused",
+    "refuseFailed": "Could not refuse request",
+    "submitFailed": "Could not submit this promotion request. Please check the employee scope and try again."
+  },
+  "status": {
+    "PENDING": "Pending",
+    "APPROVED": "Approved",
+    "REJECTED": "Rejected"
   }
 }

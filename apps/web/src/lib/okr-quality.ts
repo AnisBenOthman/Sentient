@@ -11,11 +11,52 @@ export type OkrCriterion =
   | 'tiedToImpact'
   | 'timeBound';
 
+/**
+ * WHY keys and not sentences: this module runs outside React and is pure —
+ * it has no `t`. Emitting locale keys (resolved by OkrQualityPanel) keeps the
+ * scoring rules here and the wording in `okr.json`, so the coach speaks the
+ * user's language without this file importing i18next.
+ */
+export type QualityLabelKey =
+  | 'criterion_specific'
+  | 'criterion_measurable'
+  | 'criterion_tiedToImpact'
+  | 'criterion_tiedToParent'
+  | 'criterion_timeBound';
+
+export type QualityHintKey =
+  | 'hint_tooShort'
+  | 'hint_vagueStem'
+  | 'hint_activityPrefix'
+  | 'hint_tieToParent'
+  | 'hint_pickMetric'
+  | 'hint_numericTarget'
+  | 'hint_booleanTarget'
+  | 'hint_targetPositive'
+  | 'hint_addUnit'
+  | 'hint_addDueDate'
+  | 'hint_dueBeforeCycleEnd';
+
+/**
+ * WHY a type alias and not an interface: i18next's `t()` options require an
+ * implicit index signature, which TypeScript gives type aliases but never
+ * interfaces — an interface here fails to typecheck at the call site.
+ */
+export type QualityHintValues = {
+  /** Cycle end date, ISO yyyy-mm-dd — used by `hint_dueBeforeCycleEnd`. */
+  readonly date?: string;
+};
+
+export interface QualityHint {
+  key: QualityHintKey;
+  values?: QualityHintValues;
+}
+
 export interface CriterionResult {
   criterion: OkrCriterion;
-  label: string;
+  labelKey: QualityLabelKey;
   pass: boolean;
-  hint: string;
+  hint: QualityHint | null;
   autoPass?: boolean;
 }
 
@@ -39,16 +80,16 @@ function isSpecificTitle(title: string | undefined): { pass: boolean; reason: 't
   return { pass: true, reason: 'ok' };
 }
 
-function specificHint(reason: 'tooShort' | 'vagueStem' | 'activityPrefix' | 'ok'): string {
+function specificHint(reason: 'tooShort' | 'vagueStem' | 'activityPrefix' | 'ok'): QualityHint | null {
   switch (reason) {
     case 'tooShort':
-      return 'Title is too short. Name the outcome precisely (e.g. "Increase eNPS from 12 to 20").';
+      return { key: 'hint_tooShort' };
     case 'vagueStem':
-      return 'Vague phrasing — add a benchmark like "from X to Y" so the outcome is concrete.';
+      return { key: 'hint_vagueStem' };
     case 'activityPrefix':
-      return 'This reads like an activity, not an outcome. State the result, not the action ("Increase satisfaction by 15%" instead of "Organize 3 workshops").';
+      return { key: 'hint_activityPrefix' };
     default:
-      return '';
+      return null;
   }
 }
 
@@ -65,23 +106,21 @@ export function scoreObjective(
   const results: CriterionResult[] = [
     {
       criterion: 'specific',
-      label: 'Specific & outcome-focused',
+      labelKey: 'criterion_specific',
       pass: specificCheck.pass,
-      hint: specificCheck.pass ? '' : specificHint(specificCheck.reason),
+      hint: specificCheck.pass ? null : specificHint(specificCheck.reason),
     },
     {
       criterion: 'tiedToImpact',
-      label: 'Tied to business impact',
+      labelKey: 'criterion_tiedToImpact',
       pass: tiedPass,
-      hint: tiedPass
-        ? ''
-        : 'Link this objective to a parent so it ladders up to a higher-level goal.',
+      hint: tiedPass ? null : { key: 'hint_tieToParent' },
     },
     {
       criterion: 'timeBound',
-      label: 'Time-bound',
+      labelKey: 'criterion_timeBound',
       pass: true,
-      hint: '',
+      hint: null,
       autoPass: true,
     },
   ];
@@ -111,50 +150,50 @@ export function scoreKeyResult(
     (values.metricType === 'BOOLEAN' ? target === 1 : target > 0) &&
     (values.metricType === 'BOOLEAN' || Boolean((values.unit ?? '').trim()));
 
-  const measurableHint = !values.metricType
-    ? 'Pick a metric type (Percentage, Number, Currency, or Boolean).'
+  const measurableHint: QualityHint | null = !values.metricType
+    ? { key: 'hint_pickMetric' }
     : isNaN(target)
-      ? 'Set a numeric target value — without a number this KR can\'t be scored.'
+      ? { key: 'hint_numericTarget' }
       : values.metricType === 'BOOLEAN' && target !== 1
-        ? 'Boolean KRs use target 1 (done) — pair with a clear "done" definition.'
+        ? { key: 'hint_booleanTarget' }
         : target <= 0
-          ? 'Target must be greater than zero.'
+          ? { key: 'hint_targetPositive' }
           : !(values.unit ?? '').trim()
-            ? 'Add a unit (e.g. "days", "%", "USD", "score") so the number has meaning.'
-            : '';
+            ? { key: 'hint_addUnit' }
+            : null;
 
   const dueDate = values.dueDate ? new Date(values.dueDate) : null;
   const cycleEnd = cycle?.endDate ? new Date(cycle.endDate) : null;
   const timeBoundPass = Boolean(dueDate) && (!cycleEnd || dueDate! <= cycleEnd);
-  const timeBoundHint = !dueDate
-    ? 'Add a due date so progress is time-boxed.'
+  const timeBoundHint: QualityHint | null = !dueDate
+    ? { key: 'hint_addDueDate' }
     : cycleEnd && dueDate > cycleEnd
-      ? `Due date must be on or before the cycle end (${cycleEnd.toISOString().slice(0, 10)}).`
-      : '';
+      ? { key: 'hint_dueBeforeCycleEnd', values: { date: cycleEnd.toISOString().slice(0, 10) } }
+      : null;
 
   const results: CriterionResult[] = [
     {
       criterion: 'specific',
-      label: 'Specific & outcome-focused',
+      labelKey: 'criterion_specific',
       pass: specificCheck.pass,
-      hint: specificCheck.pass ? '' : specificHint(specificCheck.reason),
+      hint: specificCheck.pass ? null : specificHint(specificCheck.reason),
     },
     {
       criterion: 'measurable',
-      label: 'Measurable with a target',
+      labelKey: 'criterion_measurable',
       pass: measurablePass,
-      hint: measurablePass ? '' : measurableHint,
+      hint: measurablePass ? null : measurableHint,
     },
     {
       criterion: 'tiedToImpact',
-      label: 'Tied to a parent objective',
+      labelKey: 'criterion_tiedToParent',
       pass: true,
-      hint: '',
+      hint: null,
       autoPass: true,
     },
     {
       criterion: 'timeBound',
-      label: 'Time-bound',
+      labelKey: 'criterion_timeBound',
       pass: timeBoundPass,
       hint: timeBoundHint,
     },

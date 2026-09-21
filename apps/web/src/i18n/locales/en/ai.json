@@ -1,0 +1,92 @@
+{
+  "title": "AI Assistant",
+  "startTitle": "Start a Sentient AI conversation",
+  "subtitle": "Supervisor-routed help for Sentient HR workflows, policy, analytics, OKRs, and workplace wording.",
+  "conversations": "Conversations",
+  "newConversation": "New",
+  "submitting": "Submitting to HR Core and verifying…",
+  "composerPlaceholder": "Ask about leave, OKRs, career growth, onboarding, policy, analytics, or phrase wording…",
+  "send": "Send",
+  "examplePrompts": {
+    "leaveBalance": "What is my leave balance and when was my last leave?",
+    "teamSummary": "Summarize leave coverage, OKR risk, and dashboard trends for my team.",
+    "reword": "Can you help me reword this message professionally?",
+    "colleague": "What do you think about my colleague? I did not appreciate his behavior."
+  },
+  "errors": {
+    "turnFailed": "The AI assistant could not complete this request.",
+    "decisionFailed": "The decision could not be sent. Check the Leaves page before retrying — it may already have gone through.",
+    "openFailed": "Could not open this conversation.",
+    "archiveFailed": "Could not archive this conversation.",
+    "restoreFailed": "Could not restore this conversation.",
+    "deleteFailed": "Could not delete this conversation.",
+    "feedbackFailed": "Could not save feedback.",
+    "loadLatestFailed": "Could not load your latest AI conversation."
+  },
+  "conversationList": {
+    "empty": "No conversations yet.",
+    "noPreview": "No preview yet.",
+    "restore": "Restore conversation",
+    "archive": "Archive conversation",
+    "delete": "Delete conversation",
+    "status_ACTIVE": "Active",
+    "status_ARCHIVED": "Archived"
+  },
+  "feedback": {
+    "rate": "Rate",
+    "helpful": "Helpful",
+    "notHelpful": "Not helpful"
+  },
+  "draft": {
+    "copy": "Copy draft",
+    "copied": "Copied"
+  },
+  "typing": "Sentient AI is thinking",
+  "floating": {
+    "chatAria": "Sentient AI assistant chat",
+    "name": "Sentient AI",
+    "connected": "Connected to assistant messages",
+    "closeAria": "Close AI assistant",
+    "emptyTitle": "Ask from anywhere",
+    "emptyHint": "Leave, OKRs, analytics, onboarding, policy, and workplace wording stay one click away.",
+    "placeholder": "Ask Sentient AI…",
+    "sendAria": "Send message",
+    "openFull": "Open full assistant",
+    "toggleCloseAria": "Close Sentient AI assistant",
+    "toggleOpenAria": "Open Sentient AI assistant"
+  },
+  "confirmation": {
+    "heading": "Leave booking to confirm: {{leaveType}}",
+    "dates": "Dates",
+    "dateRange": "{{start}} to {{end}}",
+    "workingDays": "Working days",
+    "workingDaysHint": "estimate — HR Core confirms the exact count",
+    "balanceNow": "Balance now",
+    "balanceAfter": "Balance after",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "policyNotes": "Policy notes",
+    "noPolicy": "No relevant policy document was found for this leave type.",
+    "expired": "This proposal has expired — ask the assistant again for a fresh one.",
+    "expires": "Expires {{time}}. Nothing is submitted until you confirm.",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "submitting": "Submitting…"
+  },
+  "outcome": {
+    "SUCCESS": "Leave booked and verified",
+    "UNVERIFIED": "Submitted, but not verified",
+    "FAILED": "Booking failed",
+    "REFUSED": "Not submitted",
+    "CANCELLED": "Cancelled",
+    "ALREADY_SUBMITTED": "Already submitted",
+    "EXPIRED": "Confirmation expired",
+    "NOT_FOUND": "Unknown confirmation",
+    "reference": "Reference",
+    "statusInHrCore": "Status in HR Core",
+    "verification": "Verification",
+    "hrCoreResponse": "HR Core response",
+    "detail": "Detail",
+    "checkLeavesPage": "Check the <1>Leaves</1> page before assuming anything — it is the authoritative record."
+  }
+}

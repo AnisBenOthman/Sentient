@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ interface RejectDialogProps {
 }
 
 function RejectDialog({ checkIn, onClose }: RejectDialogProps) {
+  const { t } = useTranslation(['okr', 'common']);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -40,7 +42,7 @@ function RejectDialog({ checkIn, onClose }: RejectDialogProps) {
       onClose();
     },
     onError: (err: unknown) => {
-      setError(getGatewayErrorMessage(err, 'Failed to reject check-in.'));
+      setError(getGatewayErrorMessage(err, t('reviewQueue.rejectFailed')));
     },
   });
 
@@ -48,26 +50,26 @@ function RejectDialog({ checkIn, onClose }: RejectDialogProps) {
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Reject Check-in</DialogTitle>
+          <DialogTitle>{t('reviewQueue.rejectTitle')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-2">
-          <Label>Reason *</Label>
+          <Label>{t('reviewQueue.reason')}</Label>
           <Textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
-            placeholder="Explain why this check-in is rejected…"
+            placeholder={t('reviewQueue.reasonPlaceholder')}
           />
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={onClose}>{t('common:cancel')}</Button>
           <Button
             variant="destructive"
             disabled={!reason.trim() || mutation.isPending}
             onClick={() => mutation.mutate()}
           >
-            {mutation.isPending ? 'Rejecting…' : 'Reject'}
+            {mutation.isPending ? t('reviewQueue.rejecting') : t('reviewQueue.reject')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -80,6 +82,7 @@ interface CheckInReviewQueueProps {
 }
 
 export function CheckInReviewQueue({ cycleId }: CheckInReviewQueueProps) {
+  const { t } = useTranslation('okr');
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [rejectTarget, setRejectTarget] = useState<OkrCheckInResponse | null>(null);
@@ -100,21 +103,21 @@ export function CheckInReviewQueue({ cycleId }: CheckInReviewQueueProps) {
       setApproveError(null);
     },
     onError: (err: unknown) => {
-      setApproveError(getGatewayErrorMessage(err, 'Failed to approve check-in.'));
+      setApproveError(getGatewayErrorMessage(err, t('reviewQueue.approveFailed')));
     },
   });
 
-  if (objLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (objLoading) return <p className="text-sm text-muted-foreground">{t('reviewQueue.loading')}</p>;
 
   const objectiveIds = objectives?.items.map((o) => o.id) ?? [];
 
   if (!objectiveIds.length) {
-    return <p className="text-sm text-muted-foreground">No department objectives in this cycle.</p>;
+    return <p className="text-sm text-muted-foreground">{t('reviewQueue.noObjectives')}</p>;
   }
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold">Pending Check-ins</h3>
+      <h3 className="text-sm font-semibold">{t('reviewQueue.pendingHeading')}</h3>
       {approveError && <p className="text-sm text-destructive">{approveError}</p>}
       {objectiveIds.map((objId) => (
         <ObjectiveCheckIns
@@ -177,6 +180,7 @@ function KrCheckIns({
   onReject: (ci: OkrCheckInResponse) => void;
   isApproving: boolean;
 }) {
+  const { t } = useTranslation('okr');
   const { data } = useQuery({
     queryKey: ['check-ins', keyResultId],
     queryFn: () => getCheckIns(keyResultId),
@@ -191,23 +195,23 @@ function KrCheckIns({
       {pending.map((ci) => (
         <div key={ci.id} className="flex items-center justify-between gap-2 text-sm">
           <div className="flex-1">
-            <span>Value: <strong>{ci.value}</strong></span>
+            <span>{t('reviewQueue.value')} <strong>{ci.value}</strong></span>
             {ci.comment && <span className="text-muted-foreground ml-2">— {ci.comment}</span>}
           </div>
-          <Badge variant="secondary">Pending</Badge>
+          <Badge variant="secondary">{t('reviewQueue.pending')}</Badge>
           <Button
             size="sm"
             onClick={() => onApprove(ci)}
             disabled={isApproving}
           >
-            Approve
+            {t('reviewQueue.approve')}
           </Button>
           <Button
             size="sm"
             variant="destructive"
             onClick={() => onReject(ci)}
           >
-            Reject
+            {t('reviewQueue.reject')}
           </Button>
         </div>
       ))}

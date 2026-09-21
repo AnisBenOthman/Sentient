@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Dialog,
@@ -27,48 +28,19 @@ import {
   createEmployee,
 } from "@/lib/api/hr-core";
 
-const MARITAL_STATUS_OPTS = [
-  { value: "SINGLE", label: "Single" },
-  { value: "MARRIED", label: "Married" },
-  { value: "DIVORCED", label: "Divorced" },
-  { value: "WIDOWED", label: "Widowed" },
-];
+/**
+ * WHY value-only: each option's wording is translated. The value keys both the
+ * locale entry and the payload sent to HR Core, so a label can never drift from
+ * the option it belongs to. The enum copy is shared with the employee profile
+ * under `employees.profile.*`.
+ */
+const MARITAL_STATUS_OPTS = ["SINGLE", "MARRIED", "DIVORCED", "WIDOWED"] as const;
+const GENDER_OPTS = ["FEMALE", "MALE", "NON_BINARY", "PREFER_NOT_TO_SAY"] as const;
+const EDUCATION_LEVEL_OPTS = ["BELOW_COLLEGE", "COLLEGE", "BACHELOR", "MASTER", "DOCTOR"] as const;
+const EMPLOYMENT_STATUS_OPTS = ["ACTIVE", "ON_LEAVE", "PROBATION", "TERMINATED"] as const;
+const CONTRACT_TYPE_OPTS = ["FULL_TIME", "PART_TIME", "INTERN", "CONTRACTOR", "FIXED_TERM"] as const;
 
-const GENDER_OPTS = [
-  { value: "FEMALE", label: "Female" },
-  { value: "MALE", label: "Male" },
-  { value: "NON_BINARY", label: "Non-binary" },
-  { value: "PREFER_NOT_TO_SAY", label: "Prefer not to say" },
-];
-
-const EDUCATION_LEVEL_OPTS = [
-  { value: "BELOW_COLLEGE", label: "Below College" },
-  { value: "COLLEGE", label: "College" },
-  { value: "BACHELOR", label: "Bachelor" },
-  { value: "MASTER", label: "Master" },
-  { value: "DOCTOR", label: "Doctorate" },
-];
-
-const EMPLOYMENT_STATUS_OPTS = [
-  { value: "ACTIVE", label: "Active" },
-  { value: "ON_LEAVE", label: "On Leave" },
-  { value: "PROBATION", label: "Probation" },
-  { value: "TERMINATED", label: "Terminated" },
-];
-
-const CONTRACT_TYPE_OPTS = [
-  { value: "FULL_TIME", label: "Full Time" },
-  { value: "PART_TIME", label: "Part Time" },
-  { value: "INTERN", label: "Intern" },
-  { value: "CONTRACTOR", label: "Contractor (Freelance)" },
-  { value: "FIXED_TERM", label: "Fixed Term" },
-];
-
-const STEP_LABELS = ["Personal Info", "Employment", "Organization", "Review"];
-
-function labelOf(opts: { value: string; label: string }[], val: string): string {
-  return opts.find((o) => o.value === val)?.label ?? val;
-}
+const STEP_KEYS = ["personal", "employment", "organization", "review"] as const;
 
 const BLANK_FORM = {
   firstName: "",
@@ -172,6 +144,7 @@ export function AddEmployeeWizard({
   allEmployees,
   onEmployeeAdded,
 }: AddEmployeeWizardProps) {
+  const { t } = useTranslation(["employees", "common"]);
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({ ...BLANK_FORM });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -245,17 +218,17 @@ export function AddEmployeeWizard({
   const validateStep = (s: number): Record<string, string> => {
     const e: Record<string, string> = {};
     if (s === 1) {
-      if (!form.firstName.trim()) e.firstName = "First name is required";
-      if (!form.lastName.trim()) e.lastName = "Last name is required";
-      if (!form.email.trim()) e.email = "Email is required";
-      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = "Enter a valid email";
-      if (!form.dateOfBirth) e.dateOfBirth = "Date of birth is required";
-      else if (form.dateOfBirth >= today) e.dateOfBirth = "Date of birth must be in the past";
-      if (!form.gender) e.gender = "Gender is required";
-      if (!form.maritalStatus) e.maritalStatus = "Marital status is required";
-      if (!form.educationLevel) e.educationLevel = "Education level is required";
+      if (!form.firstName.trim()) e.firstName = t("wizard.errorFirstName");
+      if (!form.lastName.trim()) e.lastName = t("wizard.errorLastName");
+      if (!form.email.trim()) e.email = t("wizard.errorEmail");
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = t("wizard.errorEmailInvalid");
+      if (!form.dateOfBirth) e.dateOfBirth = t("wizard.errorDateOfBirth");
+      else if (form.dateOfBirth >= today) e.dateOfBirth = t("wizard.errorDateOfBirthPast");
+      if (!form.gender) e.gender = t("wizard.errorGender");
+      if (!form.maritalStatus) e.maritalStatus = t("wizard.errorMaritalStatus");
+      if (!form.educationLevel) e.educationLevel = t("wizard.errorEducationLevel");
     } else if (s === 2) {
-      if (!form.hireDate) e.hireDate = "Hire date is required";
+      if (!form.hireDate) e.hireDate = t("wizard.errorHireDate");
     }
     return e;
   };
@@ -304,10 +277,10 @@ export function AddEmployeeWizard({
         data-testid="dialog-add-employee"
       >
         <DialogHeader>
-          <DialogTitle>Add New Employee</DialogTitle>
+          <DialogTitle>{t("wizard.title")}</DialogTitle>
         </DialogHeader>
 
-        <StepIndicator current={step} labels={STEP_LABELS} />
+        <StepIndicator current={step} labels={STEP_KEYS.map((k) => t(`wizard.steps.${k}` as "wizard.steps.personal"))} />
 
         <div className="min-h-[320px] space-y-4">
           {/* Step 1: Personal Info */}
@@ -315,9 +288,9 @@ export function AddEmployeeWizard({
             <div className="space-y-4" data-testid="wizard-step-1-content">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>First Name *</Label>
+                  <Label>{t("wizard.firstName")}</Label>
                   <Input
-                    placeholder="Jane"
+                    placeholder={t("wizard.firstNamePlaceholder")}
                     value={form.firstName}
                     onChange={(e) => field("firstName", e.target.value)}
                     data-testid="input-first-name"
@@ -325,9 +298,9 @@ export function AddEmployeeWizard({
                   {errors.firstName && <p className="text-xs text-red-500">{errors.firstName}</p>}
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Last Name *</Label>
+                  <Label>{t("wizard.lastName")}</Label>
                   <Input
-                    placeholder="Smith"
+                    placeholder={t("wizard.lastNamePlaceholder")}
                     value={form.lastName}
                     onChange={(e) => field("lastName", e.target.value)}
                     data-testid="input-last-name"
@@ -337,10 +310,10 @@ export function AddEmployeeWizard({
               </div>
 
               <div className="space-y-1.5">
-                <Label>Email *</Label>
+                <Label>{t("wizard.email")}</Label>
                 <Input
                   type="email"
-                  placeholder="jane.smith@company.com"
+                  placeholder={t("wizard.emailPlaceholder")}
                   value={form.email}
                   onChange={(e) => field("email", e.target.value)}
                   data-testid="input-new-email"
@@ -350,7 +323,7 @@ export function AddEmployeeWizard({
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Phone</Label>
+                  <Label>{t("wizard.phone")}</Label>
                   <Input
                     placeholder="+213 555-0100"
                     value={form.phone}
@@ -358,7 +331,7 @@ export function AddEmployeeWizard({
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Date of Birth *</Label>
+                  <Label>{t("wizard.dateOfBirth")}</Label>
                   <Input
                     type="date"
                     value={form.dateOfBirth}
@@ -371,31 +344,31 @@ export function AddEmployeeWizard({
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Gender *</Label>
+                  <Label>{t("wizard.gender")}</Label>
                   <Select value={form.gender} onValueChange={(v) => field("gender", v)}>
-                    <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t("wizard.select")} /></SelectTrigger>
                     <SelectContent>
-                      {GENDER_OPTS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                      {GENDER_OPTS.map((o) => <SelectItem key={o} value={o}>{t(`profile.genders.${o}` as "profile.genders.MALE")}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   {errors.gender && <p className="text-xs text-red-500">{errors.gender}</p>}
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Marital Status *</Label>
+                  <Label>{t("wizard.maritalStatus")}</Label>
                   <Select value={form.maritalStatus} onValueChange={(v) => field("maritalStatus", v)}>
-                    <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t("wizard.select")} /></SelectTrigger>
                     <SelectContent>
-                      {MARITAL_STATUS_OPTS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                      {MARITAL_STATUS_OPTS.map((o) => <SelectItem key={o} value={o}>{t(`profile.marital.${o}` as "profile.marital.SINGLE")}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   {errors.maritalStatus && <p className="text-xs text-red-500">{errors.maritalStatus}</p>}
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Education Level *</Label>
+                  <Label>{t("wizard.educationLevel")}</Label>
                   <Select value={form.educationLevel} onValueChange={(v) => field("educationLevel", v)}>
-                    <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t("wizard.select")} /></SelectTrigger>
                     <SelectContent>
-                      {EDUCATION_LEVEL_OPTS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                      {EDUCATION_LEVEL_OPTS.map((o) => <SelectItem key={o} value={o}>{t(`profile.education.${o}` as "profile.education.COLLEGE")}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   {errors.educationLevel && <p className="text-xs text-red-500">{errors.educationLevel}</p>}
@@ -403,9 +376,9 @@ export function AddEmployeeWizard({
               </div>
 
               <div className="space-y-1.5">
-                <Label>Education Field</Label>
+                <Label>{t("wizard.educationField")}</Label>
                 <Input
-                  placeholder="e.g. Computer Science"
+                  placeholder={t("wizard.educationFieldPlaceholder")}
                   value={form.educationField}
                   onChange={(e) => field("educationField", e.target.value)}
                 />
@@ -418,7 +391,7 @@ export function AddEmployeeWizard({
             <div className="space-y-4" data-testid="wizard-step-2-content">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Hire Date *</Label>
+                  <Label>{t("wizard.hireDate")}</Label>
                   <Input
                     type="date"
                     value={form.hireDate}
@@ -428,34 +401,34 @@ export function AddEmployeeWizard({
                   {errors.hireDate && <p className="text-xs text-red-500">{errors.hireDate}</p>}
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Employment Status *</Label>
+                  <Label>{t("wizard.employmentStatus")}</Label>
                   <Select value={form.employmentStatus} onValueChange={(v) => field("employmentStatus", v)}>
                     <SelectTrigger data-testid="select-employment-status"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {EMPLOYMENT_STATUS_OPTS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                      {EMPLOYMENT_STATUS_OPTS.map((o) => <SelectItem key={o} value={o}>{t(`status.${o}` as "status.ACTIVE")}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label>Contract Type *</Label>
+                <Label>{t("wizard.contractType")}</Label>
                 <Select value={form.contractType} onValueChange={(v) => field("contractType", v)}>
                   <SelectTrigger data-testid="select-contract-type"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {CONTRACT_TYPE_OPTS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    {CONTRACT_TYPE_OPTS.map((o) => <SelectItem key={o} value={o}>{t(`profile.contractTypes.${o}` as "profile.contractTypes.INTERN")}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-1.5">
-                <Label>Manager</Label>
+                <Label>{t("wizard.manager")}</Label>
                 <Select value={form.managerId} onValueChange={(v) => field("managerId", v)}>
                   <SelectTrigger data-testid="select-new-manager">
-                    <SelectValue placeholder="No manager assigned" />
+                    <SelectValue placeholder={t("wizard.noManager")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">— None —</SelectItem>
+                    <SelectItem value="none">{t("wizard.none")}</SelectItem>
                     {allEmployees.map((emp) => (
                       <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
                     ))}
@@ -470,9 +443,9 @@ export function AddEmployeeWizard({
             <div className="space-y-4" data-testid="wizard-step-3-content">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Business Unit</Label>
+                  <Label>{t("wizard.businessUnit")}</Label>
                   <Select value={form.buId} onValueChange={(v) => field("buId", v)}>
-                    <SelectTrigger data-testid="select-new-bu"><SelectValue placeholder="Select BU…" /></SelectTrigger>
+                    <SelectTrigger data-testid="select-new-bu"><SelectValue placeholder={t("wizard.selectBusinessUnit")} /></SelectTrigger>
                     <SelectContent>
                       {businessUnits.slice().sort((a, b) => a.name.localeCompare(b.name)).map((bu) => (
                         <SelectItem key={bu.id} value={bu.id}>{bu.name}</SelectItem>
@@ -481,13 +454,13 @@ export function AddEmployeeWizard({
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Department</Label>
+                  <Label>{t("wizard.department")}</Label>
                   <Select
                     value={form.departmentId}
                     onValueChange={(v) => field("departmentId", v)}
                     disabled={filteredDepts.length === 0}
                   >
-                    <SelectTrigger data-testid="select-new-department"><SelectValue placeholder="Select dept…" /></SelectTrigger>
+                    <SelectTrigger data-testid="select-new-department"><SelectValue placeholder={t("wizard.selectDepartment")} /></SelectTrigger>
                     <SelectContent>
                       {filteredDepts.slice().sort((a, b) => a.name.localeCompare(b.name)).map((d) => (
                         <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
@@ -498,13 +471,13 @@ export function AddEmployeeWizard({
               </div>
 
               <div className="space-y-1.5">
-                <Label>Team</Label>
+                <Label>{t("wizard.team")}</Label>
                 <Select
                   value={form.teamId}
                   onValueChange={(v) => field("teamId", v)}
                   disabled={filteredTeams.length === 0}
                 >
-                  <SelectTrigger data-testid="select-new-team"><SelectValue placeholder="Select team…" /></SelectTrigger>
+                  <SelectTrigger data-testid="select-new-team"><SelectValue placeholder={t("wizard.selectTeam")} /></SelectTrigger>
                   <SelectContent>
                     {filteredTeams.slice().sort((a, b) => a.name.localeCompare(b.name)).map((t) => (
                       <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
@@ -514,10 +487,10 @@ export function AddEmployeeWizard({
               </div>
 
               <div className="space-y-1.5">
-                <Label>Position</Label>
+                <Label>{t("wizard.position")}</Label>
                 <Select value={form.positionId} onValueChange={(v) => field("positionId", v)}>
                   <SelectTrigger data-testid="select-position">
-                    <SelectValue placeholder="Select a position…" />
+                    <SelectValue placeholder={t("wizard.selectPosition")} />
                   </SelectTrigger>
                   <SelectContent>
                     {positions.slice().sort((a, b) => a.title.localeCompare(b.title)).map((p) => (
@@ -537,7 +510,7 @@ export function AddEmployeeWizard({
             <div className="space-y-5" data-testid="wizard-step-4-content">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Gross Salary</Label>
+                  <Label>{t("wizard.grossSalary")}</Label>
                   <Input
                     type="number"
                     placeholder="85000"
@@ -548,7 +521,7 @@ export function AddEmployeeWizard({
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Net Salary</Label>
+                  <Label>{t("wizard.netSalary")}</Label>
                   <Input
                     type="number"
                     placeholder="65000"
@@ -561,36 +534,36 @@ export function AddEmployeeWizard({
               </div>
 
               <div className="space-y-3 pt-1">
-                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Summary</p>
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t("wizard.summary")}</p>
 
-                <SummarySection title="Personal Information">
-                  <SummaryRow label="Name" value={[form.firstName, form.lastName].filter(Boolean).join(" ") || undefined} />
-                  <SummaryRow label="Email" value={form.email} />
-                  <SummaryRow label="Phone" value={form.phone} />
-                  <SummaryRow label="Date of Birth" value={form.dateOfBirth} />
-                  <SummaryRow label="Gender" value={form.gender ? labelOf(GENDER_OPTS, form.gender) : undefined} />
-                  <SummaryRow label="Marital Status" value={form.maritalStatus ? labelOf(MARITAL_STATUS_OPTS, form.maritalStatus) : undefined} />
-                  <SummaryRow label="Education" value={form.educationLevel ? `${labelOf(EDUCATION_LEVEL_OPTS, form.educationLevel)}${form.educationField ? ` · ${form.educationField}` : ""}` : undefined} />
+                <SummarySection title={t("wizard.personalInformation")}>
+                  <SummaryRow label={t("wizard.name")} value={[form.firstName, form.lastName].filter(Boolean).join(" ") || undefined} />
+                  <SummaryRow label={t("wizard.email")} value={form.email} />
+                  <SummaryRow label={t("wizard.phone")} value={form.phone} />
+                  <SummaryRow label={t("wizard.dateOfBirth")} value={form.dateOfBirth} />
+                  <SummaryRow label={t("wizard.gender")} value={form.gender ? t(`profile.genders.${form.gender}` as "profile.genders.MALE") : undefined} />
+                  <SummaryRow label={t("wizard.maritalStatus")} value={form.maritalStatus ? t(`profile.marital.${form.maritalStatus}` as "profile.marital.SINGLE") : undefined} />
+                  <SummaryRow label={t("wizard.education")} value={form.educationLevel ? `${t(`profile.education.${form.educationLevel}` as "profile.education.COLLEGE")}${form.educationField ? ` · ${form.educationField}` : ""}` : undefined} />
                 </SummarySection>
 
-                <SummarySection title="Employment">
-                  <SummaryRow label="Hire Date" value={form.hireDate} />
-                  <SummaryRow label="Status" value={labelOf(EMPLOYMENT_STATUS_OPTS, form.employmentStatus)} />
-                  <SummaryRow label="Contract" value={labelOf(CONTRACT_TYPE_OPTS, form.contractType)} />
-                  <SummaryRow label="Manager" value={reviewMgr?.name} />
+                <SummarySection title={t("wizard.employment")}>
+                  <SummaryRow label={t("wizard.hireDate")} value={form.hireDate} />
+                  <SummaryRow label={t("wizard.status")} value={t(`status.${form.employmentStatus}` as "status.ACTIVE", { defaultValue: form.employmentStatus })} />
+                  <SummaryRow label={t("wizard.contract")} value={t(`profile.contractTypes.${form.contractType}` as "profile.contractTypes.INTERN", { defaultValue: form.contractType })} />
+                  <SummaryRow label={t("wizard.manager")} value={reviewMgr?.name} />
                 </SummarySection>
 
-                <SummarySection title="Organization">
-                  <SummaryRow label="Position" value={reviewPosition?.title} />
-                  <SummaryRow label="Business Unit" value={reviewBu?.name} />
-                  <SummaryRow label="Department" value={reviewDept?.name} />
-                  <SummaryRow label="Team" value={reviewTeam?.name} />
+                <SummarySection title={t("wizard.organization")}>
+                  <SummaryRow label={t("wizard.position")} value={reviewPosition?.title} />
+                  <SummaryRow label={t("wizard.businessUnit")} value={reviewBu?.name} />
+                  <SummaryRow label={t("wizard.department")} value={reviewDept?.name} />
+                  <SummaryRow label={t("wizard.team")} value={reviewTeam?.name} />
                 </SummarySection>
 
                 {(form.grossSalary || form.netSalary) && (
-                  <SummarySection title="Compensation">
-                    <SummaryRow label="Gross Salary" value={form.grossSalary} />
-                    <SummaryRow label="Net Salary" value={form.netSalary} />
+                  <SummarySection title={t("wizard.compensation")}>
+                    <SummaryRow label={t("wizard.grossSalary")} value={form.grossSalary} />
+                    <SummaryRow label={t("wizard.netSalary")} value={form.netSalary} />
                   </SummarySection>
                 )}
 
@@ -608,18 +581,22 @@ export function AddEmployeeWizard({
             onClick={step === 1 ? () => onOpenChange(false) : handleBack}
             data-testid="wizard-back-btn"
           >
-            {step === 1 ? "Cancel" : "← Back"}
+            {step === 1 ? t("common:cancel") : t("wizard.back")}
           </Button>
           <div className="flex items-center gap-3">
             <span className="text-xs text-muted-foreground">
-              Step {step} of {STEP_LABELS.length}
+              {t("wizard.step", {
+                current: step,
+                total: STEP_KEYS.length,
+                label: t(`wizard.steps.${STEP_KEYS[step - 1]!}` as "wizard.steps.personal"),
+              })}
             </span>
             <Button
               onClick={step < 4 ? handleNext : handleSubmit}
               disabled={createMutation.isPending}
               data-testid={step === 4 ? "button-submit-employee" : "wizard-next-btn"}
             >
-              {step < 4 ? "Next →" : createMutation.isPending ? "Creating…" : "Add Employee"}
+              {step < 4 ? t("wizard.next") : createMutation.isPending ? t("wizard.creating") : t("wizard.submit")}
             </Button>
           </div>
         </DialogFooter>

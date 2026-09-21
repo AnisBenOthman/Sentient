@@ -12,6 +12,7 @@ import {
   type LeaveBalance,
 } from "@/lib/api/hr-core";
 import { getGatewayErrorMessage } from "@/lib/api/gateway-error";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/components/providers/auth-provider";
 import { LeaveRequestSummary } from "@/components/leave-request-summary";
 import {
@@ -61,6 +62,7 @@ import {
 } from "lucide-react";
 
 function LeaveBalanceCard({ balance }: { balance: LeaveBalance }) {
+  const { t } = useTranslation("leaves");
   const color = balance.leaveType?.color ?? "#6366f1";
   const usedPct = balance.totalDays > 0 ? Math.min(100, Math.round((balance.usedDays / balance.totalDays) * 100)) : 0;
   const pendingPct = balance.totalDays > 0 ? Math.min(100 - usedPct, Math.round((balance.pendingDays / balance.totalDays) * 100)) : 0;
@@ -77,7 +79,7 @@ function LeaveBalanceCard({ balance }: { balance: LeaveBalance }) {
             <span className="text-2xl font-bold text-gray-900 dark:text-gray-100 leading-none">
               {balance.remainingDays}
             </span>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">left</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{t("balances.left")}</p>
           </div>
         </div>
         <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden mb-2">
@@ -93,11 +95,11 @@ function LeaveBalanceCard({ balance }: { balance: LeaveBalance }) {
           </div>
         </div>
         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-          <span>{balance.usedDays} used</span>
+          <span>{t("balances.used", { count: balance.usedDays })}</span>
           {balance.pendingDays > 0 && (
-            <span className="text-orange-500 font-medium">{balance.pendingDays} pending</span>
+            <span className="text-orange-500 font-medium">{t("balances.pending", { count: balance.pendingDays })}</span>
           )}
-          <span>{balance.totalDays} total</span>
+          <span>{t("balances.total", { count: balance.totalDays })}</span>
         </div>
       </div>
     </div>
@@ -141,15 +143,26 @@ function StatCard({
   );
 }
 
-const STATUS_META: Record<string, { label: string; Icon: React.ElementType; cls: string }> = {
-  PENDING: { label: "Pending", Icon: Clock, cls: "text-orange-500" },
-  APPROVED: { label: "Approved", Icon: CheckCircle2, cls: "text-green-500" },
-  REJECTED: { label: "Rejected", Icon: XCircle, cls: "text-red-500" },
-  CANCELLED: { label: "Cancelled", Icon: MinusCircle, cls: "text-gray-400" },
-  ESCALATED: { label: "Escalated", Icon: Clock, cls: "text-purple-500" },
+// Labels live in `leaves:status.*`; only icon and colour belong at module scope.
+const STATUS_META: Record<string, { Icon: React.ElementType; cls: string }> = {
+  PENDING: { Icon: Clock, cls: "text-orange-500" },
+  APPROVED: { Icon: CheckCircle2, cls: "text-green-500" },
+  REJECTED: { Icon: XCircle, cls: "text-red-500" },
+  CANCELLED: { Icon: MinusCircle, cls: "text-gray-400" },
+  ESCALATED: { Icon: Clock, cls: "text-purple-500" },
 };
 
 export default function Leaves() {
+  const { t } = useTranslation("leaves");
+  // Literal keys keep i18next's typed `t` checking them; the lookup key itself
+  // is the raw status string the API returns.
+  const statusLabels: Record<string, string> = {
+    PENDING: t("status.PENDING"),
+    APPROVED: t("status.APPROVED"),
+    REJECTED: t("status.REJECTED"),
+    CANCELLED: t("status.CANCELLED"),
+    ESCALATED: t("status.ESCALATED"),
+  };
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const buId = user?.businessUnitId ?? undefined;
@@ -206,16 +219,16 @@ export default function Leaves() {
       const msg = getGatewayErrorMessage(err, "");
       setFormError(
         msg === "InsufficientBalance"
-          ? "Insufficient leave balance for the selected type and period."
+          ? t("errors.InsufficientBalance")
           : msg === "LeaveTypeInactive"
-          ? "This leave type is no longer available. Please select a different type."
+          ? t("errors.LeaveTypeInactive")
           : msg === "LeaveTypeOutOfScope"
-          ? "This leave type is not available for your business unit."
+          ? t("errors.LeaveTypeOutOfScope")
           : msg === "ZeroDayRequest"
-          ? "The selected date range contains no working days."
+          ? t("errors.ZeroDayRequest")
           : msg === "OverlappingRequest"
-          ? "You already have a pending or approved request for overlapping dates."
-          : "Failed to submit request. Please try again.",
+          ? t("errors.OverlappingRequest")
+          : t("errors.generic"),
       );
     },
   });
@@ -235,8 +248,8 @@ export default function Leaves() {
       const msg = getGatewayErrorMessage(err, "");
       setReviewError(
         msg === "RequestAlreadyDecided"
-          ? "This request has already been reviewed."
-          : "Failed to approve request. Please try again.",
+          ? t("errors.RequestAlreadyDecided")
+          : t("errors.approveFailed"),
       );
     },
   });
@@ -253,8 +266,8 @@ export default function Leaves() {
       const msg = getGatewayErrorMessage(err, "");
       setRejectError(
         msg === "RequestAlreadyDecided"
-          ? "This request has already been reviewed."
-          : "Failed to reject request. Please try again.",
+          ? t("errors.RequestAlreadyDecided")
+          : t("errors.rejectFailed"),
       );
     },
   });
@@ -278,10 +291,10 @@ export default function Leaves() {
   }
 
   function handleSubmit() {
-    if (!leaveTypeId) { setFormError("Please select a leave type."); return; }
-    if (!startDate) { setFormError("Please select a start date."); return; }
-    if (!endDate) { setFormError("Please select an end date."); return; }
-    if (endDate < startDate) { setFormError("End date must be on or after start date."); return; }
+    if (!leaveTypeId) { setFormError(t("validation.selectType")); return; }
+    if (!startDate) { setFormError(t("validation.selectStart")); return; }
+    if (!endDate) { setFormError(t("validation.selectEnd")); return; }
+    if (endDate < startDate) { setFormError(t("validation.endAfterStart")); return; }
     setFormError("");
     createMutation.mutate({ leaveTypeId, startDate, endDate, reason: reason.trim() || undefined });
   }
@@ -294,7 +307,7 @@ export default function Leaves() {
   }
 
   function handleReject() {
-    if (!rejectNote.trim()) { setRejectError("Please provide a rejection reason."); return; }
+    if (!rejectNote.trim()) { setRejectError(t("validation.rejectReason")); return; }
     rejectMutation.mutate({ id: rejectTargetId, note: rejectNote.trim() });
   }
 
@@ -304,11 +317,13 @@ export default function Leaves() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-            Leave Balance — {currentYear}
+            {t("balances.heading", { year: currentYear })}
           </h2>
           {!balancesLoading && balances.length > 0 && (
             <span className="text-xs text-muted-foreground">
-              {balances.reduce((s, b) => s + b.remainingDays, 0)} days remaining across all types
+              {t("balances.remainingAll", {
+                count: balances.reduce((s, b) => s + b.remainingDays, 0),
+              })}
             </span>
           )}
         </div>
@@ -327,7 +342,7 @@ export default function Leaves() {
             ))}
           </div>
         ) : balances.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-2">No leave balances configured.</p>
+          <p className="text-sm text-muted-foreground py-2">{t("balances.noBalances")}</p>
         ) : (
           <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {balances.map((b) => (
@@ -338,31 +353,31 @@ export default function Leaves() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <StatCard title="Pending" value={pendingCount} sub="Awaiting approval" icon={Clock} color="#f97316" />
-        <StatCard title="Approved" value={approvedCount} sub="Total approved" icon={CheckCircle2} color="#22c55e" />
-        <StatCard title="This Month" value={approvedThisMonth} sub="Approved this month" icon={CalendarDays} color="#6366f1" />
-        <StatCard title="Cancelled" value={cancelledCount} sub="Withdrawn requests" icon={XCircle} color="#94a3b8" />
+        <StatCard title={t("stats.pending")} value={pendingCount} sub={t("stats.pendingSub")} icon={Clock} color="#f97316" />
+        <StatCard title={t("stats.approved")} value={approvedCount} sub={t("stats.approvedSub")} icon={CheckCircle2} color="#22c55e" />
+        <StatCard title={t("stats.thisMonth")} value={approvedThisMonth} sub={t("stats.thisMonthSub")} icon={CalendarDays} color="#6366f1" />
+        <StatCard title={t("stats.cancelled")} value={cancelledCount} sub={t("stats.cancelledSub")} icon={XCircle} color="#94a3b8" />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>My Requests</CardTitle>
-          <CardDescription>All your leave applications</CardDescription>
+          <CardTitle>{t("myRequests.title")}</CardTitle>
+          <CardDescription>{t("myRequests.description")}</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">Loading…</p>
+            <p className="text-sm text-muted-foreground py-4 text-center">{t("myRequests.loading")}</p>
           ) : requests.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">No leave requests yet.</p>
+            <p className="text-sm text-muted-foreground py-4 text-center">{t("myRequests.empty")}</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Days</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t("table.type")}</TableHead>
+                  <TableHead>{t("table.duration")}</TableHead>
+                  <TableHead>{t("table.days")}</TableHead>
+                  <TableHead>{t("table.status")}</TableHead>
+                  <TableHead className="text-right">{t("table.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -381,7 +396,7 @@ export default function Leaves() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <StatusIcon className={`h-4 w-4 ${meta.cls}`} />
-                          <span className="text-sm font-medium">{meta.label}</span>
+                          <span className="text-sm font-medium">{statusLabels[req.status] ?? req.status}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
@@ -394,7 +409,7 @@ export default function Leaves() {
                             disabled={cancelMutation.isPending}
                             data-testid={`button-cancel-${req.id}`}
                           >
-                            Cancel
+                            {t("actions.cancel")}
                           </Button>
                         )}
                       </TableCell>
@@ -412,28 +427,26 @@ export default function Leaves() {
   const teamRequestsContent = (
     <Card>
       <CardHeader>
-        <CardTitle>Team Requests</CardTitle>
-        <CardDescription>Pending leave requests awaiting your review</CardDescription>
+        <CardTitle>{t("teamRequests.title")}</CardTitle>
+        <CardDescription>{t("teamRequests.description")}</CardDescription>
       </CardHeader>
       <CardContent>
         {reviewError && (
           <p className="mb-3 text-sm text-red-500">{reviewError}</p>
         )}
         {queueLoading ? (
-          <p className="text-sm text-muted-foreground py-4 text-center">Loading…</p>
+          <p className="text-sm text-muted-foreground py-4 text-center">{t("teamRequests.loading")}</p>
         ) : queue.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4 text-center">
-            No pending requests.
-          </p>
+          <p className="text-sm text-muted-foreground py-4 text-center">{t("teamRequests.empty")}</p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Employee</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead>Days</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t("table.employee")}</TableHead>
+                <TableHead>{t("table.type")}</TableHead>
+                <TableHead>{t("table.duration")}</TableHead>
+                <TableHead>{t("table.days")}</TableHead>
+                <TableHead className="text-right">{t("table.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -461,7 +474,7 @@ export default function Leaves() {
                         disabled={approveMutation.isPending || rejectMutation.isPending}
                       >
                         <Check className="w-3.5 h-3.5" />
-                        Approve
+                        {t("actions.approve")}
                       </Button>
                       <Button
                         variant="outline"
@@ -471,7 +484,7 @@ export default function Leaves() {
                         disabled={approveMutation.isPending || rejectMutation.isPending}
                       >
                         <X className="w-3.5 h-3.5" />
-                        Reject
+                        {t("actions.reject")}
                       </Button>
                     </div>
                   </TableCell>
@@ -492,11 +505,9 @@ export default function Leaves() {
             className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100"
             data-testid="heading-leaves"
           >
-            Leaves
+            {t("title")}
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Manage your time-off requests
-          </p>
+          <p className="text-muted-foreground mt-1 text-sm">{t("subtitle")}</p>
         </div>
         <Button
           data-testid="button-new-leave"
@@ -504,17 +515,17 @@ export default function Leaves() {
           className="rounded-full px-6 gap-2 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-semibold shadow-md hover:shadow-lg hover:shadow-indigo-500/30 hover:scale-[1.02] transition-all duration-200"
         >
           <Plus className="w-4 h-4" />
-          Request Leave
+          {t("newRequest")}
         </Button>
       </div>
 
       {isManager ? (
         <Tabs defaultValue="my-leaves">
           <TabsList>
-            <TabsTrigger value="my-leaves">My Leaves</TabsTrigger>
+            <TabsTrigger value="my-leaves">{t("tabs.myLeaves")}</TabsTrigger>
             <TabsTrigger value="team-requests" className="gap-1.5">
               <Users className="w-3.5 h-3.5" />
-              Team Requests
+              {t("tabs.teamRequests")}
               {queue.length > 0 && (
                 <span className="ml-1 rounded-full bg-orange-100 px-1.5 py-0.5 text-xs font-semibold text-orange-600">
                   {queue.length}
@@ -537,18 +548,18 @@ export default function Leaves() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md" data-testid="dialog-record-leave">
           <DialogHeader>
-            <DialogTitle>Request Leave</DialogTitle>
+            <DialogTitle>{t("dialog.newRequestTitle")}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label htmlFor="leave-type">Leave Type</Label>
+              <Label htmlFor="leave-type">{t("dialog.leaveTypeLabel")}</Label>
               <Select
                 value={leaveTypeId}
                 onValueChange={(v) => { setLeaveTypeId(v); setFormError(""); }}
               >
                 <SelectTrigger id="leave-type" data-testid="select-leave-type">
-                  <SelectValue placeholder="Select type" />
+                  <SelectValue placeholder={t("dialog.leaveTypePlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {leaveTypes.map((t) => (
@@ -562,7 +573,7 @@ export default function Leaves() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="start-date">Start Date</Label>
+                <Label htmlFor="start-date">{t("dialog.startDateLabel")}</Label>
                 <Input
                   id="start-date"
                   type="date"
@@ -572,7 +583,7 @@ export default function Leaves() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="end-date">End Date</Label>
+                <Label htmlFor="end-date">{t("dialog.endDateLabel")}</Label>
                 <Input
                   id="end-date"
                   type="date"
@@ -586,11 +597,11 @@ export default function Leaves() {
 
             <div className="space-y-1.5">
               <Label htmlFor="reason">
-                Reason <span className="text-muted-foreground">(optional)</span>
+                {t("table.reason")} <span className="text-muted-foreground">{t("dialog.reasonOptional")}</span>
               </Label>
               <Textarea
                 id="reason"
-                placeholder="Any additional details…"
+                placeholder={t("dialog.reasonPlaceholder")}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={3}
@@ -607,14 +618,14 @@ export default function Leaves() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
+              {t("actions.cancel")}
             </Button>
             <Button
               onClick={handleSubmit}
               disabled={createMutation.isPending}
               data-testid="button-submit-leave"
             >
-              {createMutation.isPending ? "Submitting…" : "Submit Request"}
+              {createMutation.isPending ? t("dialog.submitting") : t("dialog.submitButton")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -624,15 +635,15 @@ export default function Leaves() {
       <Dialog open={rejectOpen} onOpenChange={(v) => { if (!v) { setRejectOpen(false); setRejectNote(""); setRejectError(""); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Reject Leave Request</DialogTitle>
+            <DialogTitle>{t("dialog.rejectTitle")}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label htmlFor="reject-note">Rejection Reason</Label>
+              <Label htmlFor="reject-note">{t("dialog.rejectReasonLabel")}</Label>
               <Textarea
                 id="reject-note"
-                placeholder="Explain why this request is being rejected…"
+                placeholder={t("dialog.rejectPlaceholder")}
                 value={rejectNote}
                 onChange={(e) => { setRejectNote(e.target.value); setRejectError(""); }}
                 rows={4}
@@ -648,14 +659,14 @@ export default function Leaves() {
               variant="outline"
               onClick={() => { setRejectOpen(false); setRejectNote(""); setRejectError(""); }}
             >
-              Cancel
+              {t("actions.cancel")}
             </Button>
             <Button
               variant="destructive"
               onClick={handleReject}
               disabled={rejectMutation.isPending}
             >
-              {rejectMutation.isPending ? "Rejecting…" : "Reject Request"}
+              {rejectMutation.isPending ? t("dialog.rejecting") : t("dialog.rejectButton")}
             </Button>
           </DialogFooter>
         </DialogContent>

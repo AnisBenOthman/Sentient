@@ -26,52 +26,29 @@ import { AddEmployeeWizard } from "@/components/add-employee-wizard";
 import { useAuth } from "@/components/providers/auth-provider";
 import { getEmployees, getBusinessUnits, getDepartments, getTeams } from "@/lib/api/hr-core";
 import { canViewEmployeeDetails, getRoleTier } from "@/lib/auth";
+import { useTranslation } from "react-i18next";
 
 const ALL_VALUE = "all";
 
-const EMPLOYMENT_STATUS_OPTIONS = [
-  { value: "ACTIVE", label: "Active" },
-  { value: "ON_LEAVE", label: "On Leave" },
-  { value: "PROBATION", label: "Probation" },
-  { value: "TERMINATED", label: "Terminated" },
-  { value: "RESIGNED", label: "Resigned" },
-] as const;
+const EMPLOYMENT_STATUS_VALUES = ["ACTIVE", "ON_LEAVE", "PROBATION", "TERMINATED", "RESIGNED"] as const;
 
-function getStatusBadge(status: string) {
-  switch (status.toUpperCase()) {
-    case "ACTIVE":
-      return (
-        <Badge className="bg-green-500/10 text-green-700 hover:bg-green-500/20 border-green-200">
-          Active
-        </Badge>
-      );
-    case "ON_LEAVE":
-      return (
-        <Badge className="bg-orange-500/10 text-orange-700 hover:bg-orange-500/20 border-orange-200">
-          On Leave
-        </Badge>
-      );
-    case "PROBATION":
-      return (
-        <Badge className="bg-yellow-500/10 text-yellow-700 hover:bg-yellow-500/20 border-yellow-200">
-          Probation
-        </Badge>
-      );
-    case "TERMINATED":
-      return (
-        <Badge className="bg-red-500/10 text-red-700 hover:bg-red-500/20 border-red-200">
-          Terminated
-        </Badge>
-      );
-    case "RESIGNED":
-      return (
-        <Badge className="bg-gray-500/10 text-gray-600 hover:bg-gray-500/20 border-gray-200">
-          Resigned
-        </Badge>
-      );
-    default:
-      return <Badge variant="outline">{status}</Badge>;
-  }
+/**
+ * WHY the label is a parameter: the colour is a property of the status, but the
+ * wording is a property of the language. Passing it in keeps this helper outside
+ * the component tree (where there is no `t`) without hard-coding English.
+ */
+const STATUS_BADGE_CLASSES: Record<string, string> = {
+  ACTIVE: "bg-green-500/10 text-green-700 hover:bg-green-500/20 border-green-200",
+  ON_LEAVE: "bg-orange-500/10 text-orange-700 hover:bg-orange-500/20 border-orange-200",
+  PROBATION: "bg-yellow-500/10 text-yellow-700 hover:bg-yellow-500/20 border-yellow-200",
+  TERMINATED: "bg-red-500/10 text-red-700 hover:bg-red-500/20 border-red-200",
+  RESIGNED: "bg-gray-500/10 text-gray-600 hover:bg-gray-500/20 border-gray-200",
+};
+
+function getStatusBadge(status: string, label: string) {
+  const className = STATUS_BADGE_CLASSES[status.toUpperCase()];
+  if (!className) return <Badge variant="outline">{status}</Badge>;
+  return <Badge className={className}>{label}</Badge>;
 }
 
 function getInitials(firstName: string, lastName: string) {
@@ -79,6 +56,16 @@ function getInitials(firstName: string, lastName: string) {
 }
 
 export default function Employees() {
+  const { t } = useTranslation("employees");
+  // Literal keys so i18next's typed `t` checks them; keyed by the raw enum the
+  // API returns, which is a plain string at the lookup site.
+  const statusLabels: Record<string, string> = {
+    ACTIVE: t("status.ACTIVE"),
+    ON_LEAVE: t("status.ON_LEAVE"),
+    PROBATION: t("status.PROBATION"),
+    TERMINATED: t("status.TERMINATED"),
+    RESIGNED: t("status.RESIGNED"),
+  };
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
@@ -164,7 +151,8 @@ export default function Employees() {
   const activeBusinessUnit = businessUnits.find((businessUnit) => businessUnit.id === businessUnitFilter);
   const activeDepartment = departments.find((department) => department.id === deptFilter);
   const activeTeam = teams.find((team) => team.id === teamFilter);
-  const activeStatusLabel = EMPLOYMENT_STATUS_OPTIONS.find((status) => status.value === statusFilter)?.label;
+  const activeStatusLabel =
+    statusFilter !== ALL_VALUE ? statusLabels[statusFilter] : undefined;
   const hasActiveFilters =
     businessUnitFilter !== ALL_VALUE ||
     deptFilter !== ALL_VALUE ||
@@ -245,11 +233,9 @@ export default function Employees() {
             className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100"
             data-testid="heading-directory"
           >
-            Employees
+            {t("title")}
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Manage and view all team members
-          </p>
+          <p className="text-muted-foreground mt-1 text-sm">{t("subtitle")}</p>
         </div>
         {canManageEmployees && (
           <Button
@@ -258,7 +244,7 @@ export default function Employees() {
             data-testid="button-add-employee"
           >
             <UserPlus className="w-4 h-4" />
-            Add Employee
+            {t("addEmployee")}
           </Button>
         )}
       </div>
@@ -268,7 +254,7 @@ export default function Employees() {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name or email…"
+            placeholder={t("searchPlaceholder")}
             className="pl-9"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -277,13 +263,13 @@ export default function Employees() {
         </div>
 
           <div className="grid gap-1.5" data-testid="bu-filter-container">
-            <Label className="text-xs text-muted-foreground">Business Unit</Label>
+            <Label className="text-xs text-muted-foreground">{t("filters.businessUnit")}</Label>
             <Select value={businessUnitFilter} onValueChange={handleBusinessUnitChange}>
               <SelectTrigger className="w-[190px]" data-testid="select-bu-filter">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL_VALUE}>All business units</SelectItem>
+                <SelectItem value={ALL_VALUE}>{t("filters.allBusinessUnits")}</SelectItem>
                 {businessUnits
                   .slice()
                   .sort((a, b) => a.name.localeCompare(b.name))
@@ -297,19 +283,17 @@ export default function Employees() {
           </div>
 
         <div className="grid gap-1.5" data-testid="dept-filter-container">
-          <Label className="text-xs text-muted-foreground">
-            Department
-          </Label>
+          <Label className="text-xs text-muted-foreground">{t("filters.department")}</Label>
           <Select
             value={businessUnitFilter === ALL_VALUE ? undefined : deptFilter}
             onValueChange={handleDepartmentChange}
             disabled={businessUnitFilter === ALL_VALUE || filteredDepartments.length === 0}
           >
             <SelectTrigger className="w-[190px]" data-testid="select-dept-filter">
-              <SelectValue placeholder={businessUnitFilter === ALL_VALUE ? "Select BU first" : "All departments"} />
+              <SelectValue placeholder={businessUnitFilter === ALL_VALUE ? t("filters.selectBuFirst") : t("filters.allDepartments")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_VALUE}>All departments</SelectItem>
+              <SelectItem value={ALL_VALUE}>{t("filters.allDepartments")}</SelectItem>
               {filteredDepartments
                 .map((department) => (
                   <SelectItem key={department.id} value={department.id}>
@@ -321,17 +305,17 @@ export default function Employees() {
         </div>
 
           <div className="grid gap-1.5" data-testid="team-filter-container">
-            <Label className="text-xs text-muted-foreground">Team</Label>
+            <Label className="text-xs text-muted-foreground">{t("filters.team")}</Label>
             <Select
               value={deptFilter === ALL_VALUE ? undefined : teamFilter}
               onValueChange={setTeamFilter}
               disabled={deptFilter === ALL_VALUE || filteredTeams.length === 0}
             >
               <SelectTrigger className="w-[190px]" data-testid="select-team-filter">
-                <SelectValue placeholder={deptFilter === ALL_VALUE ? "Select department first" : "All teams"} />
+                <SelectValue placeholder={deptFilter === ALL_VALUE ? t("filters.selectDeptFirst") : t("filters.allTeams")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL_VALUE}>All teams</SelectItem>
+                <SelectItem value={ALL_VALUE}>{t("filters.allTeams")}</SelectItem>
                 {filteredTeams.map((team) => (
                   <SelectItem key={team.id} value={team.id}>
                     {team.name}
@@ -342,16 +326,16 @@ export default function Employees() {
           </div>
 
           <div className="grid gap-1.5" data-testid="status-filter-container">
-            <Label className="text-xs text-muted-foreground">Status</Label>
+            <Label className="text-xs text-muted-foreground">{t("filters.status")}</Label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[170px]" data-testid="select-status-filter">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL_VALUE}>All statuses</SelectItem>
-                {EMPLOYMENT_STATUS_OPTIONS.map((status) => (
-                  <SelectItem key={status.value} value={status.value}>
-                    {status.label}
+                <SelectItem value={ALL_VALUE}>{t("filters.allStatuses")}</SelectItem>
+                {EMPLOYMENT_STATUS_VALUES.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {statusLabels[value]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -368,13 +352,14 @@ export default function Employees() {
               data-testid="button-clear-employee-filters"
             >
               <X className="h-4 w-4" />
-              Clear
+              {t("filters.clear")}
             </Button>
           )}
         </div>
 
         <p className="mt-2 text-xs text-muted-foreground" data-testid="employee-filter-summary">
-          Viewing: <span className="font-medium text-foreground">{viewingSummary || "All employees"}</span>
+          {t("filters.viewing")}{" "}
+          <span className="font-medium text-foreground">{viewingSummary || t("filters.allEmployees")}</span>
         </p>
       </div>
 
@@ -382,25 +367,25 @@ export default function Employees() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Employee</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Business Unit</TableHead>
-              <TableHead>Department</TableHead>
-              <TableHead>Status</TableHead>
-              {showDetailsColumn && <TableHead className="text-right">Actions</TableHead>}
+              <TableHead>{t("table.employee")}</TableHead>
+              <TableHead>{t("table.role")}</TableHead>
+              <TableHead>{t("table.businessUnit")}</TableHead>
+              <TableHead>{t("table.department")}</TableHead>
+              <TableHead>{t("table.status")}</TableHead>
+              {showDetailsColumn && <TableHead className="text-right">{t("table.actions")}</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={showDetailsColumn ? 6 : 5} className="text-center py-8 text-muted-foreground">
-                  Loading…
+                  {t("table.loading")}
                 </TableCell>
               </TableRow>
             ) : groupedEmployees.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={showDetailsColumn ? 6 : 5} className="text-center py-8 text-muted-foreground">
-                  No employees found matching your search.
+                  {t("table.noMatch")}
                 </TableCell>
               </TableRow>
             ) : (
@@ -436,7 +421,10 @@ export default function Employees() {
                   </TableRow>,
                   ...(!isCollapsed
                     ? group.employees.map((emp) => {
-                        const businessUnitName = getBusinessUnitNameForDepartment(emp.department?.id) ?? "Unassigned";
+                        // WHY keep the null: the label is translated, so comparing the
+                        // rendered string against a sentinel would break in French.
+                        const businessUnitName = getBusinessUnitNameForDepartment(emp.department?.id);
+                        const businessUnitLabel = businessUnitName ?? t("profile.unassigned");
                         const canOpenDetails = canOpenEmployeeDetails(emp);
                         return (
                         <TableRow key={emp.id} data-testid={`row-employee-${emp.id}`}>
@@ -459,19 +447,19 @@ export default function Employees() {
                           </TableCell>
                           <TableCell>{emp.position?.title ?? "—"}</TableCell>
                           <TableCell>
-                            <span className="text-sm font-medium">{businessUnitName}</span>
+                            <span className="text-sm font-medium">{businessUnitLabel}</span>
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-col">
                               <span>{emp.department?.name ?? "—"}</span>
-                              {businessUnitName !== "Unassigned" && (
+                              {businessUnitName !== null && (
                                 <span className="text-xs text-muted-foreground">
                                   {businessUnitName}
                                 </span>
                               )}
                             </div>
                           </TableCell>
-                          <TableCell>{getStatusBadge(emp.employmentStatus)}</TableCell>
+                          <TableCell>{getStatusBadge(emp.employmentStatus, statusLabels[emp.employmentStatus] ?? emp.employmentStatus)}</TableCell>
                           {showDetailsColumn && (
                             <TableCell className="text-right">
                               {canOpenDetails && (
@@ -481,7 +469,7 @@ export default function Employees() {
                                     size="sm"
                                     data-testid={`button-view-employee-${emp.id}`}
                                   >
-                                    View
+                                    {t("table.view")}
                                   </Button>
                                 </Link>
                               )}
@@ -500,8 +488,10 @@ export default function Employees() {
 
       {totalShown > 0 && (
         <p className="text-xs text-muted-foreground">
-          Showing {totalShown} employee{totalShown !== 1 ? "s" : ""} across{" "}
-          {groupedEmployees.length} department{groupedEmployees.length !== 1 ? "s" : ""}
+          {t("summary.showing", {
+            employees: t("summary.employees", { count: totalShown }),
+            departments: t("summary.departments", { count: groupedEmployees.length }),
+          })}
         </p>
       )}
 

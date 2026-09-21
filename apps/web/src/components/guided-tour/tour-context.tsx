@@ -5,31 +5,68 @@ import { getRoleTier } from '@/lib/auth';
 import { ALL_TOUR_STEPS } from '@/lib/tour/tour-steps';
 import type { TourStep, GuidedTourContextValue } from './types';
 
-const STORAGE_KEY_PREFIX = 'sentient.guided-tour.v1.';
+/**
+ * WHY per-step and not a single "done" flag: the old key stored only that the
+ * tour had been finished, so every step added afterwards was unreachable —
+ * anyone who had already run the tour never saw it again, and Settings (the
+ * lone Restart entry point) is HR_ADMIN-only, so most users had no way back in
+ * at all. Recording which step ids a user has seen means a newly added step
+ * introduces itself as a short tour of just that feature, for everyone.
+ */
+const SEEN_KEY_PREFIX = 'sentient.guided-tour.seen.v1.';
 
-function storageKey(userId: string): string {
-  return `${STORAGE_KEY_PREFIX}${userId}`;
+/** The flag written by the pre-per-step implementation. */
+const LEGACY_KEY_PREFIX = 'sentient.guided-tour.v1.';
+
+/**
+ * The steps that existed when the legacy flag was the only thing stored. A
+ * user carrying `done` has, by definition, seen exactly these — so they are
+ * migrated as seen and only genuinely newer steps are shown.
+ */
+const LEGACY_STEP_IDS: readonly string[] = [
+  'home-nav', 'profile-nav', 'leaves-nav', 'org-chart-nav', 'performance-nav',
+  'okrs-nav', 'dashboard-nav', 'simulation-nav', 'employees-nav',
+  'leave-mgmt-nav', 'positions-nav', 'notifications-bell', 'dark-mode-toggle',
+];
+
+function seenKey(userId: string): string {
+  return `${SEEN_KEY_PREFIX}${userId}`;
 }
 
-function hasCompleted(userId: string): boolean {
+function readSeen(userId: string): Set<string> {
   try {
-    return localStorage.getItem(storageKey(userId)) === 'done';
+    const raw = localStorage.getItem(seenKey(userId));
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return new Set(parsed.filter((id): id is string => typeof id === 'string'));
+      }
+    }
+    // One-time migration off the legacy boolean.
+    if (localStorage.getItem(`${LEGACY_KEY_PREFIX}${userId}`) === 'done') {
+      const migrated = new Set(LEGACY_STEP_IDS);
+      writeSeen(userId, migrated);
+      localStorage.removeItem(`${LEGACY_KEY_PREFIX}${userId}`);
+      return migrated;
+    }
   } catch {
-    return false;
+    // Unreadable or corrupt storage behaves like a first-time user.
   }
+  return new Set();
 }
 
-function markCompleted(userId: string): void {
+function writeSeen(userId: string, ids: Iterable<string>): void {
   try {
-    localStorage.setItem(storageKey(userId), 'done');
+    localStorage.setItem(seenKey(userId), JSON.stringify([...ids]));
   } catch {
     // ignore storage errors
   }
 }
 
-function clearCompleted(userId: string): void {
+function clearSeen(userId: string): void {
   try {
-    localStorage.removeItem(storageKey(userId));
+    localStorage.removeItem(seenKey(userId));
+    localStorage.removeItem(`${LEGACY_KEY_PREFIX}${userId}`);
   } catch {
     // ignore storage errors
   }
@@ -45,22 +82,45 @@ interface GuidedTourProviderProps {
 export function GuidedTourProvider({ user, children }: GuidedTourProviderProps): React.ReactElement {
   const [, navigate] = useLocation();
 
-  const steps: TourStep[] = useMemo(() => {
+  /** Every step this user's role is entitled to, in order. */
+  const allSteps: TourStep[] = useMemo(() => {
     if (!user) return [];
     const tier = getRoleTier(user);
     return ALL_TOUR_STEPS.filter((s) => s.tiers.includes(tier));
   }, [user]);
 
+  // The steps of the run currently on screen: unseen-only when the tour opens
+  // itself, the full set when the user asks to replay it.
+  const [steps, setSteps] = useState<TourStep[]>([]);
   const [isActive, setIsActive] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
-  // Auto-start for new users
+  const navigateToStep = useCallback(
+    (step: TourStep | undefined): void => {
+      if (step?.route) navigate(step.route);
+    },
+    [navigate],
+  );
+
+  // Auto-start on whatever this user has not been shown yet.
   useEffect(() => {
-    if (!user || hasCompleted(user.sub) || steps.length === 0) return;
-    // Small delay so the layout mounts and nav items render first
-    const t = setTimeout(() => setIsActive(true), 600);
+    if (!user || allSteps.length === 0) return;
+    const seen = readSeen(user.sub);
+    const unseen = allSteps.filter((s) => !seen.has(s.id));
+    if (unseen.length === 0) return;
+
+    // Small delay so the layout mounts and nav items render first.
+    const t = setTimeout(() => {
+      setSteps(unseen);
+      setCurrentStepIndex(0);
+      // WHY navigate here and not only on Next: an unseen-only run can start
+      // on a step that lives off the current route, such as the profile's
+      // Linked Channels tab.
+      navigateToStep(unseen[0]);
+      setIsActive(true);
+    }, 600);
     return () => clearTimeout(t);
-  }, [user, steps.length]);
+  }, [user, allSteps, navigateToStep]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -77,31 +137,33 @@ export function GuidedTourProvider({ user, children }: GuidedTourProviderProps):
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, currentStepIndex]);
 
-  const navigateToStep = useCallback(
-    (step: TourStep | undefined): void => {
-      if (step?.route) navigate(step.route);
-    },
-    [navigate],
-  );
+  /** Mark the run that just ended as seen, whether it was finished or skipped. */
+  const endRun = useCallback((): void => {
+    setIsActive(false);
+    if (!user) return;
+    const seen = readSeen(user.sub);
+    for (const step of steps) seen.add(step.id);
+    writeSeen(user.sub, seen);
+  }, [user, steps]);
 
   const start = useCallback((): void => {
+    setSteps(allSteps);
     setCurrentStepIndex(0);
+    navigateToStep(allSteps[0]);
     setIsActive(true);
-    navigateToStep(steps[0]);
-  }, [steps, navigateToStep]);
+  }, [allSteps, navigateToStep]);
 
   const next = useCallback((): void => {
     setCurrentStepIndex((i) => {
       const next = i + 1;
       if (next >= steps.length) {
-        setIsActive(false);
-        if (user) markCompleted(user.sub);
+        endRun();
         return i;
       }
       navigateToStep(steps[next]);
       return next;
     });
-  }, [steps, user, navigateToStep]);
+  }, [steps, endRun, navigateToStep]);
 
   const prev = useCallback((): void => {
     setCurrentStepIndex((i) => {
@@ -112,17 +174,17 @@ export function GuidedTourProvider({ user, children }: GuidedTourProviderProps):
   }, [steps, navigateToStep]);
 
   const skip = useCallback((): void => {
-    setIsActive(false);
-    if (user) markCompleted(user.sub);
-  }, [user]);
+    endRun();
+  }, [endRun]);
 
   const restart = useCallback((): void => {
-    if (user) clearCompleted(user.sub);
+    if (user) clearSeen(user.sub);
+    setSteps(allSteps);
     setCurrentStepIndex(0);
-    navigateToStep(steps[0]);
+    navigateToStep(allSteps[0]);
     // Small delay for navigation to settle before activating
     setTimeout(() => setIsActive(true), 200);
-  }, [user, steps, navigateToStep]);
+  }, [user, allSteps, navigateToStep]);
 
   const value: GuidedTourContextValue = {
     isActive,

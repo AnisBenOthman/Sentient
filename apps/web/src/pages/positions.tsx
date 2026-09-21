@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getPositions,
@@ -61,34 +62,18 @@ import { ChevronDown, ChevronRight, Search, Briefcase, Plus, Pencil, Trash2, Shi
 import { cn } from "@/lib/utils";
 import { POSITION_DOMAINS, getPositionDomain, sortPositionsByLevelThenTitle } from "@/lib/position-domains";
 
-const POSITION_LEVELS = [
-  { value: "JUNIOR", label: "Junior" },
-  { value: "MEDIUM", label: "Medium" },
-  { value: "CONFIRMED", label: "Confirmed" },
-  { value: "SENIOR_1", label: "Senior I" },
-  { value: "SENIOR_2", label: "Senior II" },
-  { value: "EXPERT", label: "Expert" },
-];
+/**
+ * WHY value-only: every one of these is an enum whose wording is translated.
+ * The value keys both the colour maps below and the `positions` locale entry,
+ * so a label can never drift from the option it belongs to.
+ */
+const POSITION_LEVELS = ["JUNIOR", "MEDIUM", "CONFIRMED", "SENIOR_1", "SENIOR_2", "EXPERT"] as const;
 
-const PROFICIENCY_LEVELS: { value: ProficiencyLevel; label: string }[] = [
-  { value: "BEGINNER", label: "Beginner" },
-  { value: "INTERMEDIATE", label: "Intermediate" },
-  { value: "ADVANCED", label: "Advanced" },
-  { value: "EXPERT", label: "Expert" },
-];
+const PROFICIENCY_LEVELS: readonly ProficiencyLevel[] = ["BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT"];
 
-const REQUIREMENT_LEVELS: { value: SkillRequirementLevel; label: string }[] = [
-  { value: "MANDATORY", label: "Mandatory" },
-  { value: "EXPECTED", label: "Expected" },
-  { value: "NICE_TO_HAVE", label: "Nice to Have" },
-];
+const REQUIREMENT_LEVELS: readonly SkillRequirementLevel[] = ["MANDATORY", "EXPECTED", "NICE_TO_HAVE"];
 
-const SKILL_DOMAINS: { value: SkillDomain; label: string }[] = [
-  { value: "TECHNICAL", label: "Technical" },
-  { value: "LEADERSHIP", label: "Leadership" },
-  { value: "SOFT_SKILLS", label: "Soft Skills" },
-  { value: "DOMAIN_EXPERTISE", label: "Domain Expertise" },
-];
+const SKILL_DOMAINS: readonly SkillDomain[] = ["TECHNICAL", "LEADERSHIP", "SOFT_SKILLS", "DOMAIN_EXPERTISE"];
 
 type DomainFilter = SkillDomain | "ALL";
 type RequirementFilter = SkillRequirementLevel | "ALL";
@@ -97,13 +82,6 @@ const REQUIREMENT_COLORS: Record<SkillRequirementLevel, string> = {
   MANDATORY: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400",
   EXPECTED: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400",
   NICE_TO_HAVE: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400",
-};
-
-const DOMAIN_LABELS: Record<string, string> = {
-  TECHNICAL: "Technical",
-  LEADERSHIP: "Leadership",
-  SOFT_SKILLS: "Soft Skills",
-  DOMAIN_EXPERTISE: "Domain Expertise",
 };
 
 const DOMAIN_COLORS: Record<SkillDomain, string> = {
@@ -201,9 +179,9 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
   const groupedVisiblePositionSkills = useMemo(
     () =>
       SKILL_DOMAINS.map((domain) => ({
-        ...domain,
+        value: domain,
         skills: visiblePositionSkills
-          .filter((ps) => ps.skill.domain === domain.value)
+          .filter((ps) => ps.skill.domain === domain)
           .sort((a, b) => {
             const requirementDelta = REQUIREMENT_RANK[a.requirementLevel] - REQUIREMENT_RANK[b.requirementLevel];
             if (requirementDelta !== 0) return requirementDelta;
@@ -229,6 +207,7 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
     },
   });
 
+  const { t } = useTranslation(["positions", "common"]);
   const deleteMutation = useMutation({
     mutationFn: (skillId: string) => deletePositionSkill(position.id, skillId),
     onSuccess: () => {
@@ -242,7 +221,7 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <BookOpen className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-muted-foreground">Required Skills</span>
+          <span className="text-sm font-medium text-muted-foreground">{t("skills.heading")}</span>
           {positionSkills.length > 0 && (
             <Badge variant="secondary" className="text-xs">{positionSkills.length}</Badge>
           )}
@@ -250,15 +229,15 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
         {isAdmin && (
           <Button size="sm" className="gap-1.5 h-7 text-xs bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white shadow-sm hover:shadow-md transition-all duration-200" onClick={() => setAddOpen(true)}>
             <Plus className="w-3 h-3" />
-            Add Skill
+            {t("skills.add")}
           </Button>
         )}
       </div>
 
       {isLoading ? (
-        <p className="text-xs text-muted-foreground py-2">Loading…</p>
+        <p className="text-xs text-muted-foreground py-2">{t("common:loading")}</p>
       ) : positionSkills.length === 0 ? (
-        <p className="text-xs text-muted-foreground py-2 italic">No required skills defined for this position.</p>
+        <p className="text-xs text-muted-foreground py-2 italic">{t("skills.empty")}</p>
       ) : (
         <div className="space-y-3">
           <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
@@ -270,19 +249,19 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
                 className="h-7 text-xs"
                 onClick={() => setDomainFilter("ALL")}
               >
-                All domains
+                {t("skills.allDomains")}
               </Button>
               {SKILL_DOMAINS.map((domain) => (
                 <Button
-                  key={domain.value}
+                  key={domain}
                   type="button"
                   size="sm"
-                  variant={domainFilter === domain.value ? "default" : "outline"}
+                  variant={domainFilter === domain ? "default" : "outline"}
                   className="h-7 gap-1.5 text-xs"
-                  onClick={() => setDomainFilter(domain.value)}
+                  onClick={() => setDomainFilter(domain)}
                 >
-                  {domain.label}
-                  <span className="text-[10px] opacity-70">{domainCounts[domain.value]}</span>
+                  {t(`skillDomains.${domain}` as "skillDomains.TECHNICAL")}
+                  <span className="text-[10px] opacity-70">{domainCounts[domain]}</span>
                 </Button>
               ))}
             </div>
@@ -294,19 +273,19 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
                 className="h-7 text-xs"
                 onClick={() => setRequirementFilter("ALL")}
               >
-                All requirements
+                {t("skills.allRequirements")}
               </Button>
               {REQUIREMENT_LEVELS.map((level) => (
                 <Button
-                  key={level.value}
+                  key={level}
                   type="button"
                   size="sm"
-                  variant={requirementFilter === level.value ? "default" : "outline"}
-                  className={cn("h-7 gap-1.5 border text-xs", requirementFilter !== level.value && REQUIREMENT_COLORS[level.value])}
-                  onClick={() => setRequirementFilter(level.value)}
+                  variant={requirementFilter === level ? "default" : "outline"}
+                  className={cn("h-7 gap-1.5 border text-xs", requirementFilter !== level && REQUIREMENT_COLORS[level])}
+                  onClick={() => setRequirementFilter(level)}
                 >
-                  {level.label}
-                  <span className="text-[10px] opacity-70">{requirementCounts[level.value]}</span>
+                  {t(`requirement.${level}` as "requirement.MANDATORY")}
+                  <span className="text-[10px] opacity-70">{requirementCounts[level]}</span>
                 </Button>
               ))}
             </div>
@@ -314,7 +293,7 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
 
           {visiblePositionSkills.length === 0 ? (
             <p className="rounded-md border border-dashed py-5 text-center text-xs text-muted-foreground">
-              No skills match the selected filters.
+              {t("skills.noFilterMatch")}
             </p>
           ) : (
             <div className="space-y-3">
@@ -323,9 +302,11 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/40">
                     <div className="flex items-center gap-2">
                       <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold", DOMAIN_COLORS[group.value])}>
-                        {group.label}
+                        {t(`skillDomains.${group.value}` as "skillDomains.TECHNICAL")}
                       </span>
-                      <span className="text-xs text-muted-foreground">{group.skills.length} skills</span>
+                      <span className="text-xs text-muted-foreground">
+                        {t("skills.skillCount", { count: group.skills.length })}
+                      </span>
                     </div>
                   </div>
                   <div className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -336,13 +317,17 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
                       >
                         <div className="min-w-0">
                           <span className="block truncate text-sm font-medium">{ps.skill.name}</span>
-                          <span className="text-xs text-muted-foreground">{ps.skill.category ?? "Uncategorized"}</span>
+                          <span className="text-xs text-muted-foreground">{ps.skill.category ?? t("skills.uncategorized")}</span>
                         </div>
                         <span className={cn("w-fit rounded-md border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide", REQUIREMENT_COLORS[ps.requirementLevel])}>
-                          {REQUIREMENT_LEVELS.find((r) => r.value === ps.requirementLevel)?.label ?? ps.requirementLevel}
+                          {t(`requirement.${ps.requirementLevel}` as "requirement.MANDATORY", {
+                            defaultValue: ps.requirementLevel,
+                          })}
                         </span>
                         <span className="w-fit rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                          {PROFICIENCY_LEVELS.find((p) => p.value === ps.minimumProficiency)?.label ?? ps.minimumProficiency}
+                          {t(`proficiency.${ps.minimumProficiency}` as "proficiency.BEGINNER", {
+                            defaultValue: ps.minimumProficiency,
+                          })}
                         </span>
                         {isAdmin && (
                           <Button
@@ -350,6 +335,7 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
                             size="sm"
                             className="h-6 w-6 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                             onClick={() => setDeleteTarget(ps)}
+                            aria-label={t("skills.removeAria", { name: ps.skill.name })}
                           >
                             <Trash2 className="w-3 h-3" />
                           </Button>
@@ -368,11 +354,11 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
       <Dialog open={addOpen} onOpenChange={(v) => { if (!v) { setAddOpen(false); setSkillSearch(""); setCatalogDomain("ALL"); } }}>
         <DialogContent className="sm:max-w-lg" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
-            <DialogTitle>Add Required Skill — {position.title}</DialogTitle>
+            <DialogTitle>{t("skills.addTitle", { title: position.title })}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Skill</Label>
+              <Label>{t("skills.skillLabel")}</Label>
               <Select
                 value={catalogDomain}
                 onValueChange={(v) => {
@@ -381,19 +367,21 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
                 }}
               >
                 <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Filter by domain" />
+                  <SelectValue placeholder={t("skills.filterByDomain")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ALL">All domains</SelectItem>
+                  <SelectItem value="ALL">{t("skills.allDomains")}</SelectItem>
                   {SKILL_DOMAINS.map((domain) => (
-                    <SelectItem key={domain.value} value={domain.value}>{domain.label}</SelectItem>
+                    <SelectItem key={domain} value={domain}>
+                      {t(`skillDomains.${domain}` as "skillDomains.TECHNICAL")}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
-                  placeholder="Search skills…"
+                  placeholder={t("skills.searchPlaceholder")}
                   className="pl-8 text-sm"
                   value={skillSearch}
                   onChange={(e) => { setSkillSearch(e.target.value); setAddForm((f) => ({ ...f, skillId: "" })); }}
@@ -401,7 +389,7 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
               </div>
               {availableSkills.length === 0 ? (
                 <p className="rounded-md border border-dashed py-4 text-center text-xs text-muted-foreground">
-                  No available skills match this domain or search.
+                  {t("skills.noneAvailable")}
                 </p>
               ) : (
                 <div className="max-h-40 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
@@ -419,7 +407,9 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
                       <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                         {skill.domain && (
                           <span className={cn("rounded-full border px-1.5 py-0.5", DOMAIN_COLORS[skill.domain])}>
-                            {DOMAIN_LABELS[skill.domain] ?? skill.domain}
+                            {t(`skillDomains.${skill.domain}` as "skillDomains.TECHNICAL", {
+                              defaultValue: skill.domain,
+                            })}
                           </span>
                         )}
                         {skill.category && <span>{skill.category}</span>}
@@ -431,7 +421,7 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
             </div>
 
             <div className="space-y-1.5">
-              <Label>Minimum Proficiency</Label>
+              <Label>{t("skills.minProficiency")}</Label>
               <Select
                 value={addForm.minimumProficiency}
                 onValueChange={(v) => setAddForm((f) => ({ ...f, minimumProficiency: v as ProficiencyLevel }))}
@@ -440,15 +430,17 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {PROFICIENCY_LEVELS.map((l) => (
-                    <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                  {PROFICIENCY_LEVELS.map((level) => (
+                    <SelectItem key={level} value={level}>
+                      {t(`proficiency.${level}` as "proficiency.BEGINNER")}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-1.5">
-              <Label>Requirement Level</Label>
+              <Label>{t("skills.requirementLevel")}</Label>
               <Select
                 value={addForm.requirementLevel}
                 onValueChange={(v) => setAddForm((f) => ({ ...f, requirementLevel: v as SkillRequirementLevel }))}
@@ -457,20 +449,22 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {REQUIREMENT_LEVELS.map((l) => (
-                    <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                  {REQUIREMENT_LEVELS.map((level) => (
+                    <SelectItem key={level} value={level}>
+                      {t(`requirement.${level}` as "requirement.MANDATORY")}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setAddOpen(false); setSkillSearch(""); setCatalogDomain("ALL"); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setAddOpen(false); setSkillSearch(""); setCatalogDomain("ALL"); }}>{t("common:cancel")}</Button>
             <Button
               onClick={() => addMutation.mutate()}
               disabled={!addForm.skillId || addMutation.isPending}
             >
-              {addMutation.isPending ? "Adding…" : "Add Skill"}
+              {addMutation.isPending ? t("skills.adding") : t("skills.add")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -480,19 +474,19 @@ function RequiredSkillsPanel({ position, isAdmin }: { position: Position; isAdmi
       <AlertDialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove "{deleteTarget?.skill.name}"?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This skill requirement will be removed from the position profile. Existing employees won't be affected.
-            </AlertDialogDescription>
+            <AlertDialogTitle>
+              {t("skills.removeTitle", { name: deleteTarget?.skill.name ?? "" })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>{t("skills.removeDescription")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700 text-white"
               onClick={() => { if (deleteTarget) deleteMutation.mutate(deleteTarget.skillId); }}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? "Removing…" : "Remove"}
+              {deleteMutation.isPending ? t("skills.removePending") : t("skills.removeConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -535,11 +529,12 @@ function PositionDialog({
   initial: PosForm;
   saving?: boolean;
 }) {
+  const { t } = useTranslation(["positions", "common"]);
   const [form, setForm] = useState<PosForm>(initial);
   const [error, setError] = useState("");
 
   function handleSave() {
-    if (!form.title.trim()) { setError("Title is required."); return; }
+    if (!form.title.trim()) { setError(t("dialog.errorTitleRequired")); return; }
     onSave({ ...form, title: form.title.trim() });
   }
 
@@ -547,33 +542,35 @@ function PositionDialog({
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="sm:max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle>{initial.title ? "Edit Position" : "Add Position"}</DialogTitle>
+          <DialogTitle>{initial.title ? t("dialog.editTitle") : t("dialog.createTitle")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label htmlFor="pos-title">Title</Label>
+            <Label htmlFor="pos-title">{t("dialog.titleLabel")}</Label>
             <Input
               id="pos-title"
               value={form.title}
               onChange={(e) => { setForm((p) => ({ ...p, title: e.target.value })); setError(""); }}
-              placeholder="e.g. Software Engineer"
+              placeholder={t("dialog.titlePlaceholder")}
               data-testid="input-pos-title"
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="pos-level">Level</Label>
+            <Label htmlFor="pos-level">{t("dialog.levelLabel")}</Label>
             <Select
               value={form.level}
               onValueChange={(v) => setForm((p) => ({ ...p, level: v }))}
             >
               <SelectTrigger id="pos-level" data-testid="select-pos-level">
-                <SelectValue placeholder="Select level" />
+                <SelectValue placeholder={t("dialog.levelPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
-                {POSITION_LEVELS.map((l) => (
-                  <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                {POSITION_LEVELS.map((level) => (
+                  <SelectItem key={level} value={level}>
+                    {t(`levels.${level}` as "levels.JUNIOR")}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -581,8 +578,8 @@ function PositionDialog({
 
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
-              <p className="text-sm font-medium">Key position</p>
-              <p className="text-xs text-muted-foreground">Critical to business continuity</p>
+              <p className="text-sm font-medium">{t("dialog.keyPositionTitle")}</p>
+              <p className="text-xs text-muted-foreground">{t("dialog.keyPositionHint")}</p>
             </div>
             <Switch
               checked={form.isKeyPosition}
@@ -594,8 +591,8 @@ function PositionDialog({
           {form.isKeyPosition && (
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div>
-                <p className="text-sm font-medium">Successor identified</p>
-                <p className="text-xs text-muted-foreground">A designated successor has been named</p>
+                <p className="text-sm font-medium">{t("dialog.successorTitle")}</p>
+                <p className="text-xs text-muted-foreground">{t("dialog.successorHint")}</p>
               </div>
               <Switch
                 checked={form.hasSuccessor}
@@ -611,9 +608,9 @@ function PositionDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={onClose}>{t("common:cancel")}</Button>
           <Button onClick={handleSave} disabled={saving} data-testid="button-save-pos">
-            {saving ? "Saving…" : "Save"}
+            {saving ? t("common:saving") : t("common:save")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -623,6 +620,7 @@ function PositionDialog({
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 export default function Positions() {
+  const { t } = useTranslation(["positions", "common"]);
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -712,16 +710,14 @@ export default function Positions() {
             className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100"
             data-testid="heading-positions"
           >
-            Positions
+            {t("title")}
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Manage job positions and their seniority levels
-          </p>
+          <p className="text-muted-foreground mt-1 text-sm">{t("subtitle")}</p>
         </div>
         {isAdmin && (
           <Button onClick={openAdd} className="gap-2 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white shadow-sm hover:shadow-md transition-all duration-200" data-testid="button-add-position">
             <Plus className="w-4 h-4" />
-            Add Position
+            {t("addPosition")}
           </Button>
         )}
       </div>
@@ -730,7 +726,7 @@ export default function Positions() {
       <div className="relative max-w-sm">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search positions…"
+          placeholder={t("searchPlaceholder")}
           className="pl-9"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -741,12 +737,12 @@ export default function Positions() {
       {/* Stats */}
       <div className="flex flex-wrap gap-3">
         {[
-          { label: "Total", value: positions.length },
-          { label: "Key positions", value: positions.filter((p) => p.isKeyPosition).length },
-          { label: "No successor", value: positions.filter((p) => p.isKeyPosition && !p.hasSuccessor).length },
-        ].map(({ label, value }) => (
+          { id: "total", label: t("stats.total"), value: positions.length },
+          { id: "key", label: t("stats.keyPositions"), value: positions.filter((p) => p.isKeyPosition).length },
+          { id: "noSuccessor", label: t("stats.noSuccessor"), value: positions.filter((p) => p.isKeyPosition && !p.hasSuccessor).length },
+        ].map(({ id, label, value }) => (
           <div
-            key={label}
+            key={id}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm"
           >
             <span className="text-lg font-bold text-gray-900 dark:text-gray-100">{value}</span>
@@ -759,15 +755,15 @@ export default function Positions() {
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Loading…</p>
+            <p className="text-sm text-muted-foreground py-8 text-center">{t("common:loading")}</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Level</TableHead>
-                  <TableHead>Flags</TableHead>
-                  {isAdmin && <TableHead className="text-right">Actions</TableHead>}
+                  <TableHead>{t("table.title")}</TableHead>
+                  <TableHead>{t("table.level")}</TableHead>
+                  <TableHead>{t("table.flags")}</TableHead>
+                  {isAdmin && <TableHead className="text-right">{t("table.actions")}</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -778,10 +774,16 @@ export default function Positions() {
                         <TableCell colSpan={isAdmin ? 4 : 3} className="bg-gray-50 px-4 py-3 dark:bg-gray-900/40">
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div>
-                              <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{group.label}</div>
-                              <div className="text-xs text-muted-foreground">{group.description}</div>
+                              <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                {t(`domains.${group.value}.label` as "domains.ENGINEERING.label")}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {t(`domains.${group.value}.description` as "domains.ENGINEERING.description")}
+                              </div>
                             </div>
-                            <Badge variant="secondary" className="text-xs">{group.positions.length} positions</Badge>
+                            <Badge variant="secondary" className="text-xs">
+                              {t("table.positionCount", { count: group.positions.length })}
+                            </Badge>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -809,7 +811,7 @@ export default function Positions() {
                               LEVEL_COLORS[pos.level] ?? "bg-gray-100 text-gray-600",
                             )}
                           >
-                            {POSITION_LEVELS.find((l) => l.value === pos.level)?.label ?? pos.level}
+                            {t(`levels.${pos.level}` as "levels.JUNIOR", { defaultValue: pos.level })}
                           </span>
                         ) : (
                           <span className="text-muted-foreground text-xs">—</span>
@@ -828,8 +830,13 @@ export default function Positions() {
                               )}
                             >
                               <Key className="w-3 h-3" />
-                              Key
-                              {pos.keyPositionRisk && ` · ${pos.keyPositionRisk.charAt(0)}${pos.keyPositionRisk.slice(1).toLowerCase()} risk`}
+                              {pos.keyPositionRisk
+                                ? t("table.keyBadgeWithRisk", {
+                                    risk: t(`risk.${pos.keyPositionRisk}` as "risk.LOW", {
+                                      defaultValue: pos.keyPositionRisk,
+                                    }),
+                                  })
+                                : t("table.keyBadge")}
                             </Badge>
                           )}
                           {pos.isKeyPosition && !pos.hasSuccessor && (
@@ -838,7 +845,7 @@ export default function Positions() {
                               className="text-xs gap-1 bg-red-50 text-red-600 border-red-200"
                             >
                               <ShieldAlert className="w-3 h-3" />
-                              No successor
+                              {t("table.noSuccessorBadge")}
                             </Badge>
                           )}
                         </div>
@@ -850,6 +857,7 @@ export default function Positions() {
                               variant="ghost"
                               size="sm"
                               onClick={() => openEdit(pos)}
+                              aria-label={t("table.editAria", { title: pos.title })}
                               data-testid={`button-edit-pos-${pos.id}`}
                             >
                               <Pencil className="w-3.5 h-3.5" />
@@ -859,6 +867,7 @@ export default function Positions() {
                               size="sm"
                               className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                               onClick={() => setDeleteTarget(pos)}
+                              aria-label={t("table.deactivateAria", { title: pos.title })}
                               data-testid={`button-delete-pos-${pos.id}`}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -879,7 +888,7 @@ export default function Positions() {
                 {filtered.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={isAdmin ? 4 : 3} className="text-center text-sm text-muted-foreground py-8">
-                      {search ? "No positions match your search." : "No positions configured."}
+                      {search ? t("table.noMatch") : t("table.empty")}
                     </TableCell>
                   </TableRow>
                 )}
@@ -901,21 +910,20 @@ export default function Positions() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Deactivate "{deleteTarget?.title}"?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This position will be marked inactive. Employees currently assigned to this
-              position will not be affected.
-            </AlertDialogDescription>
+            <AlertDialogTitle>
+              {t("deactivate.title", { title: deleteTarget?.title ?? "" })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>{t("deactivate.description")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700 text-white"
               onClick={() => { if (deleteTarget) deleteMutation.mutate(deleteTarget.id); }}
               disabled={deleteMutation.isPending}
               data-testid="button-confirm-delete-pos"
             >
-              {deleteMutation.isPending ? "Deactivating…" : "Deactivate"}
+              {deleteMutation.isPending ? t("deactivate.pending") : t("deactivate.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

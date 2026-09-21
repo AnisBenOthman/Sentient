@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Building2, Globe, Layers, Users } from "lucide-react";
 import {
   Select,
@@ -38,6 +39,7 @@ export function DashboardScopeFilter({
   disabled = false,
   onChange,
 }: Props) {
+  const { t } = useTranslation("dashboard");
   const selectedBusinessUnit = businessUnits.find((businessUnit) => businessUnit.id === value.businessUnitId);
   const selectedDepartment = departments.find((department) => department.id === value.departmentId);
   const selectedTeam = teams.find((team) => team.id === value.teamId);
@@ -54,7 +56,7 @@ export function DashboardScopeFilter({
     selectedDepartment?.name,
     selectedTeam?.name,
   ].filter(Boolean);
-  const scopeLabel = scopeTrail.length > 0 ? scopeTrail.join(" / ") : "Global";
+  const scopeLabel = scopeTrail.length > 0 ? scopeTrail.join(" / ") : t("scopeFilter.global");
 
   return (
     <div
@@ -72,7 +74,7 @@ export function DashboardScopeFilter({
             data-testid="scope-global"
           >
             <Globe className="mr-1.5 h-3.5 w-3.5" />
-            Global
+            {t("scopeFilter.global")}
           </Button>
         )}
 
@@ -83,7 +85,7 @@ export function DashboardScopeFilter({
         >
           <SelectTrigger className="h-9 w-full min-w-[190px] sm:w-[220px]" data-testid="scope-business-unit-trigger">
             <Building2 className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-            <SelectValue placeholder="Select business unit" />
+            <SelectValue placeholder={t("scopeFilter.selectBusinessUnit")} />
           </SelectTrigger>
           <SelectContent>
             {sortByName(businessUnits).map((businessUnit) => (
@@ -105,7 +107,13 @@ export function DashboardScopeFilter({
         >
           <SelectTrigger className="h-9 w-full min-w-[190px] sm:w-[220px]" data-testid="scope-department-trigger">
             <Layers className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-            <SelectValue placeholder={value.businessUnitId ? "Select department" : "Select business unit first"} />
+            <SelectValue
+              placeholder={
+                value.businessUnitId
+                  ? t("scopeFilter.selectDepartment")
+                  : t("scopeFilter.businessUnitFirst")
+              }
+            />
           </SelectTrigger>
           <SelectContent>
             {sortByName(departmentOptions).map((department) => (
@@ -127,7 +135,13 @@ export function DashboardScopeFilter({
         >
           <SelectTrigger className="h-9 w-full min-w-[190px] sm:w-[220px]" data-testid="scope-team-trigger">
             <Users className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-            <SelectValue placeholder={value.departmentId ? "Select team" : "Select department first"} />
+            <SelectValue
+              placeholder={
+                value.departmentId
+                  ? t("scopeFilter.selectTeam")
+                  : t("scopeFilter.departmentFirst")
+              }
+            />
           </SelectTrigger>
           <SelectContent>
             {sortByName(teamOptions).map((team) => (
@@ -144,7 +158,8 @@ export function DashboardScopeFilter({
       </div>
 
       <p className="text-xs text-muted-foreground" data-testid="scope-summary">
-        Viewing: <span className="font-medium text-gray-700 dark:text-gray-200">{scopeLabel}</span>
+        {t("scopeFilter.viewing")}{" "}
+        <span className="font-medium text-gray-700 dark:text-gray-200">{scopeLabel}</span>
       </p>
     </div>
   );

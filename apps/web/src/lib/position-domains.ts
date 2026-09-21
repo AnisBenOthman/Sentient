@@ -2,48 +2,22 @@ import type { Position } from "@/lib/api/hr-core";
 
 export type PositionDomain = "ENGINEERING" | "PRODUCT_DESIGN" | "HR" | "FINANCE" | "SALES" | "OTHER";
 
+/**
+ * WHY no label/description here: those are copy, and copy is translated. They
+ * live in the `positions` locale namespace under `domains.<value>`, so this
+ * module stays pure routing data. `match` stays here because it is matched
+ * against position titles as stored, not against anything the user reads.
+ */
 export const POSITION_DOMAINS: Array<{
   value: PositionDomain;
-  label: string;
-  description: string;
   match: RegExp;
 }> = [
-  {
-    value: "ENGINEERING",
-    label: "Engineering",
-    description: "Software, frontend, technical lead, and engineering management roles",
-    match: /(engineer|technical lead|software|frontend)/i,
-  },
-  {
-    value: "PRODUCT_DESIGN",
-    label: "Product & Design",
-    description: "Product ownership, product management, UX, and design positions",
-    match: /(product|ux|designer|design)/i,
-  },
-  {
-    value: "HR",
-    label: "Human Resources",
-    description: "HR partner and people operations positions",
-    match: /\bhr\b|human resources|people|recruit/i,
-  },
-  {
-    value: "FINANCE",
-    label: "Finance",
-    description: "Accounting, controlling, FP&A, and finance leadership positions",
-    match: /(finance|financial|accountant|controller|fp&a|accounting)/i,
-  },
-  {
-    value: "SALES",
-    label: "Sales",
-    description: "Sales leadership and account executive positions",
-    match: /(sales|account executive|\bae\b)/i,
-  },
-  {
-    value: "OTHER",
-    label: "Other Positions",
-    description: "Positions without a seeded job-family match",
-    match: /.^/,
-  },
+  { value: "ENGINEERING", match: /(engineer|technical lead|software|frontend)/i },
+  { value: "PRODUCT_DESIGN", match: /(product|ux|designer|design)/i },
+  { value: "HR", match: /\bhr\b|human resources|people|recruit/i },
+  { value: "FINANCE", match: /(finance|financial|accountant|controller|fp&a|accounting)/i },
+  { value: "SALES", match: /(sales|account executive|\bae\b)/i },
+  { value: "OTHER", match: /.^/ },
 ];
 
 export const POSITION_LEVEL_RANK: Record<string, number> = {

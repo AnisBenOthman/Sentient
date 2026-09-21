@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bot, Brain, ExternalLink, Loader2, Send, Sparkles, X } from "lucide-react";
 import { Link } from "wouter";
@@ -107,6 +108,7 @@ function FloatingChatBubble({
 }
 
 export function FloatingAiAssistant() {
+  const { t } = useTranslation("ai");
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
@@ -147,7 +149,7 @@ export function FloatingAiAssistant() {
     },
     onError: (err: unknown) => {
       setLoadedLatest(true);
-      setError(getGatewayErrorMessage(err, "Could not load your latest AI conversation."));
+      setError(getGatewayErrorMessage(err, t("errors.loadLatestFailed")));
     },
   });
 
@@ -206,7 +208,7 @@ export function FloatingAiAssistant() {
     },
     onError: (err: unknown) => {
       setPendingPrompt(null);
-      setError(getGatewayErrorMessage(err, "The AI assistant could not complete this request."));
+      setError(getGatewayErrorMessage(err, t("errors.turnFailed")));
     },
   });
 
@@ -252,22 +254,22 @@ export function FloatingAiAssistant() {
       {open && (
         <section
           className="mb-3 flex h-[min(650px,calc(100vh-7rem))] w-[calc(100vw-2.5rem)] max-w-[390px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/20 dark:border-slate-800 dark:bg-slate-950 dark:shadow-black/50"
-          aria-label="Sentient AI assistant chat"
+          aria-label={t("floating.chatAria")}
         >
           <header className="border-b border-slate-200 bg-slate-950 px-4 py-3 text-white dark:border-slate-800">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <SentientBotMark compact />
                 <div>
-                  <p className="text-sm font-semibold leading-tight">Sentient AI</p>
-                  <p className="text-xs text-slate-300">Connected to assistant messages</p>
+                  <p className="text-sm font-semibold leading-tight">{t("floating.name")}</p>
+                  <p className="text-xs text-slate-300">{t("floating.connected")}</p>
                 </div>
               </div>
               <button
                 type="button"
                 className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
                 onClick={() => setOpen(false)}
-                aria-label="Close AI assistant"
+                aria-label={t("floating.closeAria")}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -281,9 +283,9 @@ export function FloatingAiAssistant() {
                   {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Ask from anywhere</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("floating.emptyTitle")}</p>
                   <p className="mx-auto mt-1 max-w-[16rem] text-xs leading-5 text-slate-500 dark:text-slate-400">
-                    Leave, OKRs, analytics, onboarding, policy, and workplace wording stay one click away.
+                    {t("floating.emptyHint")}
                   </p>
                 </div>
               </div>
@@ -326,7 +328,7 @@ export function FloatingAiAssistant() {
               <Textarea
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
-                placeholder="Ask Sentient AI..."
+                placeholder={t("floating.placeholder")}
                 className="max-h-28 min-h-11 resize-none rounded-xl bg-slate-50 text-sm dark:bg-slate-900"
                 disabled={isSendingTurn}
               />
@@ -335,7 +337,7 @@ export function FloatingAiAssistant() {
                 size="icon"
                 className="h-11 w-11 shrink-0 rounded-full bg-blue-600 text-white"
                 disabled={!draft.trim() || isSendingTurn}
-                aria-label="Send message"
+                aria-label={t("floating.sendAria")}
               >
                 <Send className="h-4 w-4" />
               </Button>
@@ -344,7 +346,7 @@ export function FloatingAiAssistant() {
               href="/ai-assistant"
               className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
             >
-              Open full assistant
+              {t("floating.openFull")}
               <ExternalLink className="h-3 w-3" />
             </Link>
           </div>
@@ -355,7 +357,7 @@ export function FloatingAiAssistant() {
         type="button"
         onClick={() => setOpen((current) => !current)}
         className="group relative flex h-16 w-16 items-center justify-center rounded-full bg-transparent text-white transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-        aria-label={open ? "Close Sentient AI assistant" : "Open Sentient AI assistant"}
+        aria-label={open ? t("floating.toggleCloseAria") : t("floating.toggleOpenAria")}
       >
         <span className="absolute inset-1 rounded-full bg-blue-500/20 blur-lg transition-opacity group-hover:opacity-80" />
         {open ? (

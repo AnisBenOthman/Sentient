@@ -1,3 +1,5 @@
+import i18n from '@/i18n';
+
 export interface GatewayErrorEnvelope {
   code: string;
   message: string;
@@ -5,79 +7,30 @@ export interface GatewayErrorEnvelope {
   details?: unknown;
 }
 
-export const ANNOUNCEMENT_ERROR_MESSAGES: Record<string, string> = {
-  UnsupportedAudienceInThisRelease: 'This audience type is not supported yet.',
-  ExpiryInPast: 'The expiry date must be in the future.',
-  TargetDepartmentRequired: 'A department must be specified for DEPARTMENT audience.',
-  UnknownTargetDepartment: 'The selected department does not exist.',
-  MissingTeamForTeamAudience: 'A team must be specified for TEAM audience.',
-  UnknownTargetTeam: 'The selected team does not exist.',
-  InconsistentAudienceTarget: 'Audience and targeting fields are inconsistent.',
-  PinExpiryInPast: 'The pin expiry date must be in the future.',
-  NotAnnouncementAuthor: 'You can only edit or delete your own announcements.',
-};
+/**
+ * WHY the messages moved out: they are user-facing copy, so they belong in the
+ * `errors` locale namespace keyed by the backend error code — the same code the
+ * gateway already sends. This module keeps only the extraction logic.
+ *
+ * WHY the i18next singleton and not a hook: these helpers are called from
+ * mutation callbacks and plain functions, where there is no React context. The
+ * singleton reads the current language at call time, which is exactly when the
+ * error text is captured into state today.
+ */
+function translateErrorCode(code: string): string | undefined {
+  if (!code) return undefined;
+  const key = `errors:${code}`;
+  const translated = i18n.t(key, { defaultValue: '' });
+  return translated || undefined;
+}
 
-export const DOCUMENT_ERROR_MESSAGES: Record<string, string> = {
-  MissingFile: 'No file was attached to the upload.',
-  EmptyFile: 'The uploaded file is empty.',
-  FileTooLarge: 'The file exceeds the 25 MiB size limit.',
-  PayloadTooLarge: 'The file exceeds the configured gateway upload limit.',
-  UnsupportedMimeType: 'File type is not supported. Use PDF, DOCX, TXT, MD, or HTML.',
-  StorageUnavailable: 'Storage is temporarily unavailable. Please try again.',
-  DocumentNotFound: 'Document not found.',
-  DocumentFileMissing: 'The document file is no longer available on the server.',
-};
-
-export const OKR_ERROR_MESSAGES: Record<string, string> = {
-  CycleNameTaken: 'A cycle with this name already exists.',
-  InvalidQuarter: 'Quarter must be 1-4 for quarterly cycles.',
-  ParentMustBeAnnual: 'Parent cycle must be an annual cycle.',
-  EndBeforeStart: 'End date must be after start date.',
-  CycleNotDraft: 'Cycle must be in Draft status to activate.',
-  EndDateInPast: 'Cannot activate a cycle whose end date is in the past.',
-  CycleNotActive: 'Cannot create an OKR in a closed or draft cycle.',
-  ParentNotFound: 'Parent OKR no longer exists.',
-  ParentWrongLevel: 'Parent OKR is not at the expected level.',
-  ParentNotActive: 'Cannot align to a closed or cancelled parent OKR.',
-  CrossDepartmentAlignment: "Employee OKRs must align to your own department's OKRs.",
-  LevelMismatch: 'Invalid OKR level configuration.',
-  KrNotFound: 'Key Result no longer exists.',
-  NotAssigned: 'You are not assigned to this Key Result.',
-  KrNotActive: 'This Key Result is not active.',
-  ObjectiveNotActive: 'You can only add Key Results to active objectives.',
-  BooleanTargetMustBeOne: 'Boolean Key Results must have target value 1.',
-  TargetMustBePositive: 'Target value must be greater than zero.',
-  AssigneeNotFound: 'One of the selected assignees no longer exists.',
-  BooleanValueInvalid: 'Value must be 0 or 1 for boolean Key Results.',
-  CheckInNotPending: 'This check-in was already reviewed.',
-  WrongDepartment: 'You can only review check-ins for your own department.',
-  ReasonRequired: 'A reason is required to reject a check-in.',
-};
-
-export const AI_ERROR_MESSAGES: Record<string, string> = {
-  AiOutOfScope: 'The assistant can only help with Sentient HR and workplace context.',
-  AiSpecialistUnavailable: 'One of the assistant specialists is temporarily unavailable.',
-  AiFeedbackNotFound: 'This assistant response is not available for feedback.',
-  AiConversationNotFound: 'This AI conversation is no longer available.',
-  AiScopeRefusal: 'The assistant cannot access or reveal information outside your permissions.',
-};
-
-export const GATEWAY_ERROR_MESSAGES: Record<string, string> = {
-  MissingAuthorization: 'Your session has expired. Please sign in again.',
-  MalformedAuthorization: 'Your session is invalid. Please sign in again.',
-  JwtExpired: 'Your session has expired. Please sign in again.',
-  JwtInvalid: 'Your session is invalid. Please sign in again.',
-  RateLimitExceeded: 'Too many requests. Please retry later.',
-  PayloadTooLarge: 'The request is too large.',
-  NoUpstreamRoute: 'This API route is not available.',
-  UpstreamUnavailable: 'The service is temporarily unavailable. Please try again.',
-  UpstreamTimeout: 'The service took too long to respond. Please try again.',
-  GatewayInternalError: 'The gateway failed to process the request.',
-  ...ANNOUNCEMENT_ERROR_MESSAGES,
-  ...DOCUMENT_ERROR_MESSAGES,
-  ...OKR_ERROR_MESSAGES,
-  ...AI_ERROR_MESSAGES,
-};
+/**
+ * Resolve a backend error code to user-facing copy, falling back to the
+ * caller's own translated message when the code has no entry.
+ */
+export function apiErrorMessage(code: string, fallback: string): string {
+  return translateErrorCode(code) ?? fallback;
+}
 
 export function isGatewayErrorEnvelope(value: unknown): value is GatewayErrorEnvelope {
   if (typeof value !== 'object' || value === null) return false;
@@ -115,7 +68,8 @@ export function extractGatewayErrorMessage(error: unknown): string {
 
 export function getGatewayErrorMessage(error: unknown, fallback: string): string {
   const code = extractGatewayErrorCode(error);
-  if (code && GATEWAY_ERROR_MESSAGES[code]) return GATEWAY_ERROR_MESSAGES[code];
+  const translated = translateErrorCode(code);
+  if (translated) return translated;
 
   const message = extractGatewayErrorMessage(error);
   if (message) return message;

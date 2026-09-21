@@ -1,60 +1,125 @@
 {
   "title": "Postes",
-  "addPosition": "Ajouter un Poste",
+  "subtitle": "Gérez les postes et leurs niveaux de séniorité",
+  "addPosition": "Ajouter un poste",
   "searchPlaceholder": "Rechercher des postes…",
-  "showInactive": "Afficher les inactifs",
+  "stats": {
+    "total": "Total",
+    "keyPositions": "Postes clés",
+    "noSuccessor": "Sans successeur"
+  },
   "table": {
     "title": "Intitulé",
     "level": "Niveau",
-    "department": "Département",
-    "skills": "Compétences",
-    "employees": "Employés",
-    "status": "Statut",
+    "flags": "Indicateurs",
     "actions": "Actions",
-    "noPositions": "Aucun poste trouvé."
+    "positionCount_one": "{{count}} poste",
+    "positionCount_other": "{{count}} postes",
+    "noMatch": "Aucun poste ne correspond à votre recherche.",
+    "empty": "Aucun poste configuré.",
+    "keyBadge": "Clé",
+    "keyBadgeWithRisk": "Clé · risque {{risk}}",
+    "noSuccessorBadge": "Sans successeur",
+    "editAria": "Modifier {{title}}",
+    "deactivateAria": "Désactiver {{title}}"
   },
   "levels": {
     "JUNIOR": "Junior",
-    "MID": "Intermédiaire",
-    "SENIOR": "Senior",
-    "LEAD": "Lead",
-    "MANAGER": "Manager",
-    "DIRECTOR": "Directeur",
-    "VP": "VP",
-    "C_LEVEL": "C-Level"
+    "MEDIUM": "Intermédiaire",
+    "CONFIRMED": "Confirmé",
+    "SENIOR_1": "Senior I",
+    "SENIOR_2": "Senior II",
+    "EXPERT": "Expert"
+  },
+  "risk": {
+    "LOW": "faible",
+    "MEDIUM": "moyen",
+    "HIGH": "élevé"
+  },
+  "proficiency": {
+    "BEGINNER": "Débutant",
+    "INTERMEDIATE": "Intermédiaire",
+    "ADVANCED": "Avancé",
+    "EXPERT": "Expert"
+  },
+  "requirement": {
+    "MANDATORY": "Obligatoire",
+    "EXPECTED": "Attendu",
+    "NICE_TO_HAVE": "Souhaité"
+  },
+  "skillDomains": {
+    "TECHNICAL": "Technique",
+    "LEADERSHIP": "Leadership",
+    "SOFT_SKILLS": "Compétences humaines",
+    "DOMAIN_EXPERTISE": "Expertise métier"
+  },
+  "domains": {
+    "ENGINEERING": {
+      "label": "Ingénierie",
+      "description": "Postes de développement logiciel, frontend, lead technique et management d'ingénierie"
+    },
+    "PRODUCT_DESIGN": {
+      "label": "Produit & Design",
+      "description": "Postes de product ownership, product management, UX et design"
+    },
+    "HR": {
+      "label": "Ressources humaines",
+      "description": "Postes de partenaire RH et d'opérations RH"
+    },
+    "FINANCE": {
+      "label": "Finance",
+      "description": "Postes de comptabilité, contrôle de gestion, FP&A et direction financière"
+    },
+    "SALES": {
+      "label": "Ventes",
+      "description": "Postes de direction commerciale et de chargé de compte"
+    },
+    "OTHER": {
+      "label": "Autres postes",
+      "description": "Postes sans famille de métiers correspondante"
+    }
   },
   "dialog": {
-    "createTitle": "Ajouter un Poste",
-    "editTitle": "Modifier le Poste",
-    "titleLabel": "Intitulé du Poste",
-    "titlePlaceholder": "ex. Ingénieur Logiciel Senior",
+    "createTitle": "Ajouter un poste",
+    "editTitle": "Modifier le poste",
+    "titleLabel": "Intitulé",
+    "titlePlaceholder": "ex. Ingénieur logiciel",
     "levelLabel": "Niveau",
-    "departmentLabel": "Département",
-    "activeLabel": "Actif",
-    "submitCreate": "Créer le Poste",
-    "submitEdit": "Enregistrer les Modifications",
-    "submitting": "Enregistrement…"
-  },
-  "skills": {
-    "manageTitle": "Gérer les Compétences — {{title}}",
-    "addSkill": "Ajouter une Compétence",
-    "skill": "Compétence",
-    "requirement": "Exigence",
-    "proficiency": "Maîtrise Min.",
-    "actions": "Actions",
-    "noSkills": "Aucune compétence assignée.",
-    "requirement_MANDATORY": "Obligatoire",
-    "requirement_PREFERRED": "Préféré",
-    "requirement_NICE_TO_HAVE": "Optionnel"
+    "levelPlaceholder": "Sélectionner un niveau",
+    "keyPositionTitle": "Poste clé",
+    "keyPositionHint": "Essentiel à la continuité de l'activité",
+    "successorTitle": "Successeur identifié",
+    "successorHint": "Un successeur désigné a été nommé",
+    "errorTitleRequired": "L'intitulé est obligatoire."
   },
   "deactivate": {
-    "title": "Désactiver le Poste",
-    "description": "Êtes-vous sûr de vouloir désactiver « {{title}} » ? Les employés assignés à ce poste le conserveront, mais il n'apparaîtra plus dans les nouvelles affectations.",
+    "title": "Désactiver « {{title}} » ?",
+    "description": "Ce poste sera marqué comme inactif. Les employés actuellement affectés à ce poste ne seront pas impactés.",
     "confirm": "Désactiver",
-    "cancel": "Annuler"
+    "pending": "Désactivation…"
   },
-  "errors": {
-    "PositionAlreadyExists": "Un poste avec cet intitulé existe déjà.",
-    "generic": "Échec de l'enregistrement. Veuillez réessayer."
+  "skills": {
+    "heading": "Compétences requises",
+    "add": "Ajouter une compétence",
+    "adding": "Ajout…",
+    "empty": "Aucune compétence requise définie pour ce poste.",
+    "allDomains": "Tous les domaines",
+    "allRequirements": "Toutes les exigences",
+    "noFilterMatch": "Aucune compétence ne correspond aux filtres sélectionnés.",
+    "skillCount_one": "{{count}} compétence",
+    "skillCount_other": "{{count}} compétences",
+    "uncategorized": "Non catégorisé",
+    "removeAria": "Retirer {{name}}",
+    "addTitle": "Ajouter une compétence requise — {{title}}",
+    "skillLabel": "Compétence",
+    "filterByDomain": "Filtrer par domaine",
+    "searchPlaceholder": "Rechercher des compétences…",
+    "noneAvailable": "Aucune compétence disponible ne correspond à ce domaine ou à cette recherche.",
+    "minProficiency": "Niveau de maîtrise minimum",
+    "requirementLevel": "Niveau d'exigence",
+    "removeTitle": "Retirer « {{name}} » ?",
+    "removeDescription": "Cette exigence de compétence sera retirée du profil du poste. Les employés existants ne seront pas impactés.",
+    "removeConfirm": "Retirer",
+    "removePending": "Retrait…"
   }
 }
