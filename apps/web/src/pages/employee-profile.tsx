@@ -206,9 +206,9 @@ function dateInputValue(value: string | null): string {
   return value ? value.slice(0, 10) : "";
 }
 
-function formatDate(value: string | null | undefined): string {
-  if (!value) return "N/A";
-  return new Date(value).toLocaleDateString("en-US", {
+function formatDate(value: string | null | undefined, locale: string, naLabel: string): string {
+  if (!value) return naLabel;
+  return new Date(value).toLocaleDateString(locale, {
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -221,14 +221,14 @@ function formatDate(value: string | null | undefined): string {
 // `null` means "known to be unresolved" and must not guess a currency.
 const LEGACY_DEFAULT_CURRENCY = "DZD";
 
-function formatMoney(value: number | null, currency?: string | null, locale = "en-US"): string {
-  if (value == null) return "N/A";
+function formatMoney(value: number | null, currency: string | null | undefined, locale: string, naLabel: string): string {
+  if (value == null) return naLabel;
   if (currency === null) return value.toLocaleString(locale);
   return value.toLocaleString(locale, { style: "currency", currency: currency ?? LEGACY_DEFAULT_CURRENCY });
 }
 
-function formatPercent(value: number | null): string {
-  return value == null ? "N/A" : `${value.toFixed(1)}%`;
+function formatPercent(value: number | null, naLabel: string): string {
+  return value == null ? naLabel : `${value.toFixed(1)}%`;
 }
 
 function normalizeSelect(value: string | null | undefined): string {
@@ -447,6 +447,7 @@ function SalaryTooltip({
   label,
   currency,
   locale,
+  naLabel,
 }: {
   active?: boolean;
   payload?: Array<{ name: string; value: number; color: string }>;
@@ -454,6 +455,7 @@ function SalaryTooltip({
   /** The employee's resolved currency — the chart must not assume DZD. */
   currency?: string | null;
   locale: string;
+  naLabel: string;
 }) {
   if (!active || !payload?.length) return null;
   return (
@@ -466,7 +468,7 @@ function SalaryTooltip({
           <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
           <span className="text-muted-foreground">{entry.name}</span>
           <span className="ml-auto pl-4 font-bold tabular-nums">
-            {formatMoney(entry.value, currency, locale)}
+            {formatMoney(entry.value, currency, locale, naLabel)}
           </span>
         </div>
       ))}
@@ -854,7 +856,7 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                       <InfoRow icon={Building} label={t("profile.department")} value={emp.department?.name} />
                       <InfoRow icon={Users} label={t("profile.team")} value={emp.team?.name} />
                       <InfoRow icon={UserCheck} label={t("profile.manager")} value={emp.manager ? fullName(emp.manager) : null} />
-                      <InfoRow icon={Calendar} label={t("profile.hireDate")} value={formatDate(emp.hireDate)} />
+                      <InfoRow icon={Calendar} label={t("profile.hireDate")} value={formatDate(emp.hireDate, i18n.language, t("common:notAvailable"))} />
                     </>
                   )}
                 </CardContent>
@@ -924,7 +926,7 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                     <>
                       <InfoRow icon={Mail} label={t("profile.email")} value={emp.email} />
                       <InfoRow icon={Phone} label={t("profile.phone")} value={emp.phone} />
-                      <InfoRow icon={Calendar} label={t("profile.dateOfBirth")} value={formatDate(emp.dateOfBirth)} />
+                      <InfoRow icon={Calendar} label={t("profile.dateOfBirth")} value={formatDate(emp.dateOfBirth, i18n.language, t("common:notAvailable"))} />
                       <InfoRow icon={UserCheck} label={t("profile.gender")} value={emp.gender ? labels.gender[emp.gender] ?? emp.gender : null} />
                       <InfoRow icon={Heart} label={t("profile.maritalStatus")} value={emp.maritalStatus ? labels.marital[emp.maritalStatus] ?? emp.maritalStatus : null} />
                       <InfoRow icon={GraduationCap} label={t("profile.educationLevel")} value={emp.educationLevel ? labels.education[emp.educationLevel] ?? emp.educationLevel : null} />
@@ -971,8 +973,8 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                     </>
                   ) : (
                     <>
-                      <InfoRow icon={DollarSign} label={t("profile.grossSalary")} value={formatMoney(emp.grossSalary, emp.currency)} />
-                      <InfoRow icon={DollarSign} label={t("profile.netSalary")} value={formatMoney(emp.netSalary, emp.currency)} />
+                      <InfoRow icon={DollarSign} label={t("profile.grossSalary")} value={formatMoney(emp.grossSalary, emp.currency, i18n.language, t("common:notAvailable"))} />
+                      <InfoRow icon={DollarSign} label={t("profile.netSalary")} value={formatMoney(emp.netSalary, emp.currency, i18n.language, t("common:notAvailable"))} />
                     </>
                   )}
                 </CardContent>
@@ -1062,7 +1064,7 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                         width={48}
                       />
                       <Tooltip
-                        content={<SalaryTooltip currency={emp.currency} locale={i18n.language} />}
+                        content={<SalaryTooltip currency={emp.currency} locale={i18n.language} naLabel={t("common:notAvailable")} />}
                         cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }}
                       />
                       <Area
@@ -1102,11 +1104,11 @@ export default function EmployeeProfile({ employeeId }: { employeeId?: string })
                   <TableBody>
                     {sortedSalaryHistory.map((entry) => (
                       <TableRow key={entry.id}>
-                        <TableCell>{formatDate(entry.effectiveDate)}</TableCell>
-                        <TableCell>{formatMoney(entry.grossBefore, entry.currency)}</TableCell>
-                        <TableCell className="font-semibold">{formatMoney(entry.grossAfter, entry.currency)}</TableCell>
-                        <TableCell>{formatMoney(entry.netBefore, entry.currency)}</TableCell>
-                        <TableCell className="font-semibold">{formatMoney(entry.netAfter, entry.currency)}</TableCell>
+                        <TableCell>{formatDate(entry.effectiveDate, i18n.language, t("common:notAvailable"))}</TableCell>
+                        <TableCell>{formatMoney(entry.grossBefore, entry.currency, i18n.language, t("common:notAvailable"))}</TableCell>
+                        <TableCell className="font-semibold">{formatMoney(entry.grossAfter, entry.currency, i18n.language, t("common:notAvailable"))}</TableCell>
+                        <TableCell>{formatMoney(entry.netBefore, entry.currency, i18n.language, t("common:notAvailable"))}</TableCell>
+                        <TableCell className="font-semibold">{formatMoney(entry.netAfter, entry.currency, i18n.language, t("common:notAvailable"))}</TableCell>
                         <TableCell>{entry.reason ?? t("profile.na")}</TableCell>
                       </TableRow>
                     ))}
@@ -1229,7 +1231,7 @@ function PromotionHistoryCard({
   isLoading: boolean;
   promotionRequests: PromotionRequest[];
 }) {
-  const { t } = useTranslation("employees");
+  const { t, i18n } = useTranslation(["employees", "common"]);
   return (
     <Card>
       <CardHeader>
@@ -1259,7 +1261,7 @@ function PromotionHistoryCard({
               <TableBody>
                 {promotionRequests.map((request) => (
                   <TableRow key={request.id}>
-                    <TableCell>{formatDate(request.submittedAt)}</TableCell>
+                    <TableCell>{formatDate(request.submittedAt, i18n.language, t("common:notAvailable"))}</TableCell>
                     <TableCell>
                       <div className="max-w-[260px] text-sm">
                         <span>{request.currentRole}</span>
@@ -1271,12 +1273,12 @@ function PromotionHistoryCard({
                       <PromotionStatusBadge status={request.status} />
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="font-medium">{formatMoney(request.salaryDelta)}</div>
-                      <div className="text-xs text-muted-foreground">{formatPercent(request.salaryDeltaPercentage)}</div>
+                      <div className="font-medium">{formatMoney(request.salaryDelta, undefined, i18n.language, t("common:notAvailable"))}</div>
+                      <div className="text-xs text-muted-foreground">{formatPercent(request.salaryDeltaPercentage, t("common:notAvailable"))}</div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div>{formatMoney(request.newTeamBudget - request.currentTeamBudget)}</div>
-                      <div className="text-xs text-muted-foreground">{formatPercent(request.budgetImpactPercentage)}</div>
+                      <div>{formatMoney(request.newTeamBudget - request.currentTeamBudget, undefined, i18n.language, t("common:notAvailable"))}</div>
+                      <div className="text-xs text-muted-foreground">{formatPercent(request.budgetImpactPercentage, t("common:notAvailable"))}</div>
                     </TableCell>
                     <TableCell>{request.requestedByName}</TableCell>
                   </TableRow>
@@ -1293,7 +1295,7 @@ function PromotionHistoryCard({
 type LeaveRequestItem = Awaited<ReturnType<typeof getEmployeeLeaveRequests>>[number];
 
 function LeaveHistoryCard({ leaveRequests }: { leaveRequests: LeaveRequestItem[] }) {
-  const { t } = useTranslation("employees");
+  const { t, i18n } = useTranslation(["employees", "common"]);
   return (
     <Card>
       <CardHeader>
@@ -1317,8 +1319,8 @@ function LeaveHistoryCard({ leaveRequests }: { leaveRequests: LeaveRequestItem[]
               {leaveRequests.map((request) => (
                 <TableRow key={request.id}>
                   <TableCell>{request.leaveType?.name ?? request.leaveTypeId}</TableCell>
-                  <TableCell>{formatDate(request.startDate)}</TableCell>
-                  <TableCell>{formatDate(request.endDate)}</TableCell>
+                  <TableCell>{formatDate(request.startDate, i18n.language, t("common:notAvailable"))}</TableCell>
+                  <TableCell>{formatDate(request.endDate, i18n.language, t("common:notAvailable"))}</TableCell>
                   <TableCell>{request.totalDays}</TableCell>
                   <TableCell><Badge variant="outline">{request.status}</Badge></TableCell>
                 </TableRow>
@@ -1760,7 +1762,7 @@ function SkillsGridCard({ skills, gap }: { skills: EmployeeSkill[]; gap: SkillsG
 }
 
 function SkillEvolutionCard({ history }: { history: SkillHistoryEntry[] }) {
-  const { t } = useTranslation("employees");
+  const { t, i18n } = useTranslation(["employees", "common"]);
   const labels = useEmployeeLabels();
   const sorted = useMemo(
     () => [...history].sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate)),
@@ -1837,7 +1839,7 @@ function SkillEvolutionCard({ history }: { history: SkillHistoryEntry[] }) {
                         )}
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
-                        <span className="text-xs text-muted-foreground">{formatDate(entry.effectiveDate)}</span>
+                        <span className="text-xs text-muted-foreground">{formatDate(entry.effectiveDate, i18n.language, t("common:notAvailable"))}</span>
                         {delta !== 0 && (
                           <span
                             className="rounded-full px-1.5 py-0.5 text-xs font-bold tabular-nums"

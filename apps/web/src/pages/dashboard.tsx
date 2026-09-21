@@ -1475,7 +1475,7 @@ function PromotionsTab({
   canReview: boolean;
   thresholdMap: Record<string, ThresholdConfig>;
 }) {
-  const { t } = useTranslation("dashboard");
+  const { t, i18n } = useTranslation("dashboard");
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const currentYear = new Date().getFullYear();
@@ -1649,7 +1649,7 @@ function PromotionsTab({
                           <span className="font-medium text-blue-700 dark:text-blue-400">{request.newRole}</span>
                         </div>
                       </TableCell>
-                      <TableCell>{new Date(request.submittedAt).toLocaleDateString()}</TableCell>
+                      <TableCell>{new Date(request.submittedAt).toLocaleDateString(i18n.language)}</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className={cn(
                           "capitalize",

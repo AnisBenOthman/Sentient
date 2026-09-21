@@ -67,9 +67,9 @@ function fmtPct(n: number): string {
   return `${sign}${n.toFixed(1)}%`;
 }
 
-function fmtDate(iso: string): string {
+function fmtDate(iso: string, locale: string): string {
   try {
-    return new Date(iso).toLocaleDateString(undefined, {
+    return new Date(iso).toLocaleDateString(locale, {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -857,7 +857,7 @@ function PromotionWizard({
 // ── Page ────────────────────────────────────────────────────────────────────
 
 export default function Simulation() {
-  const { t } = useTranslation("simulation");
+  const { t, i18n } = useTranslation("simulation");
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -1035,7 +1035,7 @@ export default function Simulation() {
                         </div>
                       </div>
                       <p className="text-xs text-muted-foreground whitespace-nowrap">
-                        {t("requests.submitted", { date: fmtDate(r.submittedAt) })}
+                        {t("requests.submitted", { date: fmtDate(r.submittedAt, i18n.language) })}
                       </p>
                     </div>
 

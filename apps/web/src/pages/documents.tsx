@@ -265,7 +265,7 @@ function DocumentFormModal({
 // Main page
 // ---------------------------------------------------------------------------
 export default function DocumentsPage() {
-  const { t } = useTranslation(["social", "common"]);
+  const { t, i18n } = useTranslation(["social", "common"]);
   const categoryLabel = useCategoryLabel();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -434,7 +434,7 @@ export default function DocumentsPage() {
                     : t("documents.unknownUploader")}
                 </p>
                 <p>
-                  {new Date(doc.createdAt).toLocaleDateString()} ·{" "}
+                  {new Date(doc.createdAt).toLocaleDateString(i18n.language)} ·{" "}
                   {formatBytes(doc.sizeBytes)} · v{doc.version}
                 </p>
               </CardContent>
