@@ -11,6 +11,7 @@ import {
   GitFork,
   Sun,
   Moon,
+  PlayCircle,
   Briefcase,
   Sparkles,
   ClipboardCheck,
@@ -25,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { useTour } from "@/hooks/use-tour";
 import { useAuth } from "@/components/providers/auth-provider";
 import { getEmployee } from "@/lib/api/hr-core";
 import { getRoleTier, roleTierLabelKey, type RoleTier } from "@/lib/auth";
@@ -123,6 +125,7 @@ export function Layout({ children }: LayoutProps) {
   );
 
   const { user, logout } = useAuth();
+  const { restart: restartTour } = useTour();
   const { t } = useTranslation(["nav", "common"]);
 
   const { data: profile } = useQuery({
@@ -247,6 +250,26 @@ export function Layout({ children }: LayoutProps) {
         <div className="border-t border-gray-100 dark:border-gray-800 p-2 space-y-1">
           {/* Language switcher */}
           <LanguageSwitcher collapsed={collapsed} />
+
+          {/*
+            WHY the tour lives here too: Settings is HR_ADMIN-only, so its
+            Restart button left every other role with no way to replay the tour
+            or reach steps added after their first run.
+          */}
+          <button
+            onClick={restartTour}
+            className={cn(
+              "flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm w-full transition-colors",
+              "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800",
+              collapsed && "justify-center px-0"
+            )}
+            aria-label={t("nav:guidedTour")}
+            data-testid="button-guided-tour"
+            title={collapsed ? t("nav:guidedTour") : undefined}
+          >
+            <PlayCircle className="w-4 h-4 flex-shrink-0" />
+            {!collapsed && <span className="text-xs">{t("nav:guidedTour")}</span>}
+          </button>
 
           {/* Dark mode toggle */}
           <button

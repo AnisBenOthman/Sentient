@@ -1,0 +1,21 @@
+{
+  "title": "Notifications",
+  "subtitle": "Your recent HR workflow updates",
+  "openAria": "Open notifications",
+  "items_one": "{{count}} item",
+  "items_other": "{{count}} items",
+  "markAllRead": "Mark all as read",
+  "clearAll": "Clear all",
+  "loading": "Loading…",
+  "empty": "No notifications",
+  "markAsRead": "Mark as read",
+  "dismiss": "Dismiss",
+  "categories": {
+    "ALL": "All",
+    "LEAVE": "Leave",
+    "PROMOTION": "Promotion",
+    "PERFORMANCE": "Performance",
+    "SKILL": "Skills",
+    "SYSTEM": "System"
+  }
+}

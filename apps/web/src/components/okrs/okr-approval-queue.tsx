@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { ClockIcon, UserCircle } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,7 @@ interface ObjectiveApprovalCardProps {
 }
 
 function ObjectiveApprovalCard({ objective, onApprove, isApproving }: ObjectiveApprovalCardProps) {
+  const { t } = useTranslation('okr');
   const { data: employee } = useQuery({
     queryKey: ['employee', objective.ownerId],
     queryFn: () => getEmployee(objective.ownerId!),
@@ -39,7 +41,7 @@ function ObjectiveApprovalCard({ objective, onApprove, isApproving }: ObjectiveA
           </div>
           <Badge variant="secondary" className="text-[10px]">
             <ClockIcon className="mr-1 h-2.5 w-2.5" />
-            Pending approval
+            {t('approvalQueue.pending')}
           </Badge>
         </div>
         <p className="text-sm font-medium leading-snug">{objective.title}</p>
@@ -55,7 +57,7 @@ function ObjectiveApprovalCard({ objective, onApprove, isApproving }: ObjectiveA
         disabled={isApproving}
         className="shrink-0"
       >
-        {isApproving ? 'Approving…' : 'Approve'}
+        {isApproving ? t('approvalQueue.approving') : t('approvalQueue.approve')}
       </Button>
     </div>
   );
@@ -66,6 +68,7 @@ interface OkrApprovalQueueProps {
 }
 
 export function OkrApprovalQueue({ cycleId }: OkrApprovalQueueProps) {
+  const { t } = useTranslation('okr');
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const isHrAdmin = user?.roles?.includes('HR_ADMIN') ?? false;
@@ -91,19 +94,17 @@ export function OkrApprovalQueue({ cycleId }: OkrApprovalQueueProps) {
       setApproveError(null);
     },
     onError: (err: unknown) => {
-      setApproveError(getGatewayErrorMessage(err, 'Could not approve objective.'));
+      setApproveError(getGatewayErrorMessage(err, t('approvalQueue.approveFailed')));
     },
   });
 
   const objectives = draftObjectives?.items ?? [];
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (isLoading) return <p className="text-sm text-muted-foreground">{t('approvalQueue.loading')}</p>;
 
   if (objectives.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No employee objectives pending approval in this cycle.
-      </p>
+      <p className="text-sm text-muted-foreground">{t('approvalQueue.empty')}</p>
     );
   }
 

@@ -1,9 +1,11 @@
+import { useTranslation } from "react-i18next";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationsDrawer } from "./notifications-drawer";
 import { useNotifications } from "./notifications-provider";
 
 export function NotificationsBell() {
+  const { t } = useTranslation("notifications");
   const { unreadCount, setOpen } = useNotifications();
   const label = unreadCount > 99 ? "99+" : String(unreadCount);
 
@@ -14,8 +16,8 @@ export function NotificationsBell() {
         variant="ghost"
         size="icon"
         className="relative h-8 w-8"
-        aria-label="Open notifications"
-        title="Notifications"
+        aria-label={t("openAria")}
+        title={t("title")}
         onClick={() => setOpen(true)}
       >
         <Bell className="h-4 w-4" />

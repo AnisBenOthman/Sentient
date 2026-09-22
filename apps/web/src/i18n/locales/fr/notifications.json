@@ -1,0 +1,21 @@
+{
+  "title": "Notifications",
+  "subtitle": "Vos dernières mises à jour de processus RH",
+  "openAria": "Ouvrir les notifications",
+  "items_one": "{{count}} élément",
+  "items_other": "{{count}} éléments",
+  "markAllRead": "Tout marquer comme lu",
+  "clearAll": "Tout effacer",
+  "loading": "Chargement…",
+  "empty": "Aucune notification",
+  "markAsRead": "Marquer comme lu",
+  "dismiss": "Ignorer",
+  "categories": {
+    "ALL": "Toutes",
+    "LEAVE": "Congés",
+    "PROMOTION": "Promotion",
+    "PERFORMANCE": "Performance",
+    "SKILL": "Compétences",
+    "SYSTEM": "Système"
+  }
+}

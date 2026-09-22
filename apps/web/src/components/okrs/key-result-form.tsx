@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -32,13 +33,6 @@ import { OkrQualityPanel } from './okr-quality-panel';
 
 const METRIC_TYPES: KeyResultMetricType[] = ['PERCENTAGE', 'NUMBER', 'CURRENCY', 'BOOLEAN'];
 
-const METRIC_TYPE_LABEL: Record<KeyResultMetricType, string> = {
-  PERCENTAGE: 'Percentage',
-  NUMBER: 'Number',
-  CURRENCY: 'Currency',
-  BOOLEAN: 'Boolean (done / not done)',
-};
-
 const DEFAULT_UNIT: Record<KeyResultMetricType, string> = {
   PERCENTAGE: '%',
   NUMBER: '',
@@ -46,15 +40,19 @@ const DEFAULT_UNIT: Record<KeyResultMetricType, string> = {
   BOOLEAN: 'done',
 };
 
-const schema = z.object({
-  title: z.string().min(1, 'Title is required').max(200),
-  metricType: z.enum(['PERCENTAGE', 'NUMBER', 'CURRENCY', 'BOOLEAN']),
-  targetValue: z.string().min(1, 'Target value is required'),
-  unit: z.string().max(32).optional(),
-  dueDate: z.string().optional(),
-});
+// WHY built from `t`: zod bakes its messages in at construction, so a
+// module-level schema would freeze whichever language it was written in.
+function buildSchema(titleRequired: string, targetRequired: string) {
+  return z.object({
+    title: z.string().min(1, titleRequired).max(200),
+    metricType: z.enum(['PERCENTAGE', 'NUMBER', 'CURRENCY', 'BOOLEAN']),
+    targetValue: z.string().min(1, targetRequired),
+    unit: z.string().max(32).optional(),
+    dueDate: z.string().optional(),
+  });
+}
 
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.infer<ReturnType<typeof buildSchema>>;
 
 interface KeyResultFormProps {
   open: boolean;
@@ -64,8 +62,14 @@ interface KeyResultFormProps {
 }
 
 export function KeyResultForm({ open, onClose, objectiveId, cycleEndDate }: KeyResultFormProps) {
+  const { t } = useTranslation(['okr', 'common']);
   const [formError, setFormError] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  const schema = useMemo(
+    () => buildSchema(t('keyResultForm.titleRequired'), t('keyResultForm.targetRequired')),
+    [t],
+  );
 
   const {
     register,
@@ -131,7 +135,7 @@ export function KeyResultForm({ open, onClose, objectiveId, cycleEndDate }: KeyR
       onClose();
     },
     onError: (err: unknown) => {
-      setFormError(getGatewayErrorMessage(err, 'Failed to create key result. Please try again.'));
+      setFormError(getGatewayErrorMessage(err, t('keyResultForm.createFailed')));
     },
   });
 
@@ -139,26 +143,24 @@ export function KeyResultForm({ open, onClose, objectiveId, cycleEndDate }: KeyR
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add Key Result</DialogTitle>
-          <p className="text-xs text-muted-foreground">
-            A Key Result measures how you'll know the objective is achieved — use a number, percentage, or milestone.
-          </p>
+          <DialogTitle>{t('keyResultForm.title')}</DialogTitle>
+          <p className="text-xs text-muted-foreground">{t('keyResultForm.description')}</p>
         </DialogHeader>
 
         <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
           <div className="space-y-1">
-            <Label htmlFor="kr-title">Title *</Label>
+            <Label htmlFor="kr-title">{t('keyResultForm.titleLabel')}</Label>
             <Input
               id="kr-title"
               {...register('title')}
-              placeholder='e.g. "Reduce time-to-hire from 45 to 30 days"'
+              placeholder={t('keyResultForm.titlePlaceholder')}
             />
             {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Metric Type *</Label>
+              <Label>{t('keyResultForm.metricType')}</Label>
               <Select
                 value={watchedMetric}
                 onValueChange={(v) => setValue('metricType', v as KeyResultMetricType, { shouldValidate: true })}
@@ -168,14 +170,18 @@ export function KeyResultForm({ open, onClose, objectiveId, cycleEndDate }: KeyR
                 </SelectTrigger>
                 <SelectContent>
                   {METRIC_TYPES.map((mt) => (
-                    <SelectItem key={mt} value={mt}>{METRIC_TYPE_LABEL[mt]}</SelectItem>
+                    <SelectItem key={mt} value={mt}>
+                      {mt === 'BOOLEAN'
+                        ? t('keyResultForm.metricBoolean')
+                        : t(`enums.metricType_${mt}` as 'enums.metricType_PERCENTAGE')}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="kr-target">Target Value *</Label>
+              <Label htmlFor="kr-target">{t('keyResultForm.targetValue')}</Label>
               <Input
                 id="kr-target"
                 {...register('targetValue')}
@@ -190,16 +196,16 @@ export function KeyResultForm({ open, onClose, objectiveId, cycleEndDate }: KeyR
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="kr-unit">Unit</Label>
+              <Label htmlFor="kr-unit">{t('keyResultForm.unit')}</Label>
               <Input
                 id="kr-unit"
                 {...register('unit')}
-                placeholder={watchedMetric === 'NUMBER' ? 'days, hires, NPS…' : ''}
+                placeholder={watchedMetric === 'NUMBER' ? t('keyResultForm.unitPlaceholder') : ''}
               />
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="kr-due">Due Date</Label>
+              <Label htmlFor="kr-due">{t('keyResultForm.dueDate')}</Label>
               <Input
                 id="kr-due"
                 {...register('dueDate')}
@@ -208,7 +214,7 @@ export function KeyResultForm({ open, onClose, objectiveId, cycleEndDate }: KeyR
               />
               {cycleEndIso && (
                 <p className="text-[11px] text-muted-foreground">
-                  Cycle ends {cycleEndIso}
+                  {t('keyResultForm.cycleEnds', { date: cycleEndIso })}
                 </p>
               )}
             </div>
@@ -220,10 +226,10 @@ export function KeyResultForm({ open, onClose, objectiveId, cycleEndDate }: KeyR
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? 'Creating…' : 'Create'}
+              {mutation.isPending ? t('keyResultForm.creating') : t('keyResultForm.create')}
             </Button>
           </DialogFooter>
         </form>

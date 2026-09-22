@@ -1,6 +1,6 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
 import {
   CalendarDays,
   Clock3,
@@ -28,6 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   createEvent,
   EVENT_REACTION_EMOJIS,
+  apiErrorMessage,
   extractApiError,
   listEvents,
   reactToEvent,
@@ -47,23 +48,6 @@ const EVENT_TYPES: SocialEventType[] = [
   "ONBOARDING",
   "OFFSITE",
 ];
-
-const EVENT_TYPE_LABELS: Record<SocialEventType, string> = {
-  ALL_HANDS: "All hands",
-  MEETING: "Meeting",
-  TRAINING: "Training",
-  SOCIAL: "Social",
-  ONBOARDING: "Onboarding",
-  OFFSITE: "Offsite",
-};
-
-const AUDIENCE_LABELS: Record<EventAudience, string> = {
-  COMPANY: "Company",
-  DEPARTMENT: "Department",
-  TEAM: "Team",
-  ROLE: "Role",
-  INDIVIDUAL: "Individual",
-};
 
 interface EventFormState {
   title: string;
@@ -87,21 +71,17 @@ const EMPTY_EVENT_FORM: EventFormState = {
   capacity: "",
 };
 
-function fmtDate(iso: string): string {
-  return format(new Date(iso), "dd MMM");
+function fmtDate(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(locale, { day: "2-digit", month: "short" });
 }
 
-function fmtTimeRange(startIso: string, endIso: string): string {
-  const start = new Date(startIso);
-  const end = new Date(endIso);
-  return `${format(start, "HH:mm")} - ${format(end, "HH:mm")}`;
+function fmtTimeRange(startIso: string, endIso: string, locale: string): string {
+  const opts: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit" };
+  return `${new Date(startIso).toLocaleTimeString(locale, opts)} - ${new Date(endIso).toLocaleTimeString(locale, opts)}`;
 }
 
-function mapError(err: unknown): string {
-  const code = extractApiError(err);
-  if (code === "EventEndMustBeAfterStart") return "The event must end after it starts.";
-  if (code === "UnknownOrganizer") return "Your employee profile could not be resolved.";
-  return "The event could not be saved. Please try again.";
+function mapError(err: unknown, fallback: string): string {
+  return apiErrorMessage(extractApiError(err), fallback);
 }
 
 function organizerLabel(event: SocialEventResponse): string {
@@ -132,6 +112,7 @@ function ReactionRail({
   onReact: (emoji: EventReactionEmoji) => void;
   busy: boolean;
 }) {
+  const { t } = useTranslation("social");
   const countByEmoji = new Map(event.reactionCounts.map((entry) => [entry.emoji, entry.count]));
 
   return (
@@ -152,7 +133,7 @@ function ReactionRail({
                 : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800",
             )}
             aria-pressed={selected}
-            title={selected ? "Clear reaction" : "React"}
+            title={selected ? t("events.clearReaction") : t("events.react")}
           >
             <span className="text-base leading-none">{emoji}</span>
             <span className="min-w-3 text-right text-xs font-semibold">{count}</span>
@@ -164,6 +145,7 @@ function ReactionRail({
 }
 
 export default function EventsPage() {
+  const { t, i18n } = useTranslation(["social", "common"]);
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -188,7 +170,7 @@ export default function EventsPage() {
       setForm(EMPTY_EVENT_FORM);
       setFormError("");
     },
-    onError: (err: unknown) => setFormError(mapError(err)),
+    onError: (err: unknown) => setFormError(mapError(err, t("events.publishFailed"))),
   });
 
   const reactMutation = useMutation({
@@ -204,10 +186,10 @@ export default function EventsPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <CalendarDays className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-            <h1 className="text-2xl font-semibold tracking-tight">Events</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{t("events.title")}</h1>
           </div>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            Company moments, team sessions, and the pulse around them.
+            {t("events.subtitle")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -215,19 +197,19 @@ export default function EventsPage() {
             value={eventType}
             onChange={(e) => setEventType(e.target.value as SocialEventType | "ALL")}
             className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm"
-            aria-label="Filter event type"
+            aria-label={t("events.filterAria")}
           >
-            <option value="ALL">All types</option>
+            <option value="ALL">{t("events.allTypes")}</option>
             {EVENT_TYPES.map((type) => (
               <option key={type} value={type}>
-                {EVENT_TYPE_LABELS[type]}
+                {t(`events.types.${type}` as "events.types.MEETING")}
               </option>
             ))}
           </select>
           {canPublish && (
             <Button onClick={() => setPublishOpen(true)}>
               <Plus className="h-4 w-4" />
-              New event
+              {t("events.new")}
             </Button>
           )}
         </div>
@@ -242,7 +224,7 @@ export default function EventsPage() {
       ) : items.length === 0 ? (
         <div className="flex min-h-72 flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white text-muted-foreground dark:border-gray-800 dark:bg-gray-900">
           <Sparkles className="mb-3 h-10 w-10 opacity-40" />
-          <p>No events yet.</p>
+          <p>{t("events.empty")}</p>
         </div>
       ) : (
         <div className="grid gap-3">
@@ -254,11 +236,11 @@ export default function EventsPage() {
                   <div className="grid gap-0 md:grid-cols-[9rem_1fr]">
                     <div className="flex flex-row items-center justify-between border-b border-gray-100 bg-gray-950 p-4 text-white md:flex-col md:items-start md:border-b-0 md:border-r dark:border-gray-800">
                       <div>
-                        <p className="text-xs uppercase tracking-widest text-blue-200">{fmtDate(event.startAt)}</p>
-                        <p className="mt-1 text-lg font-semibold">{fmtTimeRange(event.startAt, event.endAt)}</p>
+                        <p className="text-xs uppercase tracking-widest text-blue-200">{fmtDate(event.startAt, i18n.language)}</p>
+                        <p className="mt-1 text-lg font-semibold">{fmtTimeRange(event.startAt, event.endAt, i18n.language)}</p>
                       </div>
                       <Badge className="border-white/20 bg-white/10 text-white hover:bg-white/10">
-                        {EVENT_TYPE_LABELS[event.eventType]}
+                        {t(`events.types.${event.eventType}` as "events.types.MEETING", { defaultValue: event.eventType })}
                       </Badge>
                     </div>
                     <div className="space-y-4 p-4">
@@ -268,7 +250,7 @@ export default function EventsPage() {
                             <h2 className="text-lg font-semibold leading-tight text-gray-950 dark:text-gray-50">
                               {event.title}
                             </h2>
-                            <Badge variant="outline">{AUDIENCE_LABELS[event.audience]}</Badge>
+                            <Badge variant="outline">{t(`events.audiences.${event.audience}` as "events.audiences.COMPANY", { defaultValue: event.audience })}</Badge>
                           </div>
                           <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">{event.description}</p>
                         </div>
@@ -297,12 +279,15 @@ export default function EventsPage() {
                         {event.capacity !== null && (
                           <span className="inline-flex items-center gap-1.5">
                             <Ticket className="h-3.5 w-3.5" />
-                            {event.capacity} seats
+                            {event.capacity} {t("events.seats")}
                           </span>
                         )}
                         <span className="inline-flex items-center gap-1.5">
                           <Clock3 className="h-3.5 w-3.5" />
-                          Published {format(new Date(event.createdAt), "dd MMM yyyy")}
+                          {t("events.publishedOn")}{" "}
+                          {new Date(event.createdAt).toLocaleDateString(i18n.language, {
+                            day: "2-digit", month: "short", year: "numeric",
+                          })}
                         </span>
                       </div>
                     </div>
@@ -317,11 +302,11 @@ export default function EventsPage() {
       <Dialog open={publishOpen} onOpenChange={setPublishOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>New event</DialogTitle>
+            <DialogTitle>{t("events.new")}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-2 md:grid-cols-2">
             <div className="space-y-1.5 md:col-span-2">
-              <Label htmlFor="event-title">Title</Label>
+              <Label htmlFor="event-title">{t("events.titleLabel")}</Label>
               <Input
                 id="event-title"
                 value={form.title}
@@ -329,7 +314,7 @@ export default function EventsPage() {
               />
             </div>
             <div className="space-y-1.5 md:col-span-2">
-              <Label htmlFor="event-description">Description</Label>
+              <Label htmlFor="event-description">{t("events.description")}</Label>
               <Textarea
                 id="event-description"
                 rows={4}
@@ -338,7 +323,7 @@ export default function EventsPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="event-type">Type</Label>
+              <Label htmlFor="event-type">{t("events.type")}</Label>
               <select
                 id="event-type"
                 value={form.eventType}
@@ -347,26 +332,26 @@ export default function EventsPage() {
               >
                 {EVENT_TYPES.map((type) => (
                   <option key={type} value={type}>
-                    {EVENT_TYPE_LABELS[type]}
+                    {t(`events.types.${type}` as "events.types.MEETING")}
                   </option>
                 ))}
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="event-audience">Audience</Label>
+              <Label htmlFor="event-audience">{t("events.audience")}</Label>
               <select
                 id="event-audience"
                 value={form.audience}
                 onChange={(e) => setForm((current) => ({ ...current, audience: e.target.value as EventAudience }))}
                 className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm"
               >
-                <option value="COMPANY">Company</option>
-                <option value="DEPARTMENT">Department</option>
-                <option value="TEAM">Team</option>
+                <option value="COMPANY">{t("events.audiences.COMPANY")}</option>
+                <option value="DEPARTMENT">{t("events.audiences.DEPARTMENT")}</option>
+                <option value="TEAM">{t("events.audiences.TEAM")}</option>
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="event-start">Start</Label>
+              <Label htmlFor="event-start">{t("events.start")}</Label>
               <Input
                 id="event-start"
                 type="datetime-local"
@@ -375,7 +360,7 @@ export default function EventsPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="event-end">End</Label>
+              <Label htmlFor="event-end">{t("events.end")}</Label>
               <Input
                 id="event-end"
                 type="datetime-local"
@@ -384,7 +369,7 @@ export default function EventsPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="event-location">Location</Label>
+              <Label htmlFor="event-location">{t("events.location")}</Label>
               <Input
                 id="event-location"
                 value={form.location}
@@ -392,7 +377,7 @@ export default function EventsPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="event-capacity">Capacity</Label>
+              <Label htmlFor="event-capacity">{t("events.capacity")}</Label>
               <Input
                 id="event-capacity"
                 type="number"
@@ -405,7 +390,7 @@ export default function EventsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPublishOpen(false)}>
-              Cancel
+              {t("common:cancel")}
             </Button>
             <Button
               disabled={
@@ -417,7 +402,7 @@ export default function EventsPage() {
               }
               onClick={() => createMutation.mutate(buildCreateDto(form))}
             >
-              Publish
+              {t("events.publish")}
             </Button>
           </DialogFooter>
         </DialogContent>

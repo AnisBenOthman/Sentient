@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Search, Users, X } from "lucide-react";
@@ -65,10 +66,6 @@ function getInitials(firstName: string, lastName: string): string {
   return `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase();
 }
 
-function formatStatus(status: string): string {
-  return status.toLowerCase().replace(/_/g, " ");
-}
-
 function localDateString(d: Date = new Date()): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -83,6 +80,7 @@ function isRecentJoiner(emp: OrgEmployee): boolean {
 }
 
 function SkillTooltip({ skills }: { skills: OrgEmployee["skills"] }) {
+  const { t } = useTranslation("org-chart");
   const topSkills = [...skills]
     .sort((a, b) => (PROFICIENCY_RANK[b.proficiency] ?? 0) - (PROFICIENCY_RANK[a.proficiency] ?? 0))
     .slice(0, 3);
@@ -93,7 +91,7 @@ function SkillTooltip({ skills }: { skills: OrgEmployee["skills"] }) {
       data-testid="skill-tooltip"
     >
       <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-        Top Skills
+        {t("card.topSkills")}
       </p>
       <div className="space-y-1.5">
         {topSkills.map(({ skill, proficiency }) => {
@@ -133,9 +131,11 @@ function EmployeeCard({
   isLead?: boolean;
   canOpenDetails: boolean;
 }) {
+  const { t } = useTranslation("org-chart");
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [, navigate] = useLocation();
   const initials = getInitials(emp.firstName, emp.lastName);
+  const fullName = `${emp.firstName} ${emp.lastName}`;
 
   return (
     <div
@@ -161,21 +161,21 @@ function EmployeeCard({
       }}
       tabIndex={canOpenDetails ? 0 : undefined}
       role={canOpenDetails ? "button" : undefined}
-      aria-label={canOpenDetails ? `View profile for ${emp.firstName} ${emp.lastName}` : undefined}
+      aria-label={canOpenDetails ? t("card.viewProfileAria", { name: fullName }) : undefined}
       data-testid={`employee-card-${emp.id}`}
     >
       {tooltipVisible && emp.skills.length > 0 && <SkillTooltip skills={emp.skills} />}
       {isLead && (
         <span className="absolute right-1.5 top-1.5 rounded-full bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold leading-none text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
-          Lead
+          {t("card.lead")}
         </span>
       )}
       {isRecentJoiner(emp) && (
         <span
           className="absolute left-1.5 top-1.5 rounded-full bg-green-100 px-1.5 py-0.5 text-[9px] font-bold leading-none text-green-700 dark:bg-green-900/40 dark:text-green-300"
-          title="Hired in the last 90 days"
+          title={t("card.newTooltip")}
         >
-          New
+          {t("card.new")}
         </span>
       )}
       <div className="flex flex-col items-center gap-1.5">
@@ -191,18 +191,20 @@ function EmployeeCard({
         </div>
         <div className="text-center">
           <p className="text-xs font-semibold leading-tight text-gray-900 dark:text-gray-100">
-            {emp.firstName} {emp.lastName}
+            {fullName}
           </p>
           <p className="mt-0.5 text-[10px] leading-tight text-gray-500 dark:text-gray-400">
-            {emp.position?.title ?? "Unassigned"}
+            {emp.position?.title ?? t("card.unassigned")}
           </p>
         </div>
         <span
-          className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium capitalize ${
+          className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
             STATUS_COLORS[emp.employmentStatus] ?? "bg-gray-100 text-gray-600"
           }`}
         >
-          {formatStatus(emp.employmentStatus)}
+          {t(`status.${emp.employmentStatus}` as "status.ACTIVE", {
+            defaultValue: emp.employmentStatus,
+          })}
         </span>
       </div>
     </div>
@@ -234,6 +236,7 @@ function resolveTeamLead(members: OrgEmployee[], team: OrgTeam): OrgEmployee | u
 }
 
 export default function OrgChart() {
+  const { t } = useTranslation("org-chart");
   const { user } = useAuth();
   const [selectedBusinessUnitId, setSelectedBusinessUnitId] = useState<string | null>(null);
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
@@ -324,10 +327,10 @@ export default function OrgChart() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Org Chart</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">Visual hierarchy of your organization</p>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{t("title")}</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">{t("subtitleShort")}</p>
         </div>
-        <p className="py-12 text-center text-sm text-muted-foreground">Loading org chart...</p>
+        <p className="py-12 text-center text-sm text-muted-foreground">{t("loading")}</p>
       </div>
     );
   }
@@ -336,21 +339,19 @@ export default function OrgChart() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100" data-testid="heading-org-chart">
-          Org Chart
+          {t("title")}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Visual hierarchy of your organization - Company, Department, Team, People
-        </p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t("subtitle")}</p>
       </div>
 
       <div className="flex flex-wrap gap-3" data-testid="org-stats-summary">
         {[
-          { label: "Employees", value: totalEmployees, testId: "stat-total-employees" },
-          { label: "Departments", value: totalDepartments, testId: "stat-total-departments" },
-          { label: "Teams", value: totalTeams, testId: "stat-total-teams" },
+          { label: t("stats.employees"), value: totalEmployees, testId: "stat-total-employees" },
+          { label: t("stats.departments"), value: totalDepartments, testId: "stat-total-departments" },
+          { label: t("stats.teams"), value: totalTeams, testId: "stat-total-teams" },
         ].map(({ label, value, testId }) => (
           <div
-            key={label}
+            key={testId}
             data-testid={testId}
             className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 shadow-sm dark:border-gray-700 dark:bg-gray-800"
           >
@@ -363,7 +364,7 @@ export default function OrgChart() {
       <div className="flex flex-wrap items-center gap-3" data-testid="org-filter-bar">
         <div className="flex flex-wrap items-center gap-1.5" data-testid="bu-filter-tabs">
           <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-            BU
+            {t("filters.businessUnit")}
           </span>
           <button
             onClick={() => handleBusinessUnitSelect(null)}
@@ -375,7 +376,7 @@ export default function OrgChart() {
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700",
             ].join(" ")}
           >
-            All BUs
+            {t("filters.allBusinessUnits")}
           </button>
           {businessUnits.map((businessUnit) => {
             const isActive = effectiveBusinessUnitId === businessUnit.id;
@@ -402,7 +403,7 @@ export default function OrgChart() {
 
         <div className="flex flex-wrap items-center gap-1.5" data-testid="dept-filter-tabs">
           <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-            Dept
+            {t("filters.department")}
           </span>
           <button
             onClick={() => setSelectedDept(null)}
@@ -414,7 +415,7 @@ export default function OrgChart() {
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700",
             ].join(" ")}
           >
-            All
+            {t("filters.allDepartments")}
           </button>
           {allDepartments.map((dept) => {
             const isActive = effectiveDept === dept;
@@ -442,7 +443,7 @@ export default function OrgChart() {
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" aria-hidden="true" />
           <input
             type="text"
-            placeholder="Search by skill..."
+            placeholder={t("filters.skillPlaceholder")}
             value={skillSearch}
             onChange={(event) => setSkillSearch(event.target.value)}
             data-testid="skill-search-input"
@@ -452,7 +453,7 @@ export default function OrgChart() {
             <button
               onClick={() => setSkillSearch("")}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-              aria-label="Clear skill search"
+              aria-label={t("filters.clearSkillSearch")}
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -461,7 +462,7 @@ export default function OrgChart() {
 
         {hasSkillFilter && (
           <span className="text-xs text-gray-500 dark:text-gray-400" data-testid="skill-match-count">
-            {highlightedIds.size} {highlightedIds.size === 1 ? "match" : "matches"}
+            {t("matches", { count: highlightedIds.size })}
           </span>
         )}
       </div>
@@ -506,11 +507,11 @@ export default function OrgChart() {
                             <span className="text-[10px] font-medium">{dept.code}</span>
                             <span className="text-[10px] opacity-50">-</span>
                             <span className="text-[10px] font-medium">
-                              {dept.teams.length} {dept.teams.length === 1 ? "team" : "teams"}
+                              {t("teamCount", { count: dept.teams.length })}
                             </span>
                             <span className="text-[10px] opacity-50">-</span>
                             <span className="text-[10px] font-medium">
-                              {totalMembers} {totalMembers === 1 ? "member" : "members"}
+                              {t("memberCount", { count: totalMembers })}
                             </span>
                           </div>
                         </div>
@@ -541,7 +542,11 @@ export default function OrgChart() {
                                 <button
                                   onClick={() => toggleTeam(dept.id, team.id)}
                                   aria-expanded={expanded}
-                                  aria-label={`${expanded ? "Collapse" : "Expand"} ${team.name} team`}
+                                  aria-label={
+                                    expanded
+                                      ? t("team.collapseAria", { team: team.name })
+                                      : t("team.expandAria", { team: team.name })
+                                  }
                                   data-testid={`team-badge-${teamTestId}`}
                                   className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold transition-all hover:brightness-95 ${teamBadgeColor}`}
                                 >
@@ -569,10 +574,10 @@ export default function OrgChart() {
                                   </div>
                                 ) : team.leadVacant ? (
                                   <div className="flex h-16 w-40 items-center justify-center rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
-                                    <span className="text-[10px] italic text-gray-400">Lead vacant</span>
+                                    <span className="text-[10px] italic text-gray-400">{t("team.leadVacant")}</span>
                                   </div>
                                 ) : (
-                                  <p className="text-[10px] italic text-gray-400">No members yet</p>
+                                  <p className="text-[10px] italic text-gray-400">{t("team.noMembers")}</p>
                                 )}
                               </div>
                             );
@@ -585,7 +590,7 @@ export default function OrgChart() {
               </div>
             </div>
           ) : (
-            <p className="py-12 text-center text-sm text-muted-foreground">No departments found.</p>
+            <p className="py-12 text-center text-sm text-muted-foreground">{t("empty.noDepartments")}</p>
           )}
         </div>
       </div>

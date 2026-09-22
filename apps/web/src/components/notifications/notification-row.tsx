@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   Award,
   Bell,
@@ -53,6 +54,7 @@ function deepLink(notification: NotificationResponse, roleTier: RoleTier): strin
 }
 
 export function NotificationRow({ notification }: { notification: NotificationResponse }) {
+  const { t } = useTranslation("notifications");
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [, navigate] = useLocation();
@@ -110,7 +112,7 @@ export function NotificationRow({ notification }: { notification: NotificationRe
             variant="ghost"
             size="icon"
             className="h-7 w-7"
-            title="Mark as read"
+            title={t("markAsRead")}
             onClick={() => void openNotification()}
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
@@ -121,7 +123,7 @@ export function NotificationRow({ notification }: { notification: NotificationRe
           variant="ghost"
           size="icon"
           className="h-7 w-7 text-gray-400"
-          title="Dismiss"
+          title={t("dismiss")}
           onClick={() => void dismiss()}
         >
           <Trash2 className="h-3.5 w-3.5" />

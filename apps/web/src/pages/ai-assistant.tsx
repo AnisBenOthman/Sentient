@@ -7,6 +7,7 @@ import { AiMessage } from "@/components/ai/ai-message";
 import { ActionConfirmationCard, ActionOutcomeNotice } from "@/components/ai/action-confirmation-card";
 import { AiConversationList } from "@/components/ai/ai-conversation-list";
 import { AiDraftToolbar } from "@/components/ai/ai-draft-toolbar";
+import { useTranslation } from "react-i18next";
 import { RoutingTraceSummary } from "@/components/ai/routing-trace-summary";
 import { TypingIndicator } from "@/components/ai/typing-indicator";
 import {
@@ -30,14 +31,11 @@ import {
 import { openConversationStream } from "@/lib/api/ai-stream";
 import { getGatewayErrorMessage } from "@/lib/api/gateway-error";
 
-const EXAMPLE_PROMPTS = [
-  "What is my leave balance and when was my last leave?",
-  "Summarize leave coverage, OKR risk, and dashboard trends for my team.",
-  "Can you help me reword this message professionally?",
-  "What do you think about my colleague? I did not appreciate his behavior.",
-];
+/** Keys into `ai:examplePrompts` — the prompt text itself is translated. */
+const EXAMPLE_PROMPT_KEYS = ["leaveBalance", "teamSummary", "reword", "colleague"] as const;
 
 export default function AiAssistantPage() {
+  const { t } = useTranslation("ai");
   const queryClient = useQueryClient();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AiMessageResponse[]>([]);
@@ -115,7 +113,7 @@ export default function AiAssistantPage() {
       void queryClient.invalidateQueries({ queryKey: ["ai-conversations"] });
     },
     onError: (err: unknown) => {
-      setError(getGatewayErrorMessage(err, "The AI assistant could not complete this request."));
+      setError(getGatewayErrorMessage(err, t("errors.turnFailed")));
     },
   });
 
@@ -151,7 +149,7 @@ export default function AiAssistantPage() {
     onError: (err: unknown, { token }) => {
       // A transport failure is not a booking failure: the POST may have gone through.
       setOutcomeByToken((current) => ({ ...current, [token]: "FAILED" }));
-      setError(getGatewayErrorMessage(err, "The decision could not be sent. Check the Leaves page before retrying — it may already have gone through."));
+      setError(getGatewayErrorMessage(err, t("errors.decisionFailed")));
     },
   });
 
@@ -167,7 +165,7 @@ export default function AiAssistantPage() {
       setError("");
     },
     onError: (err: unknown) => {
-      setError(getGatewayErrorMessage(err, "Could not open this conversation."));
+      setError(getGatewayErrorMessage(err, t("errors.openFailed")));
     },
   });
 
@@ -176,7 +174,7 @@ export default function AiAssistantPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["ai-conversations"] });
     },
-    onError: (err: unknown) => setError(getGatewayErrorMessage(err, "Could not archive this conversation.")),
+    onError: (err: unknown) => setError(getGatewayErrorMessage(err, t("errors.archiveFailed"))),
   });
 
   const restoreMutation = useMutation({
@@ -184,7 +182,7 @@ export default function AiAssistantPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["ai-conversations"] });
     },
-    onError: (err: unknown) => setError(getGatewayErrorMessage(err, "Could not restore this conversation.")),
+    onError: (err: unknown) => setError(getGatewayErrorMessage(err, t("errors.restoreFailed"))),
   });
 
   const deleteMutation = useMutation({
@@ -197,18 +195,21 @@ export default function AiAssistantPage() {
       }
       void queryClient.invalidateQueries({ queryKey: ["ai-conversations"] });
     },
-    onError: (err: unknown) => setError(getGatewayErrorMessage(err, "Could not delete this conversation.")),
+    onError: (err: unknown) => setError(getGatewayErrorMessage(err, t("errors.deleteFailed"))),
   });
 
   const feedbackMutation = useMutation({
     mutationFn: ({ messageId, rating }: { messageId: string; rating: "POSITIVE" | "NEGATIVE" }) =>
       saveResponseFeedback(messageId, { rating }),
-    onError: (err: unknown) => setError(getGatewayErrorMessage(err, "Could not save feedback.")),
+    onError: (err: unknown) => setError(getGatewayErrorMessage(err, t("errors.feedbackFailed"))),
   });
 
   const canSend = draft.trim().length > 0 && !turnMutation.isPending;
   const empty = messages.length === 0;
-  const title = useMemo(() => (conversationId ? "AI Assistant" : "Start a Sentient AI conversation"), [conversationId]);
+  const title = useMemo(
+    () => (conversationId ? t("title") : t("startTitle")),
+    [conversationId, t],
+  );
 
   function submit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
@@ -227,9 +228,7 @@ export default function AiAssistantPage() {
           </div>
           <div>
             <h1 className="text-2xl font-semibold tracking-normal text-gray-950 dark:text-gray-50">{title}</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Supervisor-routed help for Sentient HR workflows, policy, analytics, OKRs, and workplace wording.
-            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t("subtitle")}</p>
           </div>
         </div>
         <RoutingTraceSummary routing={routing} />
@@ -238,7 +237,7 @@ export default function AiAssistantPage() {
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="min-h-0 overflow-y-auto rounded-md border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Conversations</h2>
+            <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t("conversations")}</h2>
             <Button
               size="sm"
               variant="outline"
@@ -251,7 +250,7 @@ export default function AiAssistantPage() {
                 setStreamingMessageId(null);
               }}
             >
-              New
+              {t("newConversation")}
             </Button>
           </div>
           <AiConversationList
@@ -272,16 +271,19 @@ export default function AiAssistantPage() {
                 <Sparkles className="h-6 w-6" />
               </div>
               <div className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-2 sm:grid-cols-2">
-                {EXAMPLE_PROMPTS.map((prompt) => (
+                {EXAMPLE_PROMPT_KEYS.map((promptKey) => {
+                  const prompt = t(`examplePrompts.${promptKey}` as "examplePrompts.leaveBalance");
+                  return (
                   <button
-                    key={prompt}
+                    key={promptKey}
                     type="button"
                     onClick={() => setDraft(prompt)}
                     className="rounded-md border border-gray-200 bg-white px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200 dark:hover:border-blue-800 dark:hover:bg-blue-950/30"
                   >
                     {prompt}
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ) : (
@@ -334,7 +336,7 @@ export default function AiAssistantPage() {
                   </div>
                   <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-3 text-sm text-gray-500 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
                     <TypingIndicator className="text-gray-400 dark:text-gray-500" />
-                    Submitting to HR Core and verifying...
+                    {t("submitting")}
                   </div>
                 </div>
               )}
@@ -349,12 +351,12 @@ export default function AiAssistantPage() {
         <Textarea
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder="Ask about leave, OKRs, career growth, onboarding, policy, analytics, or phrase wording..."
+          placeholder={t("composerPlaceholder")}
           className="min-h-20 resize-none bg-white dark:bg-gray-900"
         />
         <Button type="submit" disabled={!canSend} className="h-10 shrink-0">
           <Send className="mr-2 h-4 w-4" />
-          Send
+          {t("send")}
         </Button>
       </form>
     </div>

@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type React from "react";
+import type { TFunction } from "i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Building2, CalendarDays, ClipboardCheck, ClipboardList, Eye, Lock, MessageSquareText, Plus, RefreshCw, Save, Star, TrendingUp, UserCheck } from "lucide-react";
 import type { PerformanceReviewDto } from "@sentient/shared";
@@ -52,22 +54,6 @@ const RATING_OPTIONS: PerformanceRating[] = Object.values(PerformanceRating);
 const SATISFACTION_OPTIONS: SatisfactionLevel[] = Object.values(SatisfactionLevel);
 const STATUS_OPTIONS: ReviewStatus[] = Object.values(ReviewStatus);
 
-const ratingLabel: Record<string, string> = {
-  [PerformanceRating.UNACCEPTABLE]: "Unacceptable",
-  [PerformanceRating.NEEDS_IMPROVEMENT]: "Needs improvement",
-  [PerformanceRating.MEETS_EXPECTATIONS]: "Meets expectations",
-  [PerformanceRating.EXCEEDS_EXPECTATIONS]: "Exceeds expectations",
-  [PerformanceRating.ABOVE_AND_BEYOND]: "Above and beyond",
-};
-
-const satisfactionLabel: Record<string, string> = {
-  [SatisfactionLevel.VERY_DISSATISFIED]: "Very dissatisfied",
-  [SatisfactionLevel.DISSATISFIED]: "Dissatisfied",
-  [SatisfactionLevel.NEUTRAL]: "Neutral",
-  [SatisfactionLevel.SATISFIED]: "Satisfied",
-  [SatisfactionLevel.VERY_SATISFIED]: "Very satisfied",
-};
-
 const statusTone: Record<string, string> = {
   [ReviewStatus.PENDING]: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
   [ReviewStatus.IN_PROGRESS]: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200",
@@ -94,6 +80,20 @@ const satisfactionTone: Record<string, string> = {
   [SatisfactionLevel.VERY_SATISFIED]: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200",
 };
 
+type PerfT = TFunction<["performance", "common"]>;
+
+function ratingLabel(t: PerfT, value: PerformanceRating | string): string {
+  return t(`ratings.${value}` as "ratings.UNACCEPTABLE", { defaultValue: value });
+}
+
+function satisfactionLabel(t: PerfT, value: SatisfactionLevel | string): string {
+  return t(`satisfaction.${value}` as "satisfaction.NEUTRAL", { defaultValue: value });
+}
+
+function reviewStatusLabel(t: PerfT, value: ReviewStatus | string): string {
+  return t(`reviewStatus.${value}` as "reviewStatus.PENDING", { defaultValue: value });
+}
+
 interface SelfReviewForm {
   environmentSatisfaction: SatisfactionLevel;
   jobSatisfaction: SatisfactionLevel;
@@ -117,31 +117,26 @@ interface HrActionForm {
   salaryHistoryId: string;
 }
 
-function employeeName(review: Pick<PerformanceReviewDto, "employee">): string {
-  return review.employee ? `${review.employee.firstName} ${review.employee.lastName}` : "Employee";
+function employeeName(t: PerfT, review: Pick<PerformanceReviewDto, "employee">): string {
+  return review.employee ? `${review.employee.firstName} ${review.employee.lastName}` : t("fallback.employee");
 }
 
-function reviewerName(review: Pick<PerformanceReviewDto, "reviewer">): string {
-  return review.reviewer ? `${review.reviewer.firstName} ${review.reviewer.lastName}` : "Reviewer";
+function reviewerName(t: PerfT, review: Pick<PerformanceReviewDto, "reviewer">): string {
+  return review.reviewer ? `${review.reviewer.firstName} ${review.reviewer.lastName}` : t("fallback.reviewer");
 }
 
-function formatDate(value: string | null): string {
-  if (!value) return "Not set";
-  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value));
+function formatDate(t: PerfT, value: string | null, locale: string): string {
+  if (!value) return t("fallback.notSet");
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(value));
 }
 
-function formatDateTime(value: string | null): string {
-  if (!value) return "Not set";
-  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+function formatDateTime(t: PerfT, value: string | null, locale: string): string {
+  if (!value) return t("fallback.notSet");
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
-function enumLabel(value: string | null | undefined, labels?: Record<string, string>): string {
-  if (!value) return "Not set";
-  return labels?.[value] ?? value.replaceAll("_", " ");
-}
-
-function textValue(value: string | null | undefined): string {
-  return value?.trim() ? value : "Not provided";
+function textValue(t: PerfT, value: string | null | undefined): string {
+  return value?.trim() ? value : t("fallback.notProvided");
 }
 
 function reviewInitials(review: PerformanceReviewDto): string {
@@ -154,10 +149,10 @@ function hasRole(userRoles: string[] | undefined, roles: string[]): boolean {
   return userRoles?.some((role) => roles.includes(role)) ?? false;
 }
 
-function emptyCycle(): CreateReviewCyclePayload {
+function emptyCycle(t: PerfT): CreateReviewCyclePayload {
   const year = new Date().getFullYear();
   return {
-    name: `${year} Annual Review`,
+    name: t("cycles.defaultName", { year }),
     reviewType: ReviewType.ANNUAL,
     periodStart: `${year}-01-01`,
     periodEnd: `${year}-12-31`,
@@ -187,11 +182,13 @@ function emptyManagerReview(): ManagerReviewForm {
 }
 
 export default function PerformanceReviews() {
+  const { t, i18n } = useTranslation(["performance", "common"]);
+  const locale = i18n.language;
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [cycleOpen, setCycleOpen] = useState(false);
-  const [cycleForm, setCycleForm] = useState<CreateReviewCyclePayload>(emptyCycle);
+  const [cycleForm, setCycleForm] = useState<CreateReviewCyclePayload>(() => emptyCycle(t));
   const [selfReviewTarget, setSelfReviewTarget] = useState<PerformanceReviewDto | null>(null);
   const [managerReviewTarget, setManagerReviewTarget] = useState<PerformanceReviewDto | null>(null);
   const [selfForm, setSelfForm] = useState<SelfReviewForm>(emptySelfReview);
@@ -247,9 +244,9 @@ export default function PerformanceReviews() {
     mutationFn: createReviewCycle,
     onSuccess: async () => {
       setCycleOpen(false);
-      setCycleForm(emptyCycle());
+      setCycleForm(emptyCycle(t));
       await invalidateReviews();
-      toast({ title: "Review cycle created" });
+      toast({ title: t("toasts.cycleCreated") });
     },
   });
 
@@ -258,8 +255,12 @@ export default function PerformanceReviews() {
     onSuccess: async (result) => {
       await invalidateReviews();
       toast({
-        title: "Review cycle initiated",
-        description: `${result.created} assigned, ${result.skippedExisting} already existed, ${result.missingReviewers.length} missing reviewers.`,
+        title: t("toasts.cycleInitiated"),
+        description: t("toasts.cycleInitiatedDetail", {
+          created: result.created,
+          skipped: result.skippedExisting,
+          missing: result.missingReviewers.length,
+        }),
       });
     },
   });
@@ -280,7 +281,7 @@ export default function PerformanceReviews() {
     onSuccess: async () => {
       setSelfReviewTarget(null);
       await invalidateReviews();
-      toast({ title: "Self-review submitted" });
+      toast({ title: t("toasts.selfSubmitted") });
     },
   });
 
@@ -292,7 +293,7 @@ export default function PerformanceReviews() {
     onSuccess: async () => {
       setManagerReviewTarget(null);
       await invalidateReviews();
-      toast({ title: "Manager review completed" });
+      toast({ title: t("toasts.managerCompleted") });
     },
   });
 
@@ -311,7 +312,7 @@ export default function PerformanceReviews() {
     onSuccess: async () => {
       setHrAction(null);
       await invalidateReviews();
-      toast({ title: "Review action saved" });
+      toast({ title: t("toasts.actionSaved") });
     },
   });
 
@@ -341,7 +342,7 @@ export default function PerformanceReviews() {
       return (
         <TableRow>
           <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-            No reviews match this view.
+            {t("table.empty")}
           </TableCell>
         </TableRow>
       );
@@ -349,20 +350,20 @@ export default function PerformanceReviews() {
 
     return reviews.map((review) => (
       <TableRow key={review.id}>
-        <TableCell className="font-medium">{employeeName(review)}</TableCell>
-        <TableCell>{reviewerName(review)}</TableCell>
-        <TableCell>{review.cycle?.name ?? "Cycle"}</TableCell>
-        <TableCell>{formatDate(review.dueDate)}</TableCell>
+        <TableCell className="font-medium">{employeeName(t, review)}</TableCell>
+        <TableCell>{reviewerName(t, review)}</TableCell>
+        <TableCell>{review.cycle?.name ?? t("table.cycle")}</TableCell>
+        <TableCell>{formatDate(t, review.dueDate, locale)}</TableCell>
         <TableCell>
-          <Badge className={statusTone[review.status]} variant="secondary">{review.status.replaceAll("_", " ")}</Badge>
+          <Badge className={statusTone[review.status]} variant="secondary">{reviewStatusLabel(t, review.status)}</Badge>
         </TableCell>
         <TableCell>
           {review.ratingGap ? (
-            <Badge variant="destructive"><AlertTriangle className="mr-1 h-3 w-3" /> Gap</Badge>
+            <Badge variant="destructive"><AlertTriangle className="mr-1 h-3 w-3" /> {t("table.gap")}</Badge>
           ) : review.managerRating ? (
-            <Badge variant="secondary"><Star className="mr-1 h-3 w-3" /> {ratingLabel[review.managerRating]}</Badge>
+            <Badge variant="secondary"><Star className="mr-1 h-3 w-3" /> {ratingLabel(t, review.managerRating)}</Badge>
           ) : (
-            <span className="text-sm text-muted-foreground">Pending</span>
+            <span className="text-sm text-muted-foreground">{t("table.pending")}</span>
           )}
         </TableCell>
         <TableCell className="text-right">
@@ -371,25 +372,25 @@ export default function PerformanceReviews() {
               size="sm"
               variant="outline"
               className="group h-8 gap-1.5 border-primary/25 bg-primary/5 px-2.5 text-primary shadow-none transition-all hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus-visible:ring-primary/25 dark:border-primary/30 dark:bg-primary/10 dark:hover:bg-primary/15"
-              aria-label={`Open performance review details for ${employeeName(review)}`}
+              aria-label={t("table.detailsAria", { name: employeeName(t, review) })}
               onClick={() => setDetailReviewId(review.id)}
             >
               <span className="flex h-5 w-5 items-center justify-center rounded-md bg-primary/10 transition-colors group-hover:bg-primary/15">
                 <Eye className="h-3.5 w-3.5" />
               </span>
-              <span className="text-xs font-semibold">Details</span>
+              <span className="text-xs font-semibold">{t("table.details")}</span>
             </Button>
             {mode === "self" && [ReviewStatus.PENDING, ReviewStatus.IN_PROGRESS, ReviewStatus.REOPENED].includes(review.status) && (
-              <Button size="sm" onClick={() => openSelfReview(review)}>Self Review</Button>
+              <Button size="sm" onClick={() => openSelfReview(review)}>{t("table.selfReview")}</Button>
             )}
             {mode === "manager" && [ReviewStatus.SUBMITTED, ReviewStatus.REOPENED].includes(review.status) && (
-              <Button size="sm" onClick={() => openManagerReview(review)}>Complete</Button>
+              <Button size="sm" onClick={() => openManagerReview(review)}>{t("table.complete")}</Button>
             )}
             {mode === "hr" && (
               <>
-                <Button size="sm" variant="outline" onClick={() => setHrAction({ reviewId: review.id, action: "reopen", reason: "", reviewerId: "", salaryHistoryId: "" })}>Reopen</Button>
-                <Button size="sm" variant="outline" onClick={() => setHrAction({ reviewId: review.id, action: "reassign", reason: "", reviewerId: review.reviewerId, salaryHistoryId: "" })}>Reassign</Button>
-                <Button size="sm" variant="outline" onClick={() => setHrAction({ reviewId: review.id, action: "salary", reason: "Annual review compensation follow-up", reviewerId: "", salaryHistoryId: "" })}>Salary</Button>
+                <Button size="sm" variant="outline" onClick={() => setHrAction({ reviewId: review.id, action: "reopen", reason: "", reviewerId: "", salaryHistoryId: "" })}>{t("table.reopen")}</Button>
+                <Button size="sm" variant="outline" onClick={() => setHrAction({ reviewId: review.id, action: "reassign", reason: "", reviewerId: review.reviewerId, salaryHistoryId: "" })}>{t("table.reassign")}</Button>
+                <Button size="sm" variant="outline" onClick={() => setHrAction({ reviewId: review.id, action: "salary", reason: t("hrDialog.salaryDefaultReason"), reviewerId: "", salaryHistoryId: "" })}>{t("table.salary")}</Button>
               </>
             )}
           </div>
@@ -404,36 +405,34 @@ export default function PerformanceReviews() {
         <div>
           <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
             <ClipboardCheck className="h-7 w-7 text-primary" />
-            Performance Reviews
+            {t("title")}
           </h1>
-          <p className="mt-1 text-muted-foreground">
-            Create cycles, submit reviews, and track performance outcomes.
-          </p>
+          <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
         </div>
         {isHr && (
           <Button onClick={() => setCycleOpen(true)} data-testid="button-new-review-cycle">
             <Plus className="mr-2 h-4 w-4" />
-            New Cycle
+            {t("newCycle")}
           </Button>
         )}
       </div>
 
       <Tabs defaultValue={isHr ? "cycles" : "mine"} className="space-y-4">
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
-          <TabsTrigger value="mine">My Reviews</TabsTrigger>
-          <TabsTrigger value="assigned" disabled={!isManager}>Assigned</TabsTrigger>
-          <TabsTrigger value="cycles" disabled={!isHr}>Cycles</TabsTrigger>
-          <TabsTrigger value="outcomes" disabled={!isHr}>Outcomes</TabsTrigger>
+          <TabsTrigger value="mine">{t("tabs.mine")}</TabsTrigger>
+          <TabsTrigger value="assigned" disabled={!isManager}>{t("tabs.assigned")}</TabsTrigger>
+          <TabsTrigger value="cycles" disabled={!isHr}>{t("tabs.cycles")}</TabsTrigger>
+          <TabsTrigger value="outcomes" disabled={!isHr}>{t("tabs.outcomes")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="mine">
-          <ReviewTable title="My Reviews" description="Reviews assigned to you as the employee.">
+          <ReviewTable title={t("panels.mineTitle")} description={t("panels.mineDescription")}>
             {renderReviewRows(myReviews, "self")}
           </ReviewTable>
         </TabsContent>
 
         <TabsContent value="assigned">
-          <ReviewTable title="Assigned to Me" description="Submitted or reopened reviews awaiting manager completion.">
+          <ReviewTable title={t("panels.assignedTitle")} description={t("panels.assignedDescription")}>
             {renderReviewRows(assignedReviews, "manager")}
           </ReviewTable>
         </TabsContent>
@@ -441,29 +440,29 @@ export default function PerformanceReviews() {
         <TabsContent value="cycles">
           <Card>
             <CardHeader>
-              <CardTitle>Review Cycles</CardTitle>
-              <CardDescription>{cyclesQuery.data?.length ?? 0} cycle{cyclesQuery.data?.length === 1 ? "" : "s"} configured.</CardDescription>
+              <CardTitle>{t("cycles.title")}</CardTitle>
+              <CardDescription>{t("cycles.configured", { count: cyclesQuery.data?.length ?? 0 })}</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Window</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t("cycles.name")}</TableHead>
+                    <TableHead>{t("cycles.type")}</TableHead>
+                    <TableHead>{t("cycles.window")}</TableHead>
+                    <TableHead>{t("cycles.status")}</TableHead>
+                    <TableHead className="text-right">{t("cycles.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {(cyclesQuery.data ?? []).map((cycle) => (
                     <TableRow key={cycle.id}>
                       <TableCell className="font-medium">{cycle.name}</TableCell>
-                      <TableCell>{cycle.reviewType.replace("_", " ")}</TableCell>
-                      <TableCell>{formatDate(cycle.periodStart)} - {formatDate(cycle.periodEnd)}</TableCell>
+                      <TableCell>{t(`reviewType.${cycle.reviewType}` as "reviewType.ANNUAL", { defaultValue: cycle.reviewType })}</TableCell>
+                      <TableCell>{formatDate(t, cycle.periodStart, locale)} - {formatDate(t, cycle.periodEnd, locale)}</TableCell>
                       <TableCell>
                         <Badge variant={cycle.status === ReviewCycleStatus.ACTIVE ? "default" : "secondary"}>
-                          {cycle.status}
+                          {t(`cycleStatus.${cycle.status}` as "cycleStatus.DRAFT", { defaultValue: cycle.status })}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
@@ -474,7 +473,7 @@ export default function PerformanceReviews() {
                           onClick={() => initiateCycleMutation.mutate(cycle.id)}
                         >
                           <UserCheck className="mr-2 h-4 w-4" />
-                          Initiate
+                          {t("cycles.initiate")}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -488,38 +487,43 @@ export default function PerformanceReviews() {
         <TabsContent value="outcomes">
           <Card>
             <CardHeader>
-              <CardTitle>Outcomes</CardTitle>
-              <CardDescription>Filter incomplete, overdue, completed, and rating-gap reviews.</CardDescription>
+              <CardTitle>{t("outcomes.title")}</CardTitle>
+              <CardDescription>{t("outcomes.description")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-4">
                 <Select value={filters.status ?? "ALL"} onValueChange={(value) => setFilters((current) => ({ ...current, status: value === "ALL" ? undefined : value }))}>
-                  <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("outcomes.statusPlaceholder")} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ALL">All statuses</SelectItem>
-                    {STATUS_OPTIONS.map((status) => <SelectItem key={status} value={status}>{status.replaceAll("_", " ")}</SelectItem>)}
+                    <SelectItem value="ALL">{t("outcomes.allStatuses")}</SelectItem>
+                    {STATUS_OPTIONS.map((status) => (
+                      <SelectItem key={status} value={status}>{reviewStatusLabel(t, status)}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <Select value={filters.ratingGap ? "true" : "false"} onValueChange={(value) => setFilters((current) => ({ ...current, ratingGap: value === "true" ? true : undefined }))}>
-                  <SelectTrigger><SelectValue placeholder="Rating gap" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("outcomes.ratingGapPlaceholder")} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="false">All ratings</SelectItem>
-                    <SelectItem value="true">Rating gaps only</SelectItem>
+                    <SelectItem value="false">{t("outcomes.allRatings")}</SelectItem>
+                    <SelectItem value="true">{t("outcomes.ratingGapsOnly")}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={filters.overdue ? "true" : "false"} onValueChange={(value) => setFilters((current) => ({ ...current, overdue: value === "true" ? true : undefined }))}>
-                  <SelectTrigger><SelectValue placeholder="Overdue" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("outcomes.overduePlaceholder")} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="false">All due dates</SelectItem>
-                    <SelectItem value="true">Overdue only</SelectItem>
+                    <SelectItem value="false">{t("outcomes.allDueDates")}</SelectItem>
+                    <SelectItem value="true">{t("outcomes.overdueOnly")}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button variant="outline" onClick={() => setFilters({ limit: 100 })}>
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Reset
+                  {t("outcomes.reset")}
                 </Button>
               </div>
-              <ReviewTable title="Review Outcomes" description={`${reviewsQuery.data?.total ?? 0} review records in scope.`}>
+              <ReviewTable
+                title={t("panels.outcomesTitle")}
+                description={t("panels.outcomesDescription", { count: reviewsQuery.data?.total ?? 0 })}
+              >
                 {renderReviewRows(reviewsQuery.data?.data ?? [], "hr")}
               </ReviewTable>
             </CardContent>
@@ -530,27 +534,27 @@ export default function PerformanceReviews() {
       <Dialog open={cycleOpen} onOpenChange={setCycleOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Create Review Cycle</DialogTitle>
+            <DialogTitle>{t("cycleDialog.title")}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Name"><Input value={cycleForm.name} onChange={(event) => setCycleForm((current) => ({ ...current, name: event.target.value }))} /></Field>
-            <Field label="Type">
+            <Field label={t("cycleDialog.name")}><Input value={cycleForm.name} onChange={(event) => setCycleForm((current) => ({ ...current, name: event.target.value }))} /></Field>
+            <Field label={t("cycleDialog.type")}>
               <Select value={cycleForm.reviewType} onValueChange={(value) => setCycleForm((current) => ({ ...current, reviewType: value as ReviewType }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{Object.values(ReviewType).map((type) => <SelectItem key={type} value={type}>{type.replace("_", " ")}</SelectItem>)}</SelectContent>
+                <SelectContent>{Object.values(ReviewType).map((type) => <SelectItem key={type} value={type}>{t(`reviewType.${type}` as "reviewType.ANNUAL")}</SelectItem>)}</SelectContent>
               </Select>
             </Field>
-            <Field label="Period Start"><Input type="date" value={cycleForm.periodStart} onChange={(event) => setCycleForm((current) => ({ ...current, periodStart: event.target.value }))} /></Field>
-            <Field label="Period End"><Input type="date" value={cycleForm.periodEnd} onChange={(event) => setCycleForm((current) => ({ ...current, periodEnd: event.target.value }))} /></Field>
-            <Field label="Self Review Opens"><Input type="datetime-local" value={cycleForm.selfReviewOpensAt} onChange={(event) => setCycleForm((current) => ({ ...current, selfReviewOpensAt: event.target.value }))} /></Field>
-            <Field label="Self Review Closes"><Input type="datetime-local" value={cycleForm.selfReviewClosesAt} onChange={(event) => setCycleForm((current) => ({ ...current, selfReviewClosesAt: event.target.value }))} /></Field>
-            <Field label="Manager Due"><Input type="datetime-local" value={cycleForm.managerReviewDueAt} onChange={(event) => setCycleForm((current) => ({ ...current, managerReviewDueAt: event.target.value }))} /></Field>
+            <Field label={t("cycleDialog.periodStart")}><Input type="date" value={cycleForm.periodStart} onChange={(event) => setCycleForm((current) => ({ ...current, periodStart: event.target.value }))} /></Field>
+            <Field label={t("cycleDialog.periodEnd")}><Input type="date" value={cycleForm.periodEnd} onChange={(event) => setCycleForm((current) => ({ ...current, periodEnd: event.target.value }))} /></Field>
+            <Field label={t("cycleDialog.selfOpens")}><Input type="datetime-local" value={cycleForm.selfReviewOpensAt} onChange={(event) => setCycleForm((current) => ({ ...current, selfReviewOpensAt: event.target.value }))} /></Field>
+            <Field label={t("cycleDialog.selfCloses")}><Input type="datetime-local" value={cycleForm.selfReviewClosesAt} onChange={(event) => setCycleForm((current) => ({ ...current, selfReviewClosesAt: event.target.value }))} /></Field>
+            <Field label={t("cycleDialog.managerDue")}><Input type="datetime-local" value={cycleForm.managerReviewDueAt} onChange={(event) => setCycleForm((current) => ({ ...current, managerReviewDueAt: event.target.value }))} /></Field>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCycleOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setCycleOpen(false)}>{t("common:cancel")}</Button>
             <Button onClick={() => createCycleMutation.mutate(cycleForm)} disabled={createCycleMutation.isPending}>
               <Save className="mr-2 h-4 w-4" />
-              Create
+              {t("cycleDialog.create")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -559,14 +563,14 @@ export default function PerformanceReviews() {
       <Dialog open={selfReviewTarget !== null} onOpenChange={(open) => !open && setSelfReviewTarget(null)}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Submit Self-Review</DialogTitle>
+            <DialogTitle>{t("selfDialog.title")}</DialogTitle>
           </DialogHeader>
-          <ReviewScaleForm form={selfForm} setForm={setSelfForm} />
+          <ReviewScaleForm form={selfForm} setForm={setSelfForm} t={t} />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelfReviewTarget(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setSelfReviewTarget(null)}>{t("common:cancel")}</Button>
             <Button onClick={() => selfReviewMutation.mutate()} disabled={selfReviewMutation.isPending}>
               <ClipboardList className="mr-2 h-4 w-4" />
-              Submit
+              {t("selfDialog.submit")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -575,25 +579,25 @@ export default function PerformanceReviews() {
       <Dialog open={managerReviewTarget !== null} onOpenChange={(open) => !open && setManagerReviewTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Complete Manager Review</DialogTitle>
+            <DialogTitle>{t("managerDialog.title")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <Field label="Manager Rating">
+            <Field label={t("managerDialog.rating")}>
               <Select value={managerForm.managerRating} onValueChange={(value) => setManagerForm((current) => ({ ...current, managerRating: value as PerformanceRating }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{RATING_OPTIONS.map((rating) => <SelectItem key={rating} value={rating}>{ratingLabel[rating]}</SelectItem>)}</SelectContent>
+                <SelectContent>{RATING_OPTIONS.map((rating) => <SelectItem key={rating} value={rating}>{ratingLabel(t, rating)}</SelectItem>)}</SelectContent>
               </Select>
             </Field>
-            <Field label="Manager Comments">
+            <Field label={t("managerDialog.comments")}>
               <Textarea rows={4} maxLength={4000} value={managerForm.managerComments} onChange={(event) => setManagerForm((current) => ({ ...current, managerComments: event.target.value }))} />
               <p className="text-xs text-muted-foreground text-right">{managerForm.managerComments.length} / 4000</p>
             </Field>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setManagerReviewTarget(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setManagerReviewTarget(null)}>{t("common:cancel")}</Button>
             <Button onClick={() => managerReviewMutation.mutate()} disabled={managerReviewMutation.isPending}>
               <Lock className="mr-2 h-4 w-4" />
-              Complete
+              {t("managerDialog.complete")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -602,33 +606,39 @@ export default function PerformanceReviews() {
       <Dialog open={hrAction !== null} onOpenChange={(open) => !open && setHrAction(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{hrAction?.action === "reassign" ? "Reassign Reviewer" : hrAction?.action === "salary" ? "Record Salary Follow-Up" : "Reopen Review"}</DialogTitle>
+            <DialogTitle>
+              {hrAction?.action === "reassign"
+                ? t("hrDialog.reassignTitle")
+                : hrAction?.action === "salary"
+                  ? t("hrDialog.salaryTitle")
+                  : t("hrDialog.reopenTitle")}
+            </DialogTitle>
           </DialogHeader>
           {hrAction && (
             <div className="space-y-4">
               {hrAction.action === "reassign" && (
-                <Field label="Reviewer">
+                <Field label={t("hrDialog.reviewer")}>
                   <Select value={hrAction.reviewerId} onValueChange={(value) => setHrAction((current) => current ? { ...current, reviewerId: value } : current)}>
-                    <SelectTrigger><SelectValue placeholder="Select reviewer" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t("hrDialog.reviewerPlaceholder")} /></SelectTrigger>
                     <SelectContent>{(employeesQuery.data ?? []).map((employee) => <SelectItem key={employee.id} value={employee.id}>{employee.firstName} {employee.lastName}</SelectItem>)}</SelectContent>
                   </Select>
                 </Field>
               )}
               {hrAction.action === "salary" && (
-                <Field label="Salary History ID">
-                  <Input value={hrAction.salaryHistoryId} onChange={(event) => setHrAction((current) => current ? { ...current, salaryHistoryId: event.target.value } : current)} placeholder="Optional salary history UUID" />
+                <Field label={t("hrDialog.salaryHistoryId")}>
+                  <Input value={hrAction.salaryHistoryId} onChange={(event) => setHrAction((current) => current ? { ...current, salaryHistoryId: event.target.value } : current)} placeholder={t("hrDialog.salaryHistoryIdPlaceholder")} />
                 </Field>
               )}
-              <Field label="Reason">
+              <Field label={t("hrDialog.reason")}>
                 <Textarea rows={3} value={hrAction.reason} onChange={(event) => setHrAction((current) => current ? { ...current, reason: event.target.value } : current)} />
               </Field>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setHrAction(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setHrAction(null)}>{t("common:cancel")}</Button>
             <Button onClick={() => hrActionMutation.mutate()} disabled={hrActionMutation.isPending || !hrAction?.reason.trim()}>
               <Save className="mr-2 h-4 w-4" />
-              Save
+              {t("common:save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -639,23 +649,28 @@ export default function PerformanceReviews() {
           <DialogHeader className="border-b bg-muted/30 px-6 py-5 text-left">
             <DialogTitle className="flex items-center gap-2 text-xl">
               <Eye className="h-5 w-5 text-primary" />
-              Performance Review Details
+              {t("detail.title")}
             </DialogTitle>
             <DialogDescription>
-              {detailQuery.data ? `${employeeName(detailQuery.data)} reviewed by ${reviewerName(detailQuery.data)}` : "Loading review details"}
+              {detailQuery.data
+                ? t("detail.subtitle", {
+                    employee: employeeName(t, detailQuery.data),
+                    reviewer: reviewerName(t, detailQuery.data),
+                  })
+                : t("detail.loadingSubtitle")}
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[72vh]">
             {detailQuery.isLoading ? (
-              <p className="px-6 py-10 text-center text-sm text-muted-foreground">Loading details...</p>
+              <p className="px-6 py-10 text-center text-sm text-muted-foreground">{t("detail.loading")}</p>
             ) : detailQuery.data ? (
-              <ReviewDetailContent review={detailQuery.data} />
+              <ReviewDetailContent review={detailQuery.data} t={t} locale={locale} />
             ) : (
-              <p className="px-6 py-10 text-center text-sm text-muted-foreground">Review details are unavailable.</p>
+              <p className="px-6 py-10 text-center text-sm text-muted-foreground">{t("detail.unavailable")}</p>
             )}
           </ScrollArea>
           <DialogFooter className="border-t bg-muted/20 px-6 py-4">
-            <Button variant="outline" onClick={() => setDetailReviewId(null)}>Close</Button>
+            <Button variant="outline" onClick={() => setDetailReviewId(null)}>{t("common:close")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -664,6 +679,7 @@ export default function PerformanceReviews() {
 }
 
 function ReviewTable({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+  const { t } = useTranslation("performance");
   return (
     <Card>
       <CardHeader>
@@ -674,13 +690,13 @@ function ReviewTable({ title, description, children }: { title: string; descript
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Employee</TableHead>
-              <TableHead>Reviewer</TableHead>
-              <TableHead>Cycle</TableHead>
-              <TableHead>Due</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Rating</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>{t("table.employee")}</TableHead>
+              <TableHead>{t("table.reviewer")}</TableHead>
+              <TableHead>{t("table.cycle")}</TableHead>
+              <TableHead>{t("table.due")}</TableHead>
+              <TableHead>{t("table.status")}</TableHead>
+              <TableHead>{t("table.rating")}</TableHead>
+              <TableHead className="text-right">{t("table.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>{children}</TableBody>
@@ -699,7 +715,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function ReviewDetailContent({ review }: { review: PerformanceReviewDto }) {
+function ReviewDetailContent({ review, t, locale }: { review: PerformanceReviewDto; t: PerfT; locale: string }) {
   return (
     <div className="space-y-5 px-6 py-6">
       <section className="overflow-hidden rounded-lg border bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white shadow-sm dark:border-slate-700">
@@ -710,68 +726,85 @@ function ReviewDetailContent({ review }: { review: PerformanceReviewDto }) {
             </div>
             <div className="min-w-0 space-y-3">
               <div>
-                <p className="text-sm text-slate-300">{review.cycle?.name ?? "Review cycle"}</p>
-                <h3 className="break-words text-2xl font-semibold leading-tight">{employeeName(review)}</h3>
+                <p className="text-sm text-slate-300">{review.cycle?.name ?? t("detail.defaultCycle")}</p>
+                <h3 className="break-words text-2xl font-semibold leading-tight">{employeeName(t, review)}</h3>
                 <p className="mt-1 text-sm text-slate-300">
-                  {review.positionTitle ?? "Position not set"} with {reviewerName(review)} as reviewer
+                  {t("detail.reviewerLine", {
+                    position: review.positionTitle ?? t("detail.positionNotSet"),
+                    reviewer: reviewerName(t, review),
+                  })}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Badge className={cn("border-0", statusTone[review.status])} variant="secondary">
-                  {review.status.replaceAll("_", " ")}
+                  {reviewStatusLabel(t, review.status)}
                 </Badge>
                 {review.ratingGap && (
                   <Badge variant="destructive" className="gap-1">
                     <AlertTriangle className="h-3 w-3" />
-                    Rating gap
+                    {t("detail.ratingGap")}
                   </Badge>
                 )}
-                {review.overdue && <Badge className="border-red-200 bg-red-50 text-red-700" variant="outline">Overdue</Badge>}
+                {review.overdue && <Badge className="border-red-200 bg-red-50 text-red-700" variant="outline">{t("detail.overdue")}</Badge>}
               </div>
             </div>
           </div>
 
           <div className="grid gap-2 rounded-lg border border-white/10 bg-white/10 p-3">
-            <HeaderFact icon={CalendarDays} label="Due" value={formatDate(review.dueDate)} />
-            <HeaderFact icon={Building2} label="Org" value={[review.businessUnitName, review.departmentName, review.teamName].filter(Boolean).join(" / ") || "Not set"} />
-            <HeaderFact icon={TrendingUp} label="Follow-ups" value={String(review.salaryFollowUps?.length ?? 0)} />
+            <HeaderFact icon={CalendarDays} label={t("detail.due")} value={formatDate(t, review.dueDate, locale)} />
+            <HeaderFact icon={Building2} label={t("detail.org")} value={[review.businessUnitName, review.departmentName, review.teamName].filter(Boolean).join(" / ") || t("fallback.notSet")} />
+            <HeaderFact icon={TrendingUp} label={t("detail.followUps")} value={String(review.salaryFollowUps?.length ?? 0)} />
           </div>
         </div>
       </section>
 
       <section className="grid gap-3 md:grid-cols-2">
-        <RatingPanel title="Self Rating" rating={review.selfRating} subtitle={review.submittedAt ? `Submitted ${formatDateTime(review.submittedAt)}` : "Awaiting self review"} />
-        <RatingPanel title="Manager Rating" rating={review.managerRating} subtitle={review.completedAt ? `Completed ${formatDateTime(review.completedAt)}` : "Awaiting manager review"} />
+        <RatingPanel
+          title={t("detail.selfRating")}
+          rating={review.selfRating}
+          subtitle={review.submittedAt
+            ? t("detail.submittedAt", { when: formatDateTime(t, review.submittedAt, locale) })
+            : t("detail.awaitingSelf")}
+          t={t}
+        />
+        <RatingPanel
+          title={t("detail.managerRating")}
+          rating={review.managerRating}
+          subtitle={review.completedAt
+            ? t("detail.completedAt", { when: formatDateTime(t, review.completedAt, locale) })
+            : t("detail.awaitingManager")}
+          t={t}
+        />
       </section>
 
-      <DetailSection title="Satisfaction Snapshot">
+      <DetailSection title={t("detail.satisfactionSnapshot")}>
         <div className="grid gap-3 sm:grid-cols-2">
-          <SignalItem label="Work Environment" value={review.environmentSatisfaction} />
-          <SignalItem label="Job Satisfaction" value={review.jobSatisfaction} />
-          <SignalItem label="Team Relationships" value={review.relationshipSatisfaction} />
-          <SignalItem label="Work-Life Balance" value={review.workLifeBalance} />
-          <DetailItem label="Training Taken" value={review.trainingOpportunitiesTaken === null ? "Not set" : String(review.trainingOpportunitiesTaken)} />
-          <DetailItem label="Review Date" value={formatDate(review.reviewDate)} />
+          <SignalItem label={t("detail.workEnvironment")} value={review.environmentSatisfaction} t={t} />
+          <SignalItem label={t("detail.jobSatisfaction")} value={review.jobSatisfaction} t={t} />
+          <SignalItem label={t("detail.teamRelationships")} value={review.relationshipSatisfaction} t={t} />
+          <SignalItem label={t("detail.workLifeBalance")} value={review.workLifeBalance} t={t} />
+          <DetailItem label={t("detail.trainingTaken")} value={review.trainingOpportunitiesTaken === null ? t("fallback.notSet") : String(review.trainingOpportunitiesTaken)} />
+          <DetailItem label={t("detail.reviewDate")} value={formatDate(t, review.reviewDate, locale)} />
         </div>
       </DetailSection>
 
-      <DetailSection title="Narrative">
+      <DetailSection title={t("detail.narrative")}>
         <div className="grid gap-3 md:grid-cols-2">
-          <CommentPanel title="Employee Comments" value={textValue(review.employeeComments)} />
-          <CommentPanel title="Manager Comments" value={textValue(review.managerComments)} />
+          <CommentPanel title={t("detail.employeeComments")} value={textValue(t, review.employeeComments)} />
+          <CommentPanel title={t("detail.managerComments")} value={textValue(t, review.managerComments)} />
         </div>
         {review.reopenReason?.trim() && (
           <div className="mt-3">
-            <CommentPanel title="Reopen Reason" value={review.reopenReason} tone="warning" />
+            <CommentPanel title={t("detail.reopenReason")} value={review.reopenReason} tone="warning" />
           </div>
         )}
       </DetailSection>
 
-      <DetailSection title="Timeline">
+      <DetailSection title={t("detail.timeline")}>
         <div className="grid gap-3 sm:grid-cols-3">
-          <TimelineItem label="Submitted" value={formatDateTime(review.submittedAt)} active={review.submittedAt !== null} />
-          <TimelineItem label="Completed" value={formatDateTime(review.completedAt)} active={review.completedAt !== null} />
-          <TimelineItem label="Reopened" value={formatDateTime(review.reopenedAt)} active={review.reopenedAt !== null} />
+          <TimelineItem label={t("detail.submitted")} value={formatDateTime(t, review.submittedAt, locale)} active={review.submittedAt !== null} />
+          <TimelineItem label={t("detail.completed")} value={formatDateTime(t, review.completedAt, locale)} active={review.completedAt !== null} />
+          <TimelineItem label={t("detail.reopened")} value={formatDateTime(t, review.reopenedAt, locale)} active={review.reopenedAt !== null} />
         </div>
       </DetailSection>
     </div>
@@ -815,13 +848,13 @@ function HeaderFact({ icon: Icon, label, value }: { icon: React.ElementType; lab
   );
 }
 
-function RatingPanel({ title, rating, subtitle }: { title: string; rating: PerformanceRating | null; subtitle: string }) {
+function RatingPanel({ title, rating, subtitle, t }: { title: string; rating: PerformanceRating | null; subtitle: string; t: PerfT }) {
   return (
     <div className={cn("rounded-lg border p-4", rating ? ratingTone[rating] : "border-border bg-background")}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-medium text-muted-foreground">{title}</p>
-          <p className="mt-1 text-lg font-semibold">{enumLabel(rating, ratingLabel)}</p>
+          <p className="mt-1 text-lg font-semibold">{rating ? ratingLabel(t, rating) : t("fallback.notSet")}</p>
         </div>
         <div className="flex h-9 w-9 items-center justify-center rounded-md border bg-background/70">
           <Star className="h-4 w-4" />
@@ -832,11 +865,11 @@ function RatingPanel({ title, rating, subtitle }: { title: string; rating: Perfo
   );
 }
 
-function SignalItem({ label, value }: { label: string; value: SatisfactionLevel | null }) {
+function SignalItem({ label, value, t }: { label: string; value: SatisfactionLevel | null; t: PerfT }) {
   return (
     <div className={cn("rounded-lg border p-3", value ? satisfactionTone[value] : "border-border bg-background")}>
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="mt-1 text-sm font-semibold">{enumLabel(value, satisfactionLabel)}</p>
+      <p className="mt-1 text-sm font-semibold">{value ? satisfactionLabel(t, value) : t("fallback.notSet")}</p>
     </div>
   );
 }
@@ -868,27 +901,29 @@ function TimelineItem({ label, value, active }: { label: string; value: string; 
 function ReviewScaleForm({
   form,
   setForm,
+  t,
 }: {
   form: SelfReviewForm;
   setForm: React.Dispatch<React.SetStateAction<SelfReviewForm>>;
+  t: PerfT;
 }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <SatisfactionSelect label="Work Environment Satisfaction" value={form.environmentSatisfaction} onChange={(value) => setForm((current) => ({ ...current, environmentSatisfaction: value }))} />
-      <SatisfactionSelect label="Job Satisfaction" value={form.jobSatisfaction} onChange={(value) => setForm((current) => ({ ...current, jobSatisfaction: value }))} />
-      <SatisfactionSelect label="Team Relationship Satisfaction" value={form.relationshipSatisfaction} onChange={(value) => setForm((current) => ({ ...current, relationshipSatisfaction: value }))} />
-      <SatisfactionSelect label="Work-Life Balance" value={form.workLifeBalance} onChange={(value) => setForm((current) => ({ ...current, workLifeBalance: value }))} />
-      <Field label="Training Opportunities Taken (0 – 100)">
+      <SatisfactionSelect label={t("selfDialog.environment")} value={form.environmentSatisfaction} onChange={(value) => setForm((current) => ({ ...current, environmentSatisfaction: value }))} t={t} />
+      <SatisfactionSelect label={t("selfDialog.job")} value={form.jobSatisfaction} onChange={(value) => setForm((current) => ({ ...current, jobSatisfaction: value }))} t={t} />
+      <SatisfactionSelect label={t("selfDialog.relationships")} value={form.relationshipSatisfaction} onChange={(value) => setForm((current) => ({ ...current, relationshipSatisfaction: value }))} t={t} />
+      <SatisfactionSelect label={t("selfDialog.workLife")} value={form.workLifeBalance} onChange={(value) => setForm((current) => ({ ...current, workLifeBalance: value }))} t={t} />
+      <Field label={t("selfDialog.training")}>
         <Input type="number" min={0} max={100} value={form.trainingOpportunitiesTaken} onChange={(event) => setForm((current) => ({ ...current, trainingOpportunitiesTaken: event.target.value }))} />
       </Field>
-      <Field label="Self Rating">
+      <Field label={t("selfDialog.selfRating")}>
         <Select value={form.selfRating} onValueChange={(value) => setForm((current) => ({ ...current, selfRating: value as PerformanceRating }))}>
           <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>{RATING_OPTIONS.map((rating) => <SelectItem key={rating} value={rating}>{ratingLabel[rating]}</SelectItem>)}</SelectContent>
+          <SelectContent>{RATING_OPTIONS.map((rating) => <SelectItem key={rating} value={rating}>{ratingLabel(t, rating)}</SelectItem>)}</SelectContent>
         </Select>
       </Field>
       <div className="sm:col-span-2">
-        <Field label="Employee Comments">
+        <Field label={t("selfDialog.comments")}>
           <Textarea rows={4} maxLength={4000} value={form.employeeComments} onChange={(event) => setForm((current) => ({ ...current, employeeComments: event.target.value }))} />
           <p className="text-xs text-muted-foreground text-right">{form.employeeComments.length} / 4000</p>
         </Field>
@@ -901,16 +936,18 @@ function SatisfactionSelect({
   label,
   value,
   onChange,
+  t,
 }: {
   label: string;
   value: SatisfactionLevel;
   onChange: (value: SatisfactionLevel) => void;
+  t: PerfT;
 }) {
   return (
     <Field label={label}>
       <Select value={value} onValueChange={(next) => onChange(next as SatisfactionLevel)}>
         <SelectTrigger><SelectValue /></SelectTrigger>
-        <SelectContent>{SATISFACTION_OPTIONS.map((item) => <SelectItem key={item} value={item}>{satisfactionLabel[item]}</SelectItem>)}</SelectContent>
+        <SelectContent>{SATISFACTION_OPTIONS.map((item) => <SelectItem key={item} value={item}>{satisfactionLabel(t, item)}</SelectItem>)}</SelectContent>
       </Select>
     </Field>
   );

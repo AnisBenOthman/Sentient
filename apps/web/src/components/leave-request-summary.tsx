@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import type { LeaveRequest } from "@/lib/api/hr-core";
 
@@ -8,7 +9,7 @@ type LeaveRequestSummaryProps = {
   mode?: LeaveRequestSummaryMode;
 };
 
-function formatLeaveDate(iso: string): string {
+function formatLeaveDate(iso: string, locale: string): string {
   const [datePart] = iso.split("T");
   const [year, month, day] = datePart.split("-").map(Number);
   const date =
@@ -16,7 +17,7 @@ function formatLeaveDate(iso: string): string {
       ? new Date(Date.UTC(year, month - 1, day))
       : new Date(iso);
 
-  return date.toLocaleDateString("en-GB", {
+  return date.toLocaleDateString(locale, {
     timeZone: "UTC",
     day: "2-digit",
     month: "short",
@@ -24,19 +25,16 @@ function formatLeaveDate(iso: string): string {
   });
 }
 
-function formatLeaveDays(days: number): string {
-  return `${days} day${days === 1 ? "" : "s"}`;
-}
-
 export function LeaveRequestSummary({
   request,
   mode = "compact",
 }: LeaveRequestSummaryProps) {
+  const { t, i18n } = useTranslation("common");
   const leaveTypeName = request.leaveType?.name ?? request.leaveTypeId;
   const dateRange =
     request.startDate === request.endDate
-      ? formatLeaveDate(request.startDate)
-      : `${formatLeaveDate(request.startDate)} - ${formatLeaveDate(request.endDate)}`;
+      ? formatLeaveDate(request.startDate, i18n.language)
+      : `${formatLeaveDate(request.startDate, i18n.language)} - ${formatLeaveDate(request.endDate, i18n.language)}`;
 
   if (mode === "type") {
     return <Badge variant="outline">{leaveTypeName}</Badge>;
@@ -48,7 +46,7 @@ export function LeaveRequestSummary({
 
   return (
     <span>
-      {leaveTypeName}{" \u00b7 "}{formatLeaveDays(request.totalDays)}{" \u00b7 "}{dateRange}
+      {leaveTypeName}{" \u00b7 "}{t("daysCount", { count: request.totalDays })}{" \u00b7 "}{dateRange}
     </span>
   );
 }

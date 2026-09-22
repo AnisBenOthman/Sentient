@@ -1,60 +1,125 @@
 {
   "title": "Positions",
+  "subtitle": "Manage job positions and their seniority levels",
   "addPosition": "Add Position",
   "searchPlaceholder": "Search positions…",
-  "showInactive": "Show inactive",
+  "stats": {
+    "total": "Total",
+    "keyPositions": "Key positions",
+    "noSuccessor": "No successor"
+  },
   "table": {
     "title": "Title",
     "level": "Level",
-    "department": "Department",
-    "skills": "Skills",
-    "employees": "Employees",
-    "status": "Status",
+    "flags": "Flags",
     "actions": "Actions",
-    "noPositions": "No positions found."
+    "positionCount_one": "{{count}} position",
+    "positionCount_other": "{{count}} positions",
+    "noMatch": "No positions match your search.",
+    "empty": "No positions configured.",
+    "keyBadge": "Key",
+    "keyBadgeWithRisk": "Key · {{risk}} risk",
+    "noSuccessorBadge": "No successor",
+    "editAria": "Edit {{title}}",
+    "deactivateAria": "Deactivate {{title}}"
   },
   "levels": {
     "JUNIOR": "Junior",
-    "MID": "Mid",
-    "SENIOR": "Senior",
-    "LEAD": "Lead",
-    "MANAGER": "Manager",
-    "DIRECTOR": "Director",
-    "VP": "VP",
-    "C_LEVEL": "C-Level"
+    "MEDIUM": "Medium",
+    "CONFIRMED": "Confirmed",
+    "SENIOR_1": "Senior I",
+    "SENIOR_2": "Senior II",
+    "EXPERT": "Expert"
+  },
+  "risk": {
+    "LOW": "Low",
+    "MEDIUM": "Medium",
+    "HIGH": "High"
+  },
+  "proficiency": {
+    "BEGINNER": "Beginner",
+    "INTERMEDIATE": "Intermediate",
+    "ADVANCED": "Advanced",
+    "EXPERT": "Expert"
+  },
+  "requirement": {
+    "MANDATORY": "Mandatory",
+    "EXPECTED": "Expected",
+    "NICE_TO_HAVE": "Nice to Have"
+  },
+  "skillDomains": {
+    "TECHNICAL": "Technical",
+    "LEADERSHIP": "Leadership",
+    "SOFT_SKILLS": "Soft Skills",
+    "DOMAIN_EXPERTISE": "Domain Expertise"
+  },
+  "domains": {
+    "ENGINEERING": {
+      "label": "Engineering",
+      "description": "Software, frontend, technical lead, and engineering management roles"
+    },
+    "PRODUCT_DESIGN": {
+      "label": "Product & Design",
+      "description": "Product ownership, product management, UX, and design positions"
+    },
+    "HR": {
+      "label": "Human Resources",
+      "description": "HR partner and people operations positions"
+    },
+    "FINANCE": {
+      "label": "Finance",
+      "description": "Accounting, controlling, FP&A, and finance leadership positions"
+    },
+    "SALES": {
+      "label": "Sales",
+      "description": "Sales leadership and account executive positions"
+    },
+    "OTHER": {
+      "label": "Other Positions",
+      "description": "Positions without a seeded job-family match"
+    }
   },
   "dialog": {
     "createTitle": "Add Position",
     "editTitle": "Edit Position",
-    "titleLabel": "Job Title",
-    "titlePlaceholder": "e.g. Senior Software Engineer",
+    "titleLabel": "Title",
+    "titlePlaceholder": "e.g. Software Engineer",
     "levelLabel": "Level",
-    "departmentLabel": "Department",
-    "activeLabel": "Active",
-    "submitCreate": "Create Position",
-    "submitEdit": "Save Changes",
-    "submitting": "Saving…"
-  },
-  "skills": {
-    "manageTitle": "Manage Skills — {{title}}",
-    "addSkill": "Add Skill",
-    "skill": "Skill",
-    "requirement": "Requirement",
-    "proficiency": "Min. Proficiency",
-    "actions": "Actions",
-    "noSkills": "No skills assigned.",
-    "requirement_MANDATORY": "Mandatory",
-    "requirement_PREFERRED": "Preferred",
-    "requirement_NICE_TO_HAVE": "Nice to have"
+    "levelPlaceholder": "Select level",
+    "keyPositionTitle": "Key position",
+    "keyPositionHint": "Critical to business continuity",
+    "successorTitle": "Successor identified",
+    "successorHint": "A designated successor has been named",
+    "errorTitleRequired": "Title is required."
   },
   "deactivate": {
-    "title": "Deactivate Position",
-    "description": "Are you sure you want to deactivate \"{{title}}\"? Employees assigned to this position will keep it but it won't appear in new assignments.",
+    "title": "Deactivate \"{{title}}\"?",
+    "description": "This position will be marked inactive. Employees currently assigned to this position will not be affected.",
     "confirm": "Deactivate",
-    "cancel": "Cancel"
+    "pending": "Deactivating…"
   },
-  "errors": {
-    "PositionAlreadyExists": "A position with this title already exists.",
-    "generic": "Failed to save position. Please try again."
+  "skills": {
+    "heading": "Required Skills",
+    "add": "Add Skill",
+    "adding": "Adding…",
+    "empty": "No required skills defined for this position.",
+    "allDomains": "All domains",
+    "allRequirements": "All requirements",
+    "noFilterMatch": "No skills match the selected filters.",
+    "skillCount_one": "{{count}} skill",
+    "skillCount_other": "{{count}} skills",
+    "uncategorized": "Uncategorized",
+    "removeAria": "Remove {{name}}",
+    "addTitle": "Add Required Skill — {{title}}",
+    "skillLabel": "Skill",
+    "filterByDomain": "Filter by domain",
+    "searchPlaceholder": "Search skills…",
+    "noneAvailable": "No available skills match this domain or search.",
+    "minProficiency": "Minimum Proficiency",
+    "requirementLevel": "Requirement Level",
+    "removeTitle": "Remove \"{{name}}\"?",
+    "removeDescription": "This skill requirement will be removed from the position profile. Existing employees won't be affected.",
+    "removeConfirm": "Remove",
+    "removePending": "Removing…"
   }
 }

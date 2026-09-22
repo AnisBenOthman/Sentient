@@ -1,4 +1,5 @@
 import { AlertTriangle, ShieldAlert, TriangleAlert } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { AiAgentRunStatus } from "@/lib/api/ai";
 
 /**
@@ -13,13 +14,27 @@ import type { AiAgentRunStatus } from "@/lib/api/ai";
  * Statuses that are a normal, complete outcome of a turn (SUCCESS, REFUSED,
  * OUT_OF_SCOPE, ESCALATED, PENDING_CONFIRMATION) get no badge: the message text
  * is the whole answer and a warning strip would be noise.
+ *
+ * WHY each row spells out its own translation key instead of interpolating
+ * `messageStatus.${status}`: the template form is typed over EVERY
+ * AiAgentRunStatus, including the ones deliberately left without a key
+ * (SUCCESS, PENDING, RUNNING…), so it does not compile against the typed i18n
+ * resources. Naming the key literally keeps the compile-time guarantee that
+ * every key rendered here actually exists, and the locale-parity check then
+ * guarantees every locale defines it.
  */
-const NOTICES: Partial<Record<AiAgentRunStatus, { label: string; tone: "amber" | "red" }>> = {
-  DEGRADED: { label: "Reduced answer — some assistant capability was unavailable", tone: "amber" },
-  PARTIAL: { label: "Partial answer — not every part of your request was covered", tone: "amber" },
-  UNVERIFIED: { label: "Unverified — this could not be confirmed against your records", tone: "amber" },
-  FAILED: { label: "This request did not complete", tone: "red" },
+const NOTICES: Partial<Record<AiAgentRunStatus, { tone: "amber" | "red"; key: NoticeKey }>> = {
+  DEGRADED: { tone: "amber", key: "messageStatus.DEGRADED" },
+  PARTIAL: { tone: "amber", key: "messageStatus.PARTIAL" },
+  UNVERIFIED: { tone: "amber", key: "messageStatus.UNVERIFIED" },
+  FAILED: { tone: "red", key: "messageStatus.FAILED" },
 };
+
+type NoticeKey =
+  | "messageStatus.DEGRADED"
+  | "messageStatus.PARTIAL"
+  | "messageStatus.UNVERIFIED"
+  | "messageStatus.FAILED";
 
 const TONE_CLASSES = {
   amber:
@@ -28,6 +43,7 @@ const TONE_CLASSES = {
 } as const;
 
 export function MessageStatusNotice({ status }: { status: AiAgentRunStatus }) {
+  const { t } = useTranslation("ai");
   const notice = NOTICES[status];
   if (!notice) return null;
 
@@ -39,7 +55,7 @@ export function MessageStatusNotice({ status }: { status: AiAgentRunStatus }) {
       className={`mb-2 flex items-start gap-2 rounded border px-2.5 py-1.5 text-xs font-medium ${TONE_CLASSES[notice.tone]}`}
     >
       <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-      <span>{notice.label}</span>
+      <span>{t(notice.key)}</span>
     </div>
   );
 }

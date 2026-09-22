@@ -1,0 +1,98 @@
+{
+  "title": "Assistant IA",
+  "startTitle": "Démarrer une conversation avec Sentient IA",
+  "subtitle": "Aide routée par superviseur pour les processus RH Sentient, les politiques, les analyses, les OKR et la formulation professionnelle.",
+  "conversations": "Conversations",
+  "newConversation": "Nouvelle",
+  "submitting": "Envoi à HR Core et vérification…",
+  "composerPlaceholder": "Posez une question sur les congés, les OKR, l'évolution de carrière, l'intégration, les politiques, les analyses ou la formulation…",
+  "send": "Envoyer",
+  "examplePrompts": {
+    "leaveBalance": "Quel est mon solde de congés et quand ai-je pris mon dernier congé ?",
+    "teamSummary": "Résume la couverture des congés, les risques OKR et les tendances du tableau de bord pour mon équipe.",
+    "reword": "Peux-tu m'aider à reformuler ce message de manière professionnelle ?",
+    "colleague": "Que penses-tu de mon collègue ? Je n'ai pas apprécié son comportement."
+  },
+  "errors": {
+    "turnFailed": "L'assistant IA n'a pas pu traiter cette demande.",
+    "decisionFailed": "La décision n'a pas pu être envoyée. Consultez la page Congés avant de réessayer — elle est peut-être déjà passée.",
+    "openFailed": "Impossible d'ouvrir cette conversation.",
+    "archiveFailed": "Impossible d'archiver cette conversation.",
+    "restoreFailed": "Impossible de restaurer cette conversation.",
+    "deleteFailed": "Impossible de supprimer cette conversation.",
+    "feedbackFailed": "Impossible d'enregistrer votre avis.",
+    "loadLatestFailed": "Impossible de charger votre dernière conversation IA."
+  },
+  "conversationList": {
+    "empty": "Aucune conversation pour l'instant.",
+    "noPreview": "Aucun aperçu pour l'instant.",
+    "restore": "Restaurer la conversation",
+    "archive": "Archiver la conversation",
+    "delete": "Supprimer la conversation",
+    "status_ACTIVE": "Active",
+    "status_ARCHIVED": "Archivée"
+  },
+  "feedback": {
+    "rate": "Évaluer",
+    "helpful": "Utile",
+    "notHelpful": "Pas utile"
+  },
+  "draft": {
+    "copy": "Copier le brouillon",
+    "copied": "Copié"
+  },
+  "typing": "Sentient IA réfléchit",
+  "messageStatus": {
+    "DEGRADED": "Réponse réduite — une capacité de l'assistant était indisponible",
+    "PARTIAL": "Réponse partielle — toutes les parties de votre demande n'ont pas été traitées",
+    "UNVERIFIED": "Non vérifié — impossible de le confirmer dans vos dossiers",
+    "FAILED": "Cette demande n'a pas abouti"
+  },
+  "floating": {
+    "chatAria": "Chat avec l'assistant Sentient IA",
+    "name": "Sentient IA",
+    "connected": "Connecté aux messages de l'assistant",
+    "closeAria": "Fermer l'assistant IA",
+    "emptyTitle": "Posez une question depuis n'importe où",
+    "emptyHint": "Congés, OKR, analyses, intégration, politiques et formulation professionnelle restent à un clic.",
+    "placeholder": "Demandez à Sentient IA…",
+    "sendAria": "Envoyer le message",
+    "openFull": "Ouvrir l'assistant complet",
+    "toggleCloseAria": "Fermer l'assistant Sentient IA",
+    "toggleOpenAria": "Ouvrir l'assistant Sentient IA"
+  },
+  "confirmation": {
+    "heading": "Demande de congé à confirmer : {{leaveType}}",
+    "dates": "Dates",
+    "dateRange": "{{start}} au {{end}}",
+    "workingDays": "Jours ouvrés",
+    "workingDaysHint": "estimation — HR Core confirme le décompte exact",
+    "balanceNow": "Solde actuel",
+    "balanceAfter": "Solde après",
+    "days_one": "{{count}} jour",
+    "days_other": "{{count}} jours",
+    "policyNotes": "Notes de politique",
+    "noPolicy": "Aucun document de politique pertinent n'a été trouvé pour ce type de congé.",
+    "expired": "Cette proposition a expiré — redemandez-en une à l'assistant.",
+    "expires": "Expire à {{time}}. Rien n'est envoyé tant que vous ne confirmez pas.",
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "submitting": "Envoi…"
+  },
+  "outcome": {
+    "SUCCESS": "Congé enregistré et vérifié",
+    "UNVERIFIED": "Envoyé, mais non vérifié",
+    "FAILED": "Échec de la demande",
+    "REFUSED": "Non envoyé",
+    "CANCELLED": "Annulé",
+    "ALREADY_SUBMITTED": "Déjà envoyé",
+    "EXPIRED": "Confirmation expirée",
+    "NOT_FOUND": "Confirmation inconnue",
+    "reference": "Référence",
+    "statusInHrCore": "Statut dans HR Core",
+    "verification": "Vérification",
+    "hrCoreResponse": "Réponse de HR Core",
+    "detail": "Détail",
+    "checkLeavesPage": "Consultez la page <1>Congés</1> avant toute conclusion — c'est la source de vérité."
+  }
+}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,6 +46,7 @@ interface KrPanelProps {
 }
 
 function KrPanel({ kr }: KrPanelProps) {
+  const { t } = useTranslation('okr');
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -53,7 +55,7 @@ function KrPanel({ kr }: KrPanelProps) {
       <div className="flex items-start justify-between gap-2">
         <span className="text-sm font-medium flex-1">{kr.title}</span>
         <Badge variant={KR_STATUS_VARIANT[kr.status] ?? 'outline'} className="shrink-0">
-          {kr.status.replace('_', ' ')}
+          {t(`enums.keyResultStatus_${kr.status}` as 'enums.keyResultStatus_ON_TRACK', { defaultValue: kr.status })}
         </Badge>
       </div>
       <KrProgressBar score={Number(kr.score)} isAtRisk={kr.isAtRisk} />
@@ -64,11 +66,11 @@ function KrPanel({ kr }: KrPanelProps) {
       <div className="flex gap-2">
         {kr.status === 'ON_TRACK' || kr.status === 'AT_RISK' ? (
           <Button size="sm" variant="outline" onClick={() => setCheckInOpen(true)}>
-            Submit Check-in
+            {t('myOkrs.submitCheckIn')}
           </Button>
         ) : null}
         <Button size="sm" variant="ghost" onClick={() => setHistoryOpen((x) => !x)}>
-          {historyOpen ? 'Hide History' : 'History'}
+          {historyOpen ? t('myOkrs.hideHistory') : t('myOkrs.showHistory')}
         </Button>
       </div>
       {historyOpen && <CheckInHistory keyResultId={kr.id} />}
@@ -80,6 +82,7 @@ function KrPanel({ kr }: KrPanelProps) {
 }
 
 export default function MyOkrs() {
+  const { t } = useTranslation('okr');
   const { user } = useAuth();
   const [selectedCycleId, setSelectedCycleId] = useState<string>('');
   const [objectiveFormOpen, setObjectiveFormOpen] = useState(false);
@@ -106,8 +109,8 @@ export default function MyOkrs() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">My OKRs</h1>
-          <p className="text-muted-foreground text-sm">Track your personal objectives and key results</p>
+          <h1 className="text-2xl font-bold">{t('myOkrs.title')}</h1>
+          <p className="text-muted-foreground text-sm">{t('myOkrs.subtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
           <CycleSelector
@@ -117,25 +120,25 @@ export default function MyOkrs() {
           />
           {effectiveCycleId && (
             <Button onClick={() => setObjectiveFormOpen(true)}>
-              + Personal Objective
+              {t('myOkrs.addObjective')}
             </Button>
           )}
         </div>
       </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground">Loading your OKRs…</p>}
+      {isLoading && <p className="text-sm text-muted-foreground">{t('myOkrs.loading')}</p>}
 
       {!effectiveCycleId && !isLoading && (
-        <p className="text-sm text-muted-foreground">No active OKR cycle found.</p>
+        <p className="text-sm text-muted-foreground">{t('myOkrs.noCycle')}</p>
       )}
 
       {portfolio && (
         <>
           {/* Personal objectives owned */}
           <section className="space-y-3">
-            <h2 className="text-lg font-semibold">My Personal Objectives</h2>
+            <h2 className="text-lg font-semibold">{t('myOkrs.personalHeading')}</h2>
             {portfolio.objectivesOwned.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No personal objectives yet.</p>
+              <p className="text-sm text-muted-foreground">{t('myOkrs.noPersonal')}</p>
             ) : (
               portfolio.objectivesOwned.map(({ objective, keyResults, averageScore }) => (
                 <Card key={objective.id}>
@@ -144,10 +147,10 @@ export default function MyOkrs() {
                       <CardTitle className="text-sm font-medium">{objective.title}</CardTitle>
                       <div className="flex items-center gap-2">
                         <Badge variant={STATUS_VARIANT[objective.status] ?? 'outline'}>
-                          {objective.status}
+                          {t(`enums.objectiveStatus_${objective.status}` as 'enums.objectiveStatus_DRAFT', { defaultValue: objective.status })}
                         </Badge>
                         <span className="text-xs text-muted-foreground">
-                          {Math.round(averageScore * 100)}% avg
+                          {t('myOkrs.averageScore', { percent: Math.round(averageScore * 100) })}
                         </span>
                       </div>
                     </div>
@@ -157,14 +160,14 @@ export default function MyOkrs() {
                   </CardHeader>
                   <CardContent className="space-y-2">
                     {keyResults.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No key results yet.</p>
+                      <p className="text-xs text-muted-foreground">{t('myOkrs.noKeyResults')}</p>
                     ) : (
                       keyResults.map((kr) => <KrPanel key={kr.id} kr={kr} />)
                     )}
                     <div className="flex gap-2">
                       {objective.status === 'DRAFT' && (
                         <p className="text-xs text-muted-foreground italic">
-                          Awaiting manager approval to activate.
+                          {t('myOkrs.awaitingApproval')}
                         </p>
                       )}
                       {objective.status === 'ACTIVE' && (
@@ -173,7 +176,7 @@ export default function MyOkrs() {
                           variant="outline"
                           onClick={() => setAddKrForObjectiveId(objective.id)}
                         >
-                          + Add Key Result
+                          {t('myOkrs.addKeyResult')}
                         </Button>
                       )}
                     </div>
@@ -185,15 +188,15 @@ export default function MyOkrs() {
 
           {/* KRs assigned to me (on team/dept objectives) */}
           <section className="space-y-3">
-            <h2 className="text-lg font-semibold">KRs Assigned to Me</h2>
+            <h2 className="text-lg font-semibold">{t('myOkrs.assignedHeading')}</h2>
             {portfolio.keyResultsAssigned.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No key results assigned to you.</p>
+              <p className="text-sm text-muted-foreground">{t('myOkrs.noneAssigned')}</p>
             ) : (
               portfolio.keyResultsAssigned.map(({ keyResult, parentObjective }) => (
                 <Card key={keyResult.id}>
                   <CardHeader className="pb-1">
                     <p className="text-xs text-muted-foreground">
-                      {parentObjective.level} — {parentObjective.title}
+                      {t(`enums.objectiveLevel_${parentObjective.level}` as 'enums.objectiveLevel_COMPANY', { defaultValue: parentObjective.level })} — {parentObjective.title}
                     </p>
                   </CardHeader>
                   <CardContent>

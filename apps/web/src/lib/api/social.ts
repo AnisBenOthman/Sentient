@@ -2,11 +2,7 @@ import axios from 'axios';
 
 import { authStore } from '../auth';
 import { refreshAccessToken } from './client';
-export {
-  ANNOUNCEMENT_ERROR_MESSAGES,
-  DOCUMENT_ERROR_MESSAGES,
-  extractApiError,
-} from './gateway-error';
+export { apiErrorMessage, extractApiError } from './gateway-error';
 
 const gatewayBaseUrl = (import.meta.env.VITE_API_GATEWAY_URL ?? '').replace(/\/$/, '');
 

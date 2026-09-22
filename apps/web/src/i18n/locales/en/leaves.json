@@ -1,11 +1,12 @@
 {
-  "title": "Leave Requests",
+  "title": "Leaves",
   "tabs": {
     "myLeaves": "My Leaves",
     "pendingQueue": "Pending Approvals",
-    "balances": "My Balances"
+    "balances": "My Balances",
+    "teamRequests": "Team Requests"
   },
-  "newRequest": "New Request",
+  "newRequest": "Request Leave",
   "table": {
     "type": "Type",
     "startDate": "Start Date",
@@ -16,7 +17,9 @@
     "actions": "Actions",
     "requestedBy": "Requested By",
     "noLeaves": "No leave requests found.",
-    "noPending": "No pending requests."
+    "noPending": "No pending requests.",
+    "employee": "Employee",
+    "duration": "Duration"
   },
   "status": {
     "PENDING": "Pending",
@@ -26,9 +29,9 @@
     "ESCALATED": "Escalated"
   },
   "dialog": {
-    "newRequestTitle": "New Leave Request",
+    "newRequestTitle": "Request Leave",
     "leaveTypeLabel": "Leave Type",
-    "leaveTypePlaceholder": "Select a leave type",
+    "leaveTypePlaceholder": "Select type",
     "startDateLabel": "Start Date",
     "endDateLabel": "End Date",
     "halfDayLabel": "Half Day",
@@ -37,18 +40,29 @@
       "AFTERNOON": "Afternoon"
     },
     "reasonLabel": "Reason (optional)",
-    "reasonPlaceholder": "Reason for leave…",
+    "reasonPlaceholder": "Any additional details…",
     "submitButton": "Submit Request",
     "submitting": "Submitting…",
     "cancelRequest": "Cancel Request",
-    "confirmCancel": "Are you sure you want to cancel this leave request?"
+    "confirmCancel": "Are you sure you want to cancel this leave request?",
+    "reasonOptional": "(optional)",
+    "rejectTitle": "Reject Leave Request",
+    "rejectReasonLabel": "Rejection Reason",
+    "rejectPlaceholder": "Explain why this request is being rejected…",
+    "rejectButton": "Reject Request",
+    "rejecting": "Rejecting…"
   },
   "balances": {
     "available": "Available",
-    "used": "Used",
-    "pending": "Pending",
+    "used": "{{count}} used",
+    "pending": "{{count}} pending",
     "days": "days",
-    "noBalances": "No leave balances found."
+    "noBalances": "No leave balances configured.",
+    "left": "left",
+    "total": "{{count}} total",
+    "heading": "Leave Balance — {{year}}",
+    "remainingAll_one": "{{count}} day remaining across all types",
+    "remainingAll_other": "{{count}} days remaining across all types"
   },
   "actions": {
     "approve": "Approve",
@@ -60,11 +74,45 @@
     "rejectPlaceholder": "Enter rejection reason…"
   },
   "errors": {
-    "LeaveTypeInactive": "This leave type is no longer available.",
-    "InsufficientBalance": "Insufficient leave balance.",
-    "OverlappingRequest": "Dates overlap with an existing request.",
-    "ZeroDayRequest": "No working days in the selected range.",
+    "LeaveTypeInactive": "This leave type is no longer available. Please select a different type.",
+    "InsufficientBalance": "Insufficient leave balance for the selected type and period.",
+    "OverlappingRequest": "You already have a pending or approved request for overlapping dates.",
+    "ZeroDayRequest": "The selected date range contains no working days.",
     "HalfDayNotSupported": "Half-day not supported for this leave type.",
-    "generic": "Failed to submit request. Please try again."
+    "generic": "Failed to submit request. Please try again.",
+    "LeaveTypeOutOfScope": "This leave type is not available for your business unit.",
+    "RequestAlreadyDecided": "This request has already been reviewed.",
+    "approveFailed": "Failed to approve request. Please try again.",
+    "rejectFailed": "Failed to reject request. Please try again."
+  },
+  "subtitle": "Manage your time-off requests",
+  "stats": {
+    "pending": "Pending",
+    "pendingSub": "Awaiting approval",
+    "approved": "Approved",
+    "approvedSub": "Total approved",
+    "thisMonth": "This Month",
+    "thisMonthSub": "Approved this month",
+    "cancelled": "Cancelled",
+    "cancelledSub": "Withdrawn requests"
+  },
+  "myRequests": {
+    "title": "My Requests",
+    "description": "All your leave applications",
+    "loading": "Loading…",
+    "empty": "No leave requests yet."
+  },
+  "teamRequests": {
+    "title": "Team Requests",
+    "description": "Pending leave requests awaiting your review",
+    "loading": "Loading…",
+    "empty": "No pending requests."
+  },
+  "validation": {
+    "selectType": "Please select a leave type.",
+    "selectStart": "Please select a start date.",
+    "selectEnd": "Please select an end date.",
+    "endAfterStart": "End date must be on or after start date.",
+    "rejectReason": "Please provide a rejection reason."
   }
 }

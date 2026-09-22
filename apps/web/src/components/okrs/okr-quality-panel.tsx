@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { CheckCircle2, XCircle, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { QualityReport } from '@/lib/okr-quality';
@@ -9,12 +10,13 @@ interface OkrQualityPanelProps {
 
 function scoreTheme(score: number, total: number) {
   const pct = score / total;
-  if (pct === 1) return { text: 'text-emerald-600 dark:text-emerald-400', label: 'Strong' };
-  if (pct >= 2 / 3) return { text: 'text-amber-600 dark:text-amber-400', label: 'Good' };
-  return { text: 'text-rose-600 dark:text-rose-400', label: 'Weak' };
+  if (pct === 1) return { text: 'text-emerald-600 dark:text-emerald-400', labelKey: 'quality.scoreStrong' } as const;
+  if (pct >= 2 / 3) return { text: 'text-amber-600 dark:text-amber-400', labelKey: 'quality.scoreGood' } as const;
+  return { text: 'text-rose-600 dark:text-rose-400', labelKey: 'quality.scoreWeak' } as const;
 }
 
 export function OkrQualityPanel({ report, className }: OkrQualityPanelProps) {
+  const { t } = useTranslation('okr');
   const { score, total, results } = report;
   const theme = scoreTheme(score, total);
 
@@ -46,11 +48,11 @@ export function OkrQualityPanel({ report, className }: OkrQualityPanelProps) {
           <div className="flex items-center gap-1.5">
             <Sparkles className="h-3 w-3 text-muted-foreground" />
             <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              Quality Coach
+              {t('quality.title')}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className={cn('text-[10px] font-medium', theme.text)}>{theme.label}</span>
+            <span className={cn('text-[10px] font-medium', theme.text)}>{t(theme.labelKey)}</span>
             <span className={cn('text-sm font-bold tabular-nums', theme.text)}>
               {score}
               <span className="text-muted-foreground/60 font-normal text-xs">/{total}</span>
@@ -91,15 +93,17 @@ export function OkrQualityPanel({ report, className }: OkrQualityPanelProps) {
                       : 'text-rose-600 dark:text-rose-400',
                   )}
                 >
-                  {r.label}
+                  {t(`quality.${r.labelKey}` as 'quality.criterion_specific')}
                   {r.autoPass && r.pass && (
                     <span className="ml-1.5 font-normal text-[9px] text-muted-foreground/50 tracking-widest uppercase">
-                      by cycle
+                      {t('quality.byCycle')}
                     </span>
                   )}
                 </p>
                 {!r.pass && r.hint && (
-                  <p className="mt-0.5 text-muted-foreground leading-snug">{r.hint}</p>
+                  <p className="mt-0.5 text-muted-foreground leading-snug">
+                    {t(`quality.${r.hint.key}` as 'quality.hint_tooShort', r.hint.values ?? {})}
+                  </p>
                 )}
               </div>
             </li>

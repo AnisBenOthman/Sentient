@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { DepartmentSummary } from '@/lib/api/hr-core';
@@ -8,6 +9,7 @@ interface DepartmentProgressCardProps {
 }
 
 export function DepartmentProgressCard({ dept }: DepartmentProgressCardProps) {
+  const { t } = useTranslation('okr');
   const pct = Math.round(dept.averageScore * 100);
   const isAtRisk = dept.atRiskCount > 0;
 
@@ -17,7 +19,7 @@ export function DepartmentProgressCard({ dept }: DepartmentProgressCardProps) {
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-sm">{dept.departmentName}</CardTitle>
           {isAtRisk && (
-            <Badge variant="destructive">{dept.atRiskCount} at risk</Badge>
+            <Badge variant="destructive">{dept.atRiskCount} {t('departmentProgress.atRisk')}</Badge>
           )}
         </div>
       </CardHeader>
@@ -27,8 +29,8 @@ export function DepartmentProgressCard({ dept }: DepartmentProgressCardProps) {
           <span className="text-sm font-semibold w-10 text-right">{pct}%</span>
         </div>
         <div className="flex gap-4 text-xs text-muted-foreground">
-          <span>{dept.objectiveCount} objectives</span>
-          <span>{dept.krCount} key results</span>
+          <span>{dept.objectiveCount} {t('departmentProgress.objectives')}</span>
+          <span>{dept.krCount} {t('departmentProgress.keyResults')}</span>
         </div>
       </CardContent>
     </Card>

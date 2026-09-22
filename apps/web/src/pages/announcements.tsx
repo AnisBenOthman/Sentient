@@ -1,6 +1,6 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
 import {
   Megaphone,
   Pin,
@@ -57,7 +57,7 @@ import {
   deleteAnnouncement,
   pinAnnouncement,
   extractApiError,
-  ANNOUNCEMENT_ERROR_MESSAGES,
+  apiErrorMessage,
   type AnnouncementResponse,
   type CreateAnnouncementDto,
   type UpdateAnnouncementDto,
@@ -65,10 +65,14 @@ import {
 
 type AudienceValue = "COMPANY" | "DEPARTMENT" | "TEAM";
 
-function audienceLabel(audience: AudienceValue): string {
-  if (audience === "COMPANY") return "Company-wide";
-  if (audience === "DEPARTMENT") return "Department";
-  return "Team";
+/** WHY a hook: the label is translated, so it needs the component's `t`. */
+function useAudienceLabel(): (audience: AudienceValue) => string {
+  const { t } = useTranslation("social");
+  return (audience) => {
+    if (audience === "COMPANY") return t("announcements.audienceCompany");
+    if (audience === "DEPARTMENT") return t("announcements.audienceDepartment");
+    return t("announcements.audienceTeam");
+  };
 }
 
 function AudienceIcon({ audience }: { audience: AudienceValue }) {
@@ -77,13 +81,14 @@ function AudienceIcon({ audience }: { audience: AudienceValue }) {
   return <Users className="h-3.5 w-3.5" />;
 }
 
-function fmtDate(iso: string): string {
-  return format(new Date(iso), "dd MMM yyyy, HH:mm");
+function fmtDate(iso: string, locale: string): string {
+  return new Date(iso).toLocaleString(locale, {
+    day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+  });
 }
 
-function mapError(err: unknown): string {
-  const code = extractApiError(err);
-  return ANNOUNCEMENT_ERROR_MESSAGES[code] ?? "Failed to complete the action. Please try again.";
+function mapError(err: unknown, fallback: string): string {
+  return apiErrorMessage(extractApiError(err), fallback);
 }
 
 interface PublishFormState {
@@ -105,6 +110,8 @@ const EMPTY_FORM: PublishFormState = {
 };
 
 export default function AnnouncementsPage() {
+  const { t, i18n } = useTranslation(["social", "common"]);
+  const audienceLabel = useAudienceLabel();
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -144,7 +151,7 @@ export default function AnnouncementsPage() {
       setForm(EMPTY_FORM);
       setFormError("");
     },
-    onError: (err: unknown) => setFormError(mapError(err)),
+    onError: (err: unknown) => setFormError(mapError(err, t("announcements.actionFailed"))),
   });
 
   const updateMutation = useMutation({
@@ -156,7 +163,7 @@ export default function AnnouncementsPage() {
       setEditForm({});
       setEditError("");
     },
-    onError: (err: unknown) => setEditError(mapError(err)),
+    onError: (err: unknown) => setEditError(mapError(err, t("announcements.actionFailed"))),
   });
 
   const deleteMutation = useMutation({
@@ -167,7 +174,7 @@ export default function AnnouncementsPage() {
     },
     onError: (err: unknown) => {
       setDeleteTargetId(null);
-      alert(mapError(err));
+      alert(mapError(err, t("announcements.actionFailed")));
     },
   });
 
@@ -179,7 +186,7 @@ export default function AnnouncementsPage() {
       setPinTarget(null);
       setPinUntil("");
     },
-    onError: (err: unknown) => alert(mapError(err)),
+    onError: (err: unknown) => alert(mapError(err, t("announcements.actionFailed"))),
   });
 
   function buildCreateDto(): CreateAnnouncementDto {
@@ -214,23 +221,23 @@ export default function AnnouncementsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Megaphone className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-semibold">Announcements</h1>
+          <h1 className="text-2xl font-semibold">{t("announcements.title")}</h1>
         </div>
         {canPublish && (
           <Button onClick={() => setPublishOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            New announcement
+            {t("announcements.new")}
           </Button>
         )}
       </div>
 
       {/* List */}
       {isLoading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground">{t("announcements.loading")}</p>
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">
           <Megaphone className="h-10 w-10 opacity-30" />
-          <p>No announcements yet.</p>
+          <p>{t("announcements.empty")}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -249,7 +256,7 @@ export default function AnnouncementsPage() {
                     {ann.isPinned && (
                       <Badge variant="secondary" className="gap-1 text-xs">
                         <Pin className="h-3 w-3" />
-                        Pinned
+                        {t("announcements.pinned")}
                       </Badge>
                     )}
                     <Badge variant="outline" className="gap-1 text-xs">
@@ -271,8 +278,8 @@ export default function AnnouncementsPage() {
                     ? `${ann.author.firstName} ${ann.author.lastName}`
                     : ann.authorId}
                   {" · "}
-                  {fmtDate(ann.publishedAt)}
-                  {ann.expiresAt && ` · Expires ${fmtDate(ann.expiresAt)}`}
+                  {fmtDate(ann.publishedAt, i18n.language)}
+                  {ann.expiresAt && ` · ${t("announcements.expires")} ${fmtDate(ann.expiresAt, i18n.language)}`}
                 </span>
                 <div className="flex items-center gap-1">
                   {isHrAdmin && (
@@ -280,7 +287,7 @@ export default function AnnouncementsPage() {
                       size="sm"
                       variant="ghost"
                       className="h-7 px-2"
-                      title={ann.isPinned ? "Unpin" : "Pin"}
+                      title={ann.isPinned ? t("announcements.unpin") : t("announcements.pin")}
                       onClick={() => {
                         if (ann.isPinned) {
                           pinMutation.mutate({ id: ann.id, pinnedUntil: null });
@@ -302,7 +309,7 @@ export default function AnnouncementsPage() {
                       size="sm"
                       variant="ghost"
                       className="h-7 px-2"
-                      title="Edit"
+                      title={t("announcements.edit")}
                       onClick={() => {
                         setEditTarget(ann);
                         setEditForm({ title: ann.title, body: ann.body });
@@ -317,7 +324,7 @@ export default function AnnouncementsPage() {
                       size="sm"
                       variant="ghost"
                       className="h-7 px-2 text-destructive hover:text-destructive"
-                      title="Delete"
+                      title={t("announcements.delete")}
                       onClick={() => setDeleteTargetId(ann.id)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -337,7 +344,7 @@ export default function AnnouncementsPage() {
                 disabled={page <= 1}
                 onClick={() => setPage((p) => p - 1)}
               >
-                Previous
+                {t("announcements.previous")}
               </Button>
               <span className="text-sm text-muted-foreground">
                 {page} / {totalPages}
@@ -348,7 +355,7 @@ export default function AnnouncementsPage() {
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
               >
-                Next
+                {t("announcements.next")}
               </Button>
             </div>
           )}
@@ -359,30 +366,30 @@ export default function AnnouncementsPage() {
       <Dialog open={publishOpen} onOpenChange={setPublishOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>New announcement</DialogTitle>
+            <DialogTitle>{t("announcements.new")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label htmlFor="pub-title">Title</Label>
+              <Label htmlFor="pub-title">{t("announcements.titleLabel")}</Label>
               <Input
                 id="pub-title"
-                placeholder="Announcement title"
+                placeholder={t("announcements.titlePlaceholder")}
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="pub-body">Body</Label>
+              <Label htmlFor="pub-body">{t("announcements.body")}</Label>
               <Textarea
                 id="pub-body"
-                placeholder="Announcement details…"
+                placeholder={t("announcements.bodyPlaceholder")}
                 rows={4}
                 value={form.body}
                 onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Audience</Label>
+              <Label>{t("announcements.audience")}</Label>
               <RadioGroup
                 value={form.audience}
                 onValueChange={(v) =>
@@ -392,24 +399,24 @@ export default function AnnouncementsPage() {
               >
                 <div className="flex items-center gap-1.5">
                   <RadioGroupItem value="COMPANY" id="aud-company" />
-                  <Label htmlFor="aud-company">Company-wide</Label>
+                  <Label htmlFor="aud-company">{t("announcements.audienceCompany")}</Label>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <RadioGroupItem value="DEPARTMENT" id="aud-dept" />
-                  <Label htmlFor="aud-dept">Department</Label>
+                  <Label htmlFor="aud-dept">{t("announcements.audienceDepartment")}</Label>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <RadioGroupItem value="TEAM" id="aud-team" />
-                  <Label htmlFor="aud-team">Team</Label>
+                  <Label htmlFor="aud-team">{t("announcements.audienceTeam")}</Label>
                 </div>
               </RadioGroup>
             </div>
             {isHrAdmin && form.audience === "DEPARTMENT" && (
               <div className="space-y-1.5">
-                <Label htmlFor="pub-dept">Department ID</Label>
+                <Label htmlFor="pub-dept">{t("announcements.departmentId")}</Label>
                 <Input
                   id="pub-dept"
-                  placeholder="Leave blank to use your own department"
+                  placeholder={t("announcements.departmentIdPlaceholder")}
                   value={form.targetDepartmentId}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, targetDepartmentId: e.target.value }))
@@ -419,10 +426,10 @@ export default function AnnouncementsPage() {
             )}
             {isHrAdmin && form.audience === "TEAM" && (
               <div className="space-y-1.5">
-                <Label htmlFor="pub-team">Team ID</Label>
+                <Label htmlFor="pub-team">{t("announcements.teamId")}</Label>
                 <Input
                   id="pub-team"
-                  placeholder="Leave blank to use your own team"
+                  placeholder={t("announcements.teamIdPlaceholder")}
                   value={form.targetTeamId}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, targetTeamId: e.target.value }))
@@ -431,7 +438,7 @@ export default function AnnouncementsPage() {
               </div>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="pub-expires">Expires at (optional)</Label>
+              <Label htmlFor="pub-expires">{t("announcements.expiresAt")}</Label>
               <Input
                 id="pub-expires"
                 type="datetime-local"
@@ -443,13 +450,13 @@ export default function AnnouncementsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPublishOpen(false)}>
-              Cancel
+              {t("common:cancel")}
             </Button>
             <Button
               disabled={createMutation.isPending}
               onClick={() => createMutation.mutate(buildCreateDto())}
             >
-              Publish
+              {t("announcements.publish")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -459,11 +466,11 @@ export default function AnnouncementsPage() {
       <Dialog open={!!editTarget} onOpenChange={(o) => { if (!o) { setEditTarget(null); setEditError(""); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Edit announcement</DialogTitle>
+            <DialogTitle>{t("announcements.editTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label htmlFor="edit-title">Title</Label>
+              <Label htmlFor="edit-title">{t("announcements.titleLabel")}</Label>
               <Input
                 id="edit-title"
                 value={editForm.title ?? ""}
@@ -471,7 +478,7 @@ export default function AnnouncementsPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="edit-body">Body</Label>
+              <Label htmlFor="edit-body">{t("announcements.body")}</Label>
               <Textarea
                 id="edit-body"
                 rows={4}
@@ -483,7 +490,7 @@ export default function AnnouncementsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditTarget(null)}>
-              Cancel
+              {t("common:cancel")}
             </Button>
             <Button
               disabled={updateMutation.isPending}
@@ -491,7 +498,7 @@ export default function AnnouncementsPage() {
                 if (editTarget) updateMutation.mutate({ id: editTarget.id, dto: editForm });
               }}
             >
-              Save changes
+              {t("announcements.saveChanges")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -501,10 +508,10 @@ export default function AnnouncementsPage() {
       <Dialog open={!!pinTarget} onOpenChange={(o) => { if (!o) { setPinTarget(null); setPinUntil(""); } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Pin announcement</DialogTitle>
+            <DialogTitle>{t("announcements.pinTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <Label htmlFor="pin-until">Pin until</Label>
+            <Label htmlFor="pin-until">{t("announcements.pinUntil")}</Label>
             <Input
               id="pin-until"
               type="datetime-local"
@@ -514,7 +521,7 @@ export default function AnnouncementsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPinTarget(null)}>
-              Cancel
+              {t("common:cancel")}
             </Button>
             <Button
               disabled={pinMutation.isPending || !pinUntil}
@@ -526,7 +533,7 @@ export default function AnnouncementsPage() {
                   });
               }}
             >
-              Pin
+              {t("announcements.pin")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -536,20 +543,20 @@ export default function AnnouncementsPage() {
       <AlertDialog open={!!deleteTargetId} onOpenChange={(o) => { if (!o) setDeleteTargetId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete announcement?</AlertDialogTitle>
+            <AlertDialogTitle>{t("announcements.deleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. The announcement will be permanently removed.
+              {t("announcements.deleteBody")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
                 if (deleteTargetId) deleteMutation.mutate(deleteTargetId);
               }}
             >
-              Delete
+              {t("common:delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -566,7 +573,7 @@ export default function AnnouncementsPage() {
                   {detailTarget.isPinned && (
                     <Badge variant="secondary" className="gap-1">
                       <Pin className="h-3 w-3" />
-                      Pinned
+                      {t("announcements.pinned")}
                     </Badge>
                   )}
                   <Badge variant="outline" className="gap-1">
@@ -575,7 +582,7 @@ export default function AnnouncementsPage() {
                   </Badge>
                   {detailTarget.expiresAt && (
                     <span className="text-xs text-muted-foreground">
-                      Expires {fmtDate(detailTarget.expiresAt)}
+                      {t("announcements.expires")} {fmtDate(detailTarget.expiresAt, i18n.language)}
                     </span>
                   )}
                 </div>
@@ -583,14 +590,14 @@ export default function AnnouncementsPage() {
               <p className="whitespace-pre-wrap text-sm leading-relaxed">{detailTarget.body}</p>
               <div className="mt-6 border-t pt-4 text-xs text-muted-foreground">
                 <p>
-                  <span className="font-medium">Published by: </span>
+                  <span className="font-medium">{t("announcements.publishedBy")} </span>
                   {detailTarget.author
                     ? `${detailTarget.author.firstName} ${detailTarget.author.lastName}`
                     : detailTarget.authorId}
                 </p>
                 <p className="mt-0.5">
-                  <span className="font-medium">Published: </span>
-                  {fmtDate(detailTarget.publishedAt)}
+                  <span className="font-medium">{t("announcements.published")} </span>
+                  {fmtDate(detailTarget.publishedAt, i18n.language)}
                 </p>
               </div>
             </>

@@ -1,73 +1,187 @@
 {
   "title": "Performance Reviews",
+  "subtitle": "Create cycles, submit reviews, and track performance outcomes.",
+  "newCycle": "New Cycle",
   "tabs": {
-    "myReviews": "My Reviews",
-    "cycles": "Review Cycles",
-    "team": "Team Reviews"
+    "mine": "My Reviews",
+    "assigned": "Assigned",
+    "cycles": "Cycles",
+    "outcomes": "Outcomes"
   },
-  "reviewCycle": {
-    "create": "New Review Cycle",
-    "title": "Cycle Name",
-    "titlePlaceholder": "e.g. Q2 2026 Performance Review",
+  "panels": {
+    "mineTitle": "My Reviews",
+    "mineDescription": "Reviews assigned to you as the employee.",
+    "assignedTitle": "Assigned to Me",
+    "assignedDescription": "Submitted or reopened reviews awaiting manager completion.",
+    "outcomesTitle": "Review Outcomes",
+    "outcomesDescription_one": "{{count}} review record in scope.",
+    "outcomesDescription_other": "{{count}} review records in scope."
+  },
+  "table": {
+    "employee": "Employee",
+    "reviewer": "Reviewer",
+    "cycle": "Cycle",
+    "due": "Due",
+    "status": "Status",
+    "rating": "Rating",
+    "actions": "Actions",
+    "empty": "No reviews match this view.",
+    "gap": "Gap",
+    "pending": "Pending",
+    "details": "Details",
+    "detailsAria": "Open performance review details for {{name}}",
+    "selfReview": "Self Review",
+    "complete": "Complete",
+    "reopen": "Reopen",
+    "reassign": "Reassign",
+    "salary": "Salary"
+  },
+  "cycles": {
+    "title": "Review Cycles",
+    "configured_one": "{{count}} cycle configured.",
+    "configured_other": "{{count}} cycles configured.",
+    "name": "Name",
     "type": "Type",
-    "startDate": "Start Date",
-    "endDate": "End Date",
-    "selfDeadline": "Self-Review Deadline",
-    "managerDeadline": "Manager Deadline",
-    "initiate": "Initiate Cycle",
+    "window": "Window",
     "status": "Status",
     "actions": "Actions",
-    "noCycles": "No review cycles found."
+    "initiate": "Initiate",
+    "defaultName": "{{year}} Annual Review"
   },
-  "review": {
-    "status": "Status",
-    "selfReview": "Self Review",
-    "managerReview": "Manager Review",
-    "overallRating": "Overall Rating",
+  "outcomes": {
+    "title": "Outcomes",
+    "description": "Filter incomplete, overdue, completed, and rating-gap reviews.",
+    "statusPlaceholder": "Status",
+    "allStatuses": "All statuses",
+    "ratingGapPlaceholder": "Rating gap",
+    "allRatings": "All ratings",
+    "ratingGapsOnly": "Rating gaps only",
+    "overduePlaceholder": "Overdue",
+    "allDueDates": "All due dates",
+    "overdueOnly": "Overdue only",
+    "reset": "Reset"
+  },
+  "cycleDialog": {
+    "title": "Create Review Cycle",
+    "name": "Name",
+    "type": "Type",
+    "periodStart": "Period Start",
+    "periodEnd": "Period End",
+    "selfOpens": "Self Review Opens",
+    "selfCloses": "Self Review Closes",
+    "managerDue": "Manager Due",
+    "create": "Create"
+  },
+  "selfDialog": {
+    "title": "Submit Self-Review",
+    "submit": "Submit",
+    "environment": "Work Environment Satisfaction",
+    "job": "Job Satisfaction",
+    "relationships": "Team Relationship Satisfaction",
+    "workLife": "Work-Life Balance",
+    "training": "Training Opportunities Taken (0 – 100)",
     "selfRating": "Self Rating",
-    "achievements": "Achievements",
-    "improvements": "Areas for Improvement",
-    "goals": "Goals for Next Period",
+    "comments": "Employee Comments"
+  },
+  "managerDialog": {
+    "title": "Complete Manager Review",
+    "rating": "Manager Rating",
+    "comments": "Manager Comments",
+    "complete": "Complete"
+  },
+  "hrDialog": {
+    "reopenTitle": "Reopen Review",
+    "reassignTitle": "Reassign Reviewer",
+    "salaryTitle": "Record Salary Follow-Up",
+    "reviewer": "Reviewer",
+    "reviewerPlaceholder": "Select reviewer",
+    "salaryHistoryId": "Salary History ID",
+    "salaryHistoryIdPlaceholder": "Optional salary history UUID",
+    "reason": "Reason",
+    "salaryDefaultReason": "Annual review compensation follow-up"
+  },
+  "detail": {
+    "title": "Performance Review Details",
+    "subtitle": "{{employee}} reviewed by {{reviewer}}",
+    "loadingSubtitle": "Loading review details",
+    "loading": "Loading details…",
+    "unavailable": "Review details are unavailable.",
+    "defaultCycle": "Review cycle",
+    "positionNotSet": "Position not set",
+    "reviewerLine": "{{position}} with {{reviewer}} as reviewer",
+    "ratingGap": "Rating gap",
+    "overdue": "Overdue",
+    "due": "Due",
+    "org": "Org",
+    "followUps": "Follow-ups",
+    "selfRating": "Self Rating",
+    "managerRating": "Manager Rating",
+    "submittedAt": "Submitted {{when}}",
+    "awaitingSelf": "Awaiting self review",
+    "completedAt": "Completed {{when}}",
+    "awaitingManager": "Awaiting manager review",
+    "satisfactionSnapshot": "Satisfaction Snapshot",
+    "workEnvironment": "Work Environment",
+    "jobSatisfaction": "Job Satisfaction",
+    "teamRelationships": "Team Relationships",
+    "workLifeBalance": "Work-Life Balance",
+    "trainingTaken": "Training Taken",
+    "reviewDate": "Review Date",
+    "narrative": "Narrative",
+    "employeeComments": "Employee Comments",
     "managerComments": "Manager Comments",
-    "satisfactionLevel": "Satisfaction Level",
-    "submitSelf": "Submit Self Review",
-    "submitManager": "Submit Manager Review",
-    "submitting": "Submitting…",
-    "reopen": "Reopen",
-    "reassign": "Reassign Reviewer",
-    "salaryFollowUp": "Salary Follow-Up",
-    "noReviews": "No reviews found."
+    "reopenReason": "Reopen Reason",
+    "timeline": "Timeline",
+    "submitted": "Submitted",
+    "completed": "Completed",
+    "reopened": "Reopened"
+  },
+  "fallback": {
+    "employee": "Employee",
+    "reviewer": "Reviewer",
+    "notSet": "Not set",
+    "notProvided": "Not provided"
+  },
+  "toasts": {
+    "cycleCreated": "Review cycle created",
+    "cycleInitiated": "Review cycle initiated",
+    "cycleInitiatedDetail": "{{created}} assigned, {{skipped}} already existed, {{missing}} missing reviewers.",
+    "selfSubmitted": "Self-review submitted",
+    "managerCompleted": "Manager review completed",
+    "actionSaved": "Review action saved"
   },
   "ratings": {
     "UNACCEPTABLE": "Unacceptable",
-    "NEEDS_IMPROVEMENT": "Needs Improvement",
-    "MEETS_EXPECTATIONS": "Meets Expectations",
-    "EXCEEDS_EXPECTATIONS": "Exceeds Expectations",
-    "ABOVE_AND_BEYOND": "Above and Beyond"
+    "NEEDS_IMPROVEMENT": "Needs improvement",
+    "MEETS_EXPECTATIONS": "Meets expectations",
+    "EXCEEDS_EXPECTATIONS": "Exceeds expectations",
+    "ABOVE_AND_BEYOND": "Above and beyond"
   },
   "satisfaction": {
-    "VERY_DISSATISFIED": "Very Dissatisfied",
+    "VERY_DISSATISFIED": "Very dissatisfied",
     "DISSATISFIED": "Dissatisfied",
     "NEUTRAL": "Neutral",
     "SATISFIED": "Satisfied",
-    "VERY_SATISFIED": "Very Satisfied"
+    "VERY_SATISFIED": "Very satisfied"
+  },
+  "reviewStatus": {
+    "PENDING": "Pending",
+    "IN_PROGRESS": "In progress",
+    "SUBMITTED": "Submitted",
+    "COMPLETED": "Completed",
+    "REOPENED": "Reopened",
+    "CLOSED": "Closed",
+    "CANCELLED": "Cancelled"
   },
   "cycleStatus": {
     "DRAFT": "Draft",
     "ACTIVE": "Active",
     "CLOSED": "Closed",
-    "ARCHIVED": "Archived"
+    "CANCELLED": "Cancelled"
   },
-  "reviewStatus": {
-    "NOT_STARTED": "Not Started",
-    "SELF_REVIEW_PENDING": "Self Review Pending",
-    "MANAGER_REVIEW_PENDING": "Manager Review Pending",
-    "COMPLETED": "Completed",
-    "LOCKED": "Locked"
-  },
-  "errors": {
-    "ReviewAlreadySubmitted": "This review has already been submitted.",
-    "UnauthorizedReview": "You are not authorized to submit this review.",
-    "generic": "Failed to save review. Please try again."
+  "reviewType": {
+    "ANNUAL": "Annual",
+    "MID_YEAR": "Mid-year",
+    "PROBATION": "Probation"
   }
 }

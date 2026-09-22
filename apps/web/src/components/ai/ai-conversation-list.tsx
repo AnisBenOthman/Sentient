@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { MessageSquareText } from "lucide-react";
 import type { ConversationSummary } from "@/lib/api/ai";
 import { cn } from "@/lib/utils";
@@ -20,11 +21,12 @@ export function AiConversationList({
   onRestore: (conversation: ConversationSummary) => void;
   onDelete: (conversation: ConversationSummary) => void;
 }) {
+  const { t } = useTranslation("ai");
   if (conversations.length === 0) {
     return (
       <div className="grid gap-2 rounded-md border border-dashed border-gray-200 p-4 text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
         <MessageSquareText className="h-5 w-5" />
-        No conversations yet.
+        {t("conversationList.empty")}
       </div>
     );
   }
@@ -52,11 +54,15 @@ export function AiConversationList({
             >
               <p className="line-clamp-1 text-sm font-medium text-gray-800 dark:text-gray-100">{conversation.title}</p>
               <p className="mt-1 line-clamp-2 text-xs text-gray-500 dark:text-gray-400">
-                {conversation.lastMessagePreview ?? "No preview yet."}
+                {conversation.lastMessagePreview ?? t("conversationList.noPreview")}
               </p>
             </button>
             <div className="mt-2 flex items-center justify-between gap-2">
-              <span className="text-[11px] uppercase text-gray-400">{conversation.status}</span>
+              <span className="text-[11px] uppercase text-gray-400">
+                {t(`conversationList.status_${conversation.status}` as "conversationList.status_ACTIVE", {
+                  defaultValue: conversation.status,
+                })}
+              </span>
               <AiConversationActions
                 archived={archived}
                 disabled={disabled}
