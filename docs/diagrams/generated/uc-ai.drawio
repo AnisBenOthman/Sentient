@@ -1,0 +1,46 @@
+<mxfile host="Sentient" version="1.0">
+  <diagram id="uc-ai" name="Cas d'utilisation : assistant conversationnel agentique">
+    <mxGraphModel dx="1400" dy="900" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="Cas d&#x27;utilisation : assistant conversationnel agentique" style="text;html=1;align=left;fontSize=15;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="1"><mxGeometry x="20" y="10" width="700" height="30" as="geometry"/></mxCell>
+        <mxCell id="sys" value="Systeme Sentient" style="rounded=0;html=1;fillColor=none;strokeColor=#8a97a8;verticalAlign=top;fontSize=12;fontStyle=1;dashed=0;" vertex="1" parent="1"><mxGeometry x="190" y="55" width="970" height="630" as="geometry"/></mxCell>
+        <mxCell id="a_emp" value="Employe" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="140" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="a_mgr" value="Manager" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="400" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="a_hr" value="Administrateur RH" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="660" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="a_exec" value="Dirigeant" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="880" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="g1" value="Poser une question en langage naturel" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="80" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="g2" value="Consulter ses soldes via l assistant" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="480" y="80" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="g3" value="Reserver un conge via l assistant" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="710" y="80" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="g4" value="Interroger une politique interne" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="940" y="80" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="g5" value="Reprendre une conversation" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="160" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="g6" value="Faire reformuler un message" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="480" y="160" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="g7" value="Noter une reponse" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="710" y="160" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="g8" value="Synthetiser la couverture de l&#x27;equipe" style="ellipse;html=1;whiteSpace=wrap;fillColor=#fde8cd;strokeColor=#d2892f;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="350" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="g9" value="Obtenir une aide a la redaction" style="ellipse;html=1;whiteSpace=wrap;fillColor=#fde8cd;strokeColor=#d2892f;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="480" y="350" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="g10" value="Interroger les donnees en langage naturel" style="ellipse;html=1;whiteSpace=wrap;fillColor=#e8e0f5;strokeColor=#7b5cb8;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="570" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="g11" value="Consulter le journal d&#x27;activite des agents" style="ellipse;html=1;whiteSpace=wrap;fillColor=#e8e0f5;strokeColor=#7b5cb8;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="480" y="570" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="g12" value="Traiter une escalade humaine" style="ellipse;html=1;whiteSpace=wrap;fillColor=#e8e0f5;strokeColor=#7b5cb8;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="710" y="570" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="l0" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="g1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l1" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_mgr" target="g1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l2" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="g2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l3" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="g3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l4" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="g4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l5" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="g5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l6" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="g6"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l7" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="g7"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l8" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_mgr" target="g8"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l9" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_mgr" target="g9"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l10" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="g10"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l11" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_exec" target="g10"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l12" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="g11"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l13" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="g12"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="i14" value="«include»" style="html=1;endArrow=open;endFill=0;dashed=1;strokeColor=#9aa5b1;fontSize=9;" edge="1" parent="1" source="g3" target="g2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="i15" value="«extend»" style="html=1;endArrow=open;endFill=0;dashed=1;strokeColor=#9aa5b1;fontSize=9;" edge="1" parent="1" source="g4" target="g1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="i16" value="«extend»" style="html=1;endArrow=open;endFill=0;dashed=1;strokeColor=#9aa5b1;fontSize=9;" edge="1" parent="1" source="g10" target="g1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n0" value="Les agents heritent du perimetre du demandeur. Une demande portant sur une donnee non autorisee fait l&#x27;objet d&#x27;un refus motive, jamais d&#x27;une reponse approximative." style="shape=note;html=1;whiteSpace=wrap;size=14;fillColor=#fffbe6;strokeColor=#d6ba57;align=left;verticalAlign=top;fontSize=10;" vertex="1" parent="1"><mxGeometry x="45" y="680" width="340" height="76" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

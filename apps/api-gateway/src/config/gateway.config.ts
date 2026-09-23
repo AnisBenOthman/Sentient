@@ -18,6 +18,11 @@ const publicRoutes: PublicRouteRule[] = [
   { method: '*', pathPattern: '/api/social/exit-surveys/respond*', reason: 'exit survey scoped token' },
   { method: '*', pathPattern: '/api/social/exit-survey-responses*', reason: 'exit survey scoped token' },
   { method: 'GET', pathPattern: '/api/ai/health', reason: 'ai-agentic health' },
+  // Inbound webhook from Telegram's servers. It carries no Sentient JWT — the
+  // X-Telegram-Bot-Api-Secret-Token header (verified inside ai-agentic) is the
+  // only gate — so the gateway's JWT guard must let it through. Exact path only:
+  // the sibling /channels/telegram/notify endpoint stays SYSTEM-guarded.
+  { method: 'POST', pathPattern: '/api/ai/channels/telegram/webhook', reason: 'telegram webhook (secret-token guarded in ai-agentic)' },
 ];
 
 export const DEFAULT_DEV_JWT_SECRET = 'change-me-in-production-minimum-32-random-characters';

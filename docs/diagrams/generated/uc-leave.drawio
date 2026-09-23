@@ -1,0 +1,45 @@
+<mxfile host="Sentient" version="1.0">
+  <diagram id="uc-leave" name="Cas d'utilisation : gestion des conges">
+    <mxGraphModel dx="1400" dy="900" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="Cas d&#x27;utilisation : gestion des conges" style="text;html=1;align=left;fontSize=15;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="1"><mxGeometry x="20" y="10" width="700" height="30" as="geometry"/></mxCell>
+        <mxCell id="sys" value="Systeme Sentient" style="rounded=0;html=1;fillColor=none;strokeColor=#8a97a8;verticalAlign=top;fontSize=12;fontStyle=1;dashed=0;" vertex="1" parent="1"><mxGeometry x="190" y="55" width="740" height="860" as="geometry"/></mxCell>
+        <mxCell id="a_emp" value="Employe" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="130" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="a_mgr" value="Manager" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="380" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="a_hr" value="Administrateur RH" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="620" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="a_sched" value="Ordonnanceur" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="850" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="l1" value="Consulter ses soldes" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="80" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="l2" value="Soumettre une demande" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="480" y="80" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="l3" value="Annuler une demande" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="710" y="80" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="l4" value="Consulter les jours feries" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="160" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="l5" value="Approuver une demande" style="ellipse;html=1;whiteSpace=wrap;fillColor=#fde8cd;strokeColor=#d2892f;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="330" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="l6" value="Refuser une demande" style="ellipse;html=1;whiteSpace=wrap;fillColor=#fde8cd;strokeColor=#d2892f;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="480" y="330" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="l7" value="Consulter le calendrier d&#x27;equipe" style="ellipse;html=1;whiteSpace=wrap;fillColor=#fde8cd;strokeColor=#d2892f;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="710" y="330" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="l8" value="Consulter la file d&#x27;attente" style="ellipse;html=1;whiteSpace=wrap;fillColor=#fde8cd;strokeColor=#d2892f;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="410" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="l9" value="Configurer un type de conge" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dcf0dc;strokeColor=#4b9b4b;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="580" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="l10" value="Ajuster un solde manuellement" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dcf0dc;strokeColor=#4b9b4b;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="480" y="580" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="l11" value="Gerer le referentiel des jours feries" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dcf0dc;strokeColor=#4b9b4b;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="710" y="580" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="l12" value="Declencher l&#x27;acquisition periodique" style="ellipse;html=1;whiteSpace=wrap;fillColor=#e8e0f5;strokeColor=#7b5cb8;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="800" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="l0" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="l1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l1" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="l2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l2" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="l3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l3" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="l4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l4" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_mgr" target="l5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l5" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_mgr" target="l6"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l6" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_mgr" target="l7"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l7" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_mgr" target="l8"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l8" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="l8"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l9" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="l9"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l10" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="l10"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l11" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="l11"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l12" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_sched" target="l12"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l13" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="l12"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="i14" value="«include»" style="html=1;endArrow=open;endFill=0;dashed=1;strokeColor=#9aa5b1;fontSize=9;" edge="1" parent="1" source="l2" target="l1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="i15" value="«include»" style="html=1;endArrow=open;endFill=0;dashed=1;strokeColor=#9aa5b1;fontSize=9;" edge="1" parent="1" source="l2" target="l4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n0" value="Le calcul de duree exclut les fins de semaine et les jours feries de l&#x27;unite operationnelle. Une demande est refusee si le solde est insuffisant ou si elle chevauche une demande existante." style="shape=note;html=1;whiteSpace=wrap;size=14;fillColor=#fffbe6;strokeColor=#d6ba57;align=left;verticalAlign=top;fontSize=10;" vertex="1" parent="1"><mxGeometry x="45" y="880" width="340" height="80" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

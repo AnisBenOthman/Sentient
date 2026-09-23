@@ -1,0 +1,39 @@
+<mxfile host="Sentient" version="1.0">
+  <diagram id="uc-social" name="Cas d'utilisation : intranet social">
+    <mxGraphModel dx="1400" dy="900" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="Cas d&#x27;utilisation : intranet social" style="text;html=1;align=left;fontSize=15;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="1"><mxGeometry x="20" y="10" width="700" height="30" as="geometry"/></mxCell>
+        <mxCell id="sys" value="Systeme Sentient" style="rounded=0;html=1;fillColor=none;strokeColor=#8a97a8;verticalAlign=top;fontSize=12;fontStyle=1;dashed=0;" vertex="1" parent="1"><mxGeometry x="190" y="55" width="740" height="740" as="geometry"/></mxCell>
+        <mxCell id="a_emp" value="Employe" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="130" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="a_hr" value="Administrateur RH" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="420" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="a_ai" value="Service IA Agentic" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="690" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="s1" value="Consulter les annonces" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="80" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="s2" value="S&#x27;inscrire a un evenement" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="480" y="80" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="s3" value="Reagir a un evenement" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="710" y="80" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="s4" value="Telecharger un document" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="160" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="s5" value="Soumettre un retour (anonyme possible)" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="480" y="160" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="s6" value="Publier une annonce ciblee" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dcf0dc;strokeColor=#4b9b4b;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="380" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="s7" value="Creer un evenement" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dcf0dc;strokeColor=#4b9b4b;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="480" y="380" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="s8" value="Deposer un document de reference" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dcf0dc;strokeColor=#4b9b4b;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="710" y="380" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="s9" value="Consulter les retours agreges" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dcf0dc;strokeColor=#4b9b4b;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="460" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="s10" value="Indexer un document pour le RAG" style="ellipse;html=1;whiteSpace=wrap;fillColor=#e8e0f5;strokeColor=#7b5cb8;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="680" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="s11" value="Consulter les documents approuves" style="ellipse;html=1;whiteSpace=wrap;fillColor=#e8e0f5;strokeColor=#7b5cb8;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="480" y="680" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="l0" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="s1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l1" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="s2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l2" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="s3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l3" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="s4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l4" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="s5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l5" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="s6"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l6" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="s7"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l7" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="s8"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l8" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="s9"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l9" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_ai" target="s10"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l10" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_ai" target="s11"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="i11" value="«include»" style="html=1;endArrow=open;endFill=0;dashed=1;strokeColor=#9aa5b1;fontSize=9;" edge="1" parent="1" source="s8" target="s10"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n0" value="Un retour marque anonyme est stocke avec employeeId a NULL : l&#x27;information n&#x27;existe pas en base, donc aucune requete ne peut la reconstituer." style="shape=note;html=1;whiteSpace=wrap;size=14;fillColor=#fffbe6;strokeColor=#d6ba57;align=left;verticalAlign=top;fontSize=10;" vertex="1" parent="1"><mxGeometry x="45" y="780" width="340" height="72" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
