@@ -4,7 +4,7 @@ import { ActorContextFactory } from '../../common/graph';
 import { ActionProposalService } from '../../modules/agents/actions/action-proposal.service';
 import { ConversationsService } from '../../modules/conversations/conversations.service';
 import { ChannelConversationLinkService } from '../channel-conversation-link.service';
-import { TelegramService } from './telegram.service';
+import { deriveWebhookSecret, TelegramService } from './telegram.service';
 
 /**
  * WHY stubs rather than a Nest testing module: every method under test here
@@ -95,3 +95,60 @@ describe('TelegramService — webhook mode', () => {
     expect(handleUpdate).toHaveBeenCalledWith(update);
   });
 });
+
+describe('TelegramService — webhook registration', () => {
+  function configWith(values: Record<string, string>): Partial<ConfigService> {
+    return { get: jest.fn((key: string) => values[key]) } as Partial<ConfigService>;
+  }
+
+  function fakeBot(): { init: jest.Mock; api: { setWebhook: jest.Mock } } {
+    return { init: jest.fn().mockResolvedValue(undefined), api: { setWebhook: jest.fn().mockResolvedValue(true) } };
+  }
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('registers a concrete URL once, with the configured secret', async () => {
+    const service = buildService(
+      configWith({ TELEGRAM_WEBHOOK_URL: 'https://hr.example.com/api/ai/channels/telegram/webhook', TELEGRAM_WEBHOOK_SECRET: 'shh' }),
+    );
+    const bot = fakeBot();
+    internals(service).mode = 'webhook';
+
+    await internals(service).startWebhook(bot, 'bot-token');
+
+    expect(bot.api.setWebhook).toHaveBeenCalledWith('https://hr.example.com/api/ai/channels/telegram/webhook', {
+      secret_token: 'shh',
+    });
+    expect(service.verifyWebhookSecret('shh')).toBe(true);
+  });
+
+  it('fills the {tunnel} placeholder from cloudflared and verifies with the token-derived secret', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ hostname: 'calm-river.trycloudflare.com' }),
+    } as Response);
+    const service = buildService(configWith({ TELEGRAM_WEBHOOK_URL: '{tunnel}/api/ai/channels/telegram/webhook' }));
+    const bot = fakeBot();
+    internals(service).mode = 'webhook';
+
+    await internals(service).startWebhook(bot, 'bot-token');
+    await new Promise((resolve) => setImmediate(resolve));
+    internals(service).tunnelWatcher.stop();
+
+    expect(fetchSpy).toHaveBeenCalledWith('http://127.0.0.1:20241/quicktunnel', expect.anything());
+    expect(bot.api.setWebhook).toHaveBeenCalledWith(
+      'https://calm-river.trycloudflare.com/api/ai/channels/telegram/webhook',
+      { secret_token: deriveWebhookSecret('bot-token') },
+    );
+    expect(service.verifyWebhookSecret(deriveWebhookSecret('bot-token'))).toBe(true);
+  });
+
+  it('derives a stable secret inside the charset Telegram accepts', () => {
+    const secret = deriveWebhookSecret('123:abc');
+
+    expect(secret).toBe(deriveWebhookSecret('123:abc'));
+    expect(secret).not.toBe(deriveWebhookSecret('123:abd'));
+    expect(secret).toMatch(/^[A-Za-z0-9_-]{1,256}$/);
+  });
+});
+

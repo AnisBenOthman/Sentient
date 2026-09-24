@@ -31,6 +31,7 @@ apps/hr-core/      NestJS :3001  schema=hr_core
 apps/social/       NestJS :3002  schema=social
 apps/ai-agentic/   NestJS :3003  schema=ai_agent
 apps/api-gateway/  NestJS :3004  public single-entry-point gateway (streaming proxy + JWT validation + rate limiting)
+apps/tunnel/       opt-in Cloudflare quick tunnel (pnpm tunnel / pnpm dev:tunnel); ai-agentic auto-registers the Telegram webhook from it
 apps/web/          React + Vite :3000
 packages/shared/   @sentient/shared — enums, interfaces, DTOs, event-bus, auth
 scripts/init-schemas.sql
