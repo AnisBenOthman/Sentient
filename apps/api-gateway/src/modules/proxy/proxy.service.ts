@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import http from 'node:http';
@@ -12,6 +12,8 @@ import { applyAllowedResponseHeaders, filterRequestHeaders } from './header-poli
 
 @Injectable()
 export class ProxyService {
+  private readonly logger = new Logger(ProxyService.name);
+
   constructor(
     @Inject(gatewayConfig.KEY)
     private readonly config: ConfigType<typeof gatewayConfig>,
@@ -152,6 +154,13 @@ export class ProxyService {
           resolve();
           return;
         }
+        // WHY: The 502/504 envelope sent to the client is deliberately generic, so the
+        // underlying socket error (ECONNREFUSED = upstream not running, ENOTFOUND = bad
+        // host, ETIMEDOUT) must be logged here or it is lost entirely.
+        this.logger.warn(
+          `Upstream ${matched.route.key} unreachable at ${targetUrl.origin}: ` +
+            `${timedOut ? 'ETIMEDOUT' : (error.code ?? 'UNKNOWN')} ${error.message} [${correlationId}]`,
+        );
         const mapped = mapUpstreamFailure(
           timedOut ? Object.assign(error, { code: 'ETIMEDOUT' }) : error,
           correlationId,
