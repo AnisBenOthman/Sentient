@@ -8,7 +8,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { randomUUID } from 'crypto';
+import { createHmac, randomUUID } from 'crypto';
 import { Bot, BotError, Context, InlineKeyboard } from 'grammy';
 import type { Update } from 'grammy/types';
 import { ChannelType } from '@sentient/shared';
@@ -25,6 +25,12 @@ import {
 import { ConversationTurnResponse } from '../../modules/conversations/conversation-response.mapper';
 import { ConversationsService } from '../../modules/conversations/conversations.service';
 import { ChannelConversationLinkService } from '../channel-conversation-link.service';
+import {
+  DEFAULT_CLOUDFLARED_METRICS_URL,
+  fillTunnelPlaceholder,
+  QuickTunnelWatcher,
+  usesTunnelPlaceholder,
+} from '../quick-tunnel-watcher';
 import { encodeCallbackData, parseCallbackData } from './callback-data';
 import { chunkTelegramMessage, renderCardText } from './telegram-message.util';
 
@@ -71,6 +77,8 @@ const HELP_TEXT = [
  * domain in production — Telegram's setWebhook rejects anything but a public
  * https:// URL, and docker-compose only exposes localhost, so polling stays the
  * only path that works unconfigured. Both modes drive the same handlers below.
+ * In dev, TELEGRAM_WEBHOOK_URL can hold the {tunnel} placeholder instead of a
+ * real origin; see QuickTunnelWatcher for how the live hostname is filled in.
  */
 @Injectable()
 export class TelegramService implements OnModuleInit, OnModuleDestroy {
@@ -78,6 +86,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
   private bot: Bot | null = null;
   private mode: TelegramMode = 'polling';
   private webhookSecret: string | null = null;
+  private tunnelWatcher: QuickTunnelWatcher | null = null;
   private readonly sessionCache = new Map<string, CachedSession>();
   /**
    * Chats with a turn in flight. A second message while one is running is
@@ -129,7 +138,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     });
 
     if (this.mode === 'webhook') {
-      await this.startWebhook(bot);
+      await this.startWebhook(bot, token);
       return;
     }
 
@@ -140,16 +149,14 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       .catch((err: unknown) => this.logger.error(`Telegram bot failed to start: ${this.errorMessage(err)}`));
   }
 
-  private async startWebhook(bot: Bot): Promise<void> {
+  private async startWebhook(bot: Bot, token: string): Promise<void> {
     const webhookUrl = this.config.get<string>('TELEGRAM_WEBHOOK_URL');
-    const secret = this.config.get<string>('TELEGRAM_WEBHOOK_SECRET');
-    if (!webhookUrl || !secret) {
-      this.logger.warn(
-        'TELEGRAM_MODE=webhook but TELEGRAM_WEBHOOK_URL or TELEGRAM_WEBHOOK_SECRET is not set — channel not started',
-      );
+    if (!webhookUrl) {
+      this.logger.warn('TELEGRAM_MODE=webhook but TELEGRAM_WEBHOOK_URL is not set — channel not started');
       this.bot = null;
       return;
     }
+    const secret = this.config.get<string>('TELEGRAM_WEBHOOK_SECRET') || deriveWebhookSecret(token);
     this.webhookSecret = secret;
 
     try {
@@ -158,6 +165,23 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       // a getUpdates long-polling loop — the two are mutually exclusive on
       // Telegram's side.
       await bot.init();
+    } catch (err: unknown) {
+      this.logger.error(`Telegram bot init failed: ${this.errorMessage(err)}`);
+      return;
+    }
+
+    if (usesTunnelPlaceholder(webhookUrl)) {
+      const metricsUrl = this.config.get<string>('CLOUDFLARED_METRICS_URL') || DEFAULT_CLOUDFLARED_METRICS_URL;
+      this.tunnelWatcher = new QuickTunnelWatcher(metricsUrl, async (origin) => {
+        const liveUrl = fillTunnelPlaceholder(webhookUrl, origin);
+        await bot.api.setWebhook(liveUrl, { secret_token: secret });
+        this.logger.log(`Telegram bot connected (webhook via quick tunnel: ${liveUrl})`);
+      });
+      this.tunnelWatcher.start();
+      return;
+    }
+
+    try {
       await bot.api.setWebhook(webhookUrl, { secret_token: secret });
       this.logger.log(`Telegram bot connected (webhook: ${webhookUrl})`);
     } catch (err: unknown) {
@@ -190,6 +214,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
+    this.tunnelWatcher?.stop();
     if (!this.bot) return;
     if (this.mode === 'webhook') {
       // WHY: a stale webhook pointed at a dead tunnel/instance means Telegram
@@ -523,4 +548,17 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
   private errorMessage(err: unknown): string {
     return err instanceof Error ? err.message : String(err);
   }
+}
+
+/**
+ * WHY a secret derived from the bot token is safe to fall back on: the header
+ * only has to prove a delivery came from Telegram, and anyone holding the bot
+ * token can already call setWebhook and redirect every update, so a secret
+ * computable from the token is exactly as strong as the token itself. Being
+ * deterministic, it survives hot-reload restarts and matches across instances,
+ * which a random per-boot secret would not. TELEGRAM_WEBHOOK_SECRET, when set,
+ * still wins. Hex output stays inside Telegram's allowed [A-Za-z0-9_-] set.
+ */
+export function deriveWebhookSecret(botToken: string): string {
+  return createHmac('sha256', botToken).update('sentient:telegram-webhook-secret').digest('hex');
 }

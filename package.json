@@ -6,6 +6,8 @@
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
+    "dev:tunnel": "turbo run dev tunnel",
+    "tunnel": "pnpm --filter @sentient/tunnel tunnel",
     "test": "turbo test",
     "lint": "turbo lint",
     "type-check": "turbo type-check",
