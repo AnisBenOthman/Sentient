@@ -1,0 +1,37 @@
+<mxfile host="Sentient" version="1.0">
+  <diagram id="uc-channels" name="Cas d'utilisation : canaux Slack et Telegram">
+    <mxGraphModel dx="1400" dy="900" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="Cas d&#x27;utilisation : canaux Slack et Telegram" style="text;html=1;align=left;fontSize=15;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="1"><mxGeometry x="20" y="10" width="700" height="30" as="geometry"/></mxCell>
+        <mxCell id="sys" value="Systeme Sentient" style="rounded=0;html=1;fillColor=none;strokeColor=#8a97a8;verticalAlign=top;fontSize=12;fontStyle=1;dashed=0;" vertex="1" parent="1"><mxGeometry x="190" y="55" width="750" height="670" as="geometry"/></mxCell>
+        <mxCell id="a_emp" value="Employe" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="150" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="a_hr" value="Administrateur RH" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="430" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="a_bot" value="Plateforme Slack / Telegram" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="660" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="c1" value="Demander un code de liaison" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="260" y="90" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="c2" value="Lier son compte depuis le bot" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="490" y="90" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="c3" value="Consulter ses canaux lies" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="720" y="90" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="c4" value="Delier un canal" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="260" y="170" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="c5" value="Dialoguer avec le bot" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="490" y="170" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="c6" value="Confirmer une reservation depuis le bot" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="720" y="170" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="c7" value="Recevoir une notification de decision" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dcf0dc;strokeColor=#4b9b4b;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="260" y="390" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="c8" value="Transmettre un message entrant" style="ellipse;html=1;whiteSpace=wrap;fillColor=#e8e0f5;strokeColor=#7b5cb8;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="260" y="610" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="c9" value="Livrer un message sortant" style="ellipse;html=1;whiteSpace=wrap;fillColor=#e8e0f5;strokeColor=#7b5cb8;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="490" y="610" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="l0" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="c1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l1" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="c2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l2" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="c3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l3" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="c4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l4" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="c5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l5" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="c6"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l6" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="c7"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l7" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="c7"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l8" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_bot" target="c8"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l9" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_bot" target="c9"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="i10" value="«include»" style="html=1;endArrow=open;endFill=0;dashed=1;strokeColor=#9aa5b1;fontSize=9;" edge="1" parent="1" source="c2" target="c1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="i11" value="«extend»" style="html=1;endArrow=open;endFill=0;dashed=1;strokeColor=#9aa5b1;fontSize=9;" edge="1" parent="1" source="c6" target="c5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n0" value="Le code de liaison est un nombre a six chiffres, stocke en condensat, a usage unique, valable dix minutes. Le bot l&#x27;echange contre un jeton applicatif : il ne detient jamais de mot de passe." style="shape=note;html=1;whiteSpace=wrap;size=14;fillColor=#fffbe6;strokeColor=#d6ba57;align=left;verticalAlign=top;fontSize=10;" vertex="1" parent="1"><mxGeometry x="720" y="600" width="300" height="96" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

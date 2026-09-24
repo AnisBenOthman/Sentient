@@ -1,0 +1,42 @@
+<mxfile host="Sentient" version="1.0">
+  <diagram id="uc-iam" name="Cas d'utilisation : identites et habilitations">
+    <mxGraphModel dx="1400" dy="900" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="Cas d&#x27;utilisation : identites et habilitations" style="text;html=1;align=left;fontSize=15;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="1"><mxGeometry x="20" y="10" width="700" height="30" as="geometry"/></mxCell>
+        <mxCell id="sys" value="Systeme Sentient" style="rounded=0;html=1;fillColor=none;strokeColor=#8a97a8;verticalAlign=top;fontSize=12;fontStyle=1;dashed=0;" vertex="1" parent="1"><mxGeometry x="190" y="55" width="740" height="720" as="geometry"/></mxCell>
+        <mxCell id="a_user" value="Utilisateur" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="130" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="a_hr" value="Administrateur RH" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="400" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="a_sys" value="Administrateur systeme" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="640" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="i1" value="S&#x27;authentifier (email + mot de passe)" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="80" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="i2" value="Rafraichir son jeton d&#x27;acces" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="480" y="80" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="i3" value="Se deconnecter" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="710" y="80" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="i4" value="Changer son mot de passe" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="160" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="i5" value="Reclamer une invitation" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="480" y="160" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="i6" value="Creer un compte utilisateur" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dcf0dc;strokeColor=#4b9b4b;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="350" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="i7" value="Renvoyer une invitation" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dcf0dc;strokeColor=#4b9b4b;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="480" y="350" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="i8" value="Activer ou suspendre un compte" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dcf0dc;strokeColor=#4b9b4b;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="710" y="350" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="i9" value="Gerer les roles" style="ellipse;html=1;whiteSpace=wrap;fillColor=#e8e0f5;strokeColor=#7b5cb8;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="580" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="i10" value="Affecter des permissions a un role" style="ellipse;html=1;whiteSpace=wrap;fillColor=#e8e0f5;strokeColor=#7b5cb8;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="480" y="580" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="i11" value="Revoquer une session" style="ellipse;html=1;whiteSpace=wrap;fillColor=#e8e0f5;strokeColor=#7b5cb8;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="710" y="580" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="i12" value="Consulter les evenements de securite" style="ellipse;html=1;whiteSpace=wrap;fillColor=#e8e0f5;strokeColor=#7b5cb8;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="660" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="l0" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_user" target="i1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l1" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_user" target="i2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l2" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_user" target="i3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l3" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_user" target="i4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l4" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_user" target="i5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l5" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="i6"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l6" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="i7"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l7" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="i8"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l8" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_sys" target="i9"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l9" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_sys" target="i10"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l10" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_sys" target="i11"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l11" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_sys" target="i12"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l12" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="i12"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="i13" value="«extend»" style="html=1;endArrow=open;endFill=0;dashed=1;strokeColor=#9aa5b1;fontSize=9;" edge="1" parent="1" source="i1" target="i2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n0" value="Jeton d&#x27;acces de 15 minutes, jeton de rafraichissement adosse a une session persistee : la revocation est immediate. Mots de passe stockes en condensat Argon2id." style="shape=note;html=1;whiteSpace=wrap;size=14;fillColor=#fffbe6;strokeColor=#d6ba57;align=left;verticalAlign=top;fontSize=10;" vertex="1" parent="1"><mxGeometry x="45" y="760" width="330" height="80" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

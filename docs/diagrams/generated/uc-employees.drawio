@@ -1,0 +1,40 @@
+<mxfile host="Sentient" version="1.0">
+  <diagram id="uc-employees" name="Cas d'utilisation : organisation et dossiers employes">
+    <mxGraphModel dx="1400" dy="900" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="Cas d&#x27;utilisation : organisation et dossiers employes" style="text;html=1;align=left;fontSize=15;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="1"><mxGeometry x="20" y="10" width="700" height="30" as="geometry"/></mxCell>
+        <mxCell id="sys" value="Systeme Sentient" style="rounded=0;html=1;fillColor=none;strokeColor=#8a97a8;verticalAlign=top;fontSize=12;fontStyle=1;dashed=0;" vertex="1" parent="1"><mxGeometry x="190" y="55" width="740" height="710" as="geometry"/></mxCell>
+        <mxCell id="a_emp" value="Employe" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="130" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="a_mgr" value="Manager" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="360" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="a_hr" value="Administrateur RH" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="620" width="40" height="70" as="geometry"/></mxCell>
+        <mxCell id="p1" value="Consulter son propre dossier" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="80" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="p2" value="Mettre a jour ses coordonnees" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="480" y="80" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="p3" value="Consulter l&#x27;organigramme" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dbe9fb;strokeColor=#4a7fc1;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="710" y="80" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="p4" value="Consulter les dossiers de son equipe" style="ellipse;html=1;whiteSpace=wrap;fillColor=#fde8cd;strokeColor=#d2892f;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="310" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="p5" value="Soumettre une demande de promotion" style="ellipse;html=1;whiteSpace=wrap;fillColor=#fde8cd;strokeColor=#d2892f;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="480" y="310" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="p6" value="Consulter la remuneration de son equipe" style="ellipse;html=1;whiteSpace=wrap;fillColor=#fde8cd;strokeColor=#d2892f;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="710" y="310" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="p7" value="Creer un dossier employe" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dcf0dc;strokeColor=#4b9b4b;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="570" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="p8" value="Modifier un dossier employe" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dcf0dc;strokeColor=#4b9b4b;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="480" y="570" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="p9" value="Enregistrer une evolution salariale" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dcf0dc;strokeColor=#4b9b4b;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="710" y="570" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="p10" value="Gerer unites, departements et equipes" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dcf0dc;strokeColor=#4b9b4b;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="250" y="650" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="p11" value="Gerer les postes et leurs competences" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dcf0dc;strokeColor=#4b9b4b;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="480" y="650" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="p12" value="Statuer sur une demande de promotion" style="ellipse;html=1;whiteSpace=wrap;fillColor=#dcf0dc;strokeColor=#4b9b4b;fontSize=10.5;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="710" y="650" width="175" height="52" as="geometry"/></mxCell>
+        <mxCell id="l0" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="p1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l1" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="p2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l2" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_emp" target="p3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l3" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_mgr" target="p4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l4" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_mgr" target="p5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l5" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_mgr" target="p6"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l6" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="p7"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l7" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="p8"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l8" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="p9"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l9" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="p10"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l10" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="p11"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l11" value="" style="html=1;endArrow=none;strokeColor=#8a97a8;strokeWidth=1;" edge="1" parent="1" source="a_hr" target="p12"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n0" value="L&#x27;acces aux donnees de remuneration est restreint : un manager ne voit que son equipe, via buildCompensationAccessFilter." style="shape=note;html=1;whiteSpace=wrap;size=14;fillColor=#fffbe6;strokeColor=#d6ba57;align=left;verticalAlign=top;fontSize=10;" vertex="1" parent="1"><mxGeometry x="45" y="750" width="330" height="66" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
