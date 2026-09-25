@@ -42,6 +42,12 @@
     "copied": "Copied"
   },
   "typing": "Sentient AI is thinking",
+  "messageStatus": {
+    "DEGRADED": "Reduced answer — some assistant capability was unavailable",
+    "PARTIAL": "Partial answer — not every part of your request was covered",
+    "UNVERIFIED": "Unverified — this could not be confirmed against your records",
+    "FAILED": "This request did not complete"
+  },
   "floating": {
     "chatAria": "Sentient AI assistant chat",
     "name": "Sentient AI",

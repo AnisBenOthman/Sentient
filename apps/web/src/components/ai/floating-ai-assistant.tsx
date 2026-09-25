@@ -11,6 +11,7 @@ import {
   listConversations,
   sendConversationMessage,
   startConversation,
+  type AiAgentRunStatus,
   type AiMessageResponse,
   type ConversationTurnApiResponse,
 } from "@/lib/api/ai";
@@ -18,12 +19,20 @@ import { openConversationStream } from "@/lib/api/ai-stream";
 import { getGatewayErrorMessage } from "@/lib/api/gateway-error";
 import { cn } from "@/lib/utils";
 import { useTypewriter } from "@/hooks/use-typewriter";
+import { MessageStatusNotice } from "@/components/ai/message-status-notice";
 import { TypingIndicator } from "@/components/ai/typing-indicator";
 
 interface ChatLine {
   id: string;
   role: "USER" | "ASSISTANT";
   content: string;
+  /**
+   * WHY carried into the compact widget too: a reduced or failed answer must
+   * look reduced wherever it is read. The widget is where most quick questions
+   * are asked, so it is the last place a degraded answer should pass for a
+   * complete one.
+   */
+  status: AiAgentRunStatus;
 }
 
 function toChatLine(message: AiMessageResponse): ChatLine | null {
@@ -36,6 +45,7 @@ function toChatLine(message: AiMessageResponse): ChatLine | null {
     id: message.id,
     role: message.role,
     content,
+    status: message.status,
   };
 }
 
@@ -101,6 +111,9 @@ function FloatingChatBubble({
             : "rounded-tr-md bg-blue-600 text-white",
         )}
       >
+        {/* WHY gated on the reveal finishing: matches AiMessage — a badge above
+            still-typing text reads as a broken animation, not a degraded turn. */}
+        {assistant && !streaming && displayed === line.content && <MessageStatusNotice status={line.status} />}
         <p className="whitespace-pre-wrap">{displayed}</p>
       </div>
     </div>
@@ -169,7 +182,7 @@ export function FloatingAiAssistant() {
 
       if (isStreamingTurnResponse(turn)) {
         const placeholderId = `pending-${turn.streaming.turnId}`;
-        const placeholder: ChatLine = { id: placeholderId, role: "ASSISTANT", content: "" };
+        const placeholder: ChatLine = { id: placeholderId, role: "ASSISTANT", content: "", status: "RUNNING" };
         setLines((current) => [
           ...current,
           ...(turn.userMessage ? toChatLines([turn.userMessage]) : []),

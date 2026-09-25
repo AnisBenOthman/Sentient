@@ -322,7 +322,10 @@ describe('LeaveAgentService named-individual targeting', () => {
 describe('LeaveAgentService completion-claim guard', () => {
   function llmCaller(answer: string) {
     return {
-      call: async () => ({ answer, anyToolDenied: false, anyToolFailed: false, toolsUsed: ['get_my_leave_balance'], providerUsed: 'OPENROUTER', usedFallbackProvider: true }),
+      call: async () => ({
+        ok: true,
+        outcome: { answer, anyToolDenied: false, anyToolFailed: false, toolsUsed: ['get_my_leave_balance'], providerUsed: 'OPENROUTER', usedFallbackProvider: true },
+      }),
     } as never;
   }
   const toolRegistry = { getLeaveTools: () => [] } as never;

@@ -9,6 +9,7 @@ import {
   GeminiFunctionDeclaration,
   GeminiToolCallOutcome,
 } from './agent-tool.types';
+import { LlmCallResult, LlmFailureSink } from './llm-failure';
 import { LlmToolCallerAdapter } from './llm-tool-caller.interface';
 
 const MAX_TOOL_ROUNDS = 5;
@@ -27,7 +28,9 @@ interface ToolRunResult {
  * WHY: Replaces the raw-fetch implementation to get proper SDK type safety, automatic
  * retries, and correct auth handling — the SDK passes the API key as a query param
  * exactly as the generativelanguage.googleapis.com REST endpoint expects.
- * Returns null when Gemini is unavailable so every caller falls back gracefully.
+ * Returns a classified `ok: false` result when Gemini is unavailable, so the
+ * orchestrator can fail over and — when every provider is down — the specialists
+ * can tell the user what actually happened instead of silently answering without AI.
  */
 @Injectable()
 export class GeminiToolCallerService implements LlmToolCallerAdapter {
@@ -47,10 +50,17 @@ export class GeminiToolCallerService implements LlmToolCallerAdapter {
     tools: AgentTool[],
     history: ConversationHistoryMessage[] = [],
     options: GeminiCallOptions = {},
-  ): Promise<GeminiToolCallOutcome | null> {
+  ): Promise<LlmCallResult> {
+    const sink = new LlmFailureSink(this.providerName);
     const aiConfig = this.config?.get<AiAgenticConfig>('aiAgentic');
     const apiKey = aiConfig?.geminiApiKey;
-    if (!aiConfig || !apiKey || tools.length === 0) return null;
+    if (!aiConfig || !apiKey || tools.length === 0) {
+      sink.record(
+        apiKey ? 'PROVIDER_ERROR' : 'NOT_CONFIGURED',
+        apiKey ? 'No tools were supplied for this call.' : 'GEMINI has no API key configured.',
+      );
+      return { ok: false, failure: sink.result() };
+    }
 
     const thinkingLevel = options.thinkingLevel ?? aiConfig.geminiThinkingLevel;
     const enableSearch = options.enableSearch ?? false;
@@ -142,9 +152,13 @@ export class GeminiToolCallerService implements LlmToolCallerAdapter {
 
         const answer = response.text?.trim();
         if (answer) {
-          return { answer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() };
+          return {
+            ok: true,
+            outcome: { answer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() },
+          };
         }
-        return null;
+        sink.record('EMPTY_RESPONSE', 'Gemini returned a round with neither function calls nor text.');
+        return { ok: false, failure: sink.result() };
       }
 
       /**
@@ -165,12 +179,18 @@ export class GeminiToolCallerService implements LlmToolCallerAdapter {
 
       recordUsage(finalResponse.usageMetadata);
       const finalAnswer = finalResponse.text?.trim();
-      return finalAnswer
-        ? { answer: finalAnswer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() }
-        : null;
+      if (finalAnswer) {
+        return {
+          ok: true,
+          outcome: { answer: finalAnswer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() },
+        };
+      }
+      sink.record('EMPTY_RESPONSE', 'Gemini produced no text in the final synthesis round.');
+      return { ok: false, failure: sink.result() };
     } catch (err: unknown) {
+      sink.recordThrown(err);
       this.logger.warn(`Gemini SDK call failed: ${err instanceof Error ? err.message : 'unknown'}`);
-      return null;
+      return { ok: false, failure: sink.result() };
     }
   }
 
@@ -191,10 +211,17 @@ export class GeminiToolCallerService implements LlmToolCallerAdapter {
     options: GeminiCallOptions = {},
     onToken: (delta: string) => void,
     signal?: AbortSignal,
-  ): Promise<GeminiToolCallOutcome | null> {
+  ): Promise<LlmCallResult> {
+    const sink = new LlmFailureSink(this.providerName);
     const aiConfig = this.config?.get<AiAgenticConfig>('aiAgentic');
     const apiKey = aiConfig?.geminiApiKey;
-    if (!aiConfig || !apiKey || tools.length === 0) return null;
+    if (!aiConfig || !apiKey || tools.length === 0) {
+      sink.record(
+        apiKey ? 'PROVIDER_ERROR' : 'NOT_CONFIGURED',
+        apiKey ? 'No tools were supplied for this call.' : 'GEMINI has no API key configured.',
+      );
+      return { ok: false, failure: sink.result() };
+    }
 
     const thinkingLevel = options.thinkingLevel ?? aiConfig.geminiThinkingLevel;
     const enableSearch = options.enableSearch ?? false;
@@ -229,7 +256,10 @@ export class GeminiToolCallerService implements LlmToolCallerAdapter {
 
     try {
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-        if (signal?.aborted) return null;
+        if (signal?.aborted) {
+          sink.record('TIMEOUT', 'The streaming request was aborted before the round started.');
+          return { ok: false, failure: sink.result() };
+        }
         const mode = round === 0 ? FunctionCallingConfigMode.ANY : FunctionCallingConfigMode.AUTO;
 
         const outcome = await this.runStreamingRound(ai, {
@@ -261,8 +291,14 @@ export class GeminiToolCallerService implements LlmToolCallerAdapter {
           continue;
         }
 
-        if (!outcome.answer) return null;
-        return { answer: outcome.answer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() };
+        if (!outcome.answer) {
+          sink.record('EMPTY_RESPONSE', 'Gemini streamed a final round with no text.');
+          return { ok: false, failure: sink.result() };
+        }
+        return {
+          ok: true,
+          outcome: { answer: outcome.answer, anyToolDenied, anyToolFailed, toolsUsed, providerUsed: this.providerName, ...usageFields() },
+        };
       }
 
       /** WHY mode NONE guarantees a text-only round: safe to stream unconditionally. */
@@ -277,18 +313,25 @@ export class GeminiToolCallerService implements LlmToolCallerAdapter {
         signal,
         recordUsage,
       });
-      if (finalOutcome.kind !== 'answer' || !finalOutcome.answer) return null;
+      if (finalOutcome.kind !== 'answer' || !finalOutcome.answer) {
+        sink.record('EMPTY_RESPONSE', 'Gemini streamed no text in the final synthesis round.');
+        return { ok: false, failure: sink.result() };
+      }
       return {
-        answer: finalOutcome.answer,
-        anyToolDenied,
-        anyToolFailed,
-        toolsUsed,
-        providerUsed: this.providerName,
-        ...usageFields(),
+        ok: true,
+        outcome: {
+          answer: finalOutcome.answer,
+          anyToolDenied,
+          anyToolFailed,
+          toolsUsed,
+          providerUsed: this.providerName,
+          ...usageFields(),
+        },
       };
     } catch (err: unknown) {
+      sink.recordThrown(err);
       this.logger.warn(`Gemini SDK streaming call failed: ${err instanceof Error ? err.message : 'unknown'}`);
-      return null;
+      return { ok: false, failure: sink.result() };
     }
   }
 

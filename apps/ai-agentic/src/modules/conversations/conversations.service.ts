@@ -15,6 +15,7 @@ import { PaginatedResponse, paginationToSkipTake, RoutingTrace } from '../../com
 import { AiActorContext, FinalAnswerResult, PendingActionDraft } from '../../common/graph';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ActionProposalService } from '../agents/actions/action-proposal.service';
+import { AgentTaskLogService } from '../agents/agent-task-log.service';
 import { ActionOutcomeResponse, ActionOutcomeStatus } from '../agents/actions/confirmation-card.presenter';
 import { ExecuteConversationTurnInput, SupervisorAgentService } from '../agents/supervisor-agent.service';
 import { SupervisorGateService } from '../agents/supervisor-gate.service';
@@ -52,6 +53,7 @@ export class ConversationsService {
     private readonly titles: ConversationTitleService,
     private readonly summarizer: ConversationSummarizerService,
     private readonly proposals: ActionProposalService,
+    private readonly taskLogs: AgentTaskLogService,
   ) {}
 
   /**
@@ -302,6 +304,14 @@ export class ConversationsService {
     let routing: RoutingTrace;
     let pendingAction: PendingActionDraft | undefined;
     let turnFailed = false;
+    /**
+     * WHY captured outside the try: when the supervisor throws after the gate
+     * has already opened a parent AgentTaskLog, that log used to be left on
+     * RUNNING forever — a turn that visibly failed to the user but reads as
+     * still in flight in the Governance Center. Holding the gate result here
+     * lets the catch close the log as FAILED.
+     */
+    let parentLogId: string | null = null;
     try {
       /**
        * WHY the gate runs here, once, before deciding whether to stream: Phase
@@ -311,6 +321,7 @@ export class ConversationsService {
        * LangGraph's own supervisorNode reuses it instead of recomputing it.
        */
       const gateResult = await this.gate.evaluate(turnInput);
+      parentLogId = gateResult.parentLog.id;
       const eligibility = allowStreaming ? this.streamEligibility.check(gateResult) : ({ eligible: false } as const);
       if (eligibility.eligible) {
         const turnId = randomUUID();
@@ -355,9 +366,35 @@ export class ConversationsService {
         routingSummary: '',
       };
       routing = { status: AgentRunStatus.FAILED, nodes: [] };
+      await this.closeFailedTaskLog(parentLogId, error);
     }
 
     return this.persistTurnOutcome(conversation, userMessage, finalAnswer, routing, pendingAction, actor, turnFailed);
+  }
+
+  /**
+   * Closes a parent task log that a thrown turn would otherwise leave on RUNNING.
+   *
+   * WHY it swallows its own error: the user already has a persisted failure
+   * message on the way, and losing that to a second, audit-only failure would
+   * turn a handled outage into the dangling-user-message bug this path exists
+   * to prevent.
+   */
+  private async closeFailedTaskLog(parentLogId: string | null, error: unknown): Promise<void> {
+    if (!parentLogId) return;
+    try {
+      await this.taskLogs.finish(parentLogId, {
+        status: AgentRunStatus.FAILED,
+        outputSummary: TURN_FAILURE_MESSAGE,
+        errorCode: 'TURN_EXECUTION_FAILED',
+        errorMessage: error instanceof Error ? error.message : 'unknown error',
+      });
+    } catch (finishError: unknown) {
+      this.logger.error(
+        `Failed to close task log ${parentLogId} after a failed turn`,
+        finishError instanceof Error ? finishError.stack : undefined,
+      );
+    }
   }
 
   /**

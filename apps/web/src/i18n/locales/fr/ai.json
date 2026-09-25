@@ -42,6 +42,12 @@
     "copied": "Copié"
   },
   "typing": "Sentient IA réfléchit",
+  "messageStatus": {
+    "DEGRADED": "Réponse réduite — une capacité de l'assistant était indisponible",
+    "PARTIAL": "Réponse partielle — toutes les parties de votre demande n'ont pas été traitées",
+    "UNVERIFIED": "Non vérifié — impossible de le confirmer dans vos dossiers",
+    "FAILED": "Cette demande n'a pas abouti"
+  },
   "floating": {
     "chatAria": "Chat avec l'assistant Sentient IA",
     "name": "Sentient IA",
