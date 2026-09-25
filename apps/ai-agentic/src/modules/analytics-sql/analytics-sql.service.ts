@@ -297,7 +297,26 @@ export class AnalyticsSqlService {
 function formatCell(value: unknown): string {
   if (value === null || value === undefined) return '—';
   if (value instanceof Date) return value.toISOString().slice(0, 10);
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  if (typeof value === 'string') return value.replace(/\|/g, '\\|');
+  if (typeof value === 'number') return formatNumber(value);
+  if (typeof value === 'boolean') return String(value);
+  if (typeof value === 'string') {
+    if (DECIMAL_STRING.test(value)) return formatNumber(Number(value));
+    return value.replace(/\|/g, '\\|');
+  }
   return JSON.stringify(value);
+}
+
+/**
+ * WHY: node-postgres returns NUMERIC (every AVG/SUM over numeric columns) as a
+ * string carrying ~16 fractional digits. Beyond being unreadable, that digit run
+ * trips redactSensitiveText's long-number rule in the final-answer policy, so an
+ * average of 10.6666666666666667 reached the user as "10.[redacted-number]".
+ * Only values with a fractional part are touched — integer strings (bigint COUNTs,
+ * codes) keep their exact text.
+ */
+const DECIMAL_STRING = /^-?\d+\.\d+$/;
+
+function formatNumber(value: number): string {
+  if (!Number.isFinite(value) || Number.isInteger(value)) return String(value);
+  return String(Math.round(value * 100) / 100);
 }

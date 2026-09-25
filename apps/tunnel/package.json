@@ -1,0 +1,9 @@
+{
+  "name": "@sentient/tunnel",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Free Cloudflare quick tunnel to the local web app. ai-agentic registers the Telegram webhook from it automatically.",
+  "scripts": {
+    "tunnel": "node quick-tunnel.mjs"
+  }
+}

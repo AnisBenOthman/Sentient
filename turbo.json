@@ -10,6 +10,10 @@
       "persistent": true,
       "dependsOn": ["^build"]
     },
+    "tunnel": {
+      "cache": false,
+      "persistent": true
+    },
     "test": {
       "dependsOn": ["build"],
       "outputs": ["coverage/**"]

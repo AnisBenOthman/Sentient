@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { PermissionScope, RoleAssignmentClaim } from '@sentient/shared';
 import { AgentRunStatus } from '../../generated/prisma';
 import { AiActorContext, SpecialistInput } from '../../common/graph';
+import { redactSensitiveText } from '../../common/safety';
 import { AnalyticsQueryOutcome, AnalyticsScopeBinding, AnalyticsSqlClient } from './analytics-sql.client';
 import { AnalyticsSqlService } from './analytics-sql.service';
 import { GeneratedSql, SqlGeneratorService } from './sql-generator.service';
@@ -234,6 +235,17 @@ describe('AnalyticsSqlService.execute', () => {
 
     expect(result.status).toBe(AgentRunStatus.SUCCESS);
     expect(result.userVisibleContent).toMatch(/no rows matched/i);
+  });
+
+  // WHY: node-postgres returns NUMERIC averages as long decimal strings; unrounded,
+  // the fractional digit run was masked by redactSensitiveText as "[redacted-number]".
+  it('rounds long decimals so the answer survives PII redaction', async () => {
+    const rows = [{ leave_type_name: 'Annual Leave', average_paid_leave_days: '10.6666666666666667', employees: '42' }];
+    const service = buildService({ outcome: { status: 'OK', rows } });
+    const result = await service.execute(buildInput(buildActor()));
+
+    expect(result.userVisibleContent).toContain('| Annual Leave | 10.67 | 42 |');
+    expect(redactSensitiveText(result.userVisibleContent)).not.toContain('[redacted-number]');
   });
 
   it('reports PARTIAL and warns the user when the row cap is hit', async () => {
