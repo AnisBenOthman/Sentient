@@ -97,12 +97,17 @@ export class SqlGeneratorService {
       '- Use explicit JOIN ... ON syntax. Never comma joins.',
       '- Rows are already filtered to what the caller may see. Do not add permission filters.',
       '- Prefer aggregates (COUNT, AVG, SUM) with GROUP BY over listing raw rows.',
-      '- Give every computed column a readable snake_case alias.',
+      '- Give every computed column a readable snake_case alias that carries its unit (average_tenure_years, not average_tenure).',
+      '- Select *_name columns, not *_id columns, unless the question asks for identifiers.',
+      '- For "highest", "lowest" or "top N" questions, ORDER BY the measure and LIMIT to the rows asked for.',
       '- For "leave taken", filter status = \'APPROVED\' on v_leave_requests.',
       '- Use date arithmetic like start_date >= CURRENT_DATE - INTERVAL \'3 years\' for time windows.',
       '- Do not reference current_setting, set_config, pg_catalog, or information_schema.',
       '',
-      'explanation: one plain sentence describing what the query measures, for the end user.',
+      // WHY this wording: the explanation is written before the query runs, so it
+      // cannot state the answer. It must caption the result table (with units) —
+      // "This query calculates…" read as a description of SQL, not an answer.
+      'explanation: one short caption for the result table, with units, e.g. "Average employee tenure in years, highest department first." Never mention the query or SQL.',
       'Schema: {"sql":"SELECT ...","explanation":"..."}',
       '',
       `Question: ${question}`,

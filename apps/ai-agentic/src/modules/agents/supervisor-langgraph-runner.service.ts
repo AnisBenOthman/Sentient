@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AgentNodeType, AgentRunStatus, AgentTaskLog, AgentType, PermissionDecision } from '../../generated/prisma';
 import { RoutingTrace } from '../../common/dto';
@@ -70,10 +70,10 @@ function requireLangGraphForJest(): LangGraphModule {
 }
 
 @Injectable()
-export class SupervisorLangGraphRunnerService {
+export class SupervisorLangGraphRunnerService implements OnApplicationBootstrap {
   private readonly logger = new Logger(SupervisorLangGraphRunnerService.name);
   private readonly specialists: Record<AgentType, SpecialistAgent | undefined>;
-  private graph: CompiledSupervisorGraph | null = null;
+  private graphLoad: Promise<CompiledSupervisorGraph> | null = null;
 
   constructor(
     private readonly gate: SupervisorGateService,
@@ -159,14 +159,41 @@ export class SupervisorLangGraphRunnerService {
     };
   }
 
-  private async getGraph(): Promise<CompiledSupervisorGraph> {
-    if (!this.graph) {
-      const langGraph = process.env.JEST_WORKER_ID
-        ? requireLangGraphForJest()
-        : await importLangGraph('@langchain/langgraph');
-      this.graph = this.createGraph(langGraph).compile() as CompiledSupervisorGraph;
+  /**
+   * WHY warm at bootstrap: the first dynamic import of @langchain/langgraph pulls
+   * in the whole LangChain module graph and blocks the event loop while it parses.
+   * Done lazily, that cost landed inside the first user's turn (~20s between
+   * turn.start and supervisor.route) and starved the Slack socket's pong. Fire and
+   * forget — a failure here is retried by the first real turn.
+   */
+  onApplicationBootstrap(): void {
+    if (process.env.JEST_WORKER_ID) return;
+    const startedAt = Date.now();
+    this.getGraph()
+      .then(() => this.logger.log(`Supervisor graph compiled in ${Date.now() - startedAt}ms`))
+      .catch((err: unknown) => {
+        this.logger.warn(
+          `Supervisor graph warm-up failed; will retry on first turn: ${err instanceof Error ? err.message : 'unknown error'}`,
+        );
+      });
+  }
+
+  /** WHY the promise is memoized, not the graph: two turns arriving during the cold import must share one load. */
+  private getGraph(): Promise<CompiledSupervisorGraph> {
+    if (!this.graphLoad) {
+      this.graphLoad = this.loadGraph().catch((err: unknown) => {
+        this.graphLoad = null;
+        throw err;
+      });
     }
-    return this.graph;
+    return this.graphLoad;
+  }
+
+  private async loadGraph(): Promise<CompiledSupervisorGraph> {
+    const langGraph = process.env.JEST_WORKER_ID
+      ? requireLangGraphForJest()
+      : await importLangGraph('@langchain/langgraph');
+    return this.createGraph(langGraph).compile() as CompiledSupervisorGraph;
   }
 
   private createGraph(langGraph: LangGraphModule) {

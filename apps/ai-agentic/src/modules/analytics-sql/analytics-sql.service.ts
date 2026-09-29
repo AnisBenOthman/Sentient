@@ -245,11 +245,11 @@ export class AnalyticsSqlService {
       return parts.join('\n\n');
     }
 
-    const columns = Object.keys(rows[0] ?? {});
     const rendered = rows.slice(0, MAX_RENDERED_ROWS);
+    const columns = visibleColumns(Object.keys(rows[0] ?? {}), rendered);
 
     const table = [
-      `| ${columns.join(' | ')} |`,
+      `| ${columns.map(humanizeColumn).join(' | ')} |`,
       `| ${columns.map(() => '---').join(' | ')} |`,
       ...rendered.map((row) => `| ${columns.map((column) => formatCell(row[column])).join(' | ')} |`),
     ].join('\n');
@@ -292,6 +292,32 @@ export class AnalyticsSqlService {
   private errorText(err: unknown): string {
     return err instanceof Error ? err.message : 'unknown error';
   }
+}
+
+const UUID_VALUE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * WHY: generated SQL routinely groups by department_id alongside department_name,
+ * and a raw UUID column is noise to the reader. A column is dropped only when every
+ * rendered value is a UUID (or null) and at least one other column survives — so a
+ * question that genuinely asks for identifiers still gets them.
+ */
+function visibleColumns(columns: string[], rows: AnalyticsRow[]): string[] {
+  const kept = columns.filter(
+    (column) =>
+      !rows.every((row) => {
+        const value = row[column];
+        return value === null || value === undefined || (typeof value === 'string' && UUID_VALUE.test(value));
+      }),
+  );
+  return kept.length > 0 ? kept : columns;
+}
+
+/** average_tenure_years → "Average tenure years" */
+function humanizeColumn(column: string): string {
+  const words = column.replace(/_+/g, ' ').trim();
+  if (!words) return column;
+  return (words.charAt(0).toUpperCase() + words.slice(1)).replace(/\|/g, '\\|');
 }
 
 function formatCell(value: unknown): string {

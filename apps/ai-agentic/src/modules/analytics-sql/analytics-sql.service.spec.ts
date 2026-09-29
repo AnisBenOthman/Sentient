@@ -248,6 +248,30 @@ describe('AnalyticsSqlService.execute', () => {
     expect(redactSensitiveText(result.userVisibleContent)).not.toContain('[redacted-number]');
   });
 
+  it('hides UUID-only columns and humanizes headers', async () => {
+    const rows = [
+      {
+        department_id: '4a91e216-5e9d-408c-b845-214f8572342d',
+        department_name: 'Finance',
+        average_tenure_years: '5.5',
+      },
+    ];
+    const service = buildService({ outcome: { status: 'OK', rows } });
+    const result = await service.execute(buildInput(buildActor()));
+
+    expect(result.userVisibleContent).toContain('| Department name | Average tenure years |');
+    expect(result.userVisibleContent).toContain('| Finance | 5.5 |');
+    expect(result.userVisibleContent).not.toContain('4a91e216');
+  });
+
+  it('keeps identifier columns when they are the only columns', async () => {
+    const rows = [{ employee_id: '4a91e216-5e9d-408c-b845-214f8572342d' }];
+    const service = buildService({ outcome: { status: 'OK', rows } });
+    const result = await service.execute(buildInput(buildActor()));
+
+    expect(result.userVisibleContent).toContain('4a91e216-5e9d-408c-b845-214f8572342d');
+  });
+
   it('reports PARTIAL and warns the user when the row cap is hit', async () => {
     const rows = Array.from({ length: 4 }, (_, index) => ({ n: index }));
     const service = buildService({ rowLimit: 3, outcome: { status: 'OK', rows } });
