@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
 import { UserStatus } from '@sentient/shared';
@@ -37,6 +37,7 @@ export interface UserWithRelations {
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
   private readonly maxFailedLogins: number;
   private readonly lockoutMinutes: number;
 
@@ -86,6 +87,17 @@ export class UsersService {
     // claims their invite and sets a real password.
     const tempHash = await this.argon2.hash(randomBytes(32).toString('hex'));
 
+    // WHY: an account linked to an employee must carry the base EMPLOYEE role
+    // (OWN scope), exactly like seeded users. Without it the JWT has no roles,
+    // RbacGuard rejects every endpoint, and the employee cannot even load their
+    // own profile after activating. Higher roles are still granted explicitly.
+    const employeeRole = dto.employeeId
+      ? await this.prisma.role.findUnique({ where: { code: 'EMPLOYEE' }, select: { id: true } })
+      : null;
+    if (dto.employeeId && !employeeRole) {
+      this.logger.warn(`EMPLOYEE role missing — user ${email} created without a base role`);
+    }
+
     const user = await this.prisma.user.create({
       data: {
         email,
@@ -93,6 +105,9 @@ export class UsersService {
         passwordHistory: [],
         status: UserStatus.PENDING_ACTIVATION,
         employeeId: dto.employeeId ?? null,
+        ...(employeeRole
+          ? { userRoles: { create: { roleId: employeeRole.id, scope: 'OWN' } } }
+          : {}),
       },
     });
 

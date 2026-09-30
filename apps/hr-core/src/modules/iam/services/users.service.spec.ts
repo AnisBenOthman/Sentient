@@ -10,6 +10,9 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from '../dto/create-user.dto';
 
 const mockPrisma = {
+  role: {
+    findUnique: jest.fn(),
+  },
   user: {
     findUnique: jest.fn(),
     create: jest.fn(),
@@ -114,6 +117,36 @@ describe('UsersService', () => {
     it('throws ConflictException when email is already registered', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ id: 'existing' });
       await expect(service.create(dto)).rejects.toThrow(ConflictException);
+    });
+
+    it('grants the base EMPLOYEE role with OWN scope when linked to an employee', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.role.findUnique.mockResolvedValue({ id: 'role-employee' });
+      mockPrisma.user.create.mockResolvedValue({ id: 'u-new' });
+
+      await service.create({ ...dto, employeeId: 'emp-1' });
+
+      expect(mockPrisma.role.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { code: 'EMPLOYEE' } }),
+      );
+      expect(mockPrisma.user.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          employeeId: 'emp-1',
+          userRoles: { create: { roleId: 'role-employee', scope: 'OWN' } },
+        }),
+      });
+    });
+
+    it('grants no role to an account without an employee', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.user.create.mockResolvedValue({ id: 'u-new' });
+
+      await service.create(dto);
+
+      expect(mockPrisma.role.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.user.create).toHaveBeenCalledWith({
+        data: expect.not.objectContaining({ userRoles: expect.anything() }),
+      });
     });
 
     it('emits USER_CREATED audit event with the new user id', async () => {
