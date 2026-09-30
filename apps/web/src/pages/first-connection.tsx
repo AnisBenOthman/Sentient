@@ -3,7 +3,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { Brain, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle, AlertCircle } from "lucide-react";
-import { claimInvite } from "@/lib/api/hr-core";
+import { claimInvite, resetPassword } from "@/lib/api/hr-core";
+import { extractGatewayErrorMessage } from "@/lib/api/gateway-error";
 
 /**
  * WHY keys and not messages: validation runs outside the component tree, so it
@@ -32,16 +33,26 @@ function validatePassword(pw: string): PasswordErrorKey | undefined {
 }
 
 function apiErrorKey(error: unknown): PasswordErrorKey {
-  const msg = error instanceof Error ? error.message : String(error);
+  // WHY the response body: axios' own Error.message is only "Request failed with
+  // status code 400" — the backend's reason lives in the response payload.
+  const msg = extractGatewayErrorMessage(error) || (error instanceof Error ? error.message : String(error));
   if (msg.includes("Invalid or expired")) return "expiredInvite";
   if (msg.includes("too weak") || msg.includes("complexity")) return "weakPassword";
-  if (msg.includes("reuse")) return "reuse";
+  if (msg.includes("reuse") || msg.includes("used recently")) return "reuse";
   return "generic";
 }
 
-export default function FirstConnection() {
+/**
+ * WHY one page for two flows: activating an invite and resetting a forgotten
+ * password are the same screen (token from the email link + new password), only
+ * the endpoint and the copy differ. `mode` picks both.
+ */
+export type SetPasswordMode = "invite" | "reset";
+
+export function SetPasswordPage({ mode }: { mode: SetPasswordMode }) {
   const [, navigate] = useLocation();
   const { t } = useTranslation("auth");
+  const ns = mode === "reset" ? "resetPassword" : "firstConnection";
   const token = new URLSearchParams(window.location.search).get("token");
 
   const [password, setPassword] = useState("");
@@ -55,7 +66,7 @@ export default function FirstConnection() {
   }>({});
 
   const { mutate, isPending, isSuccess } = useMutation({
-    mutationFn: () => claimInvite(token!, password),
+    mutationFn: () => (mode === "reset" ? resetPassword(token!, password) : claimInvite(token!, password)),
     onSuccess: () => {
       setTimeout(() => navigate("/signin"), 3000);
     },
@@ -90,13 +101,13 @@ export default function FirstConnection() {
           <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
             <AlertCircle className="w-6 h-6 text-red-500" />
           </div>
-          <h1 className="text-xl font-bold text-[#1e1b4b]">{t("firstConnection.invalidLink")}</h1>
+          <h1 className="text-xl font-bold text-[#1e1b4b]">{t(`${ns}.invalidLink` as const)}</h1>
           <p className="text-slate-400 text-sm text-center">
-            {t("firstConnection.invalidLinkDescription")}
+            {t(`${ns}.invalidLinkDescription` as const)}
           </p>
           <Link href="/signin">
             <button className="mt-2 text-sm text-[#4f46e5] hover:underline font-medium">
-              {t("firstConnection.backToSignIn")}
+              {t(`${ns}.backToSignIn` as const)}
             </button>
           </Link>
         </div>
@@ -147,10 +158,10 @@ export default function FirstConnection() {
         </div>
 
         <h1 className="text-2xl font-bold text-[#1e1b4b] mb-2" data-testid="first-connection-heading">
-          {t("firstConnection.heading")}
+          {t(`${ns}.heading` as const)}
         </h1>
         <p className="text-slate-400 text-sm mb-8 text-center">
-          {t("firstConnection.subtitle")}
+          {t(`${ns}.subtitle` as const)}
         </p>
 
         {isSuccess ? (
@@ -162,10 +173,10 @@ export default function FirstConnection() {
               <CheckCircle className="w-7 h-7 text-[#4f46e5]" />
             </div>
             <p className="text-zinc-700 text-sm text-center font-medium">
-              {t("firstConnection.successMessage")}
+              {t(`${ns}.successMessage` as const)}
             </p>
             <p className="text-slate-400 text-xs text-center">
-              {t("firstConnection.redirecting")}
+              {t(`${ns}.redirecting` as const)}
             </p>
             <Link href="/signin">
               <button
@@ -173,7 +184,7 @@ export default function FirstConnection() {
                 className="mt-2 w-full h-11 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:bg-[#4338ca]"
                 style={{ background: "#4f46e5" }}
               >
-                {t("firstConnection.goToSignIn")}
+                {t(`${ns}.goToSignIn` as const)}
                 <ArrowRight className="w-4 h-4" />
               </button>
             </Link>
@@ -185,7 +196,7 @@ export default function FirstConnection() {
                 <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 px-3.5 py-3">
                   <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
                   <p className="text-red-600 text-xs leading-relaxed" data-testid="error-api">
-                    {t(`firstConnection.errors.${errors.api}` as const)}
+                    {t(`${ns}.errors.${errors.api}` as const)}
                   </p>
                 </div>
               )}
@@ -193,7 +204,7 @@ export default function FirstConnection() {
               {/* New Password */}
               <div className="space-y-1.5">
                 <label htmlFor="password" className="block text-sm font-medium text-zinc-600">
-                  {t("firstConnection.newPasswordLabel")}
+                  {t(`${ns}.newPasswordLabel` as const)}
                 </label>
                 <div className="relative">
                   <input
@@ -206,7 +217,7 @@ export default function FirstConnection() {
                       setPassword(e.target.value);
                       if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
                     }}
-                    placeholder={t("firstConnection.newPasswordPlaceholder")}
+                    placeholder={t(`${ns}.newPasswordPlaceholder` as const)}
                     data-testid="input-password"
                     className={`w-full h-11 px-3.5 pr-10 rounded-xl border bg-white text-zinc-900 text-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#818cf8] focus:border-transparent transition-all ${
                       errors.password ? "border-red-400" : "border-gray-200"
@@ -223,7 +234,7 @@ export default function FirstConnection() {
                 </div>
                 {errors.password && (
                   <p className="text-red-500 text-xs mt-1" data-testid="error-password">
-                    {t(`firstConnection.errors.${errors.password}` as const)}
+                    {t(`${ns}.errors.${errors.password}` as const)}
                   </p>
                 )}
               </div>
@@ -231,7 +242,7 @@ export default function FirstConnection() {
               {/* Confirm Password */}
               <div className="space-y-1.5">
                 <label htmlFor="confirm-password" className="block text-sm font-medium text-zinc-600">
-                  {t("firstConnection.confirmPasswordLabel")}
+                  {t(`${ns}.confirmPasswordLabel` as const)}
                 </label>
                 <div className="relative">
                   <input
@@ -244,7 +255,7 @@ export default function FirstConnection() {
                       setConfirmPassword(e.target.value);
                       if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
                     }}
-                    placeholder={t("firstConnection.confirmPasswordPlaceholder")}
+                    placeholder={t(`${ns}.confirmPasswordPlaceholder` as const)}
                     data-testid="input-confirm-password"
                     className={`w-full h-11 px-3.5 pr-10 rounded-xl border bg-white text-zinc-900 text-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#818cf8] focus:border-transparent transition-all ${
                       errors.confirmPassword ? "border-red-400" : "border-gray-200"
@@ -261,7 +272,7 @@ export default function FirstConnection() {
                 </div>
                 {errors.confirmPassword && (
                   <p className="text-red-500 text-xs mt-1" data-testid="error-confirm-password">
-                    {t(`firstConnection.errors.${errors.confirmPassword}` as const)}
+                    {t(`${ns}.errors.${errors.confirmPassword}` as const)}
                   </p>
                 )}
               </div>
@@ -276,11 +287,11 @@ export default function FirstConnection() {
                 {isPending ? (
                   <>
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    {t("firstConnection.submitting")}
+                    {t(`${ns}.submitting` as const)}
                   </>
                 ) : (
                   <>
-                    {t("firstConnection.submitButton")}
+                    {t(`${ns}.submitButton` as const)}
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -292,7 +303,7 @@ export default function FirstConnection() {
                 data-testid="btn-back-signin"
                 className="text-sm text-slate-400 hover:text-slate-600 transition-colors flex items-center gap-1 font-medium"
               >
-                <ArrowLeft className="w-3 h-3" /> {t("firstConnection.backToSignIn")}
+                <ArrowLeft className="w-3 h-3" /> {t(`${ns}.backToSignIn` as const)}
               </button>
             </Link>
           </>
@@ -300,4 +311,8 @@ export default function FirstConnection() {
       </div>
     </div>
   );
+}
+
+export default function FirstConnection() {
+  return <SetPasswordPage mode="invite" />;
 }

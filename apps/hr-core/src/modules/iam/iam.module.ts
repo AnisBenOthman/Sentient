@@ -12,6 +12,7 @@ import { AuthService } from './services/auth.service';
 import { InviteService } from './services/invite.service';
 import { MailService } from './services/mail.service';
 import { PasswordPolicyService } from './services/password-policy.service';
+import { PasswordResetService } from './services/password-reset.service';
 import { RolesService } from './services/roles.service';
 import { SessionsService } from './services/sessions.service';
 import { TokenService } from './services/token.service';
@@ -38,6 +39,7 @@ import { UsersService } from './services/users.service';
     UserStatusGuard,
     MailService,
     InviteService,
+    PasswordResetService,
   ],
   exports: [UsersService, RolesService, TokenService, UserStatusGuard, InviteService, MailService, AuditService],
 })

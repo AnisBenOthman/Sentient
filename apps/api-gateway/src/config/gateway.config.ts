@@ -14,6 +14,7 @@ const publicRoutes: PublicRouteRule[] = [
   { method: 'POST', pathPattern: '/api/hr/auth/signin', reason: 'signin alias' },
   { method: 'POST', pathPattern: '/api/hr/auth/refresh', reason: 'refresh token' },
   { method: 'POST', pathPattern: '/api/hr/auth/forgot-password', reason: 'password reset request' },
+  { method: 'POST', pathPattern: '/api/hr/auth/reset-password', reason: 'password reset by scoped token' },
   { method: 'POST', pathPattern: '/api/hr/auth/invite/claim', reason: 'invite claim by scoped token' },
   { method: '*', pathPattern: '/api/social/exit-surveys/respond*', reason: 'exit survey scoped token' },
   { method: '*', pathPattern: '/api/social/exit-survey-responses*', reason: 'exit survey scoped token' },

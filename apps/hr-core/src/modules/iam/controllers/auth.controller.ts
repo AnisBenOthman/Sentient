@@ -4,12 +4,15 @@ import { Throttle } from '@nestjs/throttler';
 import { CurrentUser, JwtPayload, Public, RbacGuard, SharedJwtGuard } from '@sentient/shared';
 import { Request } from 'express';
 import { ClaimInviteDto } from '../dto/claim-invite.dto';
+import { ForgotPasswordDto } from '../dto/forgot-password.dto';
 import { LoginDto } from '../dto/login.dto';
 import { LoginResponseDto } from '../dto/login-response.dto';
 import { RefreshTokenDto } from '../dto/refresh-token.dto';
+import { ResetPasswordDto } from '../dto/reset-password.dto';
 import { UserStatusGuard } from '../guards/user-status.guard';
 import { AuthService } from '../services/auth.service';
 import { InviteService } from '../services/invite.service';
+import { PasswordResetService } from '../services/password-reset.service';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -17,6 +20,7 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly invite: InviteService,
+    private readonly passwordReset: PasswordResetService,
   ) {}
 
   @Post('login')
@@ -54,6 +58,38 @@ export class AuthController {
   @ApiResponse({ status: 400, description: 'Invalid / expired token or password policy violation' })
   async claimInvite(@Body() dto: ClaimInviteDto): Promise<void> {
     await this.invite.claim(dto);
+  }
+
+  @Post('forgot-password')
+  @Public()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Request a password reset link (or a fresh invite for accounts not yet activated)',
+  })
+  @ApiResponse({
+    status: 204,
+    description: 'Always returned, whether or not the email is registered',
+  })
+  forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request): void {
+    this.passwordReset.request(dto.email, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+  }
+
+  @Post('reset-password')
+  @Public()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Set a new password using a reset token — revokes all sessions' })
+  @ApiResponse({ status: 204, description: 'Password reset' })
+  @ApiResponse({ status: 400, description: 'Invalid / expired token or password policy violation' })
+  async resetPassword(@Body() dto: ResetPasswordDto, @Req() req: Request): Promise<void> {
+    await this.passwordReset.reset(dto, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   }
 
   @Post('logout')

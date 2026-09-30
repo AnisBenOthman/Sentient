@@ -47,6 +47,57 @@ export class MailService implements OnModuleInit {
     });
   }
 
+  async sendPasswordReset(to: string, resetUrl: string, expiryMinutes: number): Promise<void> {
+    if (!this.transporter) {
+      this.logger.log(`[PASSWORD RESET] ${to} → ${resetUrl}`);
+      return;
+    }
+
+    await this.transporter.sendMail({
+      from: this.from,
+      to,
+      subject: 'Sentient — Reset your password',
+      html: this.buildResetHtml(resetUrl, expiryMinutes),
+      text: `A password reset was requested for your Sentient account. Choose a new password here: ${resetUrl}\n\nThis link expires in ${expiryMinutes} minutes. If you did not request this, you can ignore this email — your password will not change.`,
+    });
+  }
+
+  private buildResetHtml(resetUrl: string, expiryMinutes: number): string {
+    return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:Arial,sans-serif;background:#f4f4f4;padding:40px 0;margin:0">
+  <table width="600" cellpadding="0" cellspacing="0" style="margin:0 auto;background:#fff;border-radius:8px;overflow:hidden">
+    <tr><td style="background:#1a1a2e;padding:24px 32px">
+      <h1 style="color:#fff;margin:0;font-size:22px">Sentient HRIS</h1>
+    </td></tr>
+    <tr><td style="padding:32px">
+      <h2 style="color:#1a1a2e;margin-top:0">Reset your password</h2>
+      <p style="color:#555;line-height:1.6">
+        We received a request to reset the password for your Sentient account.
+        Click the button below to choose a new one.
+      </p>
+      <div style="text-align:center;margin:32px 0">
+        <a href="${resetUrl}"
+           style="background:#4f46e5;color:#fff;padding:14px 32px;border-radius:6px;
+                  text-decoration:none;font-weight:bold;display:inline-block">
+          Reset my password
+        </a>
+      </div>
+      <p style="color:#888;font-size:13px">
+        This link expires in ${expiryMinutes} minutes and can be used once. If you did not
+        request a reset, you can safely ignore this email — your password will not change.
+      </p>
+    </td></tr>
+    <tr><td style="background:#f9f9f9;padding:16px 32px;color:#aaa;font-size:12px;text-align:center">
+      Sentient HRIS — confidential
+    </td></tr>
+  </table>
+</body>
+</html>`;
+  }
+
   private buildInviteHtml(inviteUrl: string): string {
     return `
 <!DOCTYPE html>

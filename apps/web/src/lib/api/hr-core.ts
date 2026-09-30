@@ -43,6 +43,14 @@ export async function claimInvite(token: string, newPassword: string): Promise<v
   await hrClient.post('/auth/invite/claim', { token, newPassword });
 }
 
+export async function requestPasswordReset(email: string): Promise<void> {
+  await hrClient.post('/auth/forgot-password', { email });
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  await hrClient.post('/auth/reset-password', { token, newPassword });
+}
+
 // ── Employees ─────────────────────────────────────────────────────────────
 
 export interface EmployeeNested {

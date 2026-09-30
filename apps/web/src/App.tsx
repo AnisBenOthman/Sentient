@@ -11,6 +11,7 @@ import Home from "@/pages/home";
 import SignIn from "@/pages/signin";
 import ForgotPassword from "@/pages/forgot-password";
 import FirstConnection from "@/pages/first-connection";
+import ResetPassword from "@/pages/reset-password";
 import Dashboard from "@/pages/dashboard";
 import Employees from "@/pages/employees";
 import EmployeeProfile from "@/pages/employee-profile";
@@ -73,6 +74,7 @@ function AppRoutes() {
       <Route path="/signin" component={SignIn} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/first-connection" component={FirstConnection} />
+      <Route path="/reset-password" component={ResetPassword} />
 
       {/* Authenticated pages — with sidebar layout */}
       <Route path="/home">

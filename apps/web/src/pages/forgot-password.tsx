@@ -1,21 +1,28 @@
 import { Link } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
-import { Brain, ArrowRight, ArrowLeft, CheckCircle } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { Brain, ArrowRight, ArrowLeft, CheckCircle, AlertCircle } from "lucide-react";
+import { requestPasswordReset } from "@/lib/api/hr-core";
 
 export default function ForgotPassword() {
   const { t } = useTranslation("auth");
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+
+  // WHY no "email not found" state: the backend answers 204 for every address so
+  // the form can't be used to discover which emails have accounts. The only
+  // failures surfaced here are transport ones (rate limit, network, 5xx).
+  const { mutate, isPending: loading, isSuccess: submitted, isError, error } = useMutation({
+    mutationFn: () => requestPasswordReset(email),
+  });
+
+  const rateLimited =
+    typeof error === "object" && error !== null && "response" in error &&
+    (error as { response?: { status?: number } }).response?.status === 429;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setSubmitted(true);
-    }, 900);
+    mutate();
   }
 
   return (
@@ -93,6 +100,15 @@ export default function ForgotPassword() {
         ) : (
           <>
             <form onSubmit={handleSubmit} className="w-full space-y-4 mb-6" data-testid="forgot-password-form">
+              {isError && (
+                <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 px-3.5 py-3">
+                  <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                  <p className="text-red-600 text-xs leading-relaxed" data-testid="error-api">
+                    {rateLimited ? t("forgotPassword.errorRateLimited") : t("forgotPassword.errorGeneric")}
+                  </p>
+                </div>
+              )}
+
               <div className="space-y-1.5">
                 <label htmlFor="email" className="block text-sm font-medium text-zinc-600">
                   {t("forgotPassword.emailLabel")}
