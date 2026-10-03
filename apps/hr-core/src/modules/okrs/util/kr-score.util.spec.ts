@@ -1,10 +1,9 @@
-import { Decimal } from '@prisma/client/runtime/library';
-
 import { KeyResultMetricType } from '@sentient/shared';
 
+import { Prisma } from '../../../generated/prisma';
 import { computeScore } from './kr-score.util';
 
-const d = (v: number | string) => new Decimal(v);
+const d = (v: number | string): Prisma.Decimal => new Prisma.Decimal(v);
 
 describe('computeScore', () => {
   describe('BOOLEAN', () => {

@@ -43,6 +43,7 @@
     "@types/nock": "^11.1.0",
     "@types/node": "^22.10.7",
     "@types/supertest": "^6.0.2",
+    "jest": "^30.3.0",
     "jsonwebtoken": "^9.0.2",
     "nock": "^14.0.15",
     "prisma": "^5.22.0",
@@ -58,6 +59,9 @@
     ],
     "rootDir": ".",
     "testRegex": "(src/.*\\.spec\\.ts$|test/.*\\.(spec|e2e-spec|integration\\.spec)\\.ts$)",
+    "setupFiles": [
+      "<rootDir>/test/setup-env.ts"
+    ],
     "transform": {
       "^.+\\.ts$": "ts-jest"
     },

@@ -3,6 +3,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '../../generated/prisma';
 import { EVENT_BUS, JwtPayload, EmploymentStatus, ContractType, PermissionScope } from '@sentient/shared';
 import { PrismaService } from '../../prisma/prisma.service';
+import { InviteService } from '../iam/services/invite.service';
+import { UsersService } from '../iam/services/users.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeStatusDto } from './dto/update-employee-status.dto';
 import { EmployeesService } from './employees.service';
@@ -77,6 +79,11 @@ const baseEmployee = {
 describe('EmployeesService', () => {
   let service: EmployeesService;
 
+  // WHY: create() auto-provisions a login account and sends the invite; the
+  // employee tests only care that it is attempted, not how IAM implements it.
+  const mockUsersService = { create: jest.fn().mockResolvedValue({ id: 'user-new' }) };
+  const mockInviteService = { issue: jest.fn().mockResolvedValue(undefined) };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -85,6 +92,8 @@ describe('EmployeesService', () => {
         EmployeesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EVENT_BUS, useValue: mockEventBus },
+        { provide: UsersService, useValue: mockUsersService },
+        { provide: InviteService, useValue: mockInviteService },
       ],
     }).compile();
 
@@ -239,6 +248,30 @@ describe('EmployeesService', () => {
 
       const result = await service.create(dto, 'user-admin');
       expect(result.employeeCode).toBe('EMP-0001');
+    });
+
+    it('provisions a login account for the new employee and sends the invite', async () => {
+      mockPrisma.employee.findFirst.mockResolvedValue(null);
+      mockPrisma.employee.create.mockResolvedValue({ ...baseEmployee, email: 'sara@sentient.dev' });
+
+      await service.create(dto, 'user-admin');
+
+      expect(mockUsersService.create).toHaveBeenCalledWith({
+        email: 'sara@sentient.dev',
+        employeeId: baseEmployee.id,
+      });
+      expect(mockInviteService.issue).toHaveBeenCalledWith('user-new', 'sara@sentient.dev');
+    });
+
+    it('still returns the employee when account provisioning fails', async () => {
+      mockPrisma.employee.findFirst.mockResolvedValue(null);
+      mockPrisma.employee.create.mockResolvedValue({ ...baseEmployee, employeeCode: 'EMP-0002' });
+      mockUsersService.create.mockRejectedValueOnce(new ConflictException('Email already registered'));
+
+      const result = await service.create(dto, 'user-admin');
+
+      expect(result.employeeCode).toBe('EMP-0002');
+      expect(mockInviteService.issue).not.toHaveBeenCalled();
     });
 
     it('throws ConflictException on duplicate email', async () => {
